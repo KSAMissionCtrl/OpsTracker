@@ -23,6 +23,8 @@ The following JavaScript libraries are used:
 * [Leaflet.Fullscreen](https://github.com/brunob/leaflet.fullscreen)
 * [Leaflet.GroupedLayerControl](https://github.com/ismyrnow/Leaflet.groupedlayercontrol)
 * [GeoGebra](https://wiki.geogebra.org/en/Reference:JavaScript)
+* [JQuery UI](https://jqueryui.com/)
+* [w2ui sidebar](http://w2ui.com/web/demo/sidebar)
 
 Blank template MDB Access files are included.
 
