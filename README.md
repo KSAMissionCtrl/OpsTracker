@@ -28,7 +28,7 @@ Blank template MDB Access files are included.
 
 ### Known Issues
 
-- **Operations Tracker is currently in active development, so visiting the page may cause browser errors, failures to load, etc. However after it is usually left in a workable state**
+- **Operations Tracker is currently in active development, so visiting the page may cause browser errors, failures to load, etc. However after it has been worked on it is usually left in a workable state**
 - Body diagram check boxes are currently broken
 
 ### Change Log
