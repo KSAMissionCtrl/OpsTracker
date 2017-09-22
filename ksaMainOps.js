@@ -6,6 +6,7 @@ var strTinyBodyLabel = "";
 var planetLabels = [];
 var nodes = [];
 var nodesVisible = [];
+var ggbOrbits = [];
 var isCatalogDataLoaded = false;
 var isMenuDataLoaded = false;
 var isEventDataLoaded = false;
@@ -72,42 +73,8 @@ function setupContent() {
     if ($(this).attr("name") == "nodes") { toggleNodes($(this).is(":checked")); }
     if ($(this).attr("name") == "labels") { toggleLabels($(this).is(":checked")); }
     if ($(this).attr("name") == "ref") { toggleRefLine($(this).is(":checked")); }
-    if ($(this).attr("id") == "filter") { filterVesselMenu($(this).attr("name"), $(this).is(":checked")); }
-    
-    /*
-        nodes.forEach(function(item, index) { 
-          ggbApplet.setVisible(item, true);
-        });
-      } else  {
-        planetLabels.forEach(function(item, index) {
-          ggbApplet.setLabelVisible(item, true);
-        });
-      } else  {
-        ggbApplet.setVisible("RefLine", true);
-      } else { filterVesselMenu($(this).attr("name"), true); }
-    } else {
-      if ($(this).attr("name") == "nodes") {
-        nodes.forEach(function(item, index) {
-        
-          // don't hide the nodes if they were shown individually
-          if (!nodesVisible.includes(item.charAt(0))) {
-            ggbApplet.setVisible(item, false);
-          }
-        });
-      } else if ($(this).attr("name") == "labels") {
-        planetLabels.forEach(function(item, index) {
-        
-          // only hide labels for planets not explicitly shown
-          if (!strTinyBodyLabel.includes(item.charAt(0))) { ggbApplet.setLabelVisible(item, false); }
-        });
-      } else if ($(this).attr("name") == "ref") {
-        ggbApplet.setVisible("RefLine", false);
-      } else if ($(this).attr("id") == "filter") { 
-        filterVesselMenu($(this).attr("name"), false); 
-      } else if ($(this).attr("id") == "orbit") { 
-        
-      }
-    }*/
+    if ($(this).attr("id").includes("menu")) { filterVesselMenu($(this).attr("name"), $(this).is(":checked")); }
+    if ($(this).attr("id").includes("filter")) { filterVesselOrbits($(this).attr("name"), $(this).is(":checked")); }
   });
 }
 

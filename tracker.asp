@@ -62,12 +62,12 @@
       <div id='vesselLoaderMsg' style='color: white; position: absolute; top: 900px; left: 795px; display: none;'>
         &nbsp;&nbsp;&nbsp;Loading Vessel Data...
       </div>
-      <div id='orbitTypes' style='border: 2px solid white; background-color: gray; width: 80px; position: absolute; top: 850px; left: 795px; display: none;'>
-        <input class='checkboxes' name='asteroids' id='asteroid' type='checkbox' disabled> <label for='asteroid'>Asteroid</label><br>
-        <input class='checkboxes' name='debris' id='debris' type='checkbox' disabled> <label for='debris'>Debris</label><br>
-        <input class='checkboxes' name='probe' id='probe' type='checkbox' disabled> <label for='probe'>Probe</label><br>
-        <input class='checkboxes' name='ship' id='ship' type='checkbox' disabled> <label for='ship'>Ship</label><br>
-        <input class='checkboxes' name='station' id='station' type='checkbox' disabled> <label for='station'>Station</label>
+      <div id='vesselOrbitTypes' style='border: 2px solid white; background-color: black; width: 80px; position: absolute; top: 819px; left: 867px; display: none;'>
+        <input class='checkboxes' name='asteroid' id='asteroid-filter' type='checkbox' disabled> <label  id='asteroid-label' for='asteroid-filter'>Asteroid</label><br>
+        <input class='checkboxes' name='debris' id='debris-filter' type='checkbox' disabled> <label  id='debris-label' for='debris-filter'>Debris</label><br>
+        <input class='checkboxes' name='probe' id='probe-filter' type='checkbox' disabled> <label  id='probe-label' for='probe-filter'>Probe</label><br>
+        <input class='checkboxes' name='ship' id='ship-filter' type='checkbox' disabled> <label  id='ship-label' for='ship-filter'>Ship</label><br>
+        <input class='checkboxes' name='station' id='station-filter' type='checkbox' disabled> <label  id='station-label' for='station-filter'>Station</label>
       </div>
       <div id='figureDialog'></div>
       <div id='messageDialog'></div>
@@ -80,14 +80,14 @@
       <div id='menuHeader' class='header'>Operations Menu</div>
       <div id='filters'>
         <strong>Active Vessels:</strong> 
-        <input class='checkboxes' name='asteroid' id='asteroid-filter' type='checkbox' disabled> <label for='asteroid-filter'>Asteroid</label> 
-        <input class='checkboxes' name='base' id='base-filter' type='checkbox' disabled> <label for='base-filter'>Base</label><br>
-        <input class='checkboxes' name='debris' id='debris-filter' type='checkbox' disabled> <label for='debris-filter'>Debris</label>
-        <input class='checkboxes' name='lander' id='lander-filter' type='checkbox' disabled> <label for='lander-filter'>Lander</label> 
-        <input class='checkboxes' name='probe' id='probe-filter' type='checkbox' disabled> <label for='probe-filter'>Probe</label> 
-        <input class='checkboxes' name='rover' id='rover-filter' type='checkbox' disabled> <label for='rover-filter'>Rover</label><br>
-        <input class='checkboxes' name='ship' id='ship-filter' type='checkbox' disabled> <label for='ship-filter'>Ship</label> 
-        <input class='checkboxes' name='station' id='station-filter' type='checkbox' disabled> <label for='station-filter'>Station</label> 
+        <input class='checkboxes' name='asteroid' id='asteroid-menu' type='checkbox' disabled> <label for='asteroid-menu'>Asteroid</label>
+        <input class='checkboxes' name='base' id='base-menu' type='checkbox' disabled> <label for='base-menu'>Base</label><br>
+        <input class='checkboxes' name='debris' id='debris-menu' type='checkbox' disabled> <label for='debris-menu'>Debris</label>
+        <input class='checkboxes' name='lander' id='lander-menu' type='checkbox' disabled> <label for='lander-menu'>Lander</label> 
+        <input class='checkboxes' name='probe' id='probe-menu' type='checkbox' disabled> <label for='probe-menu'>Probe</label> 
+        <input class='checkboxes' name='rover' id='rover-menu' type='checkbox' disabled> <label for='rover-menu'>Rover</label><br>
+        <input class='checkboxes' name='ship' id='ship-menu' type='checkbox' disabled> <label for='ship-menu'>Ship</label> 
+        <input class='checkboxes' name='station' id='station-menu' type='checkbox' disabled> <label for='station-menu'>Station</label> 
         <p><strong>Crew Roster: </strong> 
         <input type='radio' name='roster' id='name'> <label for='name'>Name</label> 
         <input type='radio' name='roster' id='status'> <label for='status'>Status</label> 

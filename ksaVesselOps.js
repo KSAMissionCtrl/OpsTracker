@@ -22,7 +22,7 @@ function loadVesselOrbits() {
         return true;
       } else { return false; }
     }
-  } else { setTimeout(loadFigureVessels, 250); }
+  } else { setTimeout(loadVesselOrbits, 250); }
 }
 
 // parses data that allows the GeoGebra figure and Leaflet map to display orbital/maneuver data for vessels in the current system view
@@ -78,6 +78,7 @@ function loadVesselOrbitsAJAX(xhttp) {
   isOrbitDataLoaded = true;
   $("#vesselLoaderMsg").spin(false);
   $("#vesselLoaderMsg").fadeOut();
+  $("#vesselOrbitTypes").fadeIn();
 
   // make sure a quick figure switch doesn't declutter things too fast
   clearTimeout(timeoutHandle);

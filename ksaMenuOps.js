@@ -258,8 +258,8 @@ function loadMenuAJAX(xhttp) {
       }
 
       // enable & check the checkbox for this type of vessel
-      $("#" + item.Type + "-filter").removeAttr("disabled");
-      $("#" + item.Type + "-filter").prop('checked', true);
+      $("#" + item.Type + "-menu").removeAttr("disabled");
+      $("#" + item.Type + "-menu").prop('checked', true);
     } else if (refNum == -1) {
       
       // if this vessel type is not visible, make it so
@@ -503,3 +503,4 @@ function extractVesselIDs(menuNodes) {
   }
   return strVessels;
 }
+

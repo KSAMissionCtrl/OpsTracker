@@ -31,6 +31,13 @@ function setupBody() {
   $("#contentBox").spin({ position: 'relative', top: '50%', left: '50%' });
   $("#figureDialog").spin({ position: 'relative', top: '45px', left: '50%' });
   
+  // uncheck all the filter boxes
+  $("#asteroid-filter").prop('checked', false);
+  $("#debris-filter").prop('checked', false);
+  $("#probe-filter").prop('checked', false);
+  $("#ship-filter").prop('checked', false);
+  $("#station-filter").prop('checked', false);
+  
   // setup footer
   $("#footer").html("<a target='_blank' href='http://www.kerbalspace.agency'>KSA Home Page</a> | 2D Orbit rendering: <a target='_blank' href='http://bit.ly/KSPTOT'>KSPTOT</a> | 3D Orbit Rendering: <a target='_blank' href='http://forum.kerbalspaceprogram.com/index.php?/topic/158826-3d-ksp-solar-system-scale-model-major-update-05202017/'>by Syntax</a> | <a target='_blank' href='https://github.com/KSAMissionCtrl/FlightTracker/wiki/Flight-Tracker-Documentation'>Flight Tracker Wiki</a>");
   $("#footer").fadeIn();
@@ -133,6 +140,9 @@ function ggbOnInit(){
     $("#figureOptions").fadeIn();
   }
   
+  // hide the filters
+  $("#vesselOrbitTypes").fadeOut();
+  
   // bring figure body locations up to date
   // account for any time elapsed since page load
   ggbApplet.setValue("UT", currUT());
@@ -162,10 +172,15 @@ function addGGBOrbit(vesselID, orbitData) {
     // then look it up in the body catalog
     var strBodyName = w2ui['menu'].get('activeVessels', vesselID).parent.id.split("-")[0];
     var bodyData = [];
-    bodyCatalog.forEach(function(item, index) { if (item.Body == strBodyName) { bodyData = item; }});
+    bodyCatalog.forEach(function(item, index) { if (item.Body == strBodyName) { bodyData = item; return; }});
     
     // type of vessel so we can color things appropriately
     var strVesselType = w2ui['menu'].get('activeVessels', vesselID).img.split("-")[1];
+    
+    // enable this vessel type in the filters menu
+    $("#" + strVesselType + "-filter").removeAttr("disabled");
+    $("#" + strVesselType + "-filter").prop('checked', true);
+    $("#" + strVesselType + "-label").css('color', orbitColors[strVesselType]);
     
     // convert the vessel id to a variable name suitable for GeoGebra then load the vessel into the figure
     ggbID = vesselID.replace("-", "");
@@ -184,7 +199,6 @@ function addGGBOrbit(vesselID, orbitData) {
     ggbApplet.evalCommand(ggbID + 'meanmotion=2pi / ' + ggbID + 'period');
     ggbApplet.evalCommand(ggbID + 'obtaxis=Line(origin, Vector((1; ' + ggbID + 'raan - pi / 2; pi / 2 - ' + ggbID + 'inc)))');
     ggbApplet.setVisible(ggbID + 'obtaxis', false);
-    console.log('Rotate(Rotate((' + ggbID + 'foci; 0; 0), ' + ggbID + 'raan, zAxis), ' + ggbID + 'arg + pi, ' + ggbID + 'obtaxis)');
     ggbApplet.evalCommand(ggbID + 'secondfocus=Rotate(Rotate((' + ggbID + 'foci; 0; 0), ' + ggbID + 'raan, zAxis), ' + ggbID + 'arg + pi, ' + ggbID + 'obtaxis)');
     ggbApplet.setVisible(ggbID + 'secondfocus', false);
     ggbApplet.evalCommand(ggbID + 'refpoint=Rotate(Rotate((' + ggbID + 'sma; 0; 0), ' + ggbID + 'raan, zAxis), ' + ggbID + 'arg - acos(-' + ggbID + 'ecc), ' + ggbID + 'obtaxis)');
@@ -230,6 +244,9 @@ function addGGBOrbit(vesselID, orbitData) {
     ggbApplet.setPointSize(ggbID + 'point', 2);
     ggbApplet.setLabelVisible(ggbID + 'point', true);
     ggbApplet.setColor(ggbID + 'point', hexToRgb(orbitColors[strVesselType]).r, hexToRgb(orbitColors[strVesselType]).g, hexToRgb(orbitColors[strVesselType]).b);
+    
+    // add this vessel type and ID to the orbits array for filtering
+    ggbOrbits.push({Type: strVesselType, ID: ggbID});
 }
 
 // remove all the nodes and names for everything in the figure and store them for future use
@@ -253,12 +270,11 @@ function declutterGGB() {
     }
   }
   ggbApplet.setVisible("RefLine", false);
-  console.log("too quick!");
+  console.log(nodes);
   
   // uncheck all the boxes
   $("#nodes").prop('checked', false);
   $("#labels").prop('checked', false);
-  $("#ref").prop('checked', false);
   
   // nullify to let anyone else know this has already happened
   timeoutHandle = null;
@@ -367,5 +383,65 @@ function nodesToggle(object) {
     nodesVisible.splice(nodesVisible.indexOf(object.charAt(0)), 1);
     if (ggbApplet.getCaption(object.charAt(0) + "36") == "Polta") { nodesVisible.splice(nodesVisible.indexOf("D"), 1); }
     if (ggbApplet.getCaption(object.charAt(0) + "36") == "Priax") { nodesVisible.splice(nodesVisible.indexOf("C"), 1); }
+  }
+}
+
+// handle GeoGebra diagram display options
+function toggleNodes(isChecked) {
+  if (isChecked) { 
+    nodes.forEach(function(item, index) { 
+      ggbApplet.setVisible(item, true);
+    });
+  } else {
+    nodes.forEach(function(item, index) {
+    
+      // don't hide the nodes if they were shown individually
+      if (!nodesVisible.includes(item.charAt(0))) {
+        ggbApplet.setVisible(item, false);
+      }
+    });
+  }
+}
+function toggleLabels(isChecked) {
+  if (isChecked) {
+    planetLabels.forEach(function(item, index) {
+      ggbApplet.setLabelVisible(item, true);
+    });
+  } else {
+    planetLabels.forEach(function(item, index) {
+    
+      // only hide labels for planets not explicitly shown
+      if (!strTinyBodyLabel.includes(item.charAt(0))) { ggbApplet.setLabelVisible(item, false); }
+    });
+  }
+}
+function toggleRefLine(isChecked) {
+  ggbApplet.setVisible("RefLine", isChecked);
+}
+function filterVesselOrbits(id, checked) {
+  if (checked) {
+    ggbOrbits.forEach(function(item, index) {
+      if (id == item.Type) {
+        ggbApplet.setVisible(item.ID + "point", true);
+        ggbApplet.setVisible(item.ID + "conic", true);
+        ggbApplet.setVisible(item.ID + "penode", $("#nodes").is(':checked'));
+        ggbApplet.setVisible(item.ID + "apnode", $("#nodes").is(':checked'));
+        ggbApplet.setVisible(item.ID + "anode", $("#nodes").is(':checked'));
+        ggbApplet.setVisible(item.ID + "dnode", $("#nodes").is(':checked'));
+        ggbApplet.setLabelVisible(item.ID + "point", $("#labels").is(':checked'));
+      }
+    });
+  } else {
+    ggbOrbits.forEach(function(item, index) {
+      if (id == item.Type) {
+        ggbApplet.setVisible(item.ID + "point", false);
+        ggbApplet.setVisible(item.ID + "conic", false);
+        ggbApplet.setVisible(item.ID + "penode", false);
+        ggbApplet.setVisible(item.ID + "apnode", false);
+        ggbApplet.setVisible(item.ID + "anode", false);
+        ggbApplet.setVisible(item.ID + "dnode", false);
+        ggbApplet.setLabelVisible(item.ID + "point", false);
+      }
+    });
   }
 }
