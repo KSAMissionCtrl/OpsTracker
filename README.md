@@ -57,3 +57,4 @@ Changes:
 
 Additions:
   - When viewing a system that has vessels in orbit, they are dynamically loaded and added to the GeoGebra figure
+  - Can show/hide the orbits of various types of vessels
