@@ -7,9 +7,9 @@ function loadEventsAJAX(xhttp) {
   // separate the launch & maneuver event returns
   var events = xhttp.responseText.split("|");
 
-  // is there an upcoming launch?
+  // is there an upcoming launch that hasn't yet launched?
   var fields = events[0].split("~");
-  if (fields[0] != "null") {
+  if (fields[0] != "null" && fields[2] - (currUT()) > 0) {
     
     // output the launch information
     var strHTML = "<strong>Next Launch</strong><br>";
@@ -33,9 +33,9 @@ function loadEventsAJAX(xhttp) {
   // upcoming event?
   if (fields[4] != "null") { updatesList.push({ Type: "event", ID: "launch", UT: parseInt(fields[4]) }); }
   
-  // is there an upcoming maneuver?
+  // is there an upcoming maneuver that hasn't yet been performed?
   fields = events[1].split("~");
-  if (fields[0] != "null") {
+  if (fields[0] != "null" && fields[2] - (currUT()) > 0) {
     var strHTML = "<strong>Next Maneuver</strong><br>";
     strHTML += "<a id='maneuverLink' href='http://www.kerbalspace.agency/Tracker/tracker.asp?vessel=" + fields[0] + "'>" + fields[1] + "</a><br>";
     if (fields[2] != "hold") {

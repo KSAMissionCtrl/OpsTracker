@@ -246,7 +246,7 @@ function addGGBOrbit(vesselID, orbitData) {
     ggbApplet.setColor(ggbID + 'point', hexToRgb(orbitColors[strVesselType]).r, hexToRgb(orbitColors[strVesselType]).g, hexToRgb(orbitColors[strVesselType]).b);
     
     // add this vessel type and ID to the orbits array for filtering
-    ggbOrbits.push({Type: strVesselType, ID: ggbID});
+    ggbOrbits.push({Type: strVesselType, ID: ggbID, decluttered: false, showNodes: false});
 }
 
 // remove all the nodes and names for everything in the figure and store them for future use
@@ -275,6 +275,7 @@ function declutterGGB() {
   // uncheck all the boxes
   $("#nodes").prop('checked', false);
   $("#labels").prop('checked', false);
+  $("#ref").prop('checked', false);
   
   // nullify to let anyone else know this has already happened
   timeoutHandle = null;
