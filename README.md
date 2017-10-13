@@ -42,6 +42,7 @@ Fixes:
   - Body info window now displays body mass properly
   - Clock displayed on the page is now accurate to the second rather than being anywhere from 40-90s slow
   - The shift to/from DST is now handled properly so times for events are all shown to the proper local and UTC values
+  - Clock adjusts to no longer be one second off after page load is complete
 
 Changes:
   - All pages unified into a single page that can dynamically adjust its content to display information on crew, vessels or bodies. This means the page can reload parts of itself independently rather than needing to reload the entire page when a small amount of information needs to be updated
