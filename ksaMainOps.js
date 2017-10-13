@@ -126,8 +126,9 @@ function checkPageUpdate() {
   checkPageUpdate();
 
   // update to the current time
+  // add a second to account for tickDelta starting at 0
   var currTime = new Date();
-  currTime.setTime(clock.getTime() + tickDelta);
+  currTime.setTime(clock.getTime() + tickDelta + 1000);
 
   // update the clocks
   $('#ksctime').html(formatUTCTime(currTime, true));
