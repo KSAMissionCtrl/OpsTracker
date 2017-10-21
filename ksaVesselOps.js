@@ -81,6 +81,5 @@ function loadVesselOrbitsAJAX(xhttp) {
   $("#vesselOrbitTypes").fadeIn();
 
   // make sure a quick figure switch doesn't declutter things too fast
-  clearTimeout(timeoutHandle);
   timeoutHandle = setTimeout(declutterGGB, 2500);
 }

@@ -124,10 +124,8 @@ function loadBody(body) {
 // called after load and after user clicks the reset
 function ggbOnInit(){
   
-  // reset all the arrays since the figure itself is reset
-  nodesVisible = [];
-  planetLabels = [];
-  nodes = [];
+  // reset all the orbits since the figure itself is reset
+  ggbOrbits = [];
   
   // reset all the checkboxes
   $("#nodes").prop('checked', true);
@@ -142,7 +140,21 @@ function ggbOnInit(){
   
   // hide the filters
   $("#vesselOrbitTypes").fadeOut();
-  
+
+  // loop through and catalog all the pre-made objects
+  var bodyIDs = [];
+  for (obj=0; obj<ggbApplet.getObjectNumber(); obj++) {
+
+    // is this a unique identifier? Look for a letter followed by a number
+    if (bodyIDs.indexOf(ggbApplet.getObjectName(obj).charAt(0)) == -1 && $.isNumeric(ggbApplet.getObjectName(obj).charAt(1))) {
+    
+      // add this identifier to the orbits list and also keep track that we've already used it
+      ggbOrbits.push({Type: "body", ID: ggbApplet.getObjectName(obj).charAt(0), showName: false, showNodes: false});
+      bodyIDs.push(ggbApplet.getObjectName(obj).charAt(0));
+    }
+  }
+  console.log(ggbOrbits);
+
   // bring figure body locations up to date
   // account for any time elapsed since page load
   ggbApplet.setValue("UT", currUT());
@@ -154,12 +166,12 @@ function ggbOnInit(){
   isGGBAppletLoaded = true;
   
   // load any vessels in orbit around this object
-  // if there are none, declutter the view after a few seconds
-  if (!loadVesselOrbits()) {
-    // make sure a quick figure switch doesn't declutter things too fast
-    clearTimeout(timeoutHandle);
-    timeoutHandle = setTimeout(declutterGGB, 2500);
-  }
+  loadVesselOrbits();
+  
+  // declutter the view after a few seconds
+  // make sure a quick figure switch doesn't declutter things too fast
+  clearTimeout(timeoutHandle);
+  timeoutHandle = setTimeout(declutterGGB, 2500);
 }
 
 // creates an orbit on the currently-loaded GeoGebra figure
@@ -238,39 +250,46 @@ function addGGBOrbit(vesselID, orbitData) {
     ggbApplet.setFixed(ggbID + 'dnode', true, false);
     ggbApplet.evalCommand(ggbID + 'maut=Mod(' + ggbID + 'mean + ' + ggbID + 'meanmotion (UT-' + orbitData.Eph + '), 2pi)');
     ggbApplet.evalCommand(ggbID + 'eaut=Iteration(M - (M - ' + ggbID + 'ecc sin(M) - ' + ggbID + 'maut) / (1 - ' + ggbID + 'ecc cos(M)), M, {' + ggbID + 'maut}, 20)');
-    ggbApplet.evalCommand(ggbID + 'point=Point(' + ggbID + 'conic, ' + ggbID + 'eaut / (2pi))');
-    ggbApplet.setCaption(ggbID + 'point', w2ui['menu'].get('activeVessels', vesselID).text.split(" (")[0]);
-    ggbApplet.setLabelStyle(ggbID + 'point', 3);
-    ggbApplet.setPointSize(ggbID + 'point', 2);
-    ggbApplet.setLabelVisible(ggbID + 'point', true);
-    ggbApplet.setColor(ggbID + 'point', hexToRgb(orbitColors[strVesselType]).r, hexToRgb(orbitColors[strVesselType]).g, hexToRgb(orbitColors[strVesselType]).b);
+    ggbApplet.evalCommand(ggbID + 'position=Point(' + ggbID + 'conic, ' + ggbID + 'eaut / (2pi))');
+    ggbApplet.setCaption(ggbID + 'position', w2ui['menu'].get('activeVessels', vesselID).text.split(" (")[0]);
+    ggbApplet.setLabelStyle(ggbID + 'position', 3);
+    ggbApplet.setPointSize(ggbID + 'position', 2);
+    ggbApplet.setLabelVisible(ggbID + 'position', true);
+    ggbApplet.setColor(ggbID + 'position', hexToRgb(orbitColors[strVesselType]).r, hexToRgb(orbitColors[strVesselType]).g, hexToRgb(orbitColors[strVesselType]).b);
     
     // add this vessel type and ID to the orbits array for filtering
-    ggbOrbits.push({Type: strVesselType, ID: ggbID, decluttered: false, showNodes: false});
+    ggbOrbits.push({Type: strVesselType, ID: ggbID, showName: false, showNodes: false});
 }
 
 // remove all the nodes and names for everything in the figure and store them for future use
 function declutterGGB() {
-    
-  // loop through all the objects - we'll only do this once
-  for (obj=0; obj<ggbApplet.getObjectNumber(); obj++) {
   
-    // if it's a node, hide the object and stash it
-    if (ggbApplet.getCaption(ggbApplet.getObjectName(obj)).includes("AN") ||
-        ggbApplet.getCaption(ggbApplet.getObjectName(obj)).includes("DN") ||
-        ggbApplet.getCaption(ggbApplet.getObjectName(obj)).includes("Pe") ||
-        ggbApplet.getCaption(ggbApplet.getObjectName(obj)).includes("Ap")) {
-      ggbApplet.setVisible(ggbApplet.getObjectName(obj), false);
-      nodes.push(ggbApplet.getObjectName(obj));
-      
-    // otherwise it's a name label
-    } else if (ggbApplet.getCaption(ggbApplet.getObjectName(obj)).length) { 
-      planetLabels.push(ggbApplet.getObjectName(obj)); 
-      ggbApplet.setLabelVisible(ggbApplet.getObjectName(obj), false);
-    }
-  }
+  // hide figure elements
+  // for orbits, local settings override declutter
   ggbApplet.setVisible("RefLine", false);
-  console.log(nodes);
+  ggbOrbits.forEach(function(item, index) { 
+    if (!item.showNodes) {
+      if (item.Type == "body") {
+        ggbApplet.setVisible(item.ID + "26", false);
+        ggbApplet.setVisible(item.ID + "27", false);
+        ggbApplet.setVisible(item.ID + "28", false);
+        ggbApplet.setVisible(item.ID + "32", false);
+      } else {
+        ggbApplet.setVisible(item.ID + "apnode", false);
+        ggbApplet.setVisible(item.ID + "penode", false);
+        ggbApplet.setVisible(item.ID + "anode", false);
+        ggbApplet.setVisible(item.ID + "dnode", false);
+      }
+    }
+    if (!item.showName) {
+      if (item.Type == "body") {
+        ggbApplet.setLabelVisible(item.ID + "36", false);
+      } else {
+        ggbApplet.setLabelVisible(item.ID + "position", false);
+      }
+    }
+  });
+
   
   // uncheck all the boxes
   $("#nodes").prop('checked', false);
@@ -348,7 +367,7 @@ function figureClick(object) {
       }
       // no nodes to show unless body has an eccentric or inclined orbit
       if ((parseFloat(bodyCatalog[bodyIndex].Ecc) || parseFloat(bodyCatalog[bodyIndex].Inc)) && !$("#contentHeader").html().includes(strBodyName)) {
-        if (nodesVisible.includes(object.charAt(0))) {
+        if (ggbOrbits.find(o => o.ID === object.charAt(0)).showNodes) {
           strHTML += "<span onclick='nodesToggle(&quot;" + object + "&quot;)' style='cursor: pointer; color: blue;'>Hide Nodes</span>"
         } else {
           strHTML += "<span onclick='nodesToggle(&quot;" + object + "&quot;)' style='cursor: pointer; color: blue;'>Show Nodes</span>"
@@ -371,50 +390,56 @@ function nodesToggle(object) {
     ggbApplet.setVisible(object.charAt(0) + "27", true);
     ggbApplet.setVisible(object.charAt(0) + "28", true);
     ggbApplet.setVisible(object.charAt(0) + "32", true);
-    nodesVisible.push(object.charAt(0));
-    if (ggbApplet.getCaption(object.charAt(0) + "36") == "Polta") { nodesVisible.push("D"); }
-    if (ggbApplet.getCaption(object.charAt(0) + "36") == "Priax") { nodesVisible.push("C"); }
+    
+    // https://stackoverflow.com/questions/12462318/find-a-value-in-an-array-of-objects-in-javascript
+    ggbOrbits.find(o => o.ID === object.charAt(0)).showNodes = true;
+    if (ggbApplet.getCaption(object.charAt(0) + "36") == "Polta") { ggbOrbits.find(o => o.ID === "D").showNodes = true; }
+    if (ggbApplet.getCaption(object.charAt(0) + "36") == "Priax") { ggbOrbits.find(o => o.ID === "C").showNodes = true; }
   } else {
     $('#figureDialog').html($('#figureDialog').html().replace("Hide Nodes", "Show Nodes"));
     if (ggbApplet.getCaption(object.charAt(0) + "36") == "Priax") { object = object.replace("D", "C"); }
-    ggbApplet.setVisible(object.charAt(0) + "26", false);
-    ggbApplet.setVisible(object.charAt(0) + "27", false);
-    ggbApplet.setVisible(object.charAt(0) + "28", false);
-    ggbApplet.setVisible(object.charAt(0) + "32", false);
-    nodesVisible.splice(nodesVisible.indexOf(object.charAt(0)), 1);
-    if (ggbApplet.getCaption(object.charAt(0) + "36") == "Polta") { nodesVisible.splice(nodesVisible.indexOf("D"), 1); }
-    if (ggbApplet.getCaption(object.charAt(0) + "36") == "Priax") { nodesVisible.splice(nodesVisible.indexOf("C"), 1); }
+    
+    // don't actually hide if the diagram checkbox is checked
+    if (!$("#nodes").is(":checked")) {
+      ggbApplet.setVisible(object.charAt(0) + "26", false);
+      ggbApplet.setVisible(object.charAt(0) + "27", false);
+      ggbApplet.setVisible(object.charAt(0) + "28", false);
+      ggbApplet.setVisible(object.charAt(0) + "32", false);
+    }
+    ggbOrbits.find(o => o.ID === object.charAt(0)).showNodes = false;
+    if (ggbApplet.getCaption(object.charAt(0) + "36") == "Polta") { ggbOrbits.find(o => o.ID === "D").showNodes = false; }
+    if (ggbApplet.getCaption(object.charAt(0) + "36") == "Priax") { ggbOrbits.find(o => o.ID === "C").showNodes = false; }
   }
 }
 
 // handle GeoGebra diagram display options
 function toggleNodes(isChecked) {
-  if (isChecked) { 
-    nodes.forEach(function(item, index) { 
-      ggbApplet.setVisible(item, true);
-    });
-  } else {
-    nodes.forEach(function(item, index) {
-    
-      // don't hide the nodes if they were shown individually
-      if (!nodesVisible.includes(item.charAt(0))) {
-        ggbApplet.setVisible(item, false);
+  ggbOrbits.forEach(function(item, index) { 
+    if (!item.showNodes) {
+      if (item.Type == "body") {
+        ggbApplet.setVisible(item.ID + "26", isChecked);
+        ggbApplet.setVisible(item.ID + "27", isChecked);
+        ggbApplet.setVisible(item.ID + "28", isChecked);
+        ggbApplet.setVisible(item.ID + "32", isChecked);
+      } else {
+        ggbApplet.setVisible(item.ID + "apnode", isChecked);
+        ggbApplet.setVisible(item.ID + "penode", isChecked);
+        ggbApplet.setVisible(item.ID + "anode", isChecked);
+        ggbApplet.setVisible(item.ID + "dnode", isChecked);
       }
-    });
-  }
+    }
+  });
 }
 function toggleLabels(isChecked) {
-  if (isChecked) {
-    planetLabels.forEach(function(item, index) {
-      ggbApplet.setLabelVisible(item, true);
-    });
-  } else {
-    planetLabels.forEach(function(item, index) {
-    
-      // only hide labels for planets not explicitly shown
-      if (!strTinyBodyLabel.includes(item.charAt(0))) { ggbApplet.setLabelVisible(item, false); }
-    });
-  }
+  ggbOrbits.forEach(function(item, index) { 
+    if (!item.showName) {
+      if (item.Type == "body") {
+        ggbApplet.setLabelVisible(item.ID + "36", isChecked);
+      } else {
+        ggbApplet.setLabelVisible(item.ID + "position", isChecked);
+      }
+    }
+  });
 }
 function toggleRefLine(isChecked) {
   ggbApplet.setVisible("RefLine", isChecked);
@@ -423,25 +448,25 @@ function filterVesselOrbits(id, checked) {
   if (checked) {
     ggbOrbits.forEach(function(item, index) {
       if (id == item.Type) {
-        ggbApplet.setVisible(item.ID + "point", true);
+        ggbApplet.setVisible(item.ID + "position", true);
         ggbApplet.setVisible(item.ID + "conic", true);
         ggbApplet.setVisible(item.ID + "penode", $("#nodes").is(':checked'));
         ggbApplet.setVisible(item.ID + "apnode", $("#nodes").is(':checked'));
         ggbApplet.setVisible(item.ID + "anode", $("#nodes").is(':checked'));
         ggbApplet.setVisible(item.ID + "dnode", $("#nodes").is(':checked'));
-        ggbApplet.setLabelVisible(item.ID + "point", $("#labels").is(':checked'));
+        ggbApplet.setLabelVisible(item.ID + "position", $("#labels").is(':checked'));
       }
     });
   } else {
     ggbOrbits.forEach(function(item, index) {
       if (id == item.Type) {
-        ggbApplet.setVisible(item.ID + "point", false);
+        ggbApplet.setVisible(item.ID + "position", false);
         ggbApplet.setVisible(item.ID + "conic", false);
         ggbApplet.setVisible(item.ID + "penode", false);
         ggbApplet.setVisible(item.ID + "apnode", false);
         ggbApplet.setVisible(item.ID + "anode", false);
         ggbApplet.setVisible(item.ID + "dnode", false);
-        ggbApplet.setLabelVisible(item.ID + "point", false);
+        ggbApplet.setLabelVisible(item.ID + "position", false);
       }
     });
   }
