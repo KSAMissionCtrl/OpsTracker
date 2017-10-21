@@ -31,7 +31,9 @@ Blank template MDB Access files are included.
 ### Known Issues
 
 - **Operations Tracker is currently in active development, so visiting the page may cause browser errors, failures to load, etc. However after it has been worked on it is usually left in a workable state**
-- Clicking the "Show Nodes" option in the GeoGebra display when vessel orbits are hidden will still show the nodes for the hidden orbits
+- Clicking the "Show Nodes" option in the GeoGebra display when vessel orbits are hidden will still show the nodes for the hidden orbits (may be fixed now)
+- Some body diagrams are currently not loading due to a script overrun
+- Showing/hiding labels and nodes has been refactored and is not yet fully complete so their may be some wonkiness there until the refactor is completed
 
 ### Change Log
 
