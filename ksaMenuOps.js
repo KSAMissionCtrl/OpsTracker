@@ -344,7 +344,7 @@ function filterCrewMenu(id) {
   
     // create a copy of the array so we can delete things one by one
     var del = w2ui['menu'].get('crew').nodes.slice(0);
-    for (i=1; i<del.length; i++) {
+    for (var i=1; i<del.length; i++) {
       w2ui['menu'].remove(del[i].id);
     }
   }
@@ -488,18 +488,18 @@ function filterDisplay() {
 }
 
 // recursive function to pull vessels from nodes nested n deep
-function extractVesselIDs(menuNodes) {
+function extractVesselIDs(nodes) {
 
   // work through the nodes to determine what data we need to send for
   var strVessels = '';
-  for (i=0; i<menuNodes.length; i++) {
+  for (var i=0; i<nodes.length; i++) {
     
     // if this is a moon dig through its nodes, if it has any
-    if (menuNodes[i].img.includes("body")) { 
-      if (menuNodes[i].nodes.length) { strVessels += extractVesselIDs(menuNodes[i].nodes); }
+    if (nodes[i].img.includes("body")) { 
+      if (nodes[i].nodes.length) { strVessels += extractVesselIDs(nodes[i].nodes.slice(0)); }
       
     // it's a vessel, add it to the list
-    } else { strVessels += menuNodes[i].id + ";"; }
+    } else { strVessels += nodes[i].id + ";"; }
   }
   return strVessels;
 }

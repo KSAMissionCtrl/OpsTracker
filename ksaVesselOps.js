@@ -14,6 +14,7 @@ function loadVesselOrbits() {
     var strVessels = '';
     var menuNodes = w2ui['menu'].get($("#contentHeader").html().replace(" ", "-")).nodes;
     if (menuNodes.length) {
+      console.log(menuNodes);
       strVessels = extractVesselIDs(menuNodes);
       if (strVessels.length) { 
         loadDB("loadVesselOrbitData.asp?crafts=" + strVessels.substring(0, strVessels.length-1) + "&UT=" + currUT(), loadVesselOrbitsAJAX);

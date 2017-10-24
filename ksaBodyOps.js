@@ -79,7 +79,7 @@ function loadBody(body) {
   // default to kerbol system
   if (!body.length) { body = "Kerbol-System"; }
   
-  // close dialog, reset load flag, checkboxes and page name/title
+  // close dialog, reset load flag, checkboxes, page name/title & history
   $("#figureDialog").dialog("close");
   isGGBAppletLoaded = false;
   $("#figureOptions").fadeOut();
@@ -87,8 +87,9 @@ function loadBody(body) {
   $("#labels").prop('checked', true);
   $("#ref").prop('checked', true);
   $("#contentHeader").html(body.replace("-", " "));
-  document.title = document.title + " - " + body.replace("-", " ");
+  document.title = "KSA Operations Tracker" + " - " + body.replace("-", " ");
   strCurrentBody = body.split("-")[0];
+  history.pushState({Type: "body", ID: body}, document.title, "http://www.kerbalspace.agency/Tracker/tracker.asp?body=" + body);
   
   // remove and add the figure container
   $("#figure").remove();
@@ -145,8 +146,8 @@ function ggbOnInit(){
   var bodyIDs = [];
   for (obj=0; obj<ggbApplet.getObjectNumber(); obj++) {
 
-    // is this a unique identifier? Look for a letter followed by a number
-    if (bodyIDs.indexOf(ggbApplet.getObjectName(obj).charAt(0)) == -1 && $.isNumeric(ggbApplet.getObjectName(obj).charAt(1))) {
+    // is this a unique identifier? Look for a letter followed by a number, ignore A
+    if (ggbApplet.getObjectName(obj).charAt(0) != "A" && (bodyIDs.indexOf(ggbApplet.getObjectName(obj).charAt(0)) == -1 && $.isNumeric(ggbApplet.getObjectName(obj).charAt(1)))) {
     
       // add this identifier to the orbits list and also keep track that we've already used it
       ggbOrbits.push({Type: "body", ID: ggbApplet.getObjectName(obj).charAt(0), showName: false, showNodes: false});
@@ -310,17 +311,66 @@ function figureClick(object) {
   // show label if clicked on an orbit
   // hide label if click on another orbit or the same orbit
   // make sure the labels box is not checked
-  if (parseInt(object.substring(1)) == 23) {
+  if (object.includes("23")) {
     if (!$("#labels").is(":checked")) {
       if (strTinyBodyLabel == object) {
         ggbApplet.setLabelVisible(strTinyBodyLabel.charAt(0) + "36", false);
+        ggbOrbits.find(o => o.ID === object.charAt(0)).showName = false;
         strTinyBodyLabel = "";
       } else {
         if (strTinyBodyLabel.length) {
-          ggbApplet.setLabelVisible(strTinyBodyLabel.charAt(0) + "36", false);
-          strTinyBodyLabel = "";
+          if (strTinyBodyLabel.includes("23")) {
+            ggbApplet.setLabelVisible(strTinyBodyLabel.charAt(0) + "36", false);
+          } else {
+            var objID = strTinyBodyLabel.replace("conic", "");
+            ggbApplet.setLabelVisible(objID + "position", false);
+            ggbApplet.setVisible(objID + "penode", false);
+            ggbApplet.setVisible(objID + "apnode", false);
+            ggbApplet.setVisible(objID + "anode", false);
+            ggbApplet.setVisible(objID + "dnode", false);
+          }
         }
+        ggbOrbits.find(o => o.ID === object.charAt(0)).showName = true;
         ggbApplet.setLabelVisible(object.charAt(0) + "36", true);
+        strTinyBodyLabel = object;
+      }
+    }
+    return;
+  
+  // for a vessel/asteroid
+  } else if (object.includes("conic")) {
+    if (!$("#labels").is(":checked")) {
+      if (strTinyBodyLabel == object) {
+        var objID = strTinyBodyLabel.replace("conic", "");
+        ggbApplet.setLabelVisible(objID + "position", false);
+        ggbApplet.setVisible(objID + "penode", false);
+        ggbApplet.setVisible(objID + "apnode", false);
+        ggbApplet.setVisible(objID + "anode", false);
+        ggbApplet.setVisible(objID + "dnode", false);
+        ggbOrbits.find(o => o.ID === objID).showName = false;
+        ggbOrbits.find(o => o.ID === objID).showNodes = false;
+        strTinyBodyLabel = "";
+      } else {
+        if (strTinyBodyLabel.length) {
+          if (strTinyBodyLabel.includes("23")) {
+            ggbApplet.setLabelVisible(strTinyBodyLabel.charAt(0) + "36", false);
+          } else {
+            var objID = strTinyBodyLabel.replace("conic", "");
+            ggbApplet.setLabelVisible(objID + "position", false);
+            ggbApplet.setVisible(objID + "penode", false);
+            ggbApplet.setVisible(objID + "apnode", false);
+            ggbApplet.setVisible(objID + "anode", false);
+            ggbApplet.setVisible(objID + "dnode", false);
+          }
+        }
+        var objID = object.replace("conic", "");
+        ggbApplet.setLabelVisible(objID + "position", true);
+        ggbApplet.setVisible(objID + "penode", true);
+        ggbApplet.setVisible(objID + "apnode", true);
+        ggbApplet.setVisible(objID + "anode", true);
+        ggbApplet.setVisible(objID + "dnode", true);
+        ggbOrbits.find(o => o.ID === objID).showName = true;
+        ggbOrbits.find(o => o.ID === objID).showNodes = true;
         strTinyBodyLabel = object;
       }
     }

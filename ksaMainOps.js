@@ -35,6 +35,14 @@ var orbitColors = {probe: "#FFD800", debris: "#ff0000", ship: "#0094FF", station
 UT = ((clock.getTime() - foundingMoment) / 1000);
 if (clock.toString().search("Standard") >= 0) { UT += 3600; UTC = 4; }
 
+// handle history state changes
+window.onpopstate = function(event) {
+  console.log("pop");
+  if (event.state.Type == "body") {
+    loadBody(event.state.ID);
+  }
+};
+
 function setupContent() {
 
   // data load spinners
