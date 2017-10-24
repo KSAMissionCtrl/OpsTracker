@@ -150,7 +150,7 @@ function ggbOnInit(){
     if (ggbApplet.getObjectName(obj).charAt(0) != "A" && (bodyIDs.indexOf(ggbApplet.getObjectName(obj).charAt(0)) == -1 && $.isNumeric(ggbApplet.getObjectName(obj).charAt(1)))) {
     
       // add this identifier to the orbits list and also keep track that we've already used it
-      ggbOrbits.push({Type: "body", ID: ggbApplet.getObjectName(obj).charAt(0), showName: false, showNodes: false});
+      ggbOrbits.push({Type: "body", ID: ggbApplet.getObjectName(obj).charAt(0), showName: false, showNodes: false, isHidden: false});
       bodyIDs.push(ggbApplet.getObjectName(obj).charAt(0));
     }
   }
@@ -259,7 +259,7 @@ function addGGBOrbit(vesselID, orbitData) {
     ggbApplet.setColor(ggbID + 'position', hexToRgb(orbitColors[strVesselType]).r, hexToRgb(orbitColors[strVesselType]).g, hexToRgb(orbitColors[strVesselType]).b);
     
     // add this vessel type and ID to the orbits array for filtering
-    ggbOrbits.push({Type: strVesselType, ID: ggbID, showName: false, showNodes: false});
+    ggbOrbits.push({Type: strVesselType, ID: ggbID, showName: false, showNodes: false, isHidden: false});
 }
 
 // remove all the nodes and names for everything in the figure and store them for future use
@@ -465,7 +465,7 @@ function nodesToggle(object) {
 // handle GeoGebra diagram display options
 function toggleNodes(isChecked) {
   ggbOrbits.forEach(function(item, index) { 
-    if (!item.showNodes) {
+    if (!item.showNodes && !item.isHidden) {
       if (item.Type == "body") {
         ggbApplet.setVisible(item.ID + "26", isChecked);
         ggbApplet.setVisible(item.ID + "27", isChecked);
@@ -505,6 +505,7 @@ function filterVesselOrbits(id, checked) {
         ggbApplet.setVisible(item.ID + "anode", $("#nodes").is(':checked'));
         ggbApplet.setVisible(item.ID + "dnode", $("#nodes").is(':checked'));
         ggbApplet.setLabelVisible(item.ID + "position", $("#labels").is(':checked'));
+        item.isHidden = false;
       }
     });
   } else {
@@ -517,6 +518,7 @@ function filterVesselOrbits(id, checked) {
         ggbApplet.setVisible(item.ID + "anode", false);
         ggbApplet.setVisible(item.ID + "dnode", false);
         ggbApplet.setLabelVisible(item.ID + "position", false);
+        item.isHidden = true;
       }
     });
   }
