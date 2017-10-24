@@ -1,48 +1,3 @@
-// enables all the main content area page elements that will be used to show a GeoGebra figure or Leaflet map
-// available content height: 885px
-function setupBody() {
-  pageType = "body";
-  
-  // don't need this spinner where it is, move it for tag load
-  $("#contentHeader").spin(false);
-  $("#contentHeader").spin({ scale: 0.35, position: 'relative', top: '10px', left: (((955/2) + (getParameterByName("body").width('bold 32px arial')/2)) + 10) +'px' });
-
-  // setup the dialog box
-  // when it is closed, it will return to the top-left of the figure
-  $("#figureDialog").dialog({autoOpen: false, 
-                      closeOnEscape: true, 
-                      resizable: false, 
-                      width: "auto",
-                      hide: { effect: "fade", duration: 300 }, 
-                      show: { effect: "fade", duration: 300 },
-                      position: { my: "left top", at: "left top", of: "#contentBox" },
-                      close: function( event, ui ) { 
-                        $(this).dialog("option", "position", { my: "left top", at: "left top", of: "#contentBox" }); 
-                      }});
-  // setup the content box
-  $("#contentBox").css('top', '40px');
-  $("#contentBox").css('height', '885px');
-  $("#contentBox").fadeIn();
-  
-  // load up the GeoGebra figure
-  loadBody(getParameterByName("body"));
-  
-  // spinner for figure & data loading
-  $("#contentBox").spin({ position: 'relative', top: '50%', left: '50%' });
-  $("#figureDialog").spin({ position: 'relative', top: '45px', left: '50%' });
-  
-  // uncheck all the filter boxes
-  $("#asteroid-filter").prop('checked', false);
-  $("#debris-filter").prop('checked', false);
-  $("#probe-filter").prop('checked', false);
-  $("#ship-filter").prop('checked', false);
-  $("#station-filter").prop('checked', false);
-  
-  // setup footer
-  $("#footer").html("<a target='_blank' href='http://www.kerbalspace.agency'>KSA Home Page</a> | 2D Orbit rendering: <a target='_blank' href='http://bit.ly/KSPTOT'>KSPTOT</a> | 3D Orbit Rendering: <a target='_blank' href='http://forum.kerbalspaceprogram.com/index.php?/topic/158826-3d-ksp-solar-system-scale-model-major-update-05202017/'>by Syntax</a> | <a target='_blank' href='https://github.com/KSAMissionCtrl/FlightTracker/wiki/Flight-Tracker-Documentation'>Flight Tracker Wiki</a>");
-  $("#footer").fadeIn();
-}
-
 // load the data for all the bodies in the Kerbol system
 function loadBodyAJAX(xhttp) {
 
@@ -76,9 +31,27 @@ function loadBodyAJAX(xhttp) {
 // load a new GeoGebra figure into the main content window
 function loadBody(body) {
   
+  // if there is a body loading and this isn't an initial page load, then try calling back later
+  if (!isGGBAppletLoaded && pageType) {
+    setTimeout(function() {
+      loadBody(body);
+    }, 1000)
+    return;
+  }
+  pageType = "body";
+  
   // default to kerbol system
   if (!body.length) { body = "Kerbol-System"; }
   
+  // if body is already loaded, then just exit
+  $("#contentHeader").html(body.replace("-", " "));
+  // for tag loading
+  // $("#contentHeader").spin({ scale: 0.35, position: 'relative', top: '10px', left: (((955/2) + (body.width('bold 32px arial')/2)) + 10) +'px' });
+  document.title = "KSA Operations Tracker" + " - " + body.replace("-", " ");
+  history.pushState({Type: "body", ID: body}, document.title, "http://www.kerbalspace.agency/Tracker/tracker.asp?body=" + body);
+  if (isGGBAppletLoaded && strCurrentBody == body.split("-")[0]) { return; }
+  strCurrentBody = body.split("-")[0];
+
   // close dialog, reset load flag, checkboxes, page name/title & history
   $("#figureDialog").dialog("close");
   isGGBAppletLoaded = false;
@@ -86,14 +59,18 @@ function loadBody(body) {
   $("#nodes").prop('checked', true);
   $("#labels").prop('checked', true);
   $("#ref").prop('checked', true);
-  $("#contentHeader").html(body.replace("-", " "));
-  document.title = "KSA Operations Tracker" + " - " + body.replace("-", " ");
-  strCurrentBody = body.split("-")[0];
-  history.pushState({Type: "body", ID: body}, document.title, "http://www.kerbalspace.agency/Tracker/tracker.asp?body=" + body);
   
   // remove and add the figure container
   $("#figure").remove();
   $("#contentBox").html("<div id='figure'></div>");
+
+  // hide & disable the filters
+  $("#vesselOrbitTypes").fadeOut();
+  $("#asteroid-filter").prop("disabled", true);
+  $("#debris-filter").prop("disabled", true);
+  $("#probe-filter").prop("disabled", true);
+  $("#ship-filter").prop("disabled", true);
+  $("#station-filter").prop("disabled", true);
 
   // setup GeoGebra
   // use a random number to always load a new file not from cache
@@ -139,9 +116,6 @@ function ggbOnInit(){
     $("#figureOptions").fadeIn();
   }
   
-  // hide the filters
-  $("#vesselOrbitTypes").fadeOut();
-
   // loop through and catalog all the pre-made objects
   var bodyIDs = [];
   for (obj=0; obj<ggbApplet.getObjectNumber(); obj++) {
@@ -163,11 +137,8 @@ function ggbOnInit(){
   // listen for any objects clicked on
   ggbApplet.registerClickListener("figureClick");
   
-  // ok now for anyplace else to call up the applet
-  isGGBAppletLoaded = true;
-  
   // load any vessels in orbit around this object
-  loadVesselOrbits();
+  if (!loadVesselOrbits()) { isGGBAppletLoaded = true; }
   
   // declutter the view after a few seconds
   // make sure a quick figure switch doesn't declutter things too fast
@@ -291,7 +262,6 @@ function declutterGGB() {
     }
   });
 
-  
   // uncheck all the boxes
   $("#nodes").prop('checked', false);
   $("#labels").prop('checked', false);
@@ -305,6 +275,12 @@ function declutterGGB() {
 function figureClick(object) {
   if (object == "RefLine") {
     ggbApplet.evalCommand("SetViewDirection((0,0,1), true)");
+    return;
+  }
+  
+  // head to vessel page if clicked on a vessel
+  if (object.includes("position")) {
+    swapContent("vessel", ggbApplet.getValueString(object.replace("position", "id")));
     return;
   }
   

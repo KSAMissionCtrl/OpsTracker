@@ -1,10 +1,13 @@
 // available content height: 480px (initially) / 885px (Max)
-function loadVessel(isEmpty) {
-  if (isEmpty) {
-    console.log("Switching to body page");
-  } else {
-    console.log("Vessel page loaded");
-  }
+function loadVessel(vessel) {
+  pageType = "vessel";
+  $("#contentHeader").html(vessel);
+  // for tag loading
+  // $("#contentHeader").spin({ scale: 0.35, position: 'relative', top: '10px', left: (((955/2) + (vessel.width('bold 32px arial')/2)) + 10) +'px' });
+  document.title = "KSA Operations Tracker" + " - " + vessel;
+  strCurrentVessel = vessel;
+  history.pushState({Type: "vessel", ID: vessel}, document.title, "http://www.kerbalspace.agency/Tracker/tracker.asp?vessel=" + vessel);
+  
 }
 
 // sends out the AJAX call for data to add any vessels to a GeoGebra figure/Leaflet library once it has loaded
@@ -77,6 +80,7 @@ function loadVesselOrbitsAJAX(xhttp) {
     if (updates[1] != "null") { updatesList.push({ Type: "vessel;flightplan", ID: strVesselDB, UT: updates[0] }); }
   });
   isOrbitDataLoaded = true;
+  isGGBAppletLoaded = true;
   $("#vesselLoaderMsg").spin(false);
   $("#vesselLoaderMsg").fadeOut();
   $("#vesselOrbitTypes").fadeIn();

@@ -1,16 +1,25 @@
 var UT;
-var UTC = 5;
+var timeoutHandle;
 var clock = new Date();
 var isGGBAppletLoaded = false;
-var strTinyBodyLabel = "";
-var planetLabels = [];
-var nodes = [];
-var nodesVisible = [];
-var ggbOrbits = [];
 var isCatalogDataLoaded = false;
 var isMenuDataLoaded = false;
 var isEventDataLoaded = false;
 var isOrbitDataLoaded = false;
+var UTC = 5;
+var launchCountdown = -1;
+var maneuverCountdown = -1;
+var tickDelta = 0;
+var updatesListSize = 0;
+var strTinyBodyLabel = "";
+var strCurrentBody = "Kerbol";
+var strCurrentVessel = "";
+var strCurrentCrew = "";
+var orbitColors = {probe: "#FFD800", debris: "#ff0000", ship: "#0094FF", station: "#B200FF", asteroid: "#996633"};
+var planetLabels = [];
+var nodes = [];
+var nodesVisible = [];
+var ggbOrbits = [];
 var pageType;
 var craftsMenu = [];
 var crewMenu = [];
@@ -20,15 +29,6 @@ var partsCatalog = [];
 var vesselCatalog = [];
 var orbitCatalog = [];
 var updatesList = [];
-var launchCountdown = -1;
-var maneuverCountdown = -1;
-var timeoutHandle;
-var tickDelta = 0;
-var updatesListSize = 0;
-var strCurrentBody = "Kerbol";
-var strCurrentVessel = "";
-var strCurrentCrew = "";
-var orbitColors = {probe: "#FFD800", debris: "#ff0000", ship: "#0094FF", station: "#B200FF", asteroid: "#996633"};
 
 // current game time is the difference between current real time minus number of ms since midnight on 9/13/16
 // account for fact that game started during DST and also convert to seconds
@@ -43,6 +43,17 @@ window.onpopstate = function(event) {
   }
 };
 
+// animate the size of the main content box
+function raiseContent() {
+  $("#contentBox").css("transform", "translateY(0px)");
+  setTimeout(function() { $("#contentBox").css("height", "885px"); }, 400);
+}
+function lowerContent() {
+  $("#contentBox").css("height", "480px");
+  setTimeout(function() { $("#contentBox").css("transform", "translateY(405px)"); }, 400);
+}
+
+// called on page load
 function setupContent() {
 
   // data load spinners
@@ -50,6 +61,8 @@ function setupContent() {
   $("#menuBox").spin({ scale: 0.5, position: 'relative', top: '8px', left: '50%' });
   $("#launch").spin({ scale: 0.5, position: 'relative', top: '20px', left: '50%' });
   $("#maneuver").spin({ scale: 0.5, position: 'relative', top: '20px', left: '75%' });
+  $("#contentBox").spin({ position: 'relative', top: '50%', left: '50%' });
+  $("#figureDialog").spin({ position: 'relative', top: '45px', left: '50%' });
 
   // setup the clock
   $("#clock").html("<strong>Current Time @ KSC (UTC -" + UTC + ")</strong><br><span id='ksctime' style='font-size: 16px'>" + formatUTCTime(clock, true) + "</span>");
@@ -63,14 +76,29 @@ function setupContent() {
   $.ajaxSetup({ cache: false });
   
   // load data
+  // event load then calls menu load
   loadDB("loadEventData.asp?UT=" + currUT(), loadEventsAJAX);
   loadDB("loadBodyData.asp", loadBodyAJAX);
   
-  // prep & load page
-  if (getParameterByName("vessel").length) { setupVessel(); }
-  else if (getParameterByName("body").length) { setupBody(); }
-  else if (getParameterByName("crew").length) { setupCrew(); }
-  else { setupBody(); }
+  // setup the planet data dialog box
+  // when it is closed, it will return to the top-left of the figure
+  $("#figureDialog").dialog({autoOpen: false, 
+                      closeOnEscape: true, 
+                      resizable: false, 
+                      width: "auto",
+                      hide: { effect: "fade", duration: 300 }, 
+                      show: { effect: "fade", duration: 300 },
+                      position: { my: "left top", at: "left top", of: "#contentBox" },
+                      close: function( event, ui ) { 
+                        $(this).dialog("option", "position", { my: "left top", at: "left top", of: "#contentBox" }); 
+                      }});
+                      
+  // uncheck all the filter boxes
+  $("#asteroid-filter").prop('checked', false);
+  $("#debris-filter").prop('checked', false);
+  $("#probe-filter").prop('checked', false);
+  $("#ship-filter").prop('checked', false);
+  $("#station-filter").prop('checked', false);
 
   // checkbox handling needed for dynamic figure & menu filters
   // ensure some start checked, then handle any changes
@@ -84,6 +112,93 @@ function setupContent() {
     if ($(this).attr("id").includes("menu")) { filterVesselMenu($(this).attr("name"), $(this).is(":checked")); }
     if ($(this).attr("id").includes("filter")) { filterVesselOrbits($(this).attr("name"), $(this).is(":checked")); }
   });
+
+  // load page content
+  if (getParameterByName("vessel").length) { swapContent("vessel", getParameterByName("vessel")); }
+  else if (getParameterByName("body").length) { swapContent("body", getParameterByName("body")); }
+  else if (getParameterByName("crew").length) { swapContent("crew", getParameterByName("crew")); }
+  else { swapContent("body", getParameterByName("body")); }
+}
+
+// switch from one layout to another
+function swapContent(newPageType, id) {
+  
+  // initial page load
+  if (!pageType) {
+    if (newPageType == "body") {
+      $("#contentBox").css('top', '40px');
+      $("#contentBox").css('height', '885px');
+      $("#contentBox").fadeIn();
+      loadBody(id);
+    }
+    return;
+  } 
+  
+  // not a total content swap, just new data
+  if (pageType == newPageType) {
+    if (newPageType == "body") { loadBody(id); }
+    if (newPageType == "vessel") { loadVessel(id); }
+    if (newPageType.includes("crew") ) { loadCrew(id); }
+    return;
+  } 
+  
+  // hide the current content
+  if (pageType == "body") {
+    lowerContent();
+    $("#figureOptions").fadeOut();
+    $("#vesselOrbitTypes").fadeOut();
+    $("#figure").fadeOut();
+  } else if (pageType == "vessel" && newPageType == "body") {
+    $("#infoBox").fadeOut();
+    $("#dataBox").fadeOut();
+  } else if (pageType == "crew") {
+    if (newPageType == "body") {
+      $("#infoBox").fadeOut();
+      $("#dataBox").fadeOut();
+    }
+    $("#crewFooter").fadeOut();
+    $("#footer").fadeIn();
+  } else if (pageType == "crewFull") {
+    $("#fullRoster").fadeOut();
+  }
+  
+  // show/load the new content
+  if (newPageType == "body") {
+    raiseContent();
+    setTimeout(function() { 
+      $("#figureOptions").fadeIn();
+      if (!$("#asteroid-filter").prop("disabled") || !$("#debris-filter").prop("disabled") || !$("#probe-filter").prop("disabled") || !$("#ship-filter").prop("disabled") || !$("#station-filter").prop("disabled")) { $("#vesselOrbitTypes").fadeIn(); }
+      $("#contentBox").fadeIn();
+      $("#figure").fadeIn();
+      loadBody(id); 
+    }, 600);
+  } else if (newPageType == "vessel") {
+    $("#infoBox").fadeIn();
+    $("#infoBox").css("height", "400px");
+    $("#infoBox").css("width", "650px");
+    $("#dataBox").fadeIn();
+    $("#dataBox").css("transform", "translateX(0px)");
+    $("#dataBox").css("width", "295px");
+    $("#contentBox").fadeIn();
+    loadVessel(id);
+  } else if (newPageType == "crew") {
+    if (id = "fullCrew") {
+      $("#infoBox").fadeOut();
+      $("#dataBox").fadeOut();
+      $("#fullRoster").fadeIn();
+    } else {
+      $("#infoBox").fadeIn();
+      $("#infoBox").css("height", "600px");
+      $("#infoBox").css("width", "498px");
+      $("#dataBox").fadeIn();
+      $("#dataBox").css("transform", "translateX(-154px)");
+      $("#dataBox").css("width", "449px");
+      $("#crewFooter").fadeIn();
+      $("#footer").fadeOut();
+      $("#contentBox").fadeOut();
+    }
+    loadCrew(id);
+  }
 }
 
 // updates various content on the page depending on what update event has been triggered

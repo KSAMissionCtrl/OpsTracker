@@ -117,45 +117,27 @@ function loadMenuAJAX(xhttp) {
       // the type of node image will tell us what to load
       if (event.node.img.includes("body")) {
       
-        // don't load a body if another figure is being loaded
-        if (isGGBAppletLoaded) {
-        
-          // do we need to reload the page because it's not a body view?
-          if (pageType != "body") {
-            window.location.href = "http://www.kerbalspace.agency/Tracker/tracker.asp?body=" + event.node.id;
-          } else {
-          
-            // make sure this body isn't already loaded before refreshing the page
-            if (strCurrentBody != event.node.id.split("-")[0]) { 
+        // make sure this body isn't already loaded before refreshing the page if it is a body page
+        if ((strCurrentBody != event.node.id.split("-")[0] && pageType == "body") || (strCurrentBody == event.node.id.split("-")[0] && pageType != "body") || (strCurrentBody != event.node.id.split("-")[0] && pageType != "body")) { 
 
-              // only allow non-system ids that are under the main category to load
-              // otherwise load the parent id
-              if (!event.node.id.includes("System")) {
-                if (event.node.parent.id == "activeVessels") {
-                  loadBody(event.node.id); 
-                } else {
-                  if (strCurrentBody != event.node.parent.id.split("-")[0]) {
-                    loadBody(event.node.parent.id);
-                  }
-                }
-              } else {
-                loadBody(event.node.id); 
+          // only allow non-system ids that are under the main category to load
+          // otherwise load the parent id
+          if (!event.node.id.includes("System")) {
+            if (event.node.parent.id == "activeVessels") {
+              swapContent("body", event.node.id); 
+            } else {
+              if (strCurrentBody != event.node.parent.id.split("-")[0]) {
+                swapContent("body", event.node.parent.id);
               }
             }
+          } else {
+            swapContent("body", event.node.id); 
           }
-        
-        // deselect the item if another figure is loading to show user that click was not valid
-        } else { console.log(event.id); }
+        }
       } else if (event.node.img.includes("crew")) {
       
-        // do we need to reload the page because it's not a roster view?
-        if (pageType != "crew") {
-          window.location.href = "http://www.kerbalspace.agency/Tracker/tracker.asp?crew=" + event.node.id;
-        } else {
-        
-          // make sure this crew member isn't already loaded before refreshing the page
-          if (strCurrentCrew != event.node.id) { loadCrew(event.node.id); }
-        }
+        // make sure this crew member isn't already loaded before refreshing the page if it is a crew page
+        if ((strCurrentCrew != event.node.id && pageType == "crew") || (strCurrentCrew == event.node.id && pageType != "crew") || (strCurrentCrew != event.node.id && pageType != "crew")) { swapContent("crew", event.node.id); }
       } else if (event.node.img.includes("dish")) {
       
         // for now, we link to another page
@@ -165,14 +147,8 @@ function loadMenuAJAX(xhttp) {
       // except if the parent is the Inactive Vessels node as that's just a category node
       } else if (!event.node.img.includes("folder") && event.node.parent.id != "inactiveVessels") {
         
-        // do we need to reload the page because it's not a vessel view?
-        if (pageType != "vessel") {
-          window.location.href = "http://www.kerbalspace.agency/Tracker/tracker.asp?vessel=" + event.node.id;
-        } else {
-        
-          // make sure this vessel isn't already loaded before refreshing the page
-          if (strCurrentVessel != event.node.id) { loadVessel(event.node.id); }
-        }
+        // make sure this vessel isn't already loaded before refreshing the page if it is a vessel page
+        if ((strCurrentVessel != event.node.id && pageType == "vessel") || (strCurrentVessel == event.node.id && pageType != "vessel") || (strCurrentVessel != event.node.id && pageType != "vessel")) { swapContent("vessel", event.node.id); }
       }
     },
     onExpand: function (event) {

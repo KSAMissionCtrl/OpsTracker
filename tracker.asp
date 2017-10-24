@@ -70,8 +70,9 @@
         <input class='checkboxes' name='station' id='station-filter' type='checkbox' disabled> <label  id='station-label' for='station-filter'>Station</label>
       </div>
       <div id='figureDialog'></div>
+      <div id='map'></div>
       <div id='messageDialog'></div>
-      <div id='footer' style='text-align: center; width: 955px; top: 930px; position: absolute;'>&nbsp;</div>
+      <div id='footer' style='text-align: center; width: 955px; top: 930px; position: absolute;'><a target='_blank' href='http://www.kerbalspace.agency'>KSA Home Page</a> | 2D Orbit rendering: <a target='_blank' href='http://bit.ly/KSPTOT'>KSPTOT</a> | 3D Orbit Rendering: <a target='_blank' href='http://forum.kerbalspaceprogram.com/index.php?/topic/158826-3d-ksp-solar-system-scale-model-major-update-05202017/'>by Syntax</a> | <a target='_blank' href='https://github.com/KSAMissionCtrl/FlightTracker/wiki/Flight-Tracker-Documentation'>Flight Tracker Wiki</a></div>
     </div>
     <div id='sideContent'>
       
