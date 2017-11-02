@@ -57,6 +57,7 @@
       <div id='figureOptions' style='color: white; position: absolute; top: 900px; left: 5px; display: none;'>
         <input class='checkboxes' name='nodes' id='nodes' type='checkbox'> <label for='nodes'>Show Nodes</label> 
         <input class='checkboxes' name='labels' id='labels' type='checkbox'> <label for='labels'>Show Names</label> 
+        <input class='checkboxes' name='orbits' id='orbits' type='checkbox'> <label for='orbits'>Show Orbits</label>
         <input class='checkboxes' name='ref' id='ref' type='checkbox'> <label for='ref'>Show Reference Line</label>
       </div>
       <div id='vesselLoaderMsg' style='color: white; position: absolute; top: 900px; left: 795px; display: none;'>

@@ -108,6 +108,7 @@ function setupContent() {
   $("input").change(function () {
     if ($(this).attr("name") == "nodes") { toggleNodes($(this).is(":checked")); }
     if ($(this).attr("name") == "labels") { toggleLabels($(this).is(":checked")); }
+    if ($(this).attr("name") == "orbits") { toggleOrbits($(this).is(":checked")); }
     if ($(this).attr("name") == "ref") { toggleRefLine($(this).is(":checked")); }
     if ($(this).attr("id").includes("menu")) { filterVesselMenu($(this).attr("name"), $(this).is(":checked")); }
     if ($(this).attr("id").includes("filter")) { filterVesselOrbits($(this).attr("name"), $(this).is(":checked")); }
@@ -148,6 +149,7 @@ function swapContent(newPageType, id) {
     $("#figureOptions").fadeOut();
     $("#vesselOrbitTypes").fadeOut();
     $("#figure").fadeOut();
+    $("#figureDialog").dialog("close");
   } else if (pageType == "vessel" && newPageType == "body") {
     $("#infoBox").fadeOut();
     $("#dataBox").fadeOut();
