@@ -397,6 +397,7 @@ function figureClick(object) {
       } else { strHTML = strHTML.substring(0, strHTML.length-2); }
       strHTML += "</p></td></tr></table>";
     }
+    $("#timeDate").fadeIn();
     $("#figureDialog").dialog("option", "title", strBodyName);
     $("#figureDialog").html(strHTML);
     $("#figureDialog").dialog("open");
@@ -652,4 +653,13 @@ function filterVesselOrbits(id, checked) {
       }
     });
   }
+}
+
+// open and setup the time & date box
+function timeDateOpen() {
+  $("#timeDate").fadeOut();
+  $("#figureDialog").dialog("option", "title", "Time & Date Controls");
+  $("#figureDialog").html("<p>Date: <input type='text' id='datepicker'></p>");
+  $("#datepicker").datepicker();
+  $("#figureDialog").dialog("open");
 }

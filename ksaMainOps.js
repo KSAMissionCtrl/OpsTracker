@@ -53,6 +53,14 @@ function lowerContent() {
   setTimeout(function() { $("#contentBox").css("transform", "translateY(405px)"); }, 400);
 }
 
+// JQuery setup
+$(document).ready(function(){
+  $("#timeDate").click(function(){
+    timeDateOpen();
+    console.log("click");
+  });
+});
+
 // called on page load
 function setupContent() {
 
@@ -83,15 +91,16 @@ function setupContent() {
   // setup the planet data dialog box
   // when it is closed, it will return to the top-left of the figure
   $("#figureDialog").dialog({autoOpen: false, 
-                      closeOnEscape: true, 
-                      resizable: false, 
-                      width: "auto",
-                      hide: { effect: "fade", duration: 300 }, 
-                      show: { effect: "fade", duration: 300 },
-                      position: { my: "left top", at: "left top", of: "#contentBox" },
-                      close: function( event, ui ) { 
-                        $(this).dialog("option", "position", { my: "left top", at: "left top", of: "#contentBox" }); 
-                      }});
+                            closeOnEscape: true, 
+                            resizable: false, 
+                            width: "auto",
+                            hide: { effect: "fade", duration: 300 }, 
+                            show: { effect: "fade", duration: 300 },
+                            position: { my: "left top", at: "left top", of: "#contentBox" },
+                            close: function( event, ui ) { 
+                              $(this).dialog("option", "position", { my: "left top", at: "left top", of: "#contentBox" });
+                              if ($(this).dialog("option", "title") == "Time & Date Controls") { $("#timeDate").fadeIn(); }
+                            }});
                       
   // uncheck all the filter boxes
   $("#asteroid-filter").prop('checked', false);
