@@ -32,6 +32,30 @@ Blank template MDB Access files are included.
 
 - **Operations Tracker is currently in active development, so visiting the page may cause browser errors, failures to load, etc. However after it has been worked on it is usually left in a workable state**
 
+### Future Fixes/Changes/Additions
+
+* [FT] New sat/terrain/biome maps for OPM
+* [FT] Updated biome maps for stock planets
+* [FT] Ground tracking for rovers. Resolution of movement dependent on whether max zoom level can be increased
+* [FT] 2-3 additional zoom levels for dynamic map
+* [FT] Allow surface maps for gas giants just for the sake of vessel/moon plotting
+* [FT] note the number of crew aboard and use that to calculate in real-time the remaining duration for any included life support resources (need to decide what life support system to use first - USI or TAC)
+* [FT/CR] back-end interface that allows creation/modification of records through the website when detecting the missionctrl cookie for updating craft and crew databases
+* [FT/CR] [push notifications](https://developer.mozilla.org/en-US/docs/Web/API/Push_API)?
+* [FT] [Animate rover tracks](https://github.com/IvanSanchez/Leaflet.Polyline.SnakeAnim)? (for drawing old drive paths upon page load, not as a means to do "live" pathing)
+* [FT] Be able to tell if a trajectory intercepting the atmosphere is an aerobrake or re-entry
+* [FT] Detect trajectories that hit the surface on airless bodies and show a landing mark
+* [FT] Fix issues with Sketchfab model support (button display for new hoverbox behavior, start/stop on show/hide)
+* [FT] Multiple thruster/engine images to account for image of current craft rotation position
+* [FT] Proper terminator display taking orbital inclination into account ([Leaflet.Curve](https://github.com/elfalem/Leaflet.curve)) - can possiblt adapt [ScanSat code](https://forum.kerbalspaceprogram.com/index.php?/topic/87351-ksp-130-scansat-v179-dev-version-june-28-2017/&do=findComment&comment=2993781)
+* [FT/CR] Communicate with the website to display update badges on the menu items for Flight Tracker and Crew Roster
+* [CR] when hovering over a ribbon, clicking will show previous types of that ribbon below the current one earned so ppl can hover over them for dates and info. Moving mouse off will hide them. Border needed around them or they will just seem to replace any other ribbons below
+* [FT] Playback controls for ground track data. Include in popup windows to let ppl jump to beginning or end of track and see a real-time update of data (center popup, move along track)
+* [FT] Allow download of aircraft flight data in spreadsheet form via the More Info pop-up
+* [FT] Upgrade to the latest version of Leaflet using a [new maps library](https://gitlab.com/IvanSanchez/Leaflet.Kerbal)
+* [CR] Reverse-order mission listing so newest is at top
+* [FT] Hyperbolic orbit rendering in GeoGebra figures
+
 ### Change Log
 
 **v1.00** (TBD)   
