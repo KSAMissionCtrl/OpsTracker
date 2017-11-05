@@ -55,6 +55,7 @@ Blank template MDB Access files are included.
 * [FT] Upgrade to the latest version of Leaflet using a [new maps library](https://gitlab.com/IvanSanchez/Leaflet.Kerbal)
 * [CR] Reverse-order mission listing so newest is at top
 * [FT] Hyperbolic orbit rendering in GeoGebra figures
+* [FT] Only load & show the orbit for one vessel/asteroid using a URL paramter
 
 ### Change Log
 
