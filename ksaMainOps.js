@@ -1,6 +1,7 @@
 var UT;
 var timeoutHandle;
 var clock = new Date();
+var bodyClock = new Date();
 var isGGBAppletLoaded = false;
 var isCatalogDataLoaded = false;
 var isMenuDataLoaded = false;
@@ -10,7 +11,9 @@ var UTC = 5;
 var launchCountdown = -1;
 var maneuverCountdown = -1;
 var tickDelta = 0;
+var bodyTickDelta = 0;
 var updatesListSize = 0;
+var bodyTimeRate = 1;
 var strTinyBodyLabel = "";
 var strCurrentBody = "Kerbol";
 var strCurrentVessel = "";
@@ -259,13 +262,8 @@ function checkPageUpdate() {
   }
   checkPageUpdate();
 
-  // update to the current time
-  // add a second to account for tickDelta starting at 0
-  var currTime = new Date();
-  currTime.setTime(clock.getTime() + tickDelta + 1000);
-
   // update the clocks
-  $('#ksctime').html(formatUTCTime(currTime, true));
+  $('#ksctime').html(formatUTCTime(currTime(), true));
   if (launchCountdown > 0) { $('#launchCountdown').html(formatTime(launchCountdown, false)); }
   else if (launchCountdown == 0) { $('#launchCountdown').html("LIFTOFF!!"); }
   if (maneuverCountdown > 0) { $('#maneuverCountdown').html(formatTime(maneuverCountdown, false)); }
@@ -273,12 +271,16 @@ function checkPageUpdate() {
   launchCountdown--;
   maneuverCountdown--;
   
-  // update the dynamic orbit figure
-  if (isGGBAppletLoaded) { ggbApplet.setValue("UT", currUT()); }
-  
   // ensure timer accuracy, even catch up if browser slows tab in background
   // http://www.sitepoint.com/creating-accurate-timers-in-javascript/
   var diff = (new Date().getTime() - clock.getTime()) - tickDelta;
   tickDelta += 1000;
   setTimeout(tick, 1000 - diff);
+})();
+
+(function bodyTick() {
+  if (isGGBAppletLoaded) { ggbApplet.setValue("UT", (ggbApplet.getValue("UT") + 0.1) * bodyTimeRate); }
+  var diff = (new Date().getTime() - clock.getTime()) - bodyTickDelta;
+  bodyTickDelta += 100;
+  setTimeout(bodyTick, 100 - diff);
 })();

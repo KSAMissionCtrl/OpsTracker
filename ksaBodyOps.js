@@ -659,7 +659,51 @@ function filterVesselOrbits(id, checked) {
 function timeDateOpen() {
   $("#timeDate").fadeOut();
   $("#figureDialog").dialog("option", "title", "Time & Date Controls");
-  $("#figureDialog").html("<p>Date: <input type='text' id='datepicker'></p>");
-  $("#datepicker").datepicker();
+  var time = formatUTCTime(currTime(), true).split(" ")[1].split(":");
+  $("#figureDialog").html(
+    "<p>" +
+      "Date: <input type='text' id='datePicker' size='10' readOnly> Current Time Step: <span id='bodyRate'>" + bodyTimeRate + "</span>x" +
+    "</p>" + 
+    "<p>" +
+      "Hours: <input type='spinner' id='hours' size='1'> " +
+      "Minutes: <input type='spinner' id='minutes' size='1'> " +
+      "Seconds: <input type='spinner' id='seconds' size='1'> " +
+    "</p>"
+  );
+  $("#datePicker").datepicker({
+    showOn: "button",
+    changeMonth: true,
+    changeYear: true,
+    minDate: "9/13/2016",
+    onSelect: function(dateText, inst) { timeDateSet(); }
+  });
+  $("#datePicker").datepicker("setDate", clock);
+  $("#hours").spinner({
+    min: 0,
+    max: 23,
+    stop: function (event, ui) { timeDateSet(); }
+  });  
+  $("#minutes").spinner({
+    min: 0,
+    max: 59,
+    stop: function (event, ui) { timeDateSet(); }
+  });  
+  $("#seconds").spinner({
+    min: 0,
+    max: 59,
+    stop: function (event, ui) { timeDateSet(); }
+  });  
+  $("#hours").spinner("value", time[0]);
+  $("#minutes").spinner("value", time[1]);
+  $("#seconds").spinner("value", time[2]);
   $("#figureDialog").dialog("open");
+}
+
+// change the time/date on the body figure
+function timeDateSet() {
+  var date = $("#datePicker").datepicker("getDate");
+  date.setUTCHours($("#hours").val(), $("#minutes").val(), $("#seconds").val());
+  console.log(dateTimetoUT(date));
+  console.log(UT);
+  ggbApplet.setValue("UT", dateTimetoUT(date));
 }

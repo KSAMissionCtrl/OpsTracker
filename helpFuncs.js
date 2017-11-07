@@ -109,6 +109,12 @@ function UTtoDateTime(UT, local) {
   return formatUTCTime(d, local);
 }
 
+function dateTimetoUT(dateTime) {
+  var setUT = ((dateTime.getTime() - foundingMoment) / 1000);
+  if (dateTime.toString().search("Standard") >= 0) { setUT += 3600; }
+  return setUT;
+}
+
 // https://stackoverflow.com/questions/1026069/how-do-i-make-the-first-letter-of-a-string-uppercase-in-javascript
 function capitalizeFirstLetter(string) {
   return string.charAt(0).toUpperCase() + string.slice(1);
@@ -117,6 +123,9 @@ function capitalizeFirstLetter(string) {
 // makes sure the current UT returned is proper for all considerations
 // currently just convert from ms to s
 function currUT() { return UT + (tickDelta / 1000); }
+
+// need to keep original date static so to get the current time we have to just update a new date object
+function currTime() { return new Date(clock.getTime() + tickDelta); }
 
 // conversion from true anomaly to mean anomaly in radians
 // referenced from matlab code: https://github.com/Arrowstar/ksptot/blob/master/helper_methods/astrodynamics/computeMeanFromTrueAnom.m
