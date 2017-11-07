@@ -70,7 +70,6 @@
         <input class='checkboxes' name='ship' id='ship-filter' type='checkbox' disabled> <label  id='ship-label' for='ship-filter'>Ship</label><br>
         <input class='checkboxes' name='station' id='station-filter' type='checkbox' disabled> <label  id='station-label' for='station-filter'>Station</label>
       </div>
-      <div id='timeDate' style='cursor: pointer; position: absolute; top: 43px; left: 895px;'><img src='http://www.kerbalspace.agency/Tracker/timedate.png'></div>
       <div id='figureDialog'></div>
       <div id='map'></div>
       <div id='messageDialog'></div>

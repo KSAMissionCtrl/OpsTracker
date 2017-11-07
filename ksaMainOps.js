@@ -1,7 +1,6 @@
 var UT;
 var timeoutHandle;
 var clock = new Date();
-var bodyClock = new Date();
 var isGGBAppletLoaded = false;
 var isCatalogDataLoaded = false;
 var isMenuDataLoaded = false;
@@ -11,9 +10,7 @@ var UTC = 5;
 var launchCountdown = -1;
 var maneuverCountdown = -1;
 var tickDelta = 0;
-var bodyTickDelta = 0;
 var updatesListSize = 0;
-var bodyTimeRate = 1;
 var strTinyBodyLabel = "";
 var strCurrentBody = "Kerbol";
 var strCurrentVessel = "";
@@ -56,14 +53,6 @@ function lowerContent() {
   setTimeout(function() { $("#contentBox").css("transform", "translateY(405px)"); }, 400);
 }
 
-// JQuery setup
-$(document).ready(function(){
-  $("#timeDate").click(function(){
-    timeDateOpen();
-    console.log("click");
-  });
-});
-
 // called on page load
 function setupContent() {
 
@@ -94,16 +83,15 @@ function setupContent() {
   // setup the planet data dialog box
   // when it is closed, it will return to the top-left of the figure
   $("#figureDialog").dialog({autoOpen: false, 
-                            closeOnEscape: true, 
-                            resizable: false, 
-                            width: "auto",
-                            hide: { effect: "fade", duration: 300 }, 
-                            show: { effect: "fade", duration: 300 },
-                            position: { my: "left top", at: "left top", of: "#contentBox" },
-                            close: function( event, ui ) { 
-                              $(this).dialog("option", "position", { my: "left top", at: "left top", of: "#contentBox" });
-                              if ($(this).dialog("option", "title") == "Time & Date Controls") { $("#timeDate").fadeIn(); }
-                            }});
+                      closeOnEscape: true, 
+                      resizable: false, 
+                      width: "auto",
+                      hide: { effect: "fade", duration: 300 }, 
+                      show: { effect: "fade", duration: 300 },
+                      position: { my: "left top", at: "left top", of: "#contentBox" },
+                      close: function( event, ui ) { 
+                        $(this).dialog("option", "position", { my: "left top", at: "left top", of: "#contentBox" }); 
+                      }});
                       
   // uncheck all the filter boxes
   $("#asteroid-filter").prop('checked', false);
@@ -262,8 +250,13 @@ function checkPageUpdate() {
   }
   checkPageUpdate();
 
+  // update to the current time
+  // add a second to account for tickDelta starting at 0
+  var currTime = new Date();
+  currTime.setTime(clock.getTime() + tickDelta + 1000);
+
   // update the clocks
-  $('#ksctime').html(formatUTCTime(currTime(), true));
+  $('#ksctime').html(formatUTCTime(currTime, true));
   if (launchCountdown > 0) { $('#launchCountdown').html(formatTime(launchCountdown, false)); }
   else if (launchCountdown == 0) { $('#launchCountdown').html("LIFTOFF!!"); }
   if (maneuverCountdown > 0) { $('#maneuverCountdown').html(formatTime(maneuverCountdown, false)); }
@@ -271,16 +264,12 @@ function checkPageUpdate() {
   launchCountdown--;
   maneuverCountdown--;
   
+  // update the dynamic orbit figure
+  if (isGGBAppletLoaded) { ggbApplet.setValue("UT", currUT()); }
+  
   // ensure timer accuracy, even catch up if browser slows tab in background
   // http://www.sitepoint.com/creating-accurate-timers-in-javascript/
   var diff = (new Date().getTime() - clock.getTime()) - tickDelta;
   tickDelta += 1000;
   setTimeout(tick, 1000 - diff);
-})();
-
-(function bodyTick() {
-  if (isGGBAppletLoaded) { ggbApplet.setValue("UT", (ggbApplet.getValue("UT") + 0.1) * bodyTimeRate); }
-  var diff = (new Date().getTime() - clock.getTime()) - bodyTickDelta;
-  bodyTickDelta += 100;
-  setTimeout(bodyTick, 100 - diff);
 })();
