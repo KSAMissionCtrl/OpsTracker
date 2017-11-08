@@ -311,40 +311,44 @@ function figureClick(object) {
   
   // for a vessel/asteroid
   } else if (object.includes("conic")) {
-    if (!$("#labels").is(":checked")) {
-      if (strTinyBodyLabel == object) {
-        var objID = strTinyBodyLabel.replace("conic", "");
-        ggbApplet.setLabelVisible(objID + "position", false);
+    if (strTinyBodyLabel == object) {
+      var objID = strTinyBodyLabel.replace("conic", "");
+      if (!$("#labels").is(":checked")) { ggbApplet.setLabelVisible(objID + "position", false); }
+      if (!$("#nodes").is(":checked")) { 
         ggbApplet.setVisible(objID + "penode", false);
         ggbApplet.setVisible(objID + "apnode", false);
         ggbApplet.setVisible(objID + "anode", false);
         ggbApplet.setVisible(objID + "dnode", false);
-        ggbOrbits.find(o => o.ID === objID).showName = false;
-        ggbOrbits.find(o => o.ID === objID).showNodes = false;
-        strTinyBodyLabel = "";
-      } else {
-        if (strTinyBodyLabel.length) {
-          if (strTinyBodyLabel.includes("23")) {
-            ggbApplet.setLabelVisible(strTinyBodyLabel.charAt(0) + "36", false);
-          } else {
-            var objID = strTinyBodyLabel.replace("conic", "");
-            ggbApplet.setLabelVisible(objID + "position", false);
+      }
+      ggbOrbits.find(o => o.ID === objID).showName = false;
+      ggbOrbits.find(o => o.ID === objID).showNodes = false;
+      strTinyBodyLabel = "";
+    } else {
+      if (strTinyBodyLabel.length) {
+        if (strTinyBodyLabel.includes("23")) {
+          ggbApplet.setLabelVisible(strTinyBodyLabel.charAt(0) + "36", false);
+        } else {
+          var objID = strTinyBodyLabel.replace("conic", "");
+          if (!$("#labels").is(":checked")) { ggbApplet.setLabelVisible(objID + "position", false); }
+          if (!$("#nodes").is(":checked")) { 
             ggbApplet.setVisible(objID + "penode", false);
             ggbApplet.setVisible(objID + "apnode", false);
             ggbApplet.setVisible(objID + "anode", false);
             ggbApplet.setVisible(objID + "dnode", false);
           }
+          ggbOrbits.find(o => o.ID === objID).showName = false;
+          ggbOrbits.find(o => o.ID === objID).showNodes = false;
         }
-        var objID = object.replace("conic", "");
-        ggbApplet.setLabelVisible(objID + "position", true);
-        ggbApplet.setVisible(objID + "penode", true);
-        ggbApplet.setVisible(objID + "apnode", true);
-        ggbApplet.setVisible(objID + "anode", true);
-        ggbApplet.setVisible(objID + "dnode", true);
-        ggbOrbits.find(o => o.ID === objID).showName = true;
-        ggbOrbits.find(o => o.ID === objID).showNodes = true;
-        strTinyBodyLabel = object;
       }
+      var objID = object.replace("conic", "");
+      ggbApplet.setLabelVisible(objID + "position", true);
+      ggbApplet.setVisible(objID + "penode", true);
+      ggbApplet.setVisible(objID + "apnode", true);
+      ggbApplet.setVisible(objID + "anode", true);
+      ggbApplet.setVisible(objID + "dnode", true);
+      ggbOrbits.find(o => o.ID === objID).showName = true;
+      ggbOrbits.find(o => o.ID === objID).showNodes = true;
+      strTinyBodyLabel = object;
     }
     return;
   }

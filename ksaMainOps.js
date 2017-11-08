@@ -6,7 +6,7 @@ var isCatalogDataLoaded = false;
 var isMenuDataLoaded = false;
 var isEventDataLoaded = false;
 var isOrbitDataLoaded = false;
-var UTC = 5;
+var UTC = 4;
 var launchCountdown = -1;
 var maneuverCountdown = -1;
 var tickDelta = 0;
@@ -33,7 +33,8 @@ var updatesList = [];
 // current game time is the difference between current real time minus number of ms since midnight on 9/13/16
 // account for fact that game started during DST and also convert to seconds
 UT = ((clock.getTime() - foundingMoment) / 1000);
-if (clock.toString().search("Standard") >= 0) { UT += 3600; UTC = 4; }
+if (clock.toString().search("Standard") >= 0) { UT += 3600; UTC = 5; }
+if (getParameterByName("showUT")) { console.log(UT + " " + clock); }
 
 // handle history state changes
 window.onpopstate = function(event) {
