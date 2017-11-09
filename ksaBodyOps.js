@@ -48,9 +48,19 @@ function loadBody(body) {
   // for tag loading
   // $("#contentHeader").spin({ scale: 0.35, position: 'relative', top: '10px', left: (((955/2) + (body.width('bold 32px arial')/2)) + 10) +'px' });
   document.title = "KSA Operations Tracker" + " - " + body.replace("-", " ");
-  history.pushState({Type: "body", ID: body}, document.title, "http://www.kerbalspace.agency/Tracker/tracker.asp?body=" + body);
   if (isGGBAppletLoaded && strCurrentBody == body.split("-")[0]) { return; }
   strCurrentBody = body.split("-")[0];
+  
+  // modify the history if this is a new page click not a back/forward event
+  if (!historyChange) { 
+  
+    // if this is the first page to load, replace the current history
+    if (!history.state) {
+      history.replaceState({Type: "body", ID: body}, document.title, "http://www.kerbalspace.agency/Tracker/tracker.asp?body=" + body); 
+    } else {
+      history.pushState({Type: "body", ID: body}, document.title, "http://www.kerbalspace.agency/Tracker/tracker.asp?body=" + body); 
+    }
+  } else { historyChange = false; }
 
   // close dialog, reset load flag, checkboxes, page name/title & history
   $("#figureDialog").dialog("close");

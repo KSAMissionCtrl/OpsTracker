@@ -6,8 +6,17 @@ function loadVessel(vessel) {
   // $("#contentHeader").spin({ scale: 0.35, position: 'relative', top: '10px', left: (((955/2) + (vessel.width('bold 32px arial')/2)) + 10) +'px' });
   document.title = "KSA Operations Tracker" + " - " + vessel;
   strCurrentVessel = vessel;
-  history.pushState({Type: "vessel", ID: vessel}, document.title, "http://www.kerbalspace.agency/Tracker/tracker.asp?vessel=" + vessel);
   
+  // modify the history if this is a new page click not a back/forward event
+  if (!historyChange) { 
+  
+    // if this is the first page to load, replace the current history
+    if (!history.state) {
+      history.replaceState({Type: "vessel", ID: vessel}, document.title, "http://www.kerbalspace.agency/Tracker/tracker.asp?vessel=" + vessel);
+    } else {
+      history.pushState({Type: "vessel", ID: vessel}, document.title, "http://www.kerbalspace.agency/Tracker/tracker.asp?vessel=" + vessel);
+    }
+  } else { historyChange = false; }
 }
 
 // sends out the AJAX call for data to add any vessels to a GeoGebra figure/Leaflet library once it has loaded

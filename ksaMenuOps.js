@@ -193,7 +193,7 @@ function loadMenuAJAX(xhttp) {
       for (nameIndex=0; nameIndex<names.length; nameIndex++) {
         var pair = names[nameIndex].split(";");
         if (pair[0] > currUT()) { break; }
-        refNum = pair[1];
+        refNum = parseInt(pair[1]);
       }
       if (nameIndex < names.length) { updatesList.push({ Type: "menu;name", ID: item.DB, UT: names[nameIndex].split(";")[0] }); }
     } else { strVesselName = item.Vessel; }
