@@ -6,7 +6,6 @@ var isCatalogDataLoaded = false;
 var isMenuDataLoaded = false;
 var isEventDataLoaded = false;
 var isOrbitDataLoaded = false;
-var historyChange = false;
 var UTC = 4;
 var launchCountdown = -1;
 var maneuverCountdown = -1;
@@ -39,10 +38,7 @@ if (getParameterByName("showUT")) { console.log(UT + " " + clock); }
 
 // handle history state changes
 window.onpopstate = function(event) {
-  console.log(pageType + " " + event.state.Type + " " + event.state.ID);
-  console.log(window.history);
   swapContent(event.state.Type, event.state.ID);
-  historyChange = true;
 };
 
 // animate the size of the main content box

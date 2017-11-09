@@ -7,16 +7,14 @@ function loadVessel(vessel) {
   document.title = "KSA Operations Tracker" + " - " + vessel;
   strCurrentVessel = vessel;
   
-  // modify the history if this is a new page click not a back/forward event
-  if (!historyChange) { 
-  
-    // if this is the first page to load, replace the current history
-    if (!history.state) {
-      history.replaceState({Type: "vessel", ID: vessel}, document.title, "http://www.kerbalspace.agency/Tracker/tracker.asp?vessel=" + vessel);
-    } else {
-      history.pushState({Type: "vessel", ID: vessel}, document.title, "http://www.kerbalspace.agency/Tracker/tracker.asp?vessel=" + vessel);
-    }
-  } else { historyChange = false; }
+  // modify the history so people can page back/forward
+  // if this is the first page to load, replace the current history
+  // don't create a new entry if this is the same page being reloaded
+  if (!history.state) {
+    history.replaceState({Type: "vessel", ID: vessel}, document.title, "http://www.kerbalspace.agency/Tracker/tracker.asp?vessel=" + vessel);
+  } else if (history.state.ID != vessel) {
+    history.pushState({Type: "vessel", ID: vessel}, document.title, "http://www.kerbalspace.agency/Tracker/tracker.asp?vessel=" + vessel);
+  }
 }
 
 // sends out the AJAX call for data to add any vessels to a GeoGebra figure/Leaflet library once it has loaded

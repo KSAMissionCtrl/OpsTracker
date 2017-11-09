@@ -51,16 +51,14 @@ function loadBody(body) {
   if (isGGBAppletLoaded && strCurrentBody == body.split("-")[0]) { return; }
   strCurrentBody = body.split("-")[0];
   
-  // modify the history if this is a new page click not a back/forward event
-  if (!historyChange) { 
-  
-    // if this is the first page to load, replace the current history
-    if (!history.state) {
-      history.replaceState({Type: "body", ID: body}, document.title, "http://www.kerbalspace.agency/Tracker/tracker.asp?body=" + body); 
-    } else {
-      history.pushState({Type: "body", ID: body}, document.title, "http://www.kerbalspace.agency/Tracker/tracker.asp?body=" + body); 
-    }
-  } else { historyChange = false; }
+  // modify the history so people can page back/forward
+  // if this is the first page to load, replace the current history
+  // don't create a new entry if this is the same page being reloaded
+  if (!history.state) {
+    history.replaceState({Type: "body", ID: body}, document.title, "http://www.kerbalspace.agency/Tracker/tracker.asp?body=" + body); 
+  } else if (history.state.ID != body) {
+    history.pushState({Type: "body", ID: body}, document.title, "http://www.kerbalspace.agency/Tracker/tracker.asp?body=" + body); 
+  }
 
   // close dialog, reset load flag, checkboxes, page name/title & history
   $("#figureDialog").dialog("close");
