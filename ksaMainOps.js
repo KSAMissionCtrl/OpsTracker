@@ -1,11 +1,16 @@
 var UT;
 var timeoutHandle;
+var currentVesselData;
+var currentCrewData;
+var pageType;
 var clock = new Date();
 var isGGBAppletLoaded = false;
 var isCatalogDataLoaded = false;
 var isMenuDataLoaded = false;
 var isEventDataLoaded = false;
 var isOrbitDataLoaded = false;
+var isGGBAppletLoading = false;
+var isDirty = false;
 var UTC = 4;
 var launchCountdown = -1;
 var maneuverCountdown = -1;
@@ -13,6 +18,7 @@ var tickDelta = 0;
 var updatesListSize = 0;
 var strTinyBodyLabel = "";
 var strCurrentBody = "Kerbol";
+var strCurrentSystem = "Kerbol-System";
 var strCurrentVessel = "";
 var strCurrentCrew = "";
 var orbitColors = {probe: "#FFD800", debris: "#ff0000", ship: "#0094FF", station: "#B200FF", asteroid: "#996633"};
@@ -20,13 +26,11 @@ var planetLabels = [];
 var nodes = [];
 var nodesVisible = [];
 var ggbOrbits = [];
-var pageType;
 var craftsMenu = [];
 var crewMenu = [];
 var distanceCatalog = [];
 var bodyCatalog = [];
 var partsCatalog = [];
-var vesselCatalog = [];
 var orbitCatalog = [];
 var updatesList = [];
 
@@ -116,7 +120,7 @@ function setupContent() {
   if (getParameterByName("vessel").length) { swapContent("vessel", getParameterByName("vessel")); }
   else if (getParameterByName("body").length) { swapContent("body", getParameterByName("body")); }
   else if (getParameterByName("crew").length) { swapContent("crew", getParameterByName("crew")); }
-  else { swapContent("body", getParameterByName("body")); }
+  else { swapContent("body", "Kerbol-System"); }
 }
 
 // switch from one layout to another
@@ -124,11 +128,21 @@ function swapContent(newPageType, id) {
   
   // initial page load
   if (!pageType) {
+    pageType = newPageType;
     if (newPageType == "body") {
       $("#contentBox").css('top', '40px');
       $("#contentBox").css('height', '885px');
       $("#contentBox").fadeIn();
       loadBody(id);
+    }
+    if (newPageType == "vessel") {
+      $("#contentBox").css('top', '40px');
+      $("#contentBox").css('height', '885px');
+      $("#contentBox").fadeIn();
+      lowerContent();
+      $("#infoBox").fadeIn();
+      $("#dataBox").fadeIn();
+      loadVessel(id);
     }
     return;
   } 
@@ -139,8 +153,8 @@ function swapContent(newPageType, id) {
     if (newPageType == "vessel") { loadVessel(id); }
     if (newPageType.includes("crew") ) { loadCrew(id); }
     return;
-  } 
-  
+  }
+
   // hide the current content
   if (pageType == "body") {
     lowerContent();
@@ -151,6 +165,9 @@ function swapContent(newPageType, id) {
   } else if (pageType == "vessel" && newPageType == "body") {
     $("#infoBox").fadeOut();
     $("#dataBox").fadeOut();
+    $("#contentBox").spin(false);
+    $("#infoBox").spin(false);
+    $("#dataField0").spin(false);
   } else if (pageType == "crew") {
     if (newPageType == "body") {
       $("#infoBox").fadeOut();
@@ -163,6 +180,7 @@ function swapContent(newPageType, id) {
   }
   
   // show/load the new content
+  pageType = newPageType;
   if (newPageType == "body") {
     raiseContent();
     setTimeout(function() { 
@@ -217,12 +235,22 @@ function updatePage(updateEvent) {
     } else if (updateEvent.ID == "maneuver") {
       console.log("maneuver update");
     } else { console.log("unknown event update"); console.log(updateEvent); }
-  } else if (updateEvent.Type.includes("vessel")) {
+  } else if (updateEvent.Type.includes("vessel") && updateEvent.ID == strCurrentVessel) {
     if (updateEvent.Type.split(";")[1] == "orbit") {
       console.log("vessel orbit update");
     } else if (updateEvent.Type.split(";")[1] == "flightplan") {
       console.log("vessel flightplan update");
-    }
+    } else if (updateEvent.Type.split(";")[1] == "data") {
+      console.log("vessel data update");
+    } else if (updateEvent.Type.split(";")[1] == "resources") {
+      console.log("vessel resources update");
+    } else if (updateEvent.Type.split(";")[1] == "crew") {
+      console.log("vessel crew update");
+    } else if (updateEvent.Type.split(";")[1] == "comms") {
+      console.log("vessel comms update");
+    } else if (updateEvent.Type.split(";")[1] == "ports") {
+      console.log("vessel ports update");
+    } else { console.log("unknown vessel update"); console.log(updateEvent); }
   }
 }
 

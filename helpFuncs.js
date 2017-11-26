@@ -157,3 +157,24 @@ function hexToRgb(hex) {
     b: parseInt(result[3], 16)
   } : null;
 }
+
+// put all the fields from a recordset into an object
+function rsToObj(data) {
+  var object = {};
+  var fields = data.split("`");
+  if (fields.length > 1) {
+    fields.forEach(function(item, index) {
+    
+      // now get the name/value and assign the object
+      var pair = item.split("~");
+      if (pair[1] == "") {
+        object[pair[0]] = null;
+      } else if ($.isNumeric(pair[1])) {
+        object[pair[0]] = parseFloat(pair[1]);
+      } else {
+        object[pair[0]] = pair[1];
+      }
+    });
+  } else { object = null; }
+  return object;
+}

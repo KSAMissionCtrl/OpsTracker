@@ -8,17 +8,7 @@ function loadMenuAJAX(xhttp) {
   var crafts = menuData[0].split("*");
   var crew = menuData[1].split("|");
   crafts.forEach(function(item, index) {
-    var craft = {};
-  
-    // separate the fields of this craft
-    var fields = item.split("`");
-    fields.forEach(function(item, index) {
-    
-      // now get the name/value and assign the object
-      var pair = item.split("~");
-      craft[pair[0]] = pair[1];
-    });
-    craftsMenu.push(craft);
+    craftsMenu.push(rsToObj(item));
   });
   
   // crew members returned as null are not yet able to be shown until a later date
@@ -297,6 +287,16 @@ function loadMenuAJAX(xhttp) {
   });
   isMenuDataLoaded = true;
   
+  // show what was loaded
+  var menuID;
+  if (getParameterByName("body")) { menuID = getParameterByName("body"); }
+  if (getParameterByName("vessel")) { menuID = getParameterByName("vessel"); }
+  if (getParameterByName("crew")) { menuID = getParameterByName("crew"); }
+  if (menuID) {
+    w2ui['menu'].select(menuID);
+    w2ui['menu'].expandParents(menuID);
+  }
+  
   // setup the crew menu & handle future changes
   filterCrewMenu("name");
   $('input:radio').change(function () {
@@ -480,3 +480,8 @@ function extractVesselIDs(nodes) {
   return strVessels;
 }
 
+// recursive function to find the parent system of a node n deep
+function getParentSystem(nodeID) {
+  if (w2ui['menu'].get(nodeID).parent.id.includes("System")) { return w2ui['menu'].get(nodeID).parent.id; }
+  else { getParentSystem(w2ui['menu'].get(nodeID).parent.id); }
+}

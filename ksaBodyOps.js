@@ -30,39 +30,59 @@ function loadBodyAJAX(xhttp) {
 
 // load a new GeoGebra figure into the main content window
 function loadBody(body) {
-  
-  // if there is a body loading and this isn't an initial page load, then try calling back later
-  if (!isGGBAppletLoaded && pageType) {
+
+  // if there is already a body loading then try calling back later
+  if (isGGBAppletLoading) {
     setTimeout(function() {
       loadBody(body);
     }, 1000)
     return;
   }
-  pageType = "body";
-  
-  // default to kerbol system
-  if (!body.length) { body = "Kerbol-System"; }
-  
-  // if body is already loaded, then just exit
-  $("#contentHeader").html(body.replace("-", " "));
-  // for tag loading
-  // $("#contentHeader").spin({ scale: 0.35, position: 'relative', top: '10px', left: (((955/2) + (body.width('bold 32px arial')/2)) + 10) +'px' });
-  document.title = "KSA Operations Tracker" + " - " + body.replace("-", " ");
-  if (isGGBAppletLoaded && strCurrentBody == body.split("-")[0]) { return; }
-  strCurrentBody = body.split("-")[0];
-  
-  // modify the history so people can page back/forward
-  // if this is the first page to load, replace the current history
-  // don't create a new entry if this is the same page being reloaded
-  if (!history.state) {
-    history.replaceState({Type: "body", ID: body}, document.title, "http://www.kerbalspace.agency/Tracker/tracker.asp?body=" + body); 
-  } else if (history.state.ID != body) {
-    history.pushState({Type: "body", ID: body}, document.title, "http://www.kerbalspace.agency/Tracker/tracker.asp?body=" + body); 
-  }
+  isGGBAppletLoading = true;
 
-  // close dialog, reset load flag, checkboxes, page name/title & history
+  // do not do any of this if the current page is not set to body
+  // in that case a vessel page is changing the figure because the current vessel orbit was not loaded
+  if (pageType != "vessel") {
+
+    // default to kerbol system
+    if (!body.length) { body = "Kerbol-System"; }
+    $("#contentHeader").html(body.replace("-", " "));
+    document.title = "KSA Operations Tracker" + " - " + body.replace("-", " ");
+    
+    // modify the history so people can page back/forward
+    // if this is the first page to load, replace the current history
+    // don't create a new entry if this is the same page being reloaded
+    if (!history.state) {
+      history.replaceState({Type: "body", ID: body}, document.title, "http://www.kerbalspace.agency/Tracker/tracker.asp?body=" + body); 
+    } else if (history.state.ID != body) {
+      history.pushState({Type: "body", ID: body}, document.title, "http://www.kerbalspace.agency/Tracker/tracker.asp?body=" + body); 
+    }
+
+    // for tag loading
+    // $("#contentHeader").spin({ scale: 0.35, position: 'relative', top: '10px', left: (((955/2) + (body.width('bold 32px arial')/2)) + 10) +'px' });
+
+    // if body is already loaded, then just exit
+    if (isGGBAppletLoaded && strCurrentBody == body.split("-")[0]) { 
+      if (isDirty) {
+        ggbApplet.reset();
+        isDirty = false;
+      }
+      isGGBAppletLoading = false;
+      return;
+    }
+  
+  // if this is a vessel page calling the load then set a flag to let us know the figure will need to be reset next time it is shown
+  } else if (pageType == "vessel") { isDirty = true; }
+
+  // update the current body & system
+  strCurrentBody = body.split("-")[0];
+  if (body.includes("System")) { strCurrentSystem = body; }
+  
+  // hide and reset stuff
   $("#figureDialog").dialog("close");
   isGGBAppletLoaded = false;
+  orbitCatalog = [];
+  strCurrentVessel = "";
   $("#figureOptions").fadeOut();
   $("#nodes").prop('checked', true);
   $("#labels").prop('checked', true);
@@ -72,6 +92,9 @@ function loadBody(body) {
   // remove and add the figure container
   $("#figure").remove();
   $("#contentBox").html("<div id='figure'></div>");
+  
+  // hide it if this isn't a body page
+  if (pageType != "body") { $("#figure").hide(); } 
 
   // hide & disable the filters
   $("#vesselOrbitTypes").fadeOut();
@@ -86,7 +109,7 @@ function loadBody(body) {
   // can use cookies to check for prev version and load new cache if needed
   var parameters = {"prerelease":false,
                     "width":w2utils.getSize("#contentBox", 'width'),
-                    "height":w2utils.getSize("#contentBox", 'height'),
+                    "height":885,
                     "showToolBar":false,
                     "borderColor":null,
                     "showMenuBar":false,
@@ -121,7 +144,7 @@ function ggbOnInit(){
   $("#ref").prop('checked', true);
 
   // disable the spinner & show checkboxes if this is the first load
-  if (!isGGBAppletLoaded) { 
+  if (!isGGBAppletLoaded && pageType == "body") { 
     $("#contentBox").spin(false); 
     $("#figureOptions").fadeIn();
   }
@@ -147,8 +170,12 @@ function ggbOnInit(){
   // listen for any objects clicked on
   ggbApplet.registerClickListener("figureClick");
   
-  // load any vessels in orbit around this object
-  if (!loadVesselOrbits()) { isGGBAppletLoaded = true; }
+  // load any vessels in orbit around this object, or if this was a reload, just redraw them
+  if (!orbitCatalog.length && !loadVesselOrbits()) { isGGBAppletLoaded = true; isGGBAppletLoading = false;  }
+  else if (orbitCatalog.length) { 
+    orbitCatalog.forEach(function(item, index) { if (item.Orbit) { addGGBOrbit(item.ID, item.Orbit); } }); 
+    $("#vesselOrbitTypes").fadeIn();
+  }
   
   // declutter the view after a few seconds
   // make sure a quick figure switch doesn't declutter things too fast
@@ -397,7 +424,7 @@ function figureClick(object) {
       if (getParameterByName("body") == "Kerbin-System" && strBodyName == "Kerbin") {
         strHTML += "<p><a href='http://www.kerbalspace.agency/Tracker/body.asp?db=bodies&body=Kerbin&map=true' style='cursor: pointer; color: blue; text-decoration: none;'>View Surface</a> | ";
       } else if (bodyCatalog[bodyIndex].Moons && !$("#contentHeader").html().includes(strBodyName)) {
-        strHTML += "<span onclick='loadBody(&quot;" + strBodyName + "-System&quot;)' style='cursor: pointer; color: blue;'>View System</span> | "
+        strHTML += "<span onclick='bodyClick(&quot;" + strBodyName + "-System&quot;)' style='cursor: pointer; color: blue;'>View System</span> | "
       }
       // no nodes to show unless body has an eccentric or inclined orbit
       if ((parseFloat(bodyCatalog[bodyIndex].Ecc) || parseFloat(bodyCatalog[bodyIndex].Inc)) && !$("#contentHeader").html().includes(strBodyName)) {
@@ -456,7 +483,11 @@ function figureClick(object) {
     $("#figureDialog").dialog("close");
   
     // only swap to vessel view on one click if orbits are shown
-    if ($("#orbits").is(":checked")) { swapContent("vessel", ggbApplet.getValueString(object.replace("position", "id"))); }
+    if ($("#orbits").is(":checked")) { 
+      swapContent("vessel", ggbApplet.getValueString(object.replace("position", "id"))); 
+      w2ui['menu'].select(ggbApplet.getValueString(object.replace("position", "id")));
+      w2ui['menu'].expandParents(ggbApplet.getValueString(object.replace("position", "id")));
+    }
     
     // show the orbit if the orbits are hidden
     if (!$("#orbits").is(":checked")) {
@@ -494,7 +525,11 @@ function figureClick(object) {
       }
       
       // if we did click on ourselves, then jump to the vessel view
-      else if (selectedObj && selectedObj.ID == object.replace("position" , "")) { swapContent("vessel", ggbApplet.getValueString(object.replace("position", "id"))); } 
+      else if (selectedObj && selectedObj.ID == object.replace("position" , "")) { 
+        swapContent("vessel", ggbApplet.getValueString(object.replace("position", "id")));
+        w2ui['menu'].select(ggbApplet.getValueString(object.replace("position", "id")));
+        w2ui['menu'].expandParents(ggbApplet.getValueString(object.replace("position", "id")));
+      } 
     }
     return;
   }
@@ -664,4 +699,11 @@ function filterVesselOrbits(id, checked) {
       }
     });
   }
+}
+
+// just need to show the menu item when clicked on via the info dialog, then we can load the body
+function bodyClick(body) {
+  w2ui['menu'].select(body);
+  w2ui['menu'].expandParents(body);
+  loadBody(body);
 }

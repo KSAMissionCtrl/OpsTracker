@@ -42,10 +42,12 @@
         <div id='dataField14' class='dataField'>Data</div>
         <div id='dataField15' class='dataField'>Data</div>
         <div id='dataField16' class='dataField' style='margin-bottom: 0px'>Data</div>
-        <select name='prev' style='margin: 2px'>
+        <select name='prev' style='margin: 2px; width: 53px' disabled>
+          <option value='prev'>Prev Event(s)</option>
         </select>
-        <span id='missionStatus'>test text</span>
-        <select name='next' style='margin: 2px'>
+        <span id='missionStatus'>&nbsp;</span>
+        <select name='next' style='margin: 2px; width: 53px' disabled>
+          <option value='next'>Next Event(s)</option>
         </select>
       </div>
       <div id='crewFooter' style='text-align: center; margin-left: 503px; margin-top: 5px; display: none'>
@@ -72,6 +74,7 @@
       </div>
       <div id='figureDialog'></div>
       <div id='map'></div>
+      <div id='genericContent'></div>
       <div id='messageDialog'></div>
       <div id='footer' style='text-align: center; width: 955px; top: 930px; position: absolute;'><a target='_blank' href='http://www.kerbalspace.agency'>KSA Home Page</a> | 2D Orbit rendering: <a target='_blank' href='http://bit.ly/KSPTOT'>KSPTOT</a> | 3D Orbit Rendering: <a target='_blank' href='http://forum.kerbalspaceprogram.com/index.php?/topic/158826-3d-ksp-solar-system-scale-model-major-update-05202017/'>by Syntax</a> | <a target='_blank' href='https://github.com/KSAMissionCtrl/FlightTracker/wiki/Flight-Tracker-Documentation'>Flight Tracker Wiki</a></div>
     </div>
@@ -109,12 +112,12 @@
       <!-- Twitter display -->
 
       <div id='twitterBox'><a href="https://twitter.com/KSA_MissionCtrl" class="twitter-follow-button" data-show-count="true">Follow @KSA_MissionCtrl</a><script async src="//platform.twitter.com/widgets.js" charset="utf-8"></script></center>
-      <div id='twitterDisplay' style='font-size: 12px'>Current Source: <strong>KSA Main Feed</strong></div>
+      <div id='twitterTimelineSelection' style='font-size: 12px'>Sources: <strong>KSA Main Feed</strong></div>
   <a class="twitter-timeline" href="https://twitter.com/KSA_MissionCtrl" data-widget-id="598711760149852163" height="550" data-chrome="nofooter noheader">Tweets by @KSA_MissionCtrl</a> <script>!function(d,s,id){var js,fjs=d.getElementsByTagName(s)[0],p=/^http:/.test(d.location)?'http':'https';if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src=p+"://platform.twitter.com/widgets.js";fjs.parentNode.insertBefore(js,fjs);}}(document,"script","twitter-wjs");</script></div>
     </div>
   </div>
   
-  <!-- JS libraries -->
+  <!-- JS files -->
   <script src="http://ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js"></script>
   <script src="https://cdn.geogebra.org/apps/deployggb.js"></script>
   <script src="../lib/jquery-ui.min.js"></script>
