@@ -105,7 +105,7 @@ function formatUTCTime(time, local) {
 function UTtoDateTime(UT, local) {
   var d = new Date();
   d.setTime(foundingMoment + (UT * 1000));
-  if (d.toString().search("Standard") >= 0) { d.setTime(foundingMoment + ((UT - 3600) * 1000)) }
+  if (d.toString().search("Standard") == 0) { d.setTime(foundingMoment + (UT - 3600) * 1000) }
   return formatUTCTime(d, local);
 }
 
