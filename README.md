@@ -46,16 +46,14 @@ Blank template MDB Access files are included.
 * [FT] Be able to tell if a trajectory intercepting the atmosphere is an aerobrake or re-entry
 * [FT] Detect trajectories that hit the surface on airless bodies and show a landing mark
 * [FT] Fix issues with Sketchfab model support (button display for new hoverbox behavior, start/stop on show/hide)
-* [FT] Multiple thruster/engine images to account for image of current craft rotation position
 * [FT] Proper terminator display taking orbital inclination into account ([Leaflet.Curve](https://github.com/elfalem/Leaflet.curve)) - can possiblt adapt [ScanSat code](https://forum.kerbalspaceprogram.com/index.php?/topic/87351-ksp-130-scansat-v179-dev-version-june-28-2017/&do=findComment&comment=2993781)
 * [FT/CR] Communicate with the website to display update badges on the menu items for Flight Tracker and Crew Roster
 * [CR] when hovering over a ribbon, clicking will show previous types of that ribbon below the current one earned so ppl can hover over them for dates and info. Moving mouse off will hide them. Border needed around them or they will just seem to replace any other ribbons below
 * [FT] Playback controls for ground track data. Include in popup windows to let ppl jump to beginning or end of track and see a real-time update of data (center popup, move along track)
 * [FT] Allow download of aircraft flight data in spreadsheet form via the More Info pop-up
 * [FT] Upgrade to the latest version of Leaflet using a [new maps library](https://gitlab.com/IvanSanchez/Leaflet.Kerbal)
-* [CR] Reverse-order mission listing so newest is at top
+* [CR] Reverse-order crew mission listing so newest is at top
 * [FT] Hyperbolic orbit rendering in GeoGebra figures
-* [FT] Only load & show the orbit for one vessel/asteroid using a URL paramter
 
 ### Change Log
 
@@ -79,6 +77,7 @@ Changes:
   - Inactive Vessels are organized into folders sorted by year descending and then month ascending
   - Active Vessels are listed in alphabetical order
   - The twitter stream shown can be changed in some instances to view only tweets relevant to the mission/vessel/crew member
+  - Clicking for additional vessel information no longer pulls up text but instead opens a dialog box containing the text, which can be moved and resized. When closed, it will re-open over top the vessel image again next time
 
 Additions:
   - When viewing a system that has vessels in orbit, they are dynamically loaded and added to the GeoGebra figure
