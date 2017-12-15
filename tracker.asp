@@ -20,10 +20,22 @@
 </head>
 
 <body onload='setupContent()'>
+
+  <!-- hidden div that is set to contain data to show in tooltip -->
+  <div id='mapTipData' style='display: none'></div>
+
+  <!-- hidden div with dynamic tooltip for non-Firefox use to display over image maps -->
+  <div id="mapTip" class='nonFFTip' data-tipped-options="inline: 'mapTipData', target: 'mouse', behavior: 'hide', detach: false"></div>
+
   <div id='contentContainer'>
     <div id='mainContent'>
       <div id='contentHeader' class='header'>&nbsp;</div>
-      <div id='infoBox' style='width: 650px; height: 400px;'>Info Box</div>
+      <div id='infoBox' style='width: 650px; height: 400px;'>
+        <div id='vesselImg' class='overlay'></div>
+        <div id='partsImg' class='overlay'></div>
+        <div id='infoTitle' onclick='showVesselInfo()'></div>
+      </div>
+      <div id='infoDialog'></div>
       <div id='dataBox' style='margin-left: 655px;'>
         <div id='dataField0' class='dataField'>Data</div>
         <div id='dataField1' class='dataField'>Data</div>
@@ -45,7 +57,7 @@
         <select name='prev' style='margin: 2px; width: 53px' disabled>
           <option value='prev'>Prev Event(s)</option>
         </select>
-        <span id='missionStatus'>&nbsp;</span>
+        Mission History
         <select name='next' style='margin: 2px; width: 53px' disabled>
           <option value='next'>Next Event(s)</option>
         </select>

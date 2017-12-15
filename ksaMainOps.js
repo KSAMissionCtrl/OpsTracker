@@ -11,11 +11,13 @@ var isEventDataLoaded = false;
 var isOrbitDataLoaded = false;
 var isGGBAppletLoading = false;
 var isDirty = false;
+var isTipShow = false;
 var UTC = 4;
 var launchCountdown = -1;
 var maneuverCountdown = -1;
 var tickDelta = 0;
 var updatesListSize = 0;
+var vesselRotationIndex = 0;
 var strTinyBodyLabel = "";
 var strCurrentBody = "Kerbol";
 var strCurrentSystem = "Kerbol-System";
@@ -33,6 +35,77 @@ var bodyCatalog = [];
 var partsCatalog = [];
 var orbitCatalog = [];
 var updatesList = [];
+
+// get our platform properties for post-launch surveys
+// http://stackoverflow.com/questions/11219582/how-to-detect-my-browser-version-and-operating-system-using-javascript
+var nVer = navigator.appVersion;
+var nAgt = navigator.userAgent;
+var browserName  = navigator.appName;
+var fullVersion  = ''+parseFloat(navigator.appVersion); 
+var majorVersion = parseInt(navigator.appVersion,10);
+var nameOffset,verOffset,ix;
+
+// In Opera, the true version is after "Opera" or after "Version"
+if ((verOffset=nAgt.indexOf("Opera"))!=-1) {
+ browserName = "Opera";
+ fullVersion = nAgt.substring(verOffset+6);
+ if ((verOffset=nAgt.indexOf("Version"))!=-1) 
+   fullVersion = nAgt.substring(verOffset+8);
+}
+
+// In MSIE, the true version is after "MSIE" in userAgent
+else if ((verOffset=nAgt.indexOf("MSIE"))!=-1) {
+ browserName = "Microsoft Internet Explorer";
+ fullVersion = nAgt.substring(verOffset+5);
+}
+
+// In Chrome, the true version is after "Chrome" 
+else if ((verOffset=nAgt.indexOf("Chrome"))!=-1) {
+ browserName = "Chrome";
+ fullVersion = nAgt.substring(verOffset+7);
+}
+
+// In Safari, the true version is after "Safari" or after "Version" 
+else if ((verOffset=nAgt.indexOf("Safari"))!=-1) {
+ browserName = "Safari";
+ fullVersion = nAgt.substring(verOffset+7);
+ if ((verOffset=nAgt.indexOf("Version"))!=-1) 
+   fullVersion = nAgt.substring(verOffset+8);
+}
+
+// In Firefox, the true version is after "Firefox" 
+else if ((verOffset=nAgt.indexOf("Firefox"))!=-1) {
+ browserName = "Firefox";
+ fullVersion = nAgt.substring(verOffset+8);
+}
+
+// In most other browsers, "name/version" is at the end of userAgent 
+else if ( (nameOffset=nAgt.lastIndexOf(' ')+1) < 
+          (verOffset=nAgt.lastIndexOf('/')) ) 
+{
+ browserName = nAgt.substring(nameOffset,verOffset);
+ fullVersion = nAgt.substring(verOffset+1);
+ if (browserName.toLowerCase()==browserName.toUpperCase()) {
+  browserName = navigator.appName;
+ }
+}
+
+// trim the fullVersion string at semicolon/space if present
+if ((ix=fullVersion.indexOf(";"))!=-1)
+   fullVersion=fullVersion.substring(0,ix);
+if ((ix=fullVersion.indexOf(" "))!=-1)
+   fullVersion=fullVersion.substring(0,ix);
+majorVersion = parseInt(''+fullVersion,10);
+if (isNaN(majorVersion)) {
+ fullVersion  = ''+parseFloat(navigator.appVersion); 
+ majorVersion = parseInt(navigator.appVersion,10);
+}
+var browserDeets = browserName + " (v" + fullVersion + ") [" + navigator.appName + "] [" + navigator.userAgent + "]";
+var OSName="Unknown OS";
+if (navigator.appVersion.indexOf("Win")!=-1) OSName="Windows";
+if (navigator.appVersion.indexOf("Mac")!=-1) OSName="MacOS";
+if (navigator.appVersion.indexOf("X11")!=-1) OSName="UNIX";
+if (navigator.appVersion.indexOf("Linux")!=-1) OSName="Linux";
 
 // current game time is the difference between current real time minus number of ms since midnight on 9/13/16
 // account for fact that game started during DST and also convert to seconds
@@ -81,6 +154,7 @@ function setupContent() {
   // event load then calls menu load
   loadDB("loadEventData.asp?UT=" + currUT(), loadEventsAJAX);
   loadDB("loadBodyData.asp", loadBodyAJAX);
+  loadDB("loadPartsData.asp", loadPartsAJAX);
   
   // setup the planet data dialog box
   // when it is closed, it will return to the top-left of the figure
@@ -95,6 +169,22 @@ function setupContent() {
                         $(this).dialog("option", "position", { my: "left top", at: "left top", of: "#contentBox" }); 
                       }});
                       
+  // setup the info dialog box that will contain vessel status notes
+  // when it is closed, it will return to the center of the info box
+  $("#infoDialog").dialog({autoOpen: false, 
+                    closeOnEscape: true, 
+                    resizable: true, 
+                    title: "Additional Information",
+                    width: 650,
+                    height: 400,
+                    hide: { effect: "fade", duration: 300 }, 
+                    show: { effect: "fade", duration: 300 },
+                    position: { my: "center", at: "center", of: "#infoBox" },
+                    close: function( event, ui ) { 
+                      $(this).dialog("option", "position", { my: "center", at: "center", of: "#infoBox" }); 
+                      $(this).dialog("option", { width: 650, height: 400 }); 
+                    }});
+  
   // uncheck all the filter boxes
   $("#asteroid-filter").prop('checked', false);
   $("#debris-filter").prop('checked', false);
@@ -162,12 +252,17 @@ function swapContent(newPageType, id) {
     $("#vesselOrbitTypes").fadeOut();
     $("#figure").fadeOut();
     $("#figureDialog").dialog("close");
-  } else if (pageType == "vessel" && newPageType == "body") {
-    $("#infoBox").fadeOut();
-    $("#dataBox").fadeOut();
-    $("#contentBox").spin(false);
-    $("#infoBox").spin(false);
-    $("#dataField0").spin(false);
+  } else if (pageType == "vessel") {
+  
+    // some elements don't need to be hidden if switching to a crew page
+    if (newPageType != "crew") {
+      $("#infoBox").fadeOut();
+      $("#dataBox").fadeOut();
+      $("#contentBox").spin(false);
+      $("#infoBox").spin(false);
+      $("#dataField0").spin(false);
+    }
+    $("#infoDialog").dialog("close");
   } else if (pageType == "crew") {
     if (newPageType == "body") {
       $("#infoBox").fadeOut();

@@ -96,6 +96,12 @@ input:disabled+label {
   display: none;
 }
 
+.overlay {
+  position: absolute; 
+  top: 0px;
+  left: 0px;
+}
+
 #menuResize {
   margin: 2px;
   text-align: center;
@@ -124,7 +130,7 @@ input:disabled+label {
 }
 
 #infoBox {
-  background-color: green; 
+  position: relative;
   float: left;
   text-align: center;
   margin-top: 5px;
@@ -201,4 +207,21 @@ input:disabled+label {
   position: absolute; 
   margin-top: 5px; 
   display: none;
+}
+
+#infoTitle {
+  position: absolute; 
+  width: 650px;
+  height: 25px;
+  background-color: black;
+  top: 375px;
+  text-align: center;
+  cursor: pointer;
+  font-size: 18px; color: white; font-weight: bold;
+}
+
+#mapTip {
+  position: absolute;
+  display: none;
+  z-index: 9999999;
 }

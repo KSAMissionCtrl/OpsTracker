@@ -169,12 +169,30 @@ function rsToObj(data) {
       var pair = item.split("~");
       if (pair[1] == "") {
         object[pair[0]] = null;
-      } else if ($.isNumeric(pair[1])) {
-        object[pair[0]] = parseFloat(pair[1]);
       } else {
-        object[pair[0]] = pair[1];
+        
+        // check to make sure there are only two pairs
+        // if there are more than two we need to combine everything after the first entry
+        if (pair.length > 2) {
+          for (i=2; i<pair.length; i++) { pair[1] += "~" + pair[i]; }
+          object[pair[0]] = pair[1];
+        } else {
+          if ($.isNumeric(pair[1])) {
+            object[pair[0]] = parseFloat(pair[1]);
+          } else {
+            object[pair[0]] = pair[1];
+          }
+        }
       }
     });
   } else { object = null; }
   return object;
+}
+
+// determine whether this is a touchscreen device 
+// http://ctrlq.org/code/19616-detect-touch-screen-javascript
+function is_touch_device() {
+return (('ontouchstart' in window)
+        || (navigator.MaxTouchPoints > 0)
+        || (navigator.msMaxTouchPoints > 0));
 }

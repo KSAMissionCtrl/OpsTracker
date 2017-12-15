@@ -33,7 +33,9 @@ function loadVessel(vessel) {
   strCurrentVessel = vessel;
 
   // ensure the info box and data box are clear and hide/empty the contents
-  $("#infoBox").empty();
+  $("#infoTitle").empty();
+  $("#vesselImg").empty();
+  $("#partsImg").empty();
   for (fieldNum = 0; fieldNum < 17; fieldNum++) { 
     if ($("#dataField" + fieldNum).is(":visible")) { 
       $("#dataField" + fieldNum).empty(); 
@@ -140,4 +142,150 @@ function loadVesselDataAJAX(xhttp) {
   // store all the data
   currentVesselData = { Data: data, Resources: resources, Crew: crew, Comms: comms, Ports: ports, History: history };
   console.log(currentVesselData);
+  
+  // kill all spinners
+  $("#infoBox").spin(false);
+  $("#contentBox").spin(false);
+  $("#dataField0").spin(false);
+
+  // display all the data
+  vesselInfoUpdate();
+  vesselDataUpdate();
+  vesselContentUpdate();
+}
+
+// parses data used to display information on parts for vessels
+function loadPartsAJAX(xhttp) {
+  xhttp.responseText.split("^").forEach(function(item, index) { partsCatalog.push(rsToObj(item)); });
+  console.log(partsCatalog);
+}
+
+// updates all the data in the Info Box
+function vesselInfoUpdate() {
+  
+  // setup the basics
+  $("#vesselImg").html("<img src='" + getVesselImage() + "'>");
+  $("#infoTitle").html(currentVesselData.Data.CraftDescTitle);
+  $("#infoDialog").html(currentVesselData.Data.CraftDescContent);
+  
+  // is there a parts overlay?
+  if (getPartsHTML()) {
+    $("#partsImg").html(getPartsHTML());
+    setTimeout(function(){ if (!$('#infoBox').is(":hover")) $("#partsImg").fadeOut(1000); }, 1000);
+    assignPartInfo();
+    
+    // Non-Firefox support for image map tooltips with Tipped
+    $("area").hover(function() { 
+        console.log("hovering");
+
+      // HTML data is stashed in the alt attribute so other browsers don't show their own tooltip
+      if (browserName != "Firefox" && $(this).attr("alt")) { 
+        $("#mapTipData").html($(this).attr("alt"));
+        // get the coordinate data for the area and size/center the div around it
+        // div containing image map is below the title header, so offset must be applied
+        // div containing all content is left-margin: auto to center on page, so offset must be applied
+        areaCenter = $(this).attr("coords").split(",");
+        $("#mapTip").css("width", parseInt(areaCenter[2])*2);
+        $("#mapTip").css("height", parseInt(areaCenter[2])*2);
+        $("#mapTip").css("top", parseInt(areaCenter[1])+$("#infoBox").position().top-parseInt(areaCenter[2]));
+        $("#mapTip").css("left", parseInt(areaCenter[0])+$("#infoBox").position().left+$("#mainContent").position().left-parseInt(areaCenter[2]));
+        $("#mapTip").show();
+      }
+    }, function() {
+
+      // called once the div is shown atop this
+      Tipped.refresh(".nonFFTip");
+    });
+    
+    // set flag to tell main image that tooltip is or is no longer visible
+    $("#mapTip").hover(function() { 
+      isTipShow = true;
+    }, function() {
+      isTipShow = false;
+    });
+  }
+}
+
+function vesselDataUpdate() {
+}
+
+function vesselContentUpdate() {
+}
+
+// JQuery callbacks
+$("#infoBox").hover(function() { 
+  if (!$("#infoDialog").dialog("isOpen")) { $("#infoTitle").html("Click Here for Additional Information"); }
+  $("#partsImg").fadeIn();
+}, function() {
+  
+  // wait to give tooltips a chance to hide on mouseover before checking to see if we're actually off the image
+  setTimeout(function() {
+    if (!$('#infoBox').is(":hover") && !isTipShow) {
+      $("#infoTitle").html(currentVesselData.Data.CraftDescTitle);
+      $("#partsImg").fadeOut();
+    }
+  }, 250);
+});
+
+// opens the dialog box with more details on the vessel
+function showVesselInfo() {
+  if (!$("#infoDialog").dialog("isOpen")) { $("#infoDialog").dialog("open") }
+}
+
+// provides full details for all vessel parts, ensures the parts catalog is loaded
+function assignPartInfo() {
+  if (!partsCatalog.length) { setTimeout(assignPartInfo, 500); }
+  else {
+    $("area").each(function( index ) {
+      if ($(this ).attr("title").substr(0,1) == "&") {
+        strPartName = $(this ).attr("title").substr(1,$(this ).attr("title").length-1);
+
+        // we have to hack our own tooltips in other browsers so only redo the title attribute in Firefox
+        if (browserName == "Firefox") {
+          $(this).attr("title", partsCatalog.find(o => o.Part === strPartName).HTML);
+          
+        // for other browsers we are going to move the data to the alt tag so they don't create a tooltip
+        // and we can use it to plug the data into a dynamic tooltip attached to a div that moves over the cursor location
+        } else {
+          $(this).attr("title", ""); 
+          $(this).attr("alt", partsCatalog.find(o => o.Part === strPartName).HTML);
+        }
+      }
+    });
+    
+    // Non-Firefox support for image map tooltips
+    // check every <area> tag on the page for any title data remaining from custom part data not taken from the database
+    $("area").each(function( index ) {
+      if (browserName != "Firefox" && $(this).attr("title")) {
+        $(this).attr("alt", $(this).attr("title")); 
+        $(this).attr("title", ""); 
+      }
+    });      
+
+    // create the tooltips
+    // behavior of tooltips depends on the device
+    if (is_touch_device()) { showOpt = 'click'; }
+    else { showOpt = 'mouseenter'; }
+    if (browserName == "Firefox") {
+      Tipped.create('area', { showOn: showOpt, hideOnClickOutside: is_touch_device(), target: 'mouse' });
+    } else {
+      Tipped.create('.nonFFTip', { showOn: showOpt, hideOnClickOutside: is_touch_device(), target: 'mouse' });
+    }
+  }
+}
+
+// following Get functions perform parsing on data strings
+function getVesselImage() {
+  if (!currentVesselData.Data.CraftImg) {
+    return "nadaOp.png";
+  } else {
+    return currentVesselData.Data.CraftImg.split("|")[vesselRotationIndex].split("~")[0];
+  }
+}
+function getPartsHTML() {
+  if (!currentVesselData.Data.CraftImg) {
+    return null;
+  } else {
+    return currentVesselData.Data.CraftImg.split("|")[vesselRotationIndex].split("~")[3];
+  }
 }

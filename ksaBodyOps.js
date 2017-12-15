@@ -30,6 +30,9 @@ function loadBodyAJAX(xhttp) {
 
 // load a new GeoGebra figure into the main content window
 function loadBody(body) {
+  
+  // an attempt was made to load orbital data for an inactive vessel
+  if (body == "inactive") { return; }
 
   // if there is already a body loading then try calling back later
   if (isGGBAppletLoading) {

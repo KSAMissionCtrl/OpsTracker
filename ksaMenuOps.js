@@ -137,6 +137,9 @@ function loadMenuAJAX(xhttp) {
       // except if the parent is the Inactive Vessels node as that's just a category node
       } else if (!event.node.img.includes("folder") && event.node.parent.id != "inactiveVessels") {
         
+        // for now, ignore aircraft
+        if (event.node.img.includes("aircraft")) { return; }
+        
         // make sure this vessel isn't already loaded before refreshing the page if it is a vessel page
         if ((strCurrentVessel != event.node.id && pageType == "vessel") || (strCurrentVessel == event.node.id && pageType != "vessel") || (strCurrentVessel != event.node.id && pageType != "vessel")) { swapContent("vessel", event.node.id); }
       }
@@ -482,6 +485,7 @@ function extractVesselIDs(nodes) {
 
 // recursive function to find the parent system of a node n deep
 function getParentSystem(nodeID) {
-  if (w2ui['menu'].get(nodeID).parent.id.includes("System")) { return w2ui['menu'].get(nodeID).parent.id; }
-  else { getParentSystem(w2ui['menu'].get(nodeID).parent.id); }
+  if (w2ui['menu'].get(nodeID).parent.id == "inactiveVessels") { return "inactive"; }
+  else if (w2ui['menu'].get(nodeID).parent.id.includes("System")) { return w2ui['menu'].get(nodeID).parent.id; }
+  else { return getParentSystem(w2ui['menu'].get(nodeID).parent.id); }
 }
