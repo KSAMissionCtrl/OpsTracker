@@ -26,6 +26,7 @@ The following JavaScript libraries are used:
 * [JQuery UI](https://jqueryui.com/)
 * [w2ui sidebar](http://w2ui.com/web/demo/sidebar)
 * [Leaflet.EasyButton](https://github.com/CliffCloud/Leaflet.EasyButton)
+* [Font Awesome](http://fontawesome.io/icons/)
 
 Blank template MDB Access files are included.
 
@@ -47,7 +48,7 @@ Blank template MDB Access files are included.
 * [FT] Be able to tell if a trajectory intercepting the atmosphere is an aerobrake or re-entry
 * [FT] Detect trajectories that hit the surface on airless bodies and show a landing mark
 * [FT] Fix issues with Sketchfab model support (button display for new hoverbox behavior, start/stop on show/hide)
-* [FT] Proper terminator display taking orbital inclination into account ([Leaflet.Curve](https://github.com/elfalem/Leaflet.curve)) - can possiblt adapt [ScanSat code](https://forum.kerbalspaceprogram.com/index.php?/topic/87351-ksp-130-scansat-v179-dev-version-june-28-2017/&do=findComment&comment=2993781)
+* [FT] Proper terminator display taking orbital inclination into account ([Leaflet.Curve](https://github.com/elfalem/Leaflet.curve)) - can possibly adapt [ScanSat code](https://forum.kerbalspaceprogram.com/index.php?/topic/87351-ksp-130-scansat-v179-dev-version-june-28-2017/&do=findComment&comment=2993781)
 * [FT/CR] Communicate with the website to display update badges on the menu items for Flight Tracker and Crew Roster
 * [CR] when hovering over a ribbon, clicking will show previous types of that ribbon below the current one earned so ppl can hover over them for dates and info. Moving mouse off will hide them. Border needed around them or they will just seem to replace any other ribbons below
 * [FT] Playback controls for ground track data. Include in popup windows to let ppl jump to beginning or end of track and see a real-time update of data (center popup, move along track)
@@ -79,6 +80,7 @@ Changes:
   - Active Vessels are listed in alphabetical order
   - The twitter stream shown can be changed in some instances to view only tweets relevant to the mission/vessel/crew member
   - Clicking for additional vessel information no longer pulls up text but instead opens a dialog box containing the text, which can be moved and resized. When closed, it will re-open over top the vessel image again next time
+  - The surface map when viewed in the vessel page can now be expanded to fill the entire content area, as it essentially functions as the full surface map previously only available through a body view in the Flight Tracker
 
 Additions:
   - When viewing a system that has vessels in orbit, they are dynamically loaded and added to the GeoGebra figure
