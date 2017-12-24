@@ -94,7 +94,7 @@ function loadBody(body) {
   
   // remove and add the figure container
   $("#figure").remove();
-  $("#contentBox").html("<div id='figure'></div>");
+  $("#contentBox").append("<div id='figure'></div>");
   
   // hide it if this isn't a body page
   if (pageType != "body") { $("#figure").hide(); } 
@@ -425,9 +425,9 @@ function figureClick(object) {
       strHTML += "Atmosphere: " + bodyCatalog[bodyIndex].Atmo + "</p>";
       if (bodyCatalog[bodyIndex].Moons) { strHTML += "<p><b>Moons</b></p><p>" + bodyCatalog[bodyIndex].Moons + "</p>"; }
       if (getParameterByName("body") == "Kerbin-System" && strBodyName == "Kerbin") {
-        strHTML += "<p><a href='http://www.kerbalspace.agency/Tracker/body.asp?db=bodies&body=Kerbin&map=true' style='cursor: pointer; color: blue; text-decoration: none;'>View Surface</a> | ";
+        strHTML += "<p><span onclick='showMap()' style='cursor: pointer; color: blue; text-decoration: none;'>View Surface</span> | ";
       } else if (bodyCatalog[bodyIndex].Moons && !$("#contentHeader").html().includes(strBodyName)) {
-        strHTML += "<span onclick='bodyClick(&quot;" + strBodyName + "-System&quot;)' style='cursor: pointer; color: blue;'>View System</span> | "
+        strHTML += "<span class='fauxLink' onclick='bodyClick(&quot;" + strBodyName + "-System&quot;)'>View System</span> | "
       }
       // no nodes to show unless body has an eccentric or inclined orbit
       if ((parseFloat(bodyCatalog[bodyIndex].Ecc) || parseFloat(bodyCatalog[bodyIndex].Inc)) && !$("#contentHeader").html().includes(strBodyName)) {

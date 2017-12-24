@@ -114,20 +114,20 @@ function loadMenuAJAX(xhttp) {
           // otherwise load the parent id
           if (!event.node.id.includes("System")) {
             if (event.node.parent.id == "activeVessels") {
-              swapContent("body", event.node.id); 
+              swapContent("body", event.node.id, "NaN"); 
             } else {
               if (strCurrentBody != event.node.parent.id.split("-")[0]) {
-                swapContent("body", event.node.parent.id);
+                swapContent("body", event.node.parent.id, "NaN");
               }
             }
           } else {
-            swapContent("body", event.node.id); 
+            swapContent("body", event.node.id, "NaN"); 
           }
         }
       } else if (event.node.img.includes("crew")) {
       
         // make sure this crew member isn't already loaded before refreshing the page if it is a crew page
-        if ((strCurrentCrew != event.node.id && pageType == "crew") || (strCurrentCrew == event.node.id && pageType != "crew") || (strCurrentCrew != event.node.id && pageType != "crew")) { swapContent("crew", event.node.id); }
+        if ((strCurrentCrew != event.node.id && pageType == "crew") || (strCurrentCrew == event.node.id && pageType != "crew") || (strCurrentCrew != event.node.id && pageType != "crew")) { swapContent("crew", event.node.id, "NaN"); }
       } else if (event.node.img.includes("dish")) {
       
         // for now, we link to another page
@@ -141,7 +141,7 @@ function loadMenuAJAX(xhttp) {
         if (event.node.img.includes("aircraft")) { return; }
         
         // make sure this vessel isn't already loaded before refreshing the page if it is a vessel page
-        if ((strCurrentVessel != event.node.id && pageType == "vessel") || (strCurrentVessel == event.node.id && pageType != "vessel") || (strCurrentVessel != event.node.id && pageType != "vessel")) { swapContent("vessel", event.node.id); }
+        if ((strCurrentVessel != event.node.id && pageType == "vessel") || (strCurrentVessel == event.node.id && pageType != "vessel") || (strCurrentVessel != event.node.id && pageType != "vessel")) { swapContent("vessel", event.node.id, "NaN"); }
       }
     },
     onExpand: function (event) {
@@ -153,7 +153,7 @@ function loadMenuAJAX(xhttp) {
     onRender: function (event) {
     
       // depending on the height of the event box, size the menu so the twitter widget isn't pushed off the bottom of the screen
-      var maxHeight = 290;
+      var maxHeight = 340;
       var height = (maxHeight - w2utils.getSize("#eventBox", 'height')) + "px";
       $('#menuBox').css("height", height);
     },

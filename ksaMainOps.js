@@ -1,8 +1,12 @@
 var UT;
 var timeoutHandle;
+var pageType;
+var vesselPastUT;
 var currentVesselData;
 var currentCrewData;
-var pageType;
+var surfaceMap;
+var mapResizeButton;
+var mapCloseButton;
 var clock = new Date();
 var isGGBAppletLoaded = false;
 var isCatalogDataLoaded = false;
@@ -114,17 +118,21 @@ if (clock.toString().search("Standard") >= 0) { UT += 3600; UTC = 5; }
 if (getParameterByName("showUT")) { console.log(UT + " " + clock); }
 
 // handle history state changes
-window.onpopstate = function(event) {
-  swapContent(event.state.Type, event.state.ID);
-};
+window.onpopstate = function(event) { swapContent(event.state.Type, event.state.ID, event.state.UT); };
 
 // animate the size of the main content box
 function raiseContent() {
   $("#contentBox").css("transform", "translateY(0px)");
-  setTimeout(function() { $("#contentBox").css("height", "885px"); }, 400);
+  setTimeout(function() { 
+    $("#contentBox").css("height", "885px");
+    $("#map").css("height", "885px");
+    surfaceMap.invalidateSize({reset: true});
+  }, 400);
 }
 function lowerContent() {
   $("#contentBox").css("height", "480px");
+  $("#map").css("height", "480px");
+    surfaceMap.invalidateSize({reset: true});
   setTimeout(function() { $("#contentBox").css("transform", "translateY(405px)"); }, 400);
 }
 
@@ -155,6 +163,7 @@ function setupContent() {
   loadDB("loadEventData.asp?UT=" + currUT(), loadEventsAJAX);
   loadDB("loadBodyData.asp", loadBodyAJAX);
   loadDB("loadPartsData.asp", loadPartsAJAX);
+  loadMap();
   
   // setup the planet data dialog box
   // when it is closed, it will return to the top-left of the figure
@@ -214,7 +223,9 @@ function setupContent() {
 }
 
 // switch from one layout to another
-function swapContent(newPageType, id) {
+function swapContent(newPageType, id, ut) {
+  if (!ut && !getParameterByName("ut")) { swapContent(newPageType, id, "NaN"); return; }
+  if (!ut && getParameterByName("ut")) { swapContent(newPageType, id, parseInt(getParameterByName("ut"))); return; }
   
   // initial page load
   if (!pageType) {
@@ -232,7 +243,7 @@ function swapContent(newPageType, id) {
       lowerContent();
       $("#infoBox").fadeIn();
       $("#dataBox").fadeIn();
-      loadVessel(id);
+      loadVessel(id, ut);
     }
     return;
   } 
@@ -240,7 +251,7 @@ function swapContent(newPageType, id) {
   // not a total content swap, just new data
   if (pageType == newPageType) {
     if (newPageType == "body") { loadBody(id); }
-    if (newPageType == "vessel") { loadVessel(id); }
+    if (newPageType == "vessel") { loadVessel(id, ut); }
     if (newPageType.includes("crew") ) { loadCrew(id); }
     return;
   }
@@ -252,6 +263,7 @@ function swapContent(newPageType, id) {
     $("#vesselOrbitTypes").fadeOut();
     $("#figure").fadeOut();
     $("#figureDialog").dialog("close");
+    removeMapCloseButton();
   } else if (pageType == "vessel") {
   
     // some elements don't need to be hidden if switching to a crew page
@@ -261,8 +273,11 @@ function swapContent(newPageType, id) {
       $("#contentBox").spin(false);
       $("#infoBox").spin(false);
       $("#dataField0").spin(false);
+      swapTwitterSource();
     }
     $("#infoDialog").dialog("close");
+    $("#map").fadeOut();
+    removeMapResizeButton();
   } else if (pageType == "crew") {
     if (newPageType == "body") {
       $("#infoBox").fadeOut();
@@ -293,7 +308,9 @@ function swapContent(newPageType, id) {
     $("#dataBox").css("transform", "translateX(0px)");
     $("#dataBox").css("width", "295px");
     $("#contentBox").fadeIn();
-    loadVessel(id);
+    $("#map").css("visibility", "visible");
+    $("#map").fadeIn();
+    loadVessel(id, ut);
   } else if (newPageType == "crew") {
     if (id = "fullCrew") {
       $("#infoBox").fadeOut();
@@ -358,6 +375,20 @@ function checkPageUpdate() {
   } else { return; }
 }
 
+function swapTwitterSource(swap, source) {
+  if (swap && source) {
+    $("#twitterTimelineSelection").html("Sources: <span class='fauxLink' onclick=\"swapTwitterSource('" + swap + "')\">KSA Main Feed</span> | <b>" + swap + "</b>");
+  } else if (swap && !source) {
+    if (currentVesselData.StaticData.Timeline.split(";").length > 1) { src = currentVesselData.StaticData.Timeline.split(";")[1]; }
+    else { src = currentVesselData.StaticData.Timeline; }
+    $("#twitterTimelineSelection").html("Sources: <b>KSA Main Feed</b> | <span class='fauxLink' onclick=\"swapTwitterSource('" + swap + "', '" + src + "')\">" + swap + "</span>");
+  } else if (!swap && !source) {
+    $("#twitterTimelineSelection").html("Sources: <b>KSA Main Feed</b>");
+  }
+  if (!source) { source = "https://twitter.com/KSA_MissionCtrl"; }
+  $("#twitterTimeline").html("<a class='twitter-timeline' data-chrome='nofooter noheader' data-height='500' href='"+ source + "'>Loading Tweets...</a> <script async src='https://platform.twitter.com/widgets.js' charset='utf-8'>");
+}
+
 // loop and update the page every second
 // no longer using setInterval, as suggested via
 // http://stackoverflow.com/questions/6685396/execute-the-first-time-the-setinterval-without-delay
@@ -387,6 +418,20 @@ function checkPageUpdate() {
   
   // update the dynamic orbit figure
   if (isGGBAppletLoaded) { ggbApplet.setValue("UT", currUT()); }
+  
+  // is there a loaded vessel we need to monitor?
+  if (currentVesselData) {
+  
+    // is the mission still active?
+    if (!isMissionEnded()) {
+    
+      // update the MET or countdown
+      $("#metCount").html(formatTime($("#metCount").attr("data")-currUT()));
+    }
+  }
+  
+  // update any tooltips
+  Tipped.refresh(".tip-update");  
   
   // ensure timer accuracy, even catch up if browser slows tab in background
   // http://www.sitepoint.com/creating-accurate-timers-in-javascript/

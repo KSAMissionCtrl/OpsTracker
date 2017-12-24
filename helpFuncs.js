@@ -1,6 +1,6 @@
 // number of ms from 1970/01/01 to 2016/09/13
 // used as a base when calculating time since KSA began
-var foundingMoment = 1473742800000;
+var foundingMoment = 1473739200000;
 
 // for retrieving URL query strings
 // http://stackoverflow.com/questions/901115/how-can-i-get-query-string-values-in-javascript
@@ -41,6 +41,7 @@ function loadDB(url, cFunction) {
 // leave out any values that are not necessary (0y, 0d won't show, for example)
 // give seconds to 5 significant digits if precision is true
 function formatTime(time, precision) {
+  if (precision === null) { formatTime(time, false); return; }
   var years = 0;
   var days = 0;
   var hours = 0;
@@ -89,6 +90,7 @@ function formatTime(time, precision) {
 
 // take a date object of a given time and output "mm/dd/yyyy hh:mm:ss"
 function formatUTCTime(time, local) {
+  if (local === null) { formatUTCTime(time, false); return; }
   if (local) { var hours = time.getUTCHours() - UTC; }
   else { var hours = time.getUTCHours(); }
   if (hours < 0) { hours += 24; }
@@ -97,16 +99,22 @@ function formatUTCTime(time, local) {
   if (minutes < 10) { minutes = "0" + minutes; }
   var seconds = time.getUTCSeconds();
   if (seconds < 10) { seconds = "0" + seconds; }
-  return time.toLocaleDateString() + ' ' + hours + ':' + minutes + ':' + seconds;
+  return time.toLocaleDateString() + ' @ ' + hours + ':' + minutes + ':' + seconds;
 }
 
 // convert a given game UT time into the equivalent "mm/dd/yyyy hh:mm:ss"
-// don't forget to account for fact that UT 0 was started during DST
 function UTtoDateTime(UT, local) {
+  if (local === null) { UTtoDateTime(UT, false); return; }
   var d = new Date();
   d.setTime(foundingMoment + (UT * 1000));
-  if (d.toString().search("Standard") == 0) { d.setTime(foundingMoment + (UT - 3600) * 1000) }
   return formatUTCTime(d, local);
+}
+
+// convert a given game UT time into the local date time for the end user
+function UTtoDateTimeLocal(UT) {
+  var d = new Date();
+  d.setTime(foundingMoment + (UT * 1000));
+  return d.toString();
 }
 
 function dateTimetoUT(dateTime) {
@@ -172,7 +180,7 @@ function rsToObj(data) {
       } else {
         
         // check to make sure there are only two pairs
-        // if there are more than two we need to combine everything after the first entry
+        // if there are more than two we need to combine everything after the first entry because they were separated using the same character
         if (pair.length > 2) {
           for (i=2; i<pair.length; i++) { pair[1] += "~" + pair[i]; }
           object[pair[0]] = pair[1];
@@ -180,7 +188,9 @@ function rsToObj(data) {
           if ($.isNumeric(pair[1])) {
             object[pair[0]] = parseFloat(pair[1]);
           } else {
-            object[pair[0]] = pair[1];
+            if (pair[1].toLowerCase() == "false") { object[pair[0]] = false; }
+            else if (pair[1].toLowerCase() == "true") { object[pair[0]] = true; }
+            else object[pair[0]] = pair[1];
           }
         }
       }

@@ -11,18 +11,33 @@
 
   <!-- use this image link to force reddit to use a certain image for its thumbnail -->
   <meta property="og:image" content="http://i.imgur.com/B7r6B2F.png" />
+  
+  <!-- cache of Font Awesome -->
+  <script defer src="https://use.fontawesome.com/releases/v5.0.2/js/all.js"></script>
 
   <!-- CSS stylesheets -->
+  <link rel="stylesheet" href="http://fonts.googleapis.com/css?family=Roboto:900">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@0.5.1/dist/leaflet.css">
   <link rel="stylesheet" href="../lib/jquery-ui.min.css">
   <link rel="stylesheet" href="../lib/tipped.css">
   <link rel="stylesheet" href="../lib/w2ui-1.5.rc1.css">
+  <link rel="stylesheet" href="../lib/Control.FullScreen.css">
+  <link rel="stylesheet" href="../lib/leaflet.groupedlayercontrol.min.css">
+  <link rel="stylesheet" href="../lib/leaflet.ksp-src.css">
+  <link rel="stylesheet" href="../lib/leaflet.label.css">
+  <link rel="stylesheet" href="../lib/leaflet.rrose.css">
+  <link rel="stylesheet" href="../lib/easy-button.css">
   <link rel="stylesheet" href="styles.css?v=1.0">
 </head>
 
 <body onload='setupContent()'>
 
-  <!-- hidden div that is set to contain data to show in tooltip -->
+  <!-- hidden divs used to contain data to show in dynamic tooltip -->
   <div id='mapTipData' style='display: none'></div>
+  <div id='metTip' style='display: none'></div>
+  <div id='avgVelTip' style='display: none'></div>
+  <div id='periodTip' style='display: none'></div>
+  <div id='distanceTip' style='display: none'></div>
 
   <!-- hidden div with dynamic tooltip for non-Firefox use to display over image maps -->
   <div id="mapTip" class='nonFFTip' data-tipped-options="inline: 'mapTipData', target: 'mouse', behavior: 'hide', detach: false"></div>
@@ -37,37 +52,41 @@
       </div>
       <div id='infoDialog'></div>
       <div id='dataBox' style='margin-left: 655px;'>
-        <div id='dataField0' class='dataField'>Data</div>
-        <div id='dataField1' class='dataField'>Data</div>
-        <div id='dataField2' class='dataField'>Data</div>
-        <div id='dataField3' class='dataField'>Data</div>
-        <div id='dataField4' class='dataField'>Data</div>
-        <div id='dataField5' class='dataField'>Data</div>
-        <div id='dataField6' class='dataField'>Data</div>
-        <div id='dataField7' class='dataField'>Data</div>
-        <div id='dataField8' class='dataField'>Data</div>
-        <div id='dataField9' class='dataField'>Data</div>
-        <div id='dataField10' class='dataField'>Data</div>
-        <div id='dataField11' class='dataField'>Data</div>
-        <div id='dataField12' class='dataField'>Data</div>
-        <div id='dataField13' class='dataField'>Data</div>
-        <div id='dataField14' class='dataField'>Data</div>
-        <div id='dataField15' class='dataField'>Data</div>
-        <div id='dataField16' class='dataField' style='margin-bottom: 0px'>Data</div>
-        <select name='prev' style='margin: 2px; width: 53px' disabled>
-          <option value='prev'>Prev Event(s)</option>
-        </select>
-        Mission History
-        <select name='next' style='margin: 2px; width: 53px' disabled>
-          <option value='next'>Next Event(s)</option>
-        </select>
+        <div id='MET' class='dataField'></div>
+        <div id='velocity' class='dataField'></div>
+        <div id='pe' class='dataField'></div>
+        <div id='ap' class='dataField'></div>
+        <div id='ecc' class='dataField'></div>
+        <div id='inc' class='dataField'></div>
+        <div id='period' class='dataField'></div>
+        <div id='crew' class='dataField'></div>
+        <div id='resources' class='dataField'></div>
+        <div id='comms' class='dataField'></div>
+        <div id='related' class='dataField'></div>
+        <div id='ports' class='dataField'></div>
+        <div id='update' class='dataField'></div>
+        <div id='addlResources' class='dataField'></div>
+        <div id='dataField14' class='dataField'></div>
+        <div id='dataField15' class='dataField'></div>
+        <div id='dataField16' class='dataField'></div>
+        <div style='margin-top: 0px'>
+          <select id='prevEvent' style='margin: 2px; width: 53px'>
+            <option>Prev Event(s)</option>
+          </select>
+          <span id='dataLabel' style='display: inline'>Loading Data...</span>
+          <select id='nextEvent' style='margin: 2px; width: 53px'>
+            <option>Next Event(s)</option>
+          </select>
+        </div>
       </div>
       <div id='crewFooter' style='text-align: center; margin-left: 503px; margin-top: 5px; display: none'>
         <a target='_blank' href='http://www.kerbalspace.agency'>KSA Home Page</a> | 
         Ribbons &amp; Stats by <a target='_blank' href='http://forum.kerbalspaceprogram.com/index.php?/topic/61065-105-final-frontier-kerbal-individual-merits-098-1882/'>Final Frontier</a> | 
         <a href='https://github.com/KSAMissionCtrl/FlightTracker/wiki/Crew-Roster-Documentation'>Crew Roster Wiki</a>
       </div>
-      <div id='contentBox'>&nbsp;</div>
+      <div id='contentBox'>
+        <div id='map' class='map'></div>
+      </div>
       <div id='figureOptions' style='color: white; position: absolute; top: 900px; left: 5px; display: none;'>
         <input class='checkboxes' name='nodes' id='nodes' type='checkbox'> <label for='nodes'>Show Nodes</label> 
         <input class='checkboxes' name='labels' id='labels' type='checkbox'> <label for='labels'>Show Names</label> 
@@ -85,7 +104,6 @@
         <input class='checkboxes' name='station' id='station-filter' type='checkbox' disabled> <label  id='station-label' for='station-filter'>Station</label>
       </div>
       <div id='figureDialog'></div>
-      <div id='map'></div>
       <div id='genericContent'></div>
       <div id='messageDialog'></div>
       <div id='footer' style='text-align: center; width: 955px; top: 930px; position: absolute;'><a target='_blank' href='http://www.kerbalspace.agency'>KSA Home Page</a> | 2D Orbit rendering: <a target='_blank' href='http://bit.ly/KSPTOT'>KSPTOT</a> | 3D Orbit Rendering: <a target='_blank' href='http://forum.kerbalspaceprogram.com/index.php?/topic/158826-3d-ksp-solar-system-scale-model-major-update-05202017/'>by Syntax</a> | <a target='_blank' href='https://github.com/KSAMissionCtrl/FlightTracker/wiki/Flight-Tracker-Documentation'>Flight Tracker Wiki</a></div>
@@ -125,23 +143,33 @@
 
       <div id='twitterBox'><a href="https://twitter.com/KSA_MissionCtrl" class="twitter-follow-button" data-show-count="true">Follow @KSA_MissionCtrl</a><script async src="//platform.twitter.com/widgets.js" charset="utf-8"></script></center>
       <div id='twitterTimelineSelection' style='font-size: 12px'>Sources: <strong>KSA Main Feed</strong></div>
-  <a class="twitter-timeline" href="https://twitter.com/KSA_MissionCtrl" data-widget-id="598711760149852163" height="550" data-chrome="nofooter noheader">Tweets by @KSA_MissionCtrl</a> <script>!function(d,s,id){var js,fjs=d.getElementsByTagName(s)[0],p=/^http:/.test(d.location)?'http':'https';if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src=p+"://platform.twitter.com/widgets.js";fjs.parentNode.insertBefore(js,fjs);}}(document,"script","twitter-wjs");</script></div>
+      <div id='twitterTimeline'><a class="twitter-timeline" data-chrome="nofooter noheader" data-height="500" href="https://twitter.com/KSA_MissionCtrl">Loading Tweets...</a> <script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script></div>
+      </div>
     </div>
   </div>
-  
   <!-- JS files -->
   <script src="http://ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js"></script>
   <script src="https://cdn.geogebra.org/apps/deployggb.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.5.1/leaflet-src.js"></script>
   <script src="../lib/jquery-ui.min.js"></script>
   <script src="../lib/spin.min.js"></script>  
   <script src="../lib/jquery.spin.js"></script>
   <script src="../lib/numeral.min.js"></script>
   <script src="../lib/tipped.js"></script>
   <script src="../lib/w2ui-1.5.rc1.js"></script>
+  <script src="../lib/proj4js-combined.js"></script>
+  <script src="../lib/proj4leaflet.js"></script>
+  <script src="../lib/leaflet.ksp-src.js"></script>
+  <script src="../lib/leaflet.label.js"></script>
+  <script src="../lib/Control.FullScreen.js"></script>
+  <script src="../lib/leaflet.groupedlayercontrol.min.js"></script>
+  <script src="../lib/leaflet.rrose-src.js"></script>
+  <script src="../lib/easy-button.js"></script>
   <script src="helpFuncs.js"></script>
   <script src="ksaEventOps.js"></script>
   <script src="ksaMenuOps.js"></script>
   <script src="ksaBodyOps.js"></script>
+  <script src="ksaSurfaceOps.js"></script>
   <script src="ksaVesselOps.js"></script>
   <script src="ksaCrewOps.js"></script>
   <script src="ksaMainOps.js"></script>

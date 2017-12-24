@@ -32,7 +32,7 @@ for each craft in crafts
   'select the data closest to this UT
   if not rsOrbit.eof then
     rsOrbit.MoveLast
-    do until rsOrbit.fields.item("id") <= UT
+    do until rsOrbit.fields.item("UT") <= UT
       rsOrbit.MovePrevious
       if rsOrbit.bof then exit do
     Loop
@@ -54,7 +54,7 @@ for each craft in crafts
   'do the same for flight plan recordset
   if not rsFlightplan.eof then
     rsFlightplan.MoveLast
-    do until rsFlightplan.fields.item("id") <= UT
+    do until rsFlightplan.fields.item("UT") <= UT
       rsFlightplan.MovePrevious
       if rsFlightplan.bof then exit do
     Loop
@@ -72,7 +72,7 @@ for each craft in crafts
   'check for any future events
   if not rsOrbit.eof then rsOrbit.MoveNext
   if not rsOrbit.eof then 
-    output = output & rsOrbit.fields.item("ID") & "~"
+    output = output & rsOrbit.fields.item("UT") & "~"
   else
     output = output & "null~"
   end if 
