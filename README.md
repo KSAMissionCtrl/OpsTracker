@@ -25,6 +25,7 @@ The following JavaScript libraries are used:
 * [GeoGebra](https://wiki.geogebra.org/en/Reference:JavaScript)
 * [JQuery UI](https://jqueryui.com/)
 * [w2ui sidebar](http://w2ui.com/web/demo/sidebar)
+* [Leaflet.EasyButton](https://github.com/CliffCloud/Leaflet.EasyButton)
 
 Blank template MDB Access files are included.
 
