@@ -74,7 +74,6 @@ function loadMap() {
       $("#map").fadeOut();
     }
   }, 250);
-  $("#map").css("visibility", "visible");
 }
 
 function addMapResizeButton() {
@@ -131,6 +130,7 @@ function showMap() {
   $("#vesselOrbitTypes").fadeOut();
   $("#figure").fadeOut();
   $("#figureDialog").dialog("close");
+  $("#map").css("visibility", "visible");
   $("#map").fadeIn();
   removeMapResizeButton()
   addMapCloseButton();

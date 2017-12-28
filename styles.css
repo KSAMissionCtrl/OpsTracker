@@ -106,6 +106,19 @@ input:disabled+label {
   color: blue;
 }
 
+.contentTip {
+  cursor: help;
+}
+
+.fullCenter {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  margin: auto;
+}
+
 #menuResize {
   margin: 2px;
   text-align: center;
@@ -140,6 +153,24 @@ input:disabled+label {
   height: 880px;
   width: 955px;
   visibility: hidden;
+}
+
+#content {
+  position: absolute; 
+  top: 0px;
+  left: 0px;
+  height: 480px;
+  width: 955px;
+  display: none;
+}
+
+#fullRoster {
+  position: absolute; 
+  top: 0px;
+  left: 0px;
+  height: 880px;
+  width: 955px;
+  display: none;
 }
 
 #infoBox {

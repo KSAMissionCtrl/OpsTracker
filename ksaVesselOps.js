@@ -468,6 +468,125 @@ function vesselDataUpdate() {
 }
 
 function vesselContentUpdate() {
+  isVesselUsingMap = true;
+  $("#content").empty();
+  
+  // remove any previous markers
+  if (launchsiteMarker) surfaceMap.removeLayer(launchsiteMarker);
+    
+  // decide what kind of content we have to deal with
+  // pre-launch/static data event
+  if (currentVesselData.DynamicData.Content.charAt(0) == "@") {
+    $("#content").fadeOut();
+    $("#map").css("visibility", "visible");
+    $("#map").fadeIn();
+  
+    // extract the data
+    var data = currentVesselData.DynamicData.Content.split("@")[1].split("|");
+  
+    // set launchsite icon
+    launchsiteIcon = L.icon({popupAnchor: [0, -43], iconUrl: 'markers-spacecenter.png', iconSize: [30, 40], iconAnchor: [15, 40], shadowUrl: 'markers-shadow.png', shadowSize: [35, 16], shadowAnchor: [10, 12]});
+    
+    // decide if this is still pre-launch or not
+    var strLaunchIconCaption = "<b>Launch Location</b><br>"
+    if (currentVesselData.DynamicData.MissionStartTerm == "Launched") strLaunchIconCaption = "";
+    
+    // if launch is in progress and there's an altitude to report, include it
+    var launchAltitude = "";
+    if (data.length > 3) launchAltitude = "<br>" + data[3] + "km";
+    
+    // place the marker and build the information window for it, then center the map on it and create a popup for it
+    launchsiteMarker = L.marker([data[0], data[1]], {icon: launchsiteIcon}).addTo(surfaceMap);
+    if (data[0] < 0) {
+      cardinalLat = "S";
+    } else {
+      cardinalLat = "N";
+    }
+    if (data[1] < 0) {
+      cardinalLon = "W";
+    } else {
+      cardinalLon = "E";
+    }
+    launchsiteMarker.bindPopup(strLaunchIconCaption + data[2] + launchAltitude + "<br>[" + numeral(Math.abs(data[0])).format('0.0000') + "&deg;" + cardinalLat + ", " + numeral(Math.abs(data[1])).format('0.0000') + "&deg;" + cardinalLon + "]" , {closeButton: true});
+    if (!strLaunchIconCaption.length) {
+      surfaceMap.fitBounds([srfLocations.KSC, [data[0], data[1]]]);
+    } else {
+      surfaceMap.setView(launchsiteMarker.getLatLng(), 2); 
+    }
+    launchsiteMarker.openPopup(); 
+    
+    // close the popup after 5 seconds
+    // make sure to reset the timeout in case the page has been loaded with new data before the 5s expire
+    clearTimeout(mapMarkerTimeout);
+    mapMarkerTimeout = setTimeout(function () { 
+      launchsiteMarker.closePopup(); 
+    }, 5000);
+    
+  // dynamic map with orbital information
+  } else if (currentVesselData.DynamicData.Content.charAt(0) == "!" && !currentVesselData.DynamicData.Content.includes("[")) {
+  
+    // we need the orbital catalog so if it's not loaded with our data, call again later
+    if (!orbitCatalog.find(o => o.ID === strCurrentVessel)) { setTimeout(function() { vesselContentUpdate(); }, 250); return; }
+  
+    // extract the data
+    var data = currentVesselData.DynamicData.Content.split("!")[1].split("|");
+
+    // only show dynamic information if this is a current state
+    if (currentVesselData.Orbit.UT == orbitCatalog.find(o => o.ID === strCurrentVessel).Orbit.UT) {
+      $("#content").fadeOut();
+      $("#map").css("visibility", "visible");
+      $("#map").fadeIn();
+      
+    // we're looking at old orbital data
+    } else {
+      
+      // two images
+      if (data[0].includes(".png")) {
+        $("#content").html("<div class='fullCenter'><img width='475' class='contentTip' title='Ecliptic View<br>Dynamic orbit unavailable - viewing old data' src='" + data[0] + "'>&nbsp;<img width='475' class='contentTip' title='Polar View<br>Dynamic orbit unavailable - viewing old data' src='" + data[1] + "'></div>");
+        
+      // one image
+      } else {
+        $("#content").html("<img class='fullCenter' class='tip' title='" + data[1] + "' src='" + data[0] + "'>");
+      }
+    
+      $("#map").css("visibility", "visible");
+      $("#map").hide();
+      $("#content").fadeIn();
+    }
+
+  
+  // static orbits with dynamic information
+  } else if (currentVesselData.DynamicData.Content.charAt(0) == "!" && currentVesselData.DynamicData.Content.includes("[")) {
+    $("#map").css("visibility", "visible");
+    $("#map").fadeIn();
+  
+    // we need the orbital catalog so if it's not loaded with our data, call again later
+    if (!orbitCatalog.find(o => o.ID === strCurrentVessel)) { setTimeout(function() { vesselContentUpdate(); }, 250); return; }
+
+    // only show dynamic information if this is a current state
+    if (currentVesselData.Orbit.UT == orbitCatalog.find(o => o.ID === strCurrentVessel).Orbit.UT) {
+    // we're looking at old orbital data
+    } else {
+    }
+  
+    $("#content").fadeOut();
+
+  // streaming ascent data, possibly with video
+  } else if (currentVesselData.DynamicData.Content.charAt(0) == "~") {
+  
+  // just plain HTML
+  } else {
+    isVesselUsingMap = false;
+    $("#map").fadeOut();
+    $("#content").html(currentVesselData.DynamicData.Content);
+    $("#content").fadeIn();
+  }
+  
+  // create any tooltips
+  // behavior of tooltips depends on the device
+  if (is_touch_device()) { showOpt = 'click'; }
+  else { showOpt = 'mouseenter'; }
+  Tipped.create('.contentTip', { showOn: showOpt, hideOnClickOutside: is_touch_device(), target: 'mouse', hideOn: {element: 'mouseleave'} });
 }
 
 // JQuery callbacks

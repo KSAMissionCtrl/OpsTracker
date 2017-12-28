@@ -7,6 +7,8 @@ var currentCrewData;
 var surfaceMap;
 var mapResizeButton;
 var mapCloseButton;
+var launchsiteMarker;
+var mapMarkerTimeout;
 var clock = new Date();
 var isGGBAppletLoaded = false;
 var isCatalogDataLoaded = false;
@@ -16,18 +18,13 @@ var isOrbitDataLoaded = false;
 var isGGBAppletLoading = false;
 var isDirty = false;
 var isTipShow = false;
+var isVesselUsingMap = true;
 var UTC = 4;
 var launchCountdown = -1;
 var maneuverCountdown = -1;
 var tickDelta = 0;
 var updatesListSize = 0;
 var vesselRotationIndex = 0;
-var strTinyBodyLabel = "";
-var strCurrentBody = "Kerbol";
-var strCurrentSystem = "Kerbol-System";
-var strCurrentVessel = "";
-var strCurrentCrew = "";
-var orbitColors = {probe: "#FFD800", debris: "#ff0000", ship: "#0094FF", station: "#B200FF", asteroid: "#996633"};
 var planetLabels = [];
 var nodes = [];
 var nodesVisible = [];
@@ -39,6 +36,21 @@ var bodyCatalog = [];
 var partsCatalog = [];
 var orbitCatalog = [];
 var updatesList = [];
+var strTinyBodyLabel = "";
+var strCurrentBody = "Kerbol";
+var strCurrentSystem = "Kerbol-System";
+var strCurrentVessel = "";
+var strCurrentCrew = "";
+var orbitColors = {
+  probe: "#FFD800",
+  debris: "#ff0000",
+  ship: "#0094FF",
+  station: "#B200FF",
+  asteroid: "#996633"
+};  
+var srfLocations = {
+  KSC: [-0.0972, -74.5577]
+};
 
 // get our platform properties for post-launch surveys
 // http://stackoverflow.com/questions/11219582/how-to-detect-my-browser-version-and-operating-system-using-javascript
@@ -277,6 +289,7 @@ function swapContent(newPageType, id, ut) {
     }
     $("#infoDialog").dialog("close");
     $("#map").fadeOut();
+    $("#content").fadeOut();
     removeMapResizeButton();
   } else if (pageType == "crew") {
     if (newPageType == "body") {
@@ -309,10 +322,11 @@ function swapContent(newPageType, id, ut) {
     $("#dataBox").css("width", "295px");
     $("#contentBox").fadeIn();
     $("#map").css("visibility", "visible");
-    $("#map").fadeIn();
+    if (isVesselUsingMap) { $("#map").fadeIn(); }
+    else { $("#content").fadeIn(); }
     loadVessel(id, ut);
   } else if (newPageType == "crew") {
-    if (id = "fullCrew") {
+    if (id == "crewFull") {
       $("#infoBox").fadeOut();
       $("#dataBox").fadeOut();
       $("#fullRoster").fadeIn();
