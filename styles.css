@@ -173,7 +173,7 @@ input:disabled+label {
   position: absolute; 
   top: 0px;
   left: 0px;
-  height: 880px;
+  height: 885px;
   width: 955px;
   visibility: hidden;
 }
@@ -191,7 +191,7 @@ input:disabled+label {
   position: absolute; 
   top: 0px;
   left: 0px;
-  height: 880px;
+  height: 885px;
   width: 955px;
   display: none;
   overflow: hidden;
@@ -226,6 +226,7 @@ input:disabled+label {
 
 #contentBox {
   width: 955px;
+  height: 885px;
   text-align: center;
   position: absolute;
   -webkit-transition: all 150ms ease-out;
@@ -234,6 +235,7 @@ input:disabled+label {
   -ms-transition: all 150ms ease-out;
   transition: all 150ms ease-out;
   display: none;
+  z-index: 1;
 }
 
 #menuBox {

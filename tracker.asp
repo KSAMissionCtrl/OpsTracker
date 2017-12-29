@@ -45,6 +45,11 @@
   <div id='contentContainer'>
     <div id='mainContent'>
       <div id='contentHeader' class='header'>&nbsp;</div>
+      <div id='contentBox'>
+        <div id='map' class='map'></div>
+        <div id='content'></div>
+        <div id='fullRoster'></div>
+      </div>
       <div id='infoBox' style='width: 650px; height: 400px;'>
         <div id='infoImg' class='overlay'></div>
         <div id='partsImg' class='overlay'></div>
@@ -84,21 +89,16 @@
         Ribbons &amp; Stats by <a target='_blank' href='http://forum.kerbalspaceprogram.com/index.php?/topic/61065-105-final-frontier-kerbal-individual-merits-098-1882/'>Final Frontier</a> | 
         <a href='https://github.com/KSAMissionCtrl/FlightTracker/wiki/Crew-Roster-Documentation'>Crew Roster Wiki</a>
       </div>
-      <div id='contentBox'>
-        <div id='map' class='map'></div>
-        <div id='content'></div>
-        <div id='fullRoster'></div>
-      </div>
-      <div id='figureOptions' style='color: white; position: absolute; top: 900px; left: 5px; display: none;'>
+      <div id='figureOptions' style='z-index: 2; color: white; position: absolute; top: 900px; left: 5px; display: none;'>
         <input class='checkboxes' name='nodes' id='nodes' type='checkbox'> <label for='nodes'>Show Nodes</label> 
         <input class='checkboxes' name='labels' id='labels' type='checkbox'> <label for='labels'>Show Names</label> 
         <input class='checkboxes' name='orbits' id='orbits' type='checkbox'> <label for='orbits'>Show Orbits</label>
         <input class='checkboxes' name='ref' id='ref' type='checkbox'> <label for='ref'>Show Reference Line</label>
       </div>
-      <div id='vesselLoaderMsg' style='color: white; position: absolute; top: 900px; left: 795px; display: none;'>
+      <div id='vesselLoaderMsg' style='z-index: 2; color: white; position: absolute; top: 900px; left: 795px; display: none;'>
         &nbsp;&nbsp;&nbsp;Loading Vessel Data...
       </div>
-      <div id='vesselOrbitTypes' style='border: 2px solid white; background-color: black; width: 80px; position: absolute; top: 819px; left: 867px; display: none;'>
+      <div id='vesselOrbitTypes' style='z-index: 2; border: 2px solid white; background-color: black; width: 80px; position: absolute; top: 819px; left: 867px; display: none;'>
         <input class='checkboxes' name='asteroid' id='asteroid-filter' type='checkbox' disabled> <label  id='asteroid-label' for='asteroid-filter'>Asteroid</label><br>
         <input class='checkboxes' name='debris' id='debris-filter' type='checkbox' disabled> <label  id='debris-label' for='debris-filter'>Debris</label><br>
         <input class='checkboxes' name='probe' id='probe-filter' type='checkbox' disabled> <label  id='probe-label' for='probe-filter'>Probe</label><br>

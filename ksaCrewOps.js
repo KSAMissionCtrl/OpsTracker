@@ -116,7 +116,7 @@ function loadCrewAJAX(xhttp) {
     $("#infoTitle").html("Click Here for Background Information");
     $("#infoTitle").attr("class", "infoTitle crew");
     $("#infoDialog").dialog("option", "title", "Background Information");
-    $("#infoDialog").dialog("option", {width: 498, height: 600});
+    $("#infoDialog").dialog("option", {width: 490, height: 600});
     $("#partsImg").empty();
     
     // compose the background information
@@ -130,7 +130,7 @@ function loadCrewAJAX(xhttp) {
     var strBackgrnd = "<b>Birth Date:</b> " + (bday.getMonth() + 1) + "/" + bday.getDate() + "/" + bday.getFullYear() + " (Age: " + numeral(age).format('0.00') + ")";
     
     // family name with help icon for more info
-    strBackgrnd += "<p><b>Family Name:</b> " + currentCrewData.Background.FamName + "&nbsp;<img src='qmark.png' style='left: initial; cursor: help' class='tip' data-tipped-options=\"position: 'right', maxWidth: 160\" title='as a show of global unity, all adult kerbals take the surname of the first planetary leader'></p>";
+    strBackgrnd += "<p><b>Family Name:</b> " + currentCrewData.Background.FamName + "&nbsp;<img src='qmark.png' style='margin-bottom: 10px; left: initial; cursor: help' class='tip' data-tipped-options=\"position: 'right', maxWidth: 135\" title='as a show of global unity, all adult kerbals take the surname of the first planetary leader'></p>";
     
     // rest of the bio stuff
     strBackgrnd += "<p><b>Specialty:</b> " + currentCrewData.Background.Speciality + "</p><p><b>Hobbies:</b> " + currentCrewData.Background.Hobbies + "</p><p><b>Biography:</b> " + currentCrewData.Background.Bio + "</p><p><b>Service History:</b> " + currentCrewData.History.History + "</p>";
@@ -201,18 +201,24 @@ function loadCrewAJAX(xhttp) {
     // ribbons
     if (currentCrewData.Ribbons.length) {
       $("#dataField10").empty();
+      $("#dataField11").empty();
+      $("#dataField11").fadeOut();
       currentCrewData.Ribbons.forEach(function(item, index) {
       
         // only show this ribbon if it has not been supersceded by a later one
         if (!item.Override || (item.Override && item.Override > currUT())) {
           $("#dataField10").append("<img src='http://www.blade-edge.com/Roster/Ribbons/" + item.Ribbon + ".png' width='109px' class='tip' style='cursor: help' data-tipped-options=\"maxWidth: 150, position: 'top'\" title='<center>" + item.Title + "</center>'>");
+        } else {
+          $("#dataField11").fadeIn();
+          if (!$("#dataField11").html()) {
+            $("#dataField11").html("<center><span class='fauxLink' onclick='ribbonDisplayToggle()'>Show All Ribbons</span></center>");
+          }
         }
       });
     } else { $("#dataField10").html("<center>No Ribbons Yet Awarded</center>"); }
     $("#dataField10").fadeIn();
     
     // hide the rest of the fields
-    $("#dataField11").fadeOut();
     $("#dataField12").fadeOut();
     $("#dataField13").fadeOut();
     $("#dataField14").fadeOut();
@@ -239,4 +245,30 @@ function showFullRoster() {
     $("#" + crewID).spin({ scale: 0.5, position: 'relative', top: '50%', left: '50%' });
   }
   return crewID;
+}
+
+function ribbonDisplayToggle() {
+  if ($("#dataField11").html().includes("Show")) {
+      $("#dataField10").empty();
+      currentCrewData.Ribbons.forEach(function(item, index) {
+        $("#dataField10").append("<img src='http://www.blade-edge.com/Roster/Ribbons/" + item.Ribbon + ".png' width='109px' class='tip' style='cursor: help' data-tipped-options=\"maxWidth: 150, position: 'top'\" title='<center>" + item.Title + "</center>'>");
+      });
+    $("#dataField11").html("<center><span class='fauxLink' onclick='ribbonDisplayToggle()'>Hide Multiple Ribbons</span></center>");
+  } else if ($("#dataField11").html().includes("Hide")) {
+      $("#dataField10").empty();
+      currentCrewData.Ribbons.forEach(function(item, index) {
+      
+        // only show this ribbon if it has not been supersceded by a later one
+        if (!item.Override || (item.Override && item.Override > currUT())) {
+          $("#dataField10").append("<img src='http://www.blade-edge.com/Roster/Ribbons/" + item.Ribbon + ".png' width='109px' class='tip' style='cursor: help' data-tipped-options=\"maxWidth: 150, position: 'top'\" title='<center>" + item.Title + "</center>'>");
+        }
+      });
+    $("#dataField11").html("<center><span class='fauxLink' onclick='ribbonDisplayToggle()'>Show All Ribbons</span></center>");
+  }
+
+  // create any tooltips
+  // behavior of tooltips depends on the device
+  if (is_touch_device()) { showOpt = 'click'; }
+  else { showOpt = 'mouseenter'; }
+  Tipped.create('.tip', { showOn: showOpt, hideOnClickOutside: is_touch_device(), hideOn: {element: 'mouseleave'} });
 }

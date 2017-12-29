@@ -94,7 +94,7 @@ function loadBody(body) {
   
   // remove and add the figure container
   $("#figure").remove();
-  $("#contentBox").append("<div id='figure'></div>");
+  $("#contentBox").append("<div id='figure' style='background-color: red;'></div>");
   
   // hide it if this isn't a body page
   if (pageType != "body") { $("#figure").hide(); } 

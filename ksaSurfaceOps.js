@@ -85,6 +85,7 @@ function addMapResizeButton() {
         title: 'Enlarge map view',
         onClick: function(control) {
           raiseContent();
+          $("#infoDialog").dialog("close")
           control.state('lower');
         }
       }, {

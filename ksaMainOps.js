@@ -148,7 +148,7 @@ function lowerContent() {
   if ($("#contentBox").css("height") != "480px") {
     $("#contentBox").css("height", "480px");
     $("#map").css("height", "480px");
-      surfaceMap.invalidateSize({reset: true});
+    surfaceMap.invalidateSize({reset: true});
     setTimeout(function() { $("#contentBox").css("transform", "translateY(405px)"); }, 400);
   }
 }
@@ -208,7 +208,8 @@ function setupContent() {
                     position: { my: "center", at: "center", of: "#infoBox" },
                     close: function( event, ui ) { 
                       $(this).dialog("option", "position", { my: "center", at: "center", of: "#infoBox" }); 
-                      $(this).dialog("option", { width: 650, height: 400 }); 
+                      if (pageType == "vessel") { $(this).dialog("option", { width: 643, height: 400 }); }
+                      else if (pageType == "crew") { $(this).dialog("option", { width: 490, height: 600 }); }
                     }});
   
   // uncheck all the filter boxes
@@ -266,12 +267,14 @@ function swapContent(newPageType, id, ut) {
     }
     if (newPageType == "crewFull") {
       $("#contentBox").spin(false);
+      $("#contentBox").css("margin-top", "5px");
       $("#contentBox").fadeIn();
       $("#fullRoster").fadeIn();
       loadCrew(id);
     }
     if (newPageType == "crew") {
       $("#contentBox").spin(false);
+      $("#contentBox").css("margin-top", "5px");
       $("#contentBox").fadeOut();
       $("#infoBox").fadeIn();
       $("#infoBox").css("height", "600px");

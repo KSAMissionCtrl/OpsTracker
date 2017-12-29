@@ -192,7 +192,7 @@ function vesselInfoUpdate() {
   $("#infoTitle").attr("class", "infoTitle vessel");
   $("#infoDialog").html(currentVesselData.DynamicData.CraftDescContent);
   $("#infoDialog").dialog("option", "title", "Additional Information - " + currentVesselData.DynamicData.CraftDescTitle);
-  $("#infoDialog").dialog("option", {width: 650, height: 400});
+  $("#infoDialog").dialog("option", {width: 643, height: 400});
   $("#partsImg").empty();
   
   // is there a parts overlay?
@@ -462,6 +462,14 @@ function vesselDataUpdate() {
     }
   });
   $("#dataLabel").html("Mission History");
+  
+  // hide the rest of the fields
+  $("#dataField11").fadeOut();
+  $("#dataField12").fadeOut();
+  $("#dataField13").fadeOut();
+  $("#dataField14").fadeOut();
+  $("#dataField15").fadeOut();
+  $("#dataField16").fadeOut();
 
   // create the tooltips
   // behavior of tooltips depends on the device
