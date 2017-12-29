@@ -36,20 +36,21 @@ function loadVessel(vessel, UT) {
   addMapResizeButton();
   if (!$('#map').is(":hover")) { $(".easy-button-button").fadeOut(); }
   
-  // no further loading needed if this is already the current vessel
-  // unless a new time is being specified
-  if (!currentVesselData || strCurrentVessel != vessel || (currentVesselData && !isNaN(UT) && currentVesselData.DynamicData.UT != UT)) { 
-    strCurrentVessel = vessel;
+  strCurrentVessel = vessel;
+  
+  // select and show it in the menu
+  w2ui['menu'].select(strCurrentVessel);
+  w2ui['menu'].expandParents(strCurrentVessel);
+  w2ui['menu'].scrollIntoView(strCurrentVessel);
 
-    // loading spinners - activate!
-    $("#infoBox").spin({ position: 'relative', top: '50%', left: '50%' });
-    $("#contentBox").spin({ position: 'relative', top: '50%', left: '50%' });
-    $("#dataLabel").html("Loading Data...");
-    
-    // put out the call for the vessel data
-    console.log("loadVesselData.asp?craft=" + strCurrentVessel + "&UT=" + currUT() + "&UTjump=" + UT);
-    loadDB("loadVesselData.asp?craft=" + strCurrentVessel + "&UT=" + currUT() + "&UTjump=" + UT, loadVesselDataAJAX);
-  }
+  // loading spinners - activate!
+  $("#infoBox").spin({ position: 'relative', top: '50%', left: '50%' });
+  $("#contentBox").spin({ position: 'relative', top: '50%', left: '50%' });
+  $("#dataLabel").html("Loading Data...");
+  
+  // put out the call for the vessel data
+  console.log("loadVesselData.asp?craft=" + strCurrentVessel + "&UT=" + currUT() + "&UTjump=" + UT);
+  loadDB("loadVesselData.asp?craft=" + strCurrentVessel + "&UT=" + currUT() + "&UTjump=" + UT, loadVesselDataAJAX);
 }
 
 // sends out the AJAX call for data to add any vessels to a GeoGebra figure/Leaflet library once it has loaded
@@ -60,7 +61,7 @@ function loadVesselOrbits() {
     var menuNodes = w2ui['menu'].get(strCurrentSystem).nodes;
     if (menuNodes.length) {
       console.log(menuNodes);
-      strVessels = extractVesselIDs(menuNodes);
+      strVessels = extractIDs(menuNodes);
       if (strVessels.length) { 
         loadDB("loadVesselOrbitData.asp?crafts=" + strVessels.substring(0, strVessels.length-1) + "&UT=" + currUT() + "&UTjump=" + getParameterByName("ut"), loadVesselOrbitsAJAX);
         if (pageType == "body") {
@@ -186,10 +187,12 @@ function loadPartsAJAX(xhttp) {
 function vesselInfoUpdate() {
   
   // setup the basics
-  $("#vesselImg").html("<img src='" + getVesselImage() + "'>");
+  $("#infoImg").html("<img src='" + getVesselImage() + "'>");
   $("#infoTitle").html(currentVesselData.DynamicData.CraftDescTitle);
+  $("#infoTitle").attr("class", "infoTitle vessel");
   $("#infoDialog").html(currentVesselData.DynamicData.CraftDescContent);
   $("#infoDialog").dialog("option", "title", "Additional Information - " + currentVesselData.DynamicData.CraftDescTitle);
+  $("#infoDialog").dialog("option", {width: 650, height: 400});
   $("#partsImg").empty();
   
   // is there a parts overlay?
@@ -270,13 +273,13 @@ function vesselDataUpdate() {
   // show the data field
   // we don't know the start time right now
   if (!launchTime) {
-    $("#MET").html("<b>" + currentVesselData.DynamicData.MissionStartTerm + ":</b><span style='cursor:help' class='tip-update' data-tipped-options=\"inline: 'metTip'\"> <u>To Be Determined</u>");
+    $("#dataField0").html("<b>" + currentVesselData.DynamicData.MissionStartTerm + ":</b><span style='cursor:help' class='tip-update' data-tipped-options=\"inline: 'metTip'\"> <u>To Be Determined</u>");
     
   // post the current launch time
   } else {
-    $("#MET").html("<b>" + currentVesselData.DynamicData.MissionStartTerm + ":</b><span style='cursor:help' class='tip-update' data-tipped-options=\"inline: 'metTip'\"> <u>" + UTtoDateTime(launchTime) + " UTC</u>");
+    $("#dataField0").html("<b>" + currentVesselData.DynamicData.MissionStartTerm + ":</b><span style='cursor:help' class='tip-update' data-tipped-options=\"inline: 'metTip'\"> <u>" + UTtoDateTime(launchTime) + " UTC</u>");
   }
-  $("#MET").fadeIn();
+  $("#dataField0").fadeIn();
   
   // decide what goes in the tooltip - clear it so we can use append for all scenarios
   $("#metTip").empty();
@@ -318,29 +321,29 @@ function vesselDataUpdate() {
   
     // VELOCITY
     $("#avgVelTip").html("<span id='avgVelUpdate'>Periapsis: " + numeral(currentVesselData.Orbit.VelocityPe).format('0.000') + "km/s<br>Apoapsis: " + numeral(currentVesselData.Orbit.VelocityAp).format('0.000') + "km/s</span>");
-    $("#velocity").html("<b><u><span style='cursor:help' class='tip-update' data-tipped-options=\"inline: 'avgVelTip'\">Average Velocity:</u></b> " + numeral((currentVesselData.Orbit.VelocityPe+currentVesselData.Orbit.VelocityAp)/2).format('0.000') + "km/s");
-    $("#velocity").fadeIn();
+    $("#dataField1").html("<b><u><span style='cursor:help' class='tip-update' data-tipped-options=\"inline: 'avgVelTip'\">Average Velocity:</u></b> " + numeral((currentVesselData.Orbit.VelocityPe+currentVesselData.Orbit.VelocityAp)/2).format('0.000') + "km/s");
+    $("#dataField1").fadeIn();
     
     // PERIAPSIS
-    $("#pe").html("<b>Periapsis:</b> " + numeral(currentVesselData.Orbit.Periapsis).format('0,0.000') + "km");
-    $("#pe").fadeIn();
+    $("#dataField2").html("<b>Periapsis:</b> " + numeral(currentVesselData.Orbit.Periapsis).format('0,0.000') + "km");
+    $("#dataField2").fadeIn();
     
     // APOAPSIS
-    $("#ap").html("<b>Apoapsis:</b> " + numeral(currentVesselData.Orbit.Apoapsis).format('0,0.000') + "km");
-    $("#ap").fadeIn();
+    $("#dataField3").html("<b>Apoapsis:</b> " + numeral(currentVesselData.Orbit.Apoapsis).format('0,0.000') + "km");
+    $("#dataField3").fadeIn();
     
     // ECCENTRICITY
-    $("#ecc").html("<b>Eccentricity:</b> " + numeral(currentVesselData.Orbit.Eccentricity).format('0.000'));
-    $("#ecc").fadeIn();
+    $("#dataField4").html("<b>Eccentricity:</b> " + numeral(currentVesselData.Orbit.Eccentricity).format('0.000'));
+    $("#dataField4").fadeIn();
     
     // INCLINATION
-    $("#inc").html("<b>Inclination:</b> " + numeral(currentVesselData.Orbit.Inclination).format('0.000') + "&deg;");
-    $("#inc").fadeIn();
+    $("#dataField5").html("<b>Inclination:</b> " + numeral(currentVesselData.Orbit.Inclination).format('0.000') + "&deg;");
+    $("#dataField5").fadeIn();
     
     // ORBITAL PERIOD
     $("#periodTip").html(formatTime(currentVesselData.Orbit.OrbitalPeriod));
-    $("#period").html("<b>Orbital Period:</b> <u><span style='cursor:help' class='tip-update' data-tipped-options=\"inline: 'periodTip'\">" + numeral(currentVesselData.Orbit.OrbitalPeriod).format('0,0.000') + "s</span></u>");
-    $("#period").fadeIn();
+    $("#dataField6").html("<b>Orbital Period:</b> <u><span style='cursor:help' class='tip-update' data-tipped-options=\"inline: 'periodTip'\">" + numeral(currentVesselData.Orbit.OrbitalPeriod).format('0,0.000') + "s</span></u>");
+    $("#dataField6").fadeIn();
 
     // calculate the  number of orbits
     var numOrbits = 0;
@@ -356,12 +359,12 @@ function vesselDataUpdate() {
     }
     if (numOrbits > 0) { $("#periodTip").append("<br>Number of Orbits: " + numeral(numOrbits).format('0,0.00')); }
   } else {
-    $("#velocity").fadeOut();
-    $("#pe").fadeOut();
-    $("#ap").fadeOut();
-    $("#ecc").fadeOut();
-    $("#inc").fadeOut();
-    $("#period").fadeOut();
+    $("#dataField1").fadeOut();
+    $("#dataField2").fadeOut();
+    $("#dataField3").fadeOut();
+    $("#dataField4").fadeOut();
+    $("#dataField5").fadeOut();
+    $("#dataField6").fadeOut();
   }
   
   ////////
@@ -369,12 +372,12 @@ function vesselDataUpdate() {
   ////////
   
   if (currentVesselData.Manifest) {
-    $("#crew").html("<b>Crew:</b> ");
+    $("#dataField7").html("<b>Crew:</b> ");
     currentVesselData.Manifest.Crew.split("|").forEach(function(item, index) {
-      $("#crew").append("<img class='tipped' title='" + item.split(";")[0] + "<br>Boarded on: " + UTtoDateTime(parseFloat(item.split(";")[2])).split("@")[0] + "<br>Mission Time: " + formatTime(currUT() - parseFloat(item.split(";")[2])).split(",")[0] + "' style='cursor: pointer' src='http://www.kerbalspace.agency/Tracker/favicon.ico'></a>&nbsp;");
+      $("#dataField7").append("<img class='tipped' title='" + item.split(";")[0] + "<br>Boarded on: " + UTtoDateTime(parseFloat(item.split(";")[2])).split("@")[0] + "<br>Mission Time: " + formatTime(currUT() - parseFloat(item.split(";")[2])).split(",")[0] + "' style='cursor: pointer' src='http://www.kerbalspace.agency/Tracker/favicon.ico'></a>&nbsp;");
     });
-    $("#crew").fadeIn();
-  } else $("#crew").fadeOut();
+    $("#dataField7").fadeIn();
+  } else $("#dataField7").fadeOut();
   
   /////////////
   // Resources
@@ -391,14 +394,14 @@ function vesselDataUpdate() {
     if (currentVesselData.Resources.ResourceMass !== null) { strHTML += numeral(currentVesselData.Resources.ResourceMass).format('0.000') + "t"; }
     else { strHTML += "N/A"; }
     strHTML += "'><b><u>Resources:</u></b></span> ";
-    $("#resources").html(strHTML);
+    $("#dataField8").html(strHTML);
     if (currentVesselData.Resources.Resources) {
       currentVesselData.Resources.Resources.split("|").forEach(function(item, index) {
-        $("#resources").append("<img class='tipped' title='" + item.split(";")[1] + "' style='cursor: pointer' src='" + item.split(";")[0] + ".png'></a>&nbsp;");
+        $("#dataField8").append("<img class='tipped' title='" + item.split(";")[1] + "' style='cursor: pointer' src='" + item.split(";")[0] + ".png'></a>&nbsp;");
       });
-    } else $("#resources").append("None");
-    $("#resources").fadeIn();
-  } else $("#resources").fadeOut();
+    } else $("#dataField8").append("None");
+    $("#dataField8").fadeIn();
+  } else $("#dataField8").fadeOut();
   
   /////////
   // Comms
@@ -408,14 +411,14 @@ function vesselDataUpdate() {
     strHTML = "<span class='tipped' style='cursor:help' title='";
     if (currentVesselData.Comms.Connection) { strHTML += "Signal Delay: <0.003s"; }
     else { strHTML += "No Connection"; }
-    $("#comms").html(strHTML + "'><b><u>Comms:</u></b></span> ");
+    $("#dataField9").html(strHTML + "'><b><u>Comms:</u></b></span> ");
     if (currentVesselData.Comms.Comms) {
       currentVesselData.Comms.Comms.split("|").forEach(function(item, index) {
-        $("#comms").append("<img class='tipped' title='" + item.split(";")[1] + "' style='cursor: pointer' src='" + item.split(";")[0] + ".png'></a>&nbsp;");
+        $("#dataField9").append("<img class='tipped' title='" + item.split(";")[1] + "' style='cursor: pointer' src='" + item.split(";")[0] + ".png'></a>&nbsp;");
       });
-    } else $("#comms").append("None");
-    $("#comms").fadeIn();
-  } else $("#comms").fadeOut();
+    } else $("#dataField9").append("None");
+    $("#dataField9").fadeIn();
+  } else $("#dataField9").fadeOut();
   
   ///////////////
   // Last Update
@@ -423,12 +426,13 @@ function vesselDataUpdate() {
   
   $("#distanceTip").html(UTtoDateTimeLocal(currentVesselData.DynamicData.UT))
   if (currentVesselData.DynamicData.DistanceTraveled) $("#distanceTip").append("<br>Current Distance Traveled: " + currentVesselData.DynamicData.DistanceTraveled + "km");
-  $("#update").html("<b>Last Update:</b> <u><span class='tip-update' style='cursor:help' data-tipped-options=\"inline: 'distanceTip'\">" + UTtoDateTime(currentVesselData.DynamicData.UT) + "</span></u>")
-  $("#update").fadeIn()
+  $("#dataField10").html("<b>Last Update:</b> <u><span class='tip-update' style='cursor:help' data-tipped-options=\"inline: 'distanceTip'\">" + UTtoDateTime(currentVesselData.DynamicData.UT) + "</span></u>")
+  $("#dataField10").fadeIn()
 
   ///////////////////
   // Mission History
   ///////////////////
+  $("#missionHistory").fadeIn()
   
   // reset the history
   $("#prevEvent").empty()
@@ -590,18 +594,23 @@ function vesselContentUpdate() {
 }
 
 // JQuery callbacks
+// only handle this if the page is a vessel instead of crew
 $("#infoBox").hover(function() { 
-  if (!$("#infoDialog").dialog("isOpen")) { $("#infoTitle").html("Click Here for Additional Information"); }
-  $("#partsImg").fadeIn();
+  if (pageType == "vessel") {
+    if (!$("#infoDialog").dialog("isOpen")) { $("#infoTitle").html("Click Here for Additional Information"); }
+    $("#partsImg").fadeIn();
+  }
 }, function() {
+  if (pageType == "vessel") {
   
-  // wait to give tooltips a chance to hide on mouseover before checking to see if we're actually off the image
-  setTimeout(function() {
-    if (!$('#infoBox').is(":hover") && !isTipShow) {
-      $("#infoTitle").html(currentVesselData.DynamicData.CraftDescTitle);
-      $("#partsImg").fadeOut();
-    }
-  }, 250);
+    // wait to give tooltips a chance to hide on mouseover before checking to see if we're actually off the image
+    setTimeout(function() {
+      if (!$('#infoBox').is(":hover") && !isTipShow) {
+        $("#infoTitle").html(currentVesselData.DynamicData.CraftDescTitle);
+        $("#partsImg").fadeOut();
+      }
+    }, 250);
+  }
 });
 
 // upon selection of a new list item, take the user to that event
@@ -612,8 +621,8 @@ $("#nextEvent").change(function () {
   if ($("#nextEvent").val()) { loadVessel(strCurrentVessel, $("#nextEvent").val()); }
 });
 
-// opens the dialog box with more details on the vessel
-function showVesselInfo() {
+// opens the dialog box with more details - this is the same box that holds crew details, was just implemented here first
+function showInfoDialog() {
   if (!$("#infoDialog").dialog("isOpen")) { $("#infoDialog").dialog("open") }
 }
 

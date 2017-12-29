@@ -124,10 +124,13 @@ function loadMenuAJAX(xhttp) {
             swapContent("body", event.node.id, "NaN"); 
           }
         }
-      } else if (event.node.img.includes("crew")) {
+      } else if (event.node.img.includes("crew") && event.node.id != "crewFull") {
       
         // make sure this crew member isn't already loaded before refreshing the page if it is a crew page
         if ((strCurrentCrew != event.node.id && pageType == "crew") || (strCurrentCrew == event.node.id && pageType != "crew") || (strCurrentCrew != event.node.id && pageType != "crew")) { swapContent("crew", event.node.id, "NaN"); }
+      } else if (event.node.img.includes("crew") && event.node.id == "crewFull") {
+        if (pageType != event.node.id) { swapContent("crewFull", event.node.id, "NaN"); }
+
       } else if (event.node.img.includes("dish")) {
       
         // for now, we link to another page
@@ -421,6 +424,14 @@ function filterCrewMenu(id) {
                                           img: 'icon-crew'});
     });
   }
+  
+  // if we are looking at the full crew roster, refresh the view
+  if (pageType == "crewFull") {
+    $('#fullRoster').empty(); 
+    crewList = extractIDs(w2ui['menu'].get('crew').nodes).split(";");
+    strCurrentCrew = showFullRoster();
+    loadDB("loadCrewData.asp?crew=" + strCurrentCrew + "&UT=" + currUT(), loadCrewAJAX);
+  }
 }
 
 // hides the twitter widget to allow the menu to use the full height of the right-side content area, preserves event box
@@ -466,21 +477,20 @@ function filterDisplay() {
   }
 }
 
-// recursive function to pull vessels from nodes nested n deep
-function extractVesselIDs(nodes) {
-
+// recursive functions to pull vessels/crew from nodes nested n deep
+function extractIDs(nodes, recurse) {
+  
   // work through the nodes to determine what data we need to send for
-  var strVessels = '';
+  var strIDs = '';
   for (var i=0; i<nodes.length; i++) {
     
-    // if this is a moon dig through its nodes, if it has any
-    if (nodes[i].img.includes("body")) { 
-      if (nodes[i].nodes.length) { strVessels += extractVesselIDs(nodes[i].nodes.slice(0)); }
+    // if this is a moon or folder dig through its nodes, if it has any
+    if (nodes[i].nodes.length) { strIDs += extractIDs(nodes[i].nodes.slice(0), true); }
       
-    // it's a vessel, add it to the list
-    } else { strVessels += nodes[i].id + ";"; }
+    // do not add moons or the full crew roster to the list
+    else if (!nodes[i].img.includes("body") && nodes[i].id != "crewFull") { strIDs += nodes[i].id + ";"; }
   }
-  return strVessels;
+  return strIDs;
 }
 
 // recursive function to find the parent system of a node n deep

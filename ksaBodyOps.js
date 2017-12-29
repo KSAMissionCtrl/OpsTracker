@@ -180,6 +180,11 @@ function ggbOnInit(){
     $("#vesselOrbitTypes").fadeIn();
   }
   
+  // select and show it in the menu
+  w2ui['menu'].select(strCurrentBody);
+  w2ui['menu'].expandParents(strCurrentBody);
+  w2ui['menu'].scrollIntoView(strCurrentBody);
+  
   // declutter the view after a few seconds
   // make sure a quick figure switch doesn't declutter things too fast
   clearTimeout(timeoutHandle);
@@ -427,7 +432,7 @@ function figureClick(object) {
       if (getParameterByName("body") == "Kerbin-System" && strBodyName == "Kerbin") {
         strHTML += "<p><span onclick='showMap()' style='cursor: pointer; color: blue; text-decoration: none;'>View Surface</span> | ";
       } else if (bodyCatalog[bodyIndex].Moons && !$("#contentHeader").html().includes(strBodyName)) {
-        strHTML += "<span class='fauxLink' onclick='bodyClick(&quot;" + strBodyName + "-System&quot;)'>View System</span> | "
+        strHTML += "<span class='fauxLink' onclick='loadBody(&quot;" + strBodyName + "-System&quot;)'>View System</span> | "
       }
       // no nodes to show unless body has an eccentric or inclined orbit
       if ((parseFloat(bodyCatalog[bodyIndex].Ecc) || parseFloat(bodyCatalog[bodyIndex].Inc)) && !$("#contentHeader").html().includes(strBodyName)) {
@@ -488,8 +493,6 @@ function figureClick(object) {
     // only swap to vessel view on one click if orbits are shown
     if ($("#orbits").is(":checked")) { 
       swapContent("vessel", ggbApplet.getValueString(object.replace("position", "id"))); 
-      w2ui['menu'].select(ggbApplet.getValueString(object.replace("position", "id")));
-      w2ui['menu'].expandParents(ggbApplet.getValueString(object.replace("position", "id")));
     }
     
     // show the orbit if the orbits are hidden
@@ -530,8 +533,6 @@ function figureClick(object) {
       // if we did click on ourselves, then jump to the vessel view
       else if (selectedObj && selectedObj.ID == object.replace("position" , "")) { 
         swapContent("vessel", ggbApplet.getValueString(object.replace("position", "id")));
-        w2ui['menu'].select(ggbApplet.getValueString(object.replace("position", "id")));
-        w2ui['menu'].expandParents(ggbApplet.getValueString(object.replace("position", "id")));
       } 
     }
     return;
@@ -702,11 +703,4 @@ function filterVesselOrbits(id, checked) {
       }
     });
   }
-}
-
-// just need to show the menu item when clicked on via the info dialog, then we can load the body
-function bodyClick(body) {
-  w2ui['menu'].select(body);
-  w2ui['menu'].expandParents(body);
-  loadBody(body);
 }

@@ -70,7 +70,7 @@ do
     if rsKerbal.bof then exit do
   Loop
   if not rsKerbal.bof then
-    response.write(rsKerbal.fields.item("Name") & "~" &_
+    response.write(rsCrew.fields.item("FullName") & "~" &_
                    rsKerbal.fields.item("Status") & "~" &_
                    rsKerbal.fields.item("Rank") & "~" &_
                    rsKerbal.fields.item("Assignment") & "~" &_

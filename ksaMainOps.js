@@ -9,6 +9,7 @@ var mapResizeButton;
 var mapCloseButton;
 var launchsiteMarker;
 var mapMarkerTimeout;
+var twitterSource;
 var clock = new Date();
 var isGGBAppletLoaded = false;
 var isCatalogDataLoaded = false;
@@ -134,18 +135,22 @@ window.onpopstate = function(event) { swapContent(event.state.Type, event.state.
 
 // animate the size of the main content box
 function raiseContent() {
-  $("#contentBox").css("transform", "translateY(0px)");
-  setTimeout(function() { 
-    $("#contentBox").css("height", "885px");
-    $("#map").css("height", "885px");
-    surfaceMap.invalidateSize({reset: true});
-  }, 400);
+  if ($("#contentBox").css("height") != "885px") {
+    $("#contentBox").css("transform", "translateY(0px)");
+    setTimeout(function() { 
+      $("#contentBox").css("height", "885px");
+      $("#map").css("height", "885px");
+      surfaceMap.invalidateSize({reset: true});
+    }, 400);
+  }
 }
 function lowerContent() {
-  $("#contentBox").css("height", "480px");
-  $("#map").css("height", "480px");
-    surfaceMap.invalidateSize({reset: true});
-  setTimeout(function() { $("#contentBox").css("transform", "translateY(405px)"); }, 400);
+  if ($("#contentBox").css("height") != "480px") {
+    $("#contentBox").css("height", "480px");
+    $("#map").css("height", "480px");
+      surfaceMap.invalidateSize({reset: true});
+    setTimeout(function() { $("#contentBox").css("transform", "translateY(405px)"); }, 400);
+  }
 }
 
 // called on page load
@@ -230,8 +235,10 @@ function setupContent() {
   // load page content
   if (getParameterByName("vessel").length) { swapContent("vessel", getParameterByName("vessel")); }
   else if (getParameterByName("body").length) { swapContent("body", getParameterByName("body")); }
-  else if (getParameterByName("crew").length) { swapContent("crew", getParameterByName("crew")); }
-  else { swapContent("body", "Kerbol-System"); }
+  else if (getParameterByName("crew").length) { 
+    if (getParameterByName("crew") == "crewFull") { swapContent("crewFull", getParameterByName("crew")); }
+    else { swapContent("crew", getParameterByName("crew")); }
+  } else { swapContent("body", "Kerbol-System"); }
 }
 
 // switch from one layout to another
@@ -257,6 +264,27 @@ function swapContent(newPageType, id, ut) {
       $("#dataBox").fadeIn();
       loadVessel(id, ut);
     }
+    if (newPageType == "crewFull") {
+      $("#contentBox").spin(false);
+      $("#contentBox").fadeIn();
+      $("#fullRoster").fadeIn();
+      loadCrew(id);
+    }
+    if (newPageType == "crew") {
+      $("#contentBox").spin(false);
+      $("#contentBox").fadeOut();
+      $("#infoBox").fadeIn();
+      $("#infoBox").css("height", "600px");
+      $("#infoBox").css("width", "498px");
+      $("#dataBox").fadeIn();
+      $("#dataBox").css("transform", "translateX(-154px)");
+      $("#dataBox").css("width", "449px");
+      $("#crewFooter").fadeIn();
+      $("#footer").fadeOut();
+      $("#contentBox").fadeOut();
+      $("#missionHistory").fadeOut();
+      loadCrew(id);
+    }
     return;
   } 
   
@@ -264,13 +292,12 @@ function swapContent(newPageType, id, ut) {
   if (pageType == newPageType) {
     if (newPageType == "body") { loadBody(id); }
     if (newPageType == "vessel") { loadVessel(id, ut); }
-    if (newPageType.includes("crew") ) { loadCrew(id); }
+    if (newPageType == "crew") { loadCrew(id); }
     return;
   }
 
   // hide the current content
   if (pageType == "body") {
-    lowerContent();
     $("#figureOptions").fadeOut();
     $("#vesselOrbitTypes").fadeOut();
     $("#figure").fadeOut();
@@ -298,6 +325,7 @@ function swapContent(newPageType, id, ut) {
     }
     $("#crewFooter").fadeOut();
     $("#footer").fadeIn();
+    $("#infoDialog").dialog("close");
   } else if (pageType == "crewFull") {
     $("#fullRoster").fadeOut();
   }
@@ -314,6 +342,7 @@ function swapContent(newPageType, id, ut) {
       loadBody(id); 
     }, 600);
   } else if (newPageType == "vessel") {
+    lowerContent();
     $("#infoBox").fadeIn();
     $("#infoBox").css("height", "400px");
     $("#infoBox").css("width", "650px");
@@ -326,21 +355,29 @@ function swapContent(newPageType, id, ut) {
     else { $("#content").fadeIn(); }
     loadVessel(id, ut);
   } else if (newPageType == "crew") {
-    if (id == "crewFull") {
-      $("#infoBox").fadeOut();
-      $("#dataBox").fadeOut();
-      $("#fullRoster").fadeIn();
-    } else {
-      $("#infoBox").fadeIn();
-      $("#infoBox").css("height", "600px");
-      $("#infoBox").css("width", "498px");
-      $("#dataBox").fadeIn();
-      $("#dataBox").css("transform", "translateX(-154px)");
-      $("#dataBox").css("width", "449px");
-      $("#crewFooter").fadeIn();
-      $("#footer").fadeOut();
-      $("#contentBox").fadeOut();
-    }
+    $("#infoBox").fadeIn();
+    $("#infoBox").css("height", "600px");
+    $("#infoBox").css("width", "498px");
+    $("#dataBox").fadeIn();
+    $("#dataBox").css("transform", "translateX(-154px)");
+    $("#dataBox").css("width", "449px");
+    $("#crewFooter").fadeIn();
+    $("#footer").fadeOut();
+    $("#contentBox").fadeOut();
+    $("#missionHistory").fadeOut();
+    loadCrew(id);
+  } else if (newPageType == "crewFull") {
+    raiseContent();
+    $("#infoBox").fadeOut();
+    $("#dataBox").fadeOut();
+    swapTwitterSource();
+    $("#crewFooter").fadeOut();
+    $("#footer").fadeIn();
+    $("#contentBox").fadeIn();
+    $("#fullRoster").spin({ position: 'relative', top: '50%', left: '50%' });
+    
+    // delay this a bit so the scroll bar doesn't pop up before the content move is complete
+    setTimeout(function() { $("#fullRoster").fadeIn(); }, 250);
     loadCrew(id);
   }
 }
@@ -392,9 +429,10 @@ function checkPageUpdate() {
 function swapTwitterSource(swap, source) {
   if (swap && source) {
     $("#twitterTimelineSelection").html("Sources: <span class='fauxLink' onclick=\"swapTwitterSource('" + swap + "')\">KSA Main Feed</span> | <b>" + swap + "</b>");
+    twitterSource = source;
   } else if (swap && !source) {
-    if (currentVesselData.StaticData.Timeline.split(";").length > 1) { src = currentVesselData.StaticData.Timeline.split(";")[1]; }
-    else { src = currentVesselData.StaticData.Timeline; }
+    if (twitterSource.split(";").length > 1) { src = twitterSource.split(";")[1]; }
+    else { src = twitterSource; }
     $("#twitterTimelineSelection").html("Sources: <b>KSA Main Feed</b> | <span class='fauxLink' onclick=\"swapTwitterSource('" + swap + "', '" + src + "')\">" + swap + "</span>");
   } else if (!swap && !source) {
     $("#twitterTimelineSelection").html("Sources: <b>KSA Main Feed</b>");

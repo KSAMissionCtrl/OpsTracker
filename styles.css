@@ -119,6 +119,29 @@ input:disabled+label {
   margin: auto;
 }
 
+.infoTitle {
+  position: absolute; 
+  background-color: black;
+  text-align: center;
+  height: 25px;
+  cursor: pointer;
+  font-size: 18px; color: white; font-weight: bold;
+}
+.vessel {
+  width: 650px;
+  top: 375px;
+}
+.crew {
+  width: 498px;
+  top: 575px;
+}
+
+.crewCard {
+  width: 235px;
+  height: 284px;
+  display: inline-block;
+}
+
 #menuResize {
   margin: 2px;
   text-align: center;
@@ -171,6 +194,7 @@ input:disabled+label {
   height: 880px;
   width: 955px;
   display: none;
+  overflow: hidden;
 }
 
 #infoBox {
@@ -250,17 +274,6 @@ input:disabled+label {
   position: absolute; 
   margin-top: 5px; 
   display: none;
-}
-
-#infoTitle {
-  position: absolute; 
-  width: 650px;
-  height: 25px;
-  background-color: black;
-  top: 375px;
-  text-align: center;
-  cursor: pointer;
-  font-size: 18px; color: white; font-weight: bold;
 }
 
 #mapTip {

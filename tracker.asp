@@ -46,30 +46,30 @@
     <div id='mainContent'>
       <div id='contentHeader' class='header'>&nbsp;</div>
       <div id='infoBox' style='width: 650px; height: 400px;'>
-        <div id='vesselImg' class='overlay'></div>
+        <div id='infoImg' class='overlay'></div>
         <div id='partsImg' class='overlay'></div>
-        <div id='infoTitle' onclick='showVesselInfo()'></div>
+        <div id='infoTitle' onclick='showInfoDialog()'></div>
       </div>
       <div id='infoDialog'></div>
       <div id='dataBox' style='margin-left: 655px;'>
-        <div id='MET' class='dataField'></div>
-        <div id='velocity' class='dataField'></div>
-        <div id='pe' class='dataField'></div>
-        <div id='ap' class='dataField'></div>
-        <div id='ecc' class='dataField'></div>
-        <div id='inc' class='dataField'></div>
-        <div id='period' class='dataField'></div>
-        <div id='crew' class='dataField'></div>
-        <div id='resources' class='dataField'></div>
-        <div id='comms' class='dataField'></div>
-        <div id='related' class='dataField'></div>
-        <div id='ports' class='dataField'></div>
-        <div id='update' class='dataField'></div>
-        <div id='addlResources' class='dataField'></div>
+        <div id='dataField0' class='dataField'></div>
+        <div id='dataField1' class='dataField'></div>
+        <div id='dataField2' class='dataField'></div>
+        <div id='dataField3' class='dataField'></div>
+        <div id='dataField4' class='dataField'></div>
+        <div id='dataField5' class='dataField'></div>
+        <div id='dataField6' class='dataField'></div>
+        <div id='dataField7' class='dataField'></div>
+        <div id='dataField8' class='dataField'></div>
+        <div id='dataField9' class='dataField'></div>
+        <div id='dataField10' class='dataField'></div>
+        <div id='dataField11' class='dataField'></div>
+        <div id='dataField12' class='dataField'></div>
+        <div id='dataField13' class='dataField'></div>
         <div id='dataField14' class='dataField'></div>
         <div id='dataField15' class='dataField'></div>
         <div id='dataField16' class='dataField'></div>
-        <div style='margin-top: 0px'>
+        <div id='missionHistory' style='margin-top: 0px'>
           <select id='prevEvent' style='margin: 2px; width: 53px'>
             <option>Prev Event(s)</option>
           </select>
