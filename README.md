@@ -50,11 +50,10 @@ Blank template MDB Access files are included.
 * [FT] Fix issues with Sketchfab model support (button display for new hoverbox behavior, start/stop on show/hide)
 * [FT] Proper terminator display taking orbital inclination into account ([Leaflet.Curve](https://github.com/elfalem/Leaflet.curve)) - can possibly adapt [ScanSat code](https://forum.kerbalspaceprogram.com/index.php?/topic/87351-ksp-130-scansat-v179-dev-version-june-28-2017/&do=findComment&comment=2993781)
 * [FT/CR] Communicate with the website to display update badges on the menu items for Flight Tracker and Crew Roster
-* [CR] when hovering over a ribbon, clicking will show previous types of that ribbon below the current one earned so ppl can hover over them for dates and info. Moving mouse off will hide them. Border needed around them or they will just seem to replace any other ribbons below
+* [CR] have option to "Show All" ribbons that displays every one and ignores sucession
 * [FT] Playback controls for ground track data. Include in popup windows to let ppl jump to beginning or end of track and see a real-time update of data (center popup, move along track)
 * [FT] Allow download of aircraft flight data in spreadsheet form via the More Info pop-up
 * [FT] Upgrade to the latest version of Leaflet using a [new maps library](https://gitlab.com/IvanSanchez/Leaflet.Kerbal)
-* [CR] Reverse-order crew mission listing so newest is at top
 * [FT] Hyperbolic orbit rendering in GeoGebra figures
 
 ### Change Log
@@ -81,7 +80,10 @@ Changes:
   - The twitter stream shown can be changed in some instances to view only tweets relevant to the mission/vessel/crew member
   - Clicking for additional vessel information no longer pulls up text but instead opens a dialog box containing the text, which can be moved and resized. When closed, it will re-open over top the vessel image again next time
   - The surface map when viewed in the vessel page can now be expanded to fill the entire content area, as it essentially functions as the full surface map previously only available through a body view in the Flight Tracker
+  - Full Roster view tooltips now show additional data for # of missions completed and ribbons earned
 
 Additions:
   - When viewing a system that has vessels in orbit, they are dynamically loaded and added to the GeoGebra figure
   - Can show/hide the orbits of various types of vessels
+  - Re-sorting the crew menu will also re-sort the Full Roster display if it is visible. If not then when loaded it will always sort crew in the same order as the current menu sort selection
+  - Crew pages can now link to the current vessel they are aboard, if any
