@@ -16,10 +16,15 @@ function loadVessel(vessel, UT) {
   vesselPastUT = UT;
   
   // modify the history so people can page back/forward
+  // only add URL variables if they aren't already included
+  if (window.location.href.includes("?") && (vessel == strCurrentVessel || !history.state)) { var strURL = window.location.href; }
+  else { 
+    if (isNaN(UT)) { var strURL = "http://www.kerbalspace.agency/Tracker/tracker.asp?vessel=" + vessel; }
+    else { var strURL = "http://www.kerbalspace.agency/Tracker/tracker.asp?vessel=" + vessel + "&ut=" + UT; }
+  }
+  
   // if this is the first page to load, replace the current history
   var strURL;
-  if (isNaN(UT)) { strURL = "http://www.kerbalspace.agency/Tracker/tracker.asp?vessel=" + vessel; }
-  else { strURL = "http://www.kerbalspace.agency/Tracker/tracker.asp?vessel=" + vessel + "&ut=" + UT; }
   if (!history.state) {
     history.replaceState({Type: "vessel", ID: vessel, UT: parseInt(UT)}, document.title, strURL);
   // don't create a new entry if this is the same page being reloaded
@@ -31,10 +36,6 @@ function loadVessel(vessel, UT) {
   // if this vessel is not in the current catalog, we need to load a new system
   // we can't call this function until the menu is loaded
   if (!orbitCatalog.length || !orbitCatalog.find(o => o.ID === vessel)) { loadBody(getParentSystem(vessel)); }
-  
-  // add the resize button to the map
-  addMapResizeButton();
-  if (!$('#map').is(":hover")) { $(".easy-button-button").fadeOut(); }
   
   strCurrentVessel = vessel;
   
@@ -51,6 +52,12 @@ function loadVessel(vessel, UT) {
   // put out the call for the vessel data
   console.log("loadVesselData.asp?craft=" + strCurrentVessel + "&UT=" + currUT() + "&UTjump=" + UT);
   loadDB("loadVesselData.asp?craft=" + strCurrentVessel + "&UT=" + currUT() + "&UTjump=" + UT, loadVesselDataAJAX);
+  currentVesselData = null;
+  
+  // add vessel-specific buttons to the map and call up for a data re-render
+  addMapResizeButton();
+  addMapViewButton();
+  renderMapData();
 }
 
 // sends out the AJAX call for data to add any vessels to a GeoGebra figure/Leaflet library once it has loaded
@@ -103,7 +110,7 @@ function loadVesselOrbitsAJAX(xhttp) {
   if (pageType == "body") {
     $("#vesselLoaderMsg").spin(false);
     $("#vesselLoaderMsg").fadeOut();
-    $("#vesselOrbitTypes").fadeIn();
+    if ($("#figure").is(":visible")) { $("#vesselOrbitTypes").fadeIn(); }
   }
   
   // make sure a quick figure switch doesn't declutter things too fast
@@ -561,8 +568,6 @@ function vesselContentUpdate() {
         $("#content").html("<img class='fullCenter' class='tip' title='" + data[1] + "' src='" + data[0] + "'>");
       }
     
-      $("#map").css("visibility", "visible");
-      $("#map").hide();
       $("#content").fadeIn();
     }
 
@@ -589,7 +594,7 @@ function vesselContentUpdate() {
   // just plain HTML
   } else {
     isVesselUsingMap = false;
-    $("#map").fadeOut();
+    if ($("#map").css("visibility") != "hidden") $("#map").fadeOut();
     $("#content").html(currentVesselData.DynamicData.Content);
     $("#content").fadeIn();
   }

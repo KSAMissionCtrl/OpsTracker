@@ -206,3 +206,20 @@ return (('ontouchstart' in window)
         || (navigator.MaxTouchPoints > 0)
         || (navigator.msMaxTouchPoints > 0));
 }
+
+// gets values for URL parameters of the same name and returns them in an array
+// http://stackoverflow.com/questions/22209307/how-to-get-multiple-parameters-with-same-name-from-a-url-in-javascript
+function getQueryParams(name) {
+  qs = location.search;
+
+  var params = [];
+  var tokens;
+  var re = /[?&]?([^=]+)=([^&]*)/g;
+
+  while (tokens = re.exec(qs))
+  { 
+    if (decodeURIComponent(tokens[1]) == name)
+    params.push(decodeURIComponent(tokens[2]));
+  }
+  return params;
+}

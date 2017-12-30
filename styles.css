@@ -39,6 +39,9 @@ input:disabled+label {
   cursor: default;
 }
 
+/* Leaflet label text adjustment - centered by default */
+.labeltext { text-align: left; }
+
 .w2ui-sidebar .w2ui-sidebar-div .w2ui-selected:before {
   border: 0px;
 }
@@ -142,6 +145,10 @@ input:disabled+label {
   display: inline-block;
 }
 
+.no-close .ui-dialog-titlebar-close {
+  display: none;
+}
+
 #menuResize {
   margin: 2px;
   text-align: center;
@@ -227,7 +234,6 @@ input:disabled+label {
 #contentBox {
   width: 955px;
   height: 885px;
-  text-align: center;
   position: absolute;
   -webkit-transition: all 150ms ease-out;
   -moz-transition: all 150ms ease-out;

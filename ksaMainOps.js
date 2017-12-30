@@ -1,58 +1,3 @@
-var UT;
-var timeoutHandle;
-var pageType;
-var vesselPastUT;
-var currentVesselData;
-var currentCrewData;
-var surfaceMap;
-var mapResizeButton;
-var mapCloseButton;
-var launchsiteMarker;
-var mapMarkerTimeout;
-var twitterSource;
-var clock = new Date();
-var isGGBAppletLoaded = false;
-var isCatalogDataLoaded = false;
-var isMenuDataLoaded = false;
-var isEventDataLoaded = false;
-var isOrbitDataLoaded = false;
-var isGGBAppletLoading = false;
-var isDirty = false;
-var isTipShow = false;
-var isVesselUsingMap = true;
-var UTC = 4;
-var launchCountdown = -1;
-var maneuverCountdown = -1;
-var tickDelta = 0;
-var updatesListSize = 0;
-var vesselRotationIndex = 0;
-var planetLabels = [];
-var nodes = [];
-var nodesVisible = [];
-var ggbOrbits = [];
-var craftsMenu = [];
-var crewMenu = [];
-var distanceCatalog = [];
-var bodyCatalog = [];
-var partsCatalog = [];
-var orbitCatalog = [];
-var updatesList = [];
-var strTinyBodyLabel = "";
-var strCurrentBody = "Kerbol";
-var strCurrentSystem = "Kerbol-System";
-var strCurrentVessel = "";
-var strCurrentCrew = "";
-var orbitColors = {
-  probe: "#FFD800",
-  debris: "#ff0000",
-  ship: "#0094FF",
-  station: "#B200FF",
-  asteroid: "#996633"
-};  
-var srfLocations = {
-  KSC: [-0.0972, -74.5577]
-};
-
 // get our platform properties for post-launch surveys
 // http://stackoverflow.com/questions/11219582/how-to-detect-my-browser-version-and-operating-system-using-javascript
 var nVer = navigator.appVersion;
@@ -177,10 +122,10 @@ function setupContent() {
   
   // load data
   // event load then calls menu load
+  initializeMap();
   loadDB("loadEventData.asp?UT=" + currUT(), loadEventsAJAX);
   loadDB("loadBodyData.asp", loadBodyAJAX);
   loadDB("loadPartsData.asp", loadPartsAJAX);
-  loadMap();
   
   // setup the planet data dialog box
   // when it is closed, it will return to the top-left of the figure
@@ -211,6 +156,20 @@ function setupContent() {
                       if (pageType == "vessel") { $(this).dialog("option", { width: 643, height: 400 }); }
                       else if (pageType == "crew") { $(this).dialog("option", { width: 490, height: 600 }); }
                     }});
+  
+  // setup the message dialog box that will notify the user about any surface map stuff
+  // when it is closed, it will return to the center of the info box
+  $("#progressbar").progressbar({ value: 0 });
+  $("#mapDialog").dialog({autoOpen: false, 
+                    closeOnEscape: false, 
+                    resizable: false, 
+                    dialogClass: "no-close",
+                    width: 450,
+                    height: "auto",
+                    hide: { effect: "fade", duration: 300 }, 
+                    show: { effect: "fade", duration: 300 },
+                    position: { my: "center", at: "center", of: "#map" }
+                    });
   
   // uncheck all the filter boxes
   $("#asteroid-filter").prop('checked', false);
@@ -318,9 +277,9 @@ function swapContent(newPageType, id, ut) {
       swapTwitterSource();
     }
     $("#infoDialog").dialog("close");
-    $("#map").fadeOut();
+    if ($("#map").css("visibility") != "hidden" && !window.location.href.includes("&map")) $("#map").fadeOut();
     $("#content").fadeOut();
-    removeMapResizeButton();
+    removeVesselMapButtons();
   } else if (pageType == "crew") {
     if (newPageType == "body") {
       $("#infoBox").fadeOut();
@@ -338,10 +297,12 @@ function swapContent(newPageType, id, ut) {
   if (newPageType == "body") {
     raiseContent();
     setTimeout(function() { 
-      $("#figureOptions").fadeIn();
-      if (!$("#asteroid-filter").prop("disabled") || !$("#debris-filter").prop("disabled") || !$("#probe-filter").prop("disabled") || !$("#ship-filter").prop("disabled") || !$("#station-filter").prop("disabled")) { $("#vesselOrbitTypes").fadeIn(); }
+      if (!window.location.href.includes("&map")) {
+        $("#figureOptions").fadeIn();
+        if (!$("#asteroid-filter").prop("disabled") || !$("#debris-filter").prop("disabled") || !$("#probe-filter").prop("disabled") || !$("#ship-filter").prop("disabled") || !$("#station-filter").prop("disabled")) { $("#vesselOrbitTypes").fadeIn(); }
+        $("#figure").fadeIn();
+      }
       $("#contentBox").fadeIn();
-      $("#figure").fadeIn();
       loadBody(id); 
     }, 600);
   } else if (newPageType == "vessel") {

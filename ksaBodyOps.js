@@ -42,6 +42,16 @@ function loadBody(body) {
     return;
   }
   isGGBAppletLoading = true;
+  
+  // select and show it in the menu - if we can't do this now it'll get called again after GGB init
+  if (isMenuDataLoaded) {
+    w2ui['menu'].select(body);
+    w2ui['menu'].expandParents(body);
+    w2ui['menu'].scrollIntoView(body);
+  }  
+  
+  // hide the map just in case its open
+  hideMap();
 
   // do not do any of this if the current page is not set to body
   // in that case a vessel page is changing the figure because the current vessel orbit was not loaded
@@ -53,12 +63,16 @@ function loadBody(body) {
     document.title = "KSA Operations Tracker" + " - " + body.replace("-", " ");
     
     // modify the history so people can page back/forward
+    // only add URL variables if they aren't already included
+    if (window.location.href.includes("?") && (body == strCurrentBody || !history.state)) { var strURL = window.location.href; }
+    else { var strURL = "http://www.kerbalspace.agency/Tracker/tracker.asp?body=" + body; }
+    
     // if this is the first page to load, replace the current history
     // don't create a new entry if this is the same page being reloaded
     if (!history.state) {
-      history.replaceState({Type: "body", ID: body}, document.title, "http://www.kerbalspace.agency/Tracker/tracker.asp?body=" + body); 
+      history.replaceState({Type: "body", ID: body}, document.title, strURL); 
     } else if (history.state.ID != body) {
-      history.pushState({Type: "body", ID: body}, document.title, "http://www.kerbalspace.agency/Tracker/tracker.asp?body=" + body); 
+      history.pushState({Type: "body", ID: body}, document.title, strURL); 
     }
 
     // for tag loading
@@ -94,7 +108,7 @@ function loadBody(body) {
   
   // remove and add the figure container
   $("#figure").remove();
-  $("#contentBox").append("<div id='figure' style='background-color: red;'></div>");
+  $("#contentBox").append("<div id='figure'></div>");
   
   // hide it if this isn't a body page
   if (pageType != "body") { $("#figure").hide(); } 
@@ -149,7 +163,7 @@ function ggbOnInit(){
   // disable the spinner & show checkboxes if this is the first load
   if (!isGGBAppletLoaded && pageType == "body") { 
     $("#contentBox").spin(false); 
-    $("#figureOptions").fadeIn();
+    if (!window.location.href.includes("&map")) { $("#figureOptions").fadeIn(); }
   }
   
   // loop through and catalog all the pre-made objects
@@ -189,6 +203,9 @@ function ggbOnInit(){
   // make sure a quick figure switch doesn't declutter things too fast
   clearTimeout(timeoutHandle);
   timeoutHandle = setTimeout(declutterGGB, 2500);
+  
+  // load the surface map
+  loadMap();
 }
 
 // creates an orbit on the currently-loaded GeoGebra figure

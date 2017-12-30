@@ -478,17 +478,23 @@ function filterDisplay() {
 }
 
 // recursive functions to pull vessels/crew from nodes nested n deep
-function extractIDs(nodes, recurse) {
+function extractIDs(nodes, moon) {
   
   // work through the nodes to determine what data we need to send for
   var strIDs = '';
   for (var i=0; i<nodes.length; i++) {
     
     // if this is a moon or folder dig through its nodes, if it has any
-    if (nodes[i].nodes.length) { strIDs += extractIDs(nodes[i].nodes.slice(0), true); }
+    if (nodes[i].nodes.length) { strIDs += extractIDs(nodes[i].nodes.slice(0), moon); }
       
-    // do not add moons or the full crew roster to the list
-    else if (!nodes[i].img.includes("body") && nodes[i].id != "crewFull") { strIDs += nodes[i].id + ";"; }
+    // do not add the full crew roster to the list, but maybe add moons
+    else if (nodes[i].id != "crewFull") { 
+      if (!nodes[i].img.includes("body")) {
+        strIDs += nodes[i].id + ";"; 
+      } else if (nodes[i].img.includes("body") && moon) {
+        strIDs += "*" + nodes[i].id + ";"; 
+      }
+    }
   }
   return strIDs;
 }

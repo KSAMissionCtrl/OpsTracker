@@ -1,5 +1,3 @@
-var crewList = [];
-var isPageLoad = false;
 
 function loadCrew(crew) {
   
