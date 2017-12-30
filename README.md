@@ -33,6 +33,7 @@ Blank template MDB Access files are included.
 ### Known Issues
 
 - **Operations Tracker is currently in active development, so visiting the page may cause browser errors, failures to load, etc. However after it has been worked on it is usually left in a workable state**
+- Leaflet map can be finicky in a number of ways - most notably it doesn't mousewheel zoom centered on the cursor and can sometimes load showing off the edge of the map
 
 ### Future Fixes/Changes/Additions
 
@@ -50,7 +51,6 @@ Blank template MDB Access files are included.
 * [FT] Fix issues with Sketchfab model support (button display for new hoverbox behavior, start/stop on show/hide)
 * [FT] Proper terminator display taking orbital inclination into account ([Leaflet.Curve](https://github.com/elfalem/Leaflet.curve)) - can possibly adapt [ScanSat code](https://forum.kerbalspaceprogram.com/index.php?/topic/87351-ksp-130-scansat-v179-dev-version-june-28-2017/&do=findComment&comment=2993781)
 * [FT/CR] Communicate with the website to display update badges on the menu items for Flight Tracker and Crew Roster
-* [CR] have option to "Show All" ribbons that displays every one and ignores sucession
 * [FT] Playback controls for ground track data. Include in popup windows to let ppl jump to beginning or end of track and see a real-time update of data (center popup, move along track)
 * [FT] Allow download of aircraft flight data in spreadsheet form via the More Info pop-up
 * [FT] Upgrade to the latest version of Leaflet using a [new maps library](https://gitlab.com/IvanSanchez/Leaflet.Kerbal)
@@ -59,7 +59,7 @@ Blank template MDB Access files are included.
 ### Change Log
 
 **v1.00** (TBD)   
-(all major fixes/changes/additions listed are based on v4.12 of the [Flight Tracker](https://github.com/KSAMissionCtrl/FlightTracker#change-log))
+(all fixes/changes/additions listed are based on v4.12 of the [Flight Tracker](https://github.com/KSAMissionCtrl/FlightTracker#change-log))
 
 Fixes:
   - Body info window now displays body mass properly
@@ -81,9 +81,17 @@ Changes:
   - Clicking for additional vessel information no longer pulls up text but instead opens a dialog box containing the text, which can be moved and resized. When closed, it will re-open over top the vessel image again next time
   - The surface map when viewed in the vessel page can now be expanded to fill the entire content area, as it essentially functions as the full surface map previously only available through a body view in the Flight Tracker
   - Full Roster view tooltips now show additional data for # of missions completed and ribbons earned
+  - After all custom pins are loaded the map veiw will size to encompass them all at the smallest zoom level possible
+  - Layer control stays open and does not collapse until all map layers are loaded, but still hides with the rest of map controls when the cursor is off the map
+  - Detecting what to show using the `&layers` option is much more lenient. For example you can say `anomalies` or `anomaly`
+  - The `&map` option to show the surface map of a body on page load no longer needs a value, but should always be placed at the end of the URL
 
 Additions:
   - When viewing a system that has vessels in orbit, they are dynamically loaded and added to the GeoGebra figure
   - Can show/hide the orbits of various types of vessels
   - Re-sorting the crew menu will also re-sort the Full Roster display if it is visible. If not then when loaded it will always sort crew in the same order as the current menu sort selection
   - Crew pages can now link to the current vessel they are aboard, if any
+  - Custom pins placed on the map through the `&loc` option will show up in their own map layer so they can be shown/hidden as a group
+  - Map button when viewing a vessel that lets you jump to the planet/system overview and see all the orbit tracks
+  - If a crew member has ribbons that have been superseded by higher achievements, the option is given to show all the ribbons earned, then also hide them again if wanted
+  - Vessels can have additional sources of material listed that links to things like various reports on the mission, launch telemetry data, etc. These appear as file icons in the Data Box that can be clicked, with tooltips describing the nature of each
