@@ -33,7 +33,7 @@ Blank template MDB Access files are included.
 ### Known Issues
 
 - **Operations Tracker is currently in active development, so visiting the page may cause browser errors, failures to load, etc. However after it has been worked on it is usually left in a usable state**
-- Leaflet map can be finicky in a number of ways - most notably it doesn't mousewheel zoom centered on the cursor and can sometimes load showing off the edge of the map
+- Leaflet map can be finicky in a number of ways - most notably it doesn't mousewheel zoom centered on the cursor and can sometimes load showing off the edge of the map. Generally can be fixed by upsizing/downsizing or going fullscreen
 - The downsized default map view for vessel pages does not interpret coordinates properly, so the info control is disabled as well as some features, but everything works fine if you size up the map view
 - In rare instances the menu will fail to load properly on initial page load. A full refresh (Ctrl+F5) seems to fix it every time
 
@@ -81,15 +81,16 @@ Changes:
   - Inactive Vessels are organized into folders sorted by year descending and then month ascending
   - Active Vessels are listed in alphabetical order
   - The twitter stream shown can be changed in some instances to view only tweets relevant to the mission/vessel/crew member
-  - Clicking for additional vessel information no longer pulls up text but instead opens a dialog box containing the text, which can be moved and resized. When closed, it will re-open over top the vessel image again next time
-  - The surface map when viewed in the vessel page can now be expanded to fill the entire content area, as it essentially functions as the full surface map previously only available through a body view in the Flight Tracker
+  - Clicking for additional vessel/crew information no longer pulls up text but instead opens a dialog box containing the text, which can be moved and resized. When closed, it will re-open over top the vessel/crew image again next time
+  - The surface map when viewed in the vessel page can now be expanded to fill the entire content area in addition to going fullscreen
   - Full Roster view tooltips now show additional data for # of missions completed and ribbons earned
   - After all custom pins are loaded the map veiw will size to encompass them all at the smallest zoom level possible
   - Layer control stays open and does not collapse until all map layers are loaded, but still hides with the rest of map controls when the cursor is off the map
   - Detecting what to show using the `&layers` option is much more lenient. For example you can say `anomalies` or `anomaly`
   - The `&map` option to show the surface map of a body on page load no longer needs a value, but should always be placed at the end of the URL
-  - Vessel orbits are always rendered in full by default, from 1 up to a max of 3. However the user can cancel the calculations at anytime and what has been calculated will be rendered
+  - Vessel orbits are always rendered in full by default, from 1 up to a max of 3. However you can cancel the calculations at anytime and what has been calculated will be rendered
   - After each full orbit is rendered it is immediately added to the map
+  - If the view is changed to a body or crew while a vessel orbit is calculating, it will be paused. If you return to that vessel before any other, the calculation will pickup where it left off. Otherwise it will be chucked and new calculations begun for a new vessel
 
 Additions:
   - When viewing a system that has vessels in orbit, they are dynamically loaded and added to the GeoGebra figure
