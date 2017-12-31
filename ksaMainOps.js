@@ -72,7 +72,7 @@ if (navigator.appVersion.indexOf("Linux")!=-1) OSName="Linux";
 // current game time is the difference between current real time minus number of ms since midnight on 9/13/16
 // account for fact that game started during DST and also convert to seconds
 UT = ((clock.getTime() - foundingMoment) / 1000);
-if (clock.toString().search("Standard") >= 0) { UT += 3600; UTC = 5; }
+if (clock.toString().search("Standard") >= 0) { UT -= 3600; UTC = 5; }
 if (getParameterByName("showUT")) { console.log(UT + " " + clock); }
 
 // handle history state changes
@@ -81,20 +81,33 @@ window.onpopstate = function(event) { swapContent(event.state.Type, event.state.
 // animate the size of the main content box
 function raiseContent() {
   if ($("#contentBox").css("height") != "885px") {
+    isContentMoving = true;
     $("#contentBox").css("transform", "translateY(0px)");
     setTimeout(function() { 
       $("#contentBox").css("height", "885px");
       $("#map").css("height", "885px");
-      surfaceMap.invalidateSize({reset: true});
+      surfaceMap.invalidateSize();
+      isContentMoving = false;
+      
+      // until I can figure out why the downsized map acts funky, only allow scrollwheel zoom on the big map
+      surfaceMap.options.scrollWheelZoom = true;
     }, 400);
   }
 }
 function lowerContent() {
   if ($("#contentBox").css("height") != "480px") {
+    isContentMoving = true;
     $("#contentBox").css("height", "480px");
     $("#map").css("height", "480px");
-    surfaceMap.invalidateSize({reset: true});
-    setTimeout(function() { $("#contentBox").css("transform", "translateY(405px)"); }, 400);
+    surfaceMap.invalidateSize();
+    setTimeout(function() { 
+      $("#contentBox").css("transform", "translateY(405px)"); 
+      isContentMoving = false;
+      
+      // until I figure out why the coordinates in the downsized map are messed up, hide the info control and don't allow scrollwheel zoom
+      $(".leaflet-control-info").fadeOut();
+      surfaceMap.options.scrollWheelZoom = false;
+    }, 400);
   }
 }
 
@@ -163,6 +176,7 @@ function setupContent() {
   $("#mapDialog").dialog({autoOpen: false, 
                     closeOnEscape: false, 
                     resizable: false, 
+                    draggable: false,
                     dialogClass: "no-close",
                     width: 450,
                     height: "auto",
@@ -418,13 +432,8 @@ function swapTwitterSource(swap, source) {
   }
   checkPageUpdate();
 
-  // update to the current time
-  // add a second to account for tickDelta starting at 0
-  var currTime = new Date();
-  currTime.setTime(clock.getTime() + tickDelta + 1000);
-
   // update the clocks
-  $('#ksctime').html(formatUTCTime(currTime, true));
+  $('#ksctime').html(UTtoDateTime(currUT(), true));
   if (launchCountdown > 0) { $('#launchCountdown').html(formatTime(launchCountdown, false)); }
   else if (launchCountdown == 0) { $('#launchCountdown').html("LIFTOFF!!"); }
   if (maneuverCountdown > 0) { $('#maneuverCountdown').html(formatTime(maneuverCountdown, false)); }
@@ -443,6 +452,63 @@ function swapTwitterSource(swap, source) {
     
       // update the MET or countdown
       $("#metCount").html(formatTime($("#metCount").attr("data")-currUT()));
+      
+      // update vessel surface map information if needed
+      if (vesselMarker) {
+        var now = getPlotIndex();
+
+        // update craft position and popup content
+        var cardinal = getLatLngCompass(currentVesselPlot.Data[now.ObtNum].Orbit[now.Index].Latlng);
+        vesselMarker.setLatLng(currentVesselPlot.Data[now.ObtNum].Orbit[now.Index].Latlng);
+        $('#lat').html(numeral(currentVesselPlot.Data[now.ObtNum].Orbit[now.Index].Latlng.lat).format('0.0000') + "&deg;" + cardinal.Lat);
+        $('#lng').html(numeral(currentVesselPlot.Data[now.ObtNum].Orbit[now.Index].Latlng.lng).format('0.0000') + "&deg;" + cardinal.Lng);
+        $('#alt').html(numeral(currentVesselPlot.Data[now.ObtNum].Orbit[now.Index].Alt).format('0,0.000') + " km");
+        $('#vel').html(numeral(currentVesselPlot.Data[now.ObtNum].Orbit[now.Index].Vel).format('0,0.000') + " km/s");
+        
+        // update the Ap/Pe markers if they exist, and check for passing
+        if (currentVesselPlot.Events.Ap.Marker) {
+          $('#apTime').html(formatTime(currentVesselPlot.Events.Ap.UT - currUT()));
+          if (currentVesselPlot.Events.Ap.UT <= currUT()) {
+
+            // just add on the time of an orbit to get the time for the next Ap
+            currentVesselPlot.Events.Ap.UT += currentVesselData.Orbit.OrbitalPeriod;
+            
+            // remove the marker from the current layer and check if there is an orbit after this that is long enough to add the marker to
+            currentVesselPlot.Data[now.ObtNum].Layer.removeLayer(currentVesselPlot.Events.Ap.Marker);
+            if (now.ObtNum + 1 < currentVesselPlot.Data.length && 
+                currUT() + currentVesselPlot.Data[now.ObtNum+1].Orbit.length > currentVesselPlot.Events.Ap.UT) {
+            
+              // subtract the new UT of the Ap from the starting UT of the next orbit to get the proper index
+              currentVesselPlot.Events.Ap.Marker.setLatLng(currentVesselPlot.Data[now.ObtNum+1].Orbit[Math.floor(currentVesselPlot.Events.Ap.UT-currentVesselPlot.Data[now.ObtNum+1].StartUT)].Latlng);
+              var strTimeDate = UTtoDateTime(currentVesselPlot.Events.Ap.UT);
+              $('#apDate').html(strTimeDate.split("@")[0] + '<br>' + strTimeDate.split("@")[1]);
+              currentVesselPlot.Data[now.ObtNum+1].Layer.addLayer(currentVesselPlot.Events.Ap.Marker);
+              
+            // noplace else to go, so remove the marker from the map completely
+            } else { 
+              surfaceMap.removeLayer(currentVesselPlot.Events.Ap.Marker); 
+              currentVesselPlot.Events.Ap.Marker = null;
+            }
+          }
+        }
+        if (currentVesselPlot.Events.Pe.Marker) {
+          $('#peTime').html(formatTime(currentVesselPlot.Events.Pe.UT - currUT()));
+          if (currentVesselPlot.Events.Pe.UT <= currUT()) {
+            currentVesselPlot.Events.Pe.UT += currentVesselData.Orbit.OrbitalPeriod;
+            currentVesselPlot.Data[now.ObtNum].Layer.removeLayer(currentVesselPlot.Events.Pe.Marker);
+            if (now.ObtNum + 1 < currentVesselPlot.Data.length && 
+                currUT() + currentVesselPlot.Data[now.ObtNum+1].Orbit.length > currentVesselPlot.Events.Pe.UT) {
+              currentVesselPlot.Events.Pe.Marker.setLatLng(currentVesselPlot.Data[now.ObtNum+1].Orbit[Math.floor(currentVesselPlot.Events.Pe.UT-currentVesselPlot.Data[now.ObtNum+1].StartUT)].Latlng);
+              var strTimeDate = UTtoDateTime(currentVesselPlot.Events.Pe.UT);
+              $('#peDate').html(strTimeDate.split("@")[0] + '<br>' + strTimeDate.split("@")[1]);
+              currentVesselPlot.Data[now.ObtNum+1].Layer.addLayer(currentVesselPlot.Events.Pe.Marker);
+            } else { 
+              surfaceMap.removeLayer(currentVesselPlot.Events.Pe.Marker); 
+              currentVesselPlot.Events.Pe.Marker = null;
+            }
+          }
+        }
+      }
     }
   }
   

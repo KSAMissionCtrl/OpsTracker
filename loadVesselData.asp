@@ -291,7 +291,6 @@ if not rsOrbit.eof then
   next 
 
   'now find that point in the flight data
-  response.write(UBound(locations))
   rsOrbit.MoveLast
   UT = split(locations(index), ";")
   do until rsOrbit.fields.item("UT") <= UT(0)*1

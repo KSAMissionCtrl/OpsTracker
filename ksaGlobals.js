@@ -12,6 +12,7 @@ var mapResizeButton;
 var mapViewButton;
 var mapCloseButton;
 var launchsiteMarker;
+var vesselMarker;
 var mapMarkerTimeout;
 var layerControl;
 var infoControl;
@@ -26,11 +27,15 @@ var peIcon;
 var soiEntryIcon;
 var soiExitIcon;
 var nodeIcon;
-var shipIcon;
+var vesselIcon;
 var numOrbitRenders;
-var obtTrackDataLoad;
-var srfTrackDataLoad;
+var obtCalcUT;
+var timePopup;
+var currentVesselPlot;
 var clock = new Date();
+var vesselPositionPopup = L.popup({offset: new L.Point(0,-1), closeButton: true, closeOnClick: false});
+var obtTrackDataLoad = null;
+var srfTrackDataLoad = null;
 var isGGBAppletLoaded = false;
 var isCatalogDataLoaded = false;
 var isMenuDataLoaded = false;
@@ -42,6 +47,7 @@ var isTipShow = false;
 var isVesselUsingMap = true;
 var isPageLoad = false;
 var isOrbitRenderCancelled = false;
+var isContentMoving = false;
 var UTC = 4;
 var launchCountdown = -1;
 var maneuverCountdown = -1;
@@ -58,6 +64,7 @@ var distanceCatalog = [];
 var bodyCatalog = [];
 var partsCatalog = [];
 var orbitCatalog = [];
+var orbitDataCalc = [];
 var updatesList = [];
 var crewList = [];
 var strTinyBodyLabel = "";
@@ -71,7 +78,12 @@ var orbitColors = {
   ship: "#0094FF",
   station: "#B200FF",
   asteroid: "#996633"
-};  
+};
+var vesselOrbitColors = [
+  "#4CFF00",
+  "#FFD800",
+  "#FF0000"
+];
 var srfLocations = {
   KSC: [-0.0972, -74.5577]
 };

@@ -57,7 +57,8 @@ function loadVessel(vessel, UT) {
   // add vessel-specific buttons to the map and call up for a data re-render
   addMapResizeButton();
   addMapViewButton();
-  renderMapData();
+  if (isContentMoving) { setTimeout(renderMapData, 450); }
+  else { renderMapData(); }
 }
 
 // sends out the AJAX call for data to add any vessels to a GeoGebra figure/Leaflet library once it has loaded

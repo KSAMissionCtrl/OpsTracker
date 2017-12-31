@@ -91,29 +91,35 @@ function formatTime(time, precision) {
 // take a date object of a given time and output "mm/dd/yyyy hh:mm:ss"
 function formatUTCTime(time, local) {
   if (local === null) { formatUTCTime(time, false); return; }
-  if (local) { var hours = time.getUTCHours() - UTC; }
-  else { var hours = time.getUTCHours(); }
+  if (local) { 
+    var hours = time.getHours(); 
+    var day = time.getDate();
+  } else { 
+    var hours = time.getUTCHours(); 
+    var day = time.getUTCDate();
+  }
   if (hours < 0) { hours += 24; }
   if (hours < 10) { hours = "0" + hours; }
   var minutes = time.getUTCMinutes();
   if (minutes < 10) { minutes = "0" + minutes; }
   var seconds = time.getUTCSeconds();
   if (seconds < 10) { seconds = "0" + seconds; }
-  return time.toLocaleDateString() + ' @ ' + hours + ':' + minutes + ':' + seconds;
+  return ((time.getUTCMonth()+1) + '/' + day + '/' + time.getUTCFullYear() + ' @ ' + hours + ':' + minutes + ':' + seconds);
 }
 
 // convert a given game UT time into the equivalent "mm/dd/yyyy hh:mm:ss"
-function UTtoDateTime(UT, local) {
-  if (local === null) { UTtoDateTime(UT, false); return; }
+function UTtoDateTime(setUT, local) {
+  if (local === null) { UTtoDateTime(setUT, false); return; }
   var d = new Date();
-  d.setTime(foundingMoment + (UT * 1000));
+  d.setTime(foundingMoment + (setUT * 1000));
+  if (d.toString().search("Standard") >= 0) { d.setTime(foundingMoment + ((setUT + 3600) * 1000)); }
   return formatUTCTime(d, local);
 }
 
 // convert a given game UT time into the local date time for the end user
-function UTtoDateTimeLocal(UT) {
+function UTtoDateTimeLocal(setUT) {
   var d = new Date();
-  d.setTime(foundingMoment + (UT * 1000));
+  d.setTime(foundingMoment + (setUT * 1000));
   return d.toString();
 }
 
@@ -136,8 +142,10 @@ function currUT() { return UT + (tickDelta / 1000); }
 function currTime() { return new Date(clock.getTime() + tickDelta); }
 
 // conversion from true anomaly to mean anomaly in radians
+// TRUE ANOMALY PASSED IN AS DEGREES
 // referenced from matlab code: https://github.com/Arrowstar/ksptot/blob/master/helper_methods/astrodynamics/computeMeanFromTrueAnom.m
 function toMeanAnomaly(truA, ecc) {
+  truA *= .017453292519943295;
   if (ecc < 1.0) {
     var EA = (Math.atan2(Math.sqrt(1-(Math.pow(ecc,2)))*Math.sin(truA), ecc+Math.cos(truA)));
     if (truA < 2*Math.PI) {

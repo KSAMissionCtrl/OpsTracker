@@ -239,7 +239,7 @@ function addGGBOrbit(vesselID, orbitData) {
     ggbApplet.evalCommand(ggbID + 'raan=' + (orbitData.RAAN * .017453292519943295));
     ggbApplet.evalCommand(ggbID + 'arg=' + (orbitData.Arg * .017453292519943295));
     ggbApplet.evalCommand(ggbID + 'period=' + orbitData.OrbitalPeriod);
-    ggbApplet.evalCommand(ggbID + 'mean=' + toMeanAnomaly(orbitData.TrueAnom * .017453292519943295, orbitData.Eccentricity));
+    ggbApplet.evalCommand(ggbID + 'mean=' + toMeanAnomaly(orbitData.TrueAnom, orbitData.Eccentricity));
     ggbApplet.evalCommand(ggbID + 'smna=' + ggbID + 'sma sqrt(1 - ' + ggbID + 'ecc^2)');
     ggbApplet.evalCommand(ggbID + 'foci=' + ggbID + 'ap - ' + ggbID + 'pe');
     ggbApplet.evalCommand(ggbID + 'meanmotion=2pi / ' + ggbID + 'period');
