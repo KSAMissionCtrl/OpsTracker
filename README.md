@@ -32,8 +32,10 @@ Blank template MDB Access files are included.
 
 ### Known Issues
 
-- **Operations Tracker is currently in active development, so visiting the page may cause browser errors, failures to load, etc. However after it has been worked on it is usually left in a workable state**
+- **Operations Tracker is currently in active development, so visiting the page may cause browser errors, failures to load, etc. However after it has been worked on it is usually left in a usable state**
 - Leaflet map can be finicky in a number of ways - most notably it doesn't mousewheel zoom centered on the cursor and can sometimes load showing off the edge of the map
+- The downsized default map view for vessel pages does not interpret coordinates properly, so the info control is disabled as well as some features, but everything works fine if you size up the map view
+- In rare instances the menu will fail to load properly on initial page load. A full refresh (Ctrl+F5) seems to fix it every time
 
 ### Future Fixes/Changes/Additions
 
@@ -66,6 +68,7 @@ Fixes:
   - Clock displayed on the page is now accurate to the second rather than being anywhere from 40-90s slow
   - The shift to/from DST is now handled properly so times for events are all shown to the proper local and UTC values
   - Clock adjusts to no longer be one second off after page load is complete
+  - Surface tracks of orbital vessels no longer have a small gap between where one orbit ends and the next begins
 
 Changes:
   - All pages unified into a single page that can dynamically adjust its content to display information on crew, vessels or bodies. This means the page can reload parts of itself independently rather than needing to reload the entire page when a small amount of information needs to be updated
@@ -85,6 +88,8 @@ Changes:
   - Layer control stays open and does not collapse until all map layers are loaded, but still hides with the rest of map controls when the cursor is off the map
   - Detecting what to show using the `&layers` option is much more lenient. For example you can say `anomalies` or `anomaly`
   - The `&map` option to show the surface map of a body on page load no longer needs a value, but should always be placed at the end of the URL
+  - Vessel orbits are always rendered in full by default, from 1 up to a max of 3. However the user can cancel the calculations at anytime and what has been calculated will be rendered
+  - After each full orbit is rendered it is immediately added to the map
 
 Additions:
   - When viewing a system that has vessels in orbit, they are dynamically loaded and added to the GeoGebra figure
@@ -95,3 +100,4 @@ Additions:
   - Map button when viewing a vessel that lets you jump to the planet/system overview and see all the orbit tracks
   - If a crew member has ribbons that have been superseded by higher achievements, the option is given to show all the ribbons earned, then also hide them again if wanted
   - Vessels can have additional sources of material listed that links to things like various reports on the mission, launch telemetry data, etc. These appear as file icons in the Data Box that can be clicked, with tooltips describing the nature of each
+  - The layers control in the upper-right of the map now contains a layer for each vessel orbit that is plotted, which allows the user to show/hide any orbits and their accompanying markers
