@@ -231,3 +231,39 @@ function getQueryParams(name) {
   }
   return params;
 }
+
+// checks for cookies being enabled
+// http://stackoverflow.com/questions/2167310/how-to-show-a-message-only-if-cookies-are-disabled-in-browser
+function checkCookies() {
+  var cookieEnabled = (navigator.cookieEnabled) ? true : false;
+  if (typeof navigator.cookieEnabled == "undefined" && !cookieEnabled)
+  { 
+    document.cookie="testcookie";
+    cookieEnabled = (document.cookie.indexOf("testcookie") != -1) ? true : false;
+  }
+  return (cookieEnabled);
+}
+
+// cookie scripts from http://www.w3schools.com/js/js_cookies.asp
+function setCookie(cname, cvalue, bset) {
+  var d = new Date();
+  var expires;
+  
+  // if true, the cookie is set for 5 years. If false, the cookie is deleted
+  if (bset) { var exdays = 1825; }
+  else { var exdays = 0; }
+  d.setTime(d.getTime() + (exdays*24*60*60*1000));
+  if (exdays) { expires = "expires="+d.toUTCString(); }
+  else { expires = "expires=Thu, 18 Dec 2013 12:00:00 UTC"; }
+  document.cookie = "ksaOps_" + cname + "=" + cvalue + "; " + expires +"; path=/";
+}
+function getCookie(cname) {
+  var name = "ksaOps_" + cname + "=";
+  var ca = document.cookie.split(';');
+  for(var i=0; i<ca.length; i++) {
+    var c = ca[i];
+    while (c.charAt(0)==' ') c = c.substring(1);
+    if (c.indexOf(name) == 0) return c.substring(name.length, c.length);
+  }
+  return "";
+}

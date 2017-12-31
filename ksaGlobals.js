@@ -51,6 +51,7 @@ var isPageLoad = false;
 var isOrbitRenderCancelled = false;
 var isContentMoving = false;
 var isOrbitRenderTerminated = false;
+var isNewUser = false;
 var UTC = 4;
 var launchCountdown = -1;
 var maneuverCountdown = -1;

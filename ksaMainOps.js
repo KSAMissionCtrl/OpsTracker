@@ -171,7 +171,6 @@ function setupContent() {
                     }});
   
   // setup the message dialog box that will notify the user about any surface map stuff
-  // when it is closed, it will return to the center of the info box
   $("#progressbar").progressbar({ value: 0 });
   $("#mapDialog").dialog({autoOpen: false, 
                     closeOnEscape: false, 
@@ -179,6 +178,20 @@ function setupContent() {
                     draggable: false,
                     dialogClass: "no-close",
                     width: 450,
+                    height: "auto",
+                    hide: { effect: "fade", duration: 300 }, 
+                    show: { effect: "fade", duration: 300 },
+                    position: { my: "center", at: "center", of: "#contentBox" }
+                    });
+  
+  // setup the message dialog box that will notify the user about any general website stuff
+  $("#siteDialog").dialog({autoOpen: false, 
+                    closeOnEscape: false, 
+                    resizable: false, 
+                    draggable: false,
+                    modal: true,
+                    dialogClass: "no-close",
+                    width: 620,
                     height: "auto",
                     hide: { effect: "fade", duration: 300 }, 
                     show: { effect: "fade", duration: 300 },
@@ -213,6 +226,30 @@ function setupContent() {
     if (getParameterByName("crew") == "crewFull") { swapContent("crewFull", getParameterByName("crew")); }
     else { swapContent("crew", getParameterByName("crew")); }
   } else { swapContent("body", "Kerbol-System"); }
+
+  // check if this is a first-time visitor and act accordingly
+  if (checkCookies()) {
+    var user = getCookie("username");
+    if (user == "") {
+      setCookie("username", "kerbal", true);
+      bNewUser = true;
+      $("#siteDialog").html("<img src='http://www.kerbalspace.agency/KSA/wp-content/uploads/2016/01/KSAlogo_new_190x250.png' style='float: left; margin: 0px 5px 0px 0px; width: 25%'>The Operations Tracker is your view into everything that is happening right now at the Kerbal Space Agency. There is a lot to view and explore - we suggest starting with the Wiki to get an idea of all you can do here. We ask you take note the Operations Tracker is under <b>heavy ongoing development</b> and may at times be inaccessible for short periods. Please help us make this the best experience possible by <a href='https://github.com/KSAMissionCtrl/OpsTracker/issues' target='_blank'>submitting bug reports</a> if you come across any problems not listed in our <a href='https://github.com/KSAMissionCtrl/OpsTracker#known-issues' target='_blank'>Known Issues</a>. Enjoy exploring the Kerbol system with us <img src='http://www.kerbalspace.agency/KSA/wp-content/uploads/2017/12/jef2zahe.png'>");
+      $("#siteDialog").dialog("option", "title", "Welcome, new visitor!");
+      $("#siteDialog").dialog( "option", "buttons", [{
+        text: "View wiki",
+        click: function() { 
+          window.open("https://github.com/KSAMissionCtrl/OpsTracker/wiki");
+          $("#siteDialog").dialog("close");
+        }
+      },{
+        text: "Close",
+        click: function() { 
+          $("#siteDialog").dialog("close");
+        }
+      }]);
+      $("#siteDialog").dialog("open");
+    }
+  }
 }
 
 // switch from one layout to another
