@@ -36,6 +36,7 @@ Blank template MDB Access files are included.
 - Leaflet map can be finicky in a number of ways - most notably it doesn't mousewheel zoom centered on the cursor and can sometimes load showing off the edge of the map. Generally can be fixed by upsizing/downsizing or going fullscreen
 - The downsized default map view for vessel pages does not interpret coordinates properly, so the info control is disabled as well as some features, but everything works fine if you size up the map view
 - In rare instances the menu will fail to load properly on initial page load. A full refresh (Ctrl+F5) seems to fix it every time
+- Sometimes the map dialog doesn't like to appear in the proper position
 
 ### Future Fixes/Changes/Additions
 
@@ -72,9 +73,9 @@ Fixes:
 
 Changes:
   - All pages unified into a single page that can dynamically adjust its content to display information on crew, vessels or bodies. This means the page can reload parts of itself independently rather than needing to reload the entire page when a small amount of information needs to be updated
-  - Clicking on spacecraft no longer brings up an information window, but instead pulls up its detailed information view
+  - Clicking on spacecraft no longer brings up an information window, but instead shows its orbital nodes and name. Clicking on its position again will load up its detailed vessel view
   - Clicking on the orbit of a spacecraft is used to show its name along with its nodes
-  - Menu items no longer show tooltip discriptions of the vessels/crew
+  - Menu items no longer show tooltip discriptions of the vessels/crew (but looking to bring this back at some point)
   - Menu now shows crew and vessels at the same time
   - Body info window can be repositioned and updates if a new planet is selected, but if it is closed it opens up again in the default position
   - Clicking on a moon in the menu will load the figure of the planetary system in which it resides
@@ -91,6 +92,7 @@ Changes:
   - Vessel orbits are always rendered in full by default, from 1 up to a max of 3. However you can cancel the calculations at anytime and what has been calculated will be rendered
   - After each full orbit is rendered it is immediately added to the map
   - If the view is changed to a body or crew while a vessel orbit is calculating, it will be paused. If you return to that vessel before any other, the calculation will pickup where it left off. Otherwise it will be chucked and new calculations begun for a new vessel
+  - Orbital calculation batch size has been reduced from 1500 to 1000 calculations to allow for smoother browser performance due to the slightly increased browser load brought on with the Geogebra figure
 
 Additions:
   - When viewing a system that has vessels in orbit, they are dynamically loaded and added to the GeoGebra figure
@@ -102,3 +104,4 @@ Additions:
   - If a crew member has ribbons that have been superseded by higher achievements, the option is given to show all the ribbons earned, then also hide them again if wanted
   - Vessels can have additional sources of material listed that links to things like various reports on the mission, launch telemetry data, etc. These appear as file icons in the Data Box that can be clicked, with tooltips describing the nature of each
   - The layers control in the upper-right of the map now contains a layer for each vessel orbit that is plotted, which allows the user to show/hide any orbits and their accompanying markers
+  - After surface tracks are complete a button on the map will allow you to refresh them at any time (currently they will not refresh themselves at the end of a plot but eventually they will do so and this button will remain)
