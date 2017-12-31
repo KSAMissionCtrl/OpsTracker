@@ -17,7 +17,7 @@ function loadVessel(vessel, UT) {
   
   // modify the history so people can page back/forward
   // only add URL variables if they aren't already included
-  if (window.location.href.includes("?") && ((history.state && history.state.ID == strCurrentVessel) || !history.state)) { 
+  if (window.location.href.includes("&") && !window.location.href.includes("&ut")) { 
     var strURL = window.location.href; 
   }
   else { 
@@ -56,10 +56,21 @@ function loadVessel(vessel, UT) {
   loadDB("loadVesselData.asp?craft=" + strCurrentVessel + "&UT=" + currUT() + "&UTjump=" + UT, loadVesselDataAJAX);
   currentVesselData = null;
   
-  // add vessel-specific buttons to the map and call up for a data re-render
+  // add vessel-specific buttons to the map
   addMapResizeButton();
   addMapViewButton();
-  renderMapData();
+  
+  // we can't be switching vessels while loading any plot data so if it's in progress, kill it
+  if (!layerControl.options.collapsed) { 
+    isOrbitRenderTerminated = true;
+    layerControl._collapse();
+    layerControl.options.collapsed = true;
+    if (obtTrackDataLoad) layerControl.removeLayer(obtTrackDataLoad);
+    obtTrackDataLoad = null;
+    clearVesselPlots();
+    currentVesselPlot = null;
+    vesselMarker = null;
+  }
 }
 
 // sends out the AJAX call for data to add any vessels to a GeoGebra figure/Leaflet library once it has loaded
@@ -553,13 +564,27 @@ function vesselContentUpdate() {
     var data = currentVesselData.DynamicData.Content.split("!")[1].split("|");
 
     // only show dynamic information if this is a current state
+    // note we can't use the PastEvent property here because a past event could still use the same orbital data, so compare to what's loaded for GGB
     if (currentVesselData.Orbit.UT == orbitCatalog.find(o => o.ID === strCurrentVessel).Orbit.UT) {
       $("#content").fadeOut();
       $("#map").css("visibility", "visible");
       $("#map").fadeIn();
       
+      // check if plot data exists and is for the current vessel, because then we can just redraw it on the map (if it wasn't interrupted)
+      // otherwise just clear off the map and call up a new render
+      if (currentVesselPlot && currentVesselPlot.ID == strCurrentVessel && !strPausedVesselCalculation) { 
+        $("#mapDialog").dialog("close");
+        redrawVesselPlots(); 
+      } else {
+        clearVesselPlots();
+        renderMapData();
+      }
+      
     // we're looking at old orbital data
     } else {
+      if ($("#map").css("visibility") != "hidden") $("#map").fadeOut();
+      $("#mapDialog").dialog("close");
+      removeMapRefreshButton();
       
       // two images
       if (data[0].includes(".png")) {
@@ -611,12 +636,12 @@ function vesselContentUpdate() {
 // JQuery callbacks
 // only handle this if the page is a vessel instead of crew
 $("#infoBox").hover(function() { 
-  if (pageType == "vessel") {
+  if (pageType == "vessel" && currentVesselData) {
     if (!$("#infoDialog").dialog("isOpen")) { $("#infoTitle").html("Click Here for Additional Information"); }
     $("#partsImg").fadeIn();
   }
 }, function() {
-  if (pageType == "vessel") {
+  if (pageType == "vessel" && currentVesselData) {
   
     // wait to give tooltips a chance to hide on mouseover before checking to see if we're actually off the image
     setTimeout(function() {

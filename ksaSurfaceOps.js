@@ -368,7 +368,7 @@ function renderMapData() {
   if ((!currentVesselData && pageType == "vessel") || 
       !layerControl.options.collapsed ||
       !isGGBAppletLoaded || isContentMoving) { setTimeout(renderMapData, 250); return; }
-  
+
   // if there is a paused calculation we are returning to, then just resume calling the orbital batch
   if (strPausedVesselCalculation == strCurrentVessel) {
     
@@ -379,10 +379,14 @@ function renderMapData() {
     obtTrackDataLoad = L.layerGroup();
     layerControl.addOverlay(obtTrackDataLoad, "<i class='fa fa-cog fa-spin'></i> Loading Data...", "Orbital Tracks");
     strPausedVesselCalculation = null;
+    isOrbitRenderTerminated = false;
+    
+    // put back anything that was already rendered before the operation was paused, then continue calculations
+    redrawVesselPlots();
     orbitalCalc(renderVesselOrbit, currentVesselData.Orbit);
 
-  // otherwise we need to calculate surface tracks for a single vessel that has orbital data not from a past event
-  } else if (pageType == "vessel" && currentVesselData.Orbit && !currentVesselData.DynamicData.PastEvent) {
+  // otherwise we need to calculate surface tracks for a single vessel
+  } else if (pageType == "vessel") {
     
     // if 3 orbits are longer than 100,000s we need to inform the user that this could take a while
     if ((currentVesselData.Orbit.OrbitalPeriod * 3) > 100000) {
@@ -402,6 +406,7 @@ function renderMapData() {
       $("#mapDialog").dialog( "option", "title", "Calculation Notice");
       $("#dialogTxt").html("Calculating 3 orbits for this vessel could take a long time, but you can also cancel at any time and show what has been done up to that point if you wish");
       $("#dialogTxt").fadeIn();
+      $("#progressbar").hide();
       $("#mapDialog").dialog("open");
       
     // render out the default 3 orbits for this vessel
@@ -418,6 +423,7 @@ function renderMapData() {
 // does the initial display and configuration for vessel orbital data loading
 function beginOrbitalCalc() {
   isOrbitRenderCancelled = false;
+  isOrbitRenderTerminated = false;
   currentVesselPlot = {
     Data: [],
     Events: {
@@ -426,7 +432,8 @@ function beginOrbitalCalc() {
       SoiEntry: { Marker: null },
       SoiExit: { Marker: null },
       Node: { Marker: null}
-    }
+    },
+    ID: strCurrentVessel
   };
   $("#mapDialog").dialog( "option", "title", "Calculating Orbit #1 of " + numOrbitRenders);
   $("#mapDialog").dialog( "option", "buttons", [{
@@ -436,7 +443,7 @@ function beginOrbitalCalc() {
     }
   }]);
   $(".ui-progressbar-value").css("background-color", vesselOrbitColors[currentVesselPlot.Data.length]);
-  $("#dialogTxt").fadeOut();
+  $("#dialogTxt").hide();
   $("#progressbar").progressbar("value", 0);
   $("#progressbar").fadeIn();
   $("#mapDialog").dialog("open");
@@ -447,6 +454,7 @@ function beginOrbitalCalc() {
   
   // set the current UT from which the orbital data will be propagated forward
   obtCalcUT = currUT();
+  orbitDataCalc = [];
   orbitalCalc(renderVesselOrbit, currentVesselData.Orbit);
 }
 
@@ -589,6 +597,13 @@ function renderVesselOrbit() {
     // focus in on the vessel position
     console.log(currentVesselPlot);
     surfaceMap.setView(vesselMarker.getLatLng(), 3);
+    
+    // open the vessel popup then hide it after 5s
+    vesselMarker.openPopup();
+    setTimeout(function() { vesselMarker.closePopup(); }, 5000);
+    
+    // allow the user to refresh the orbit render whenever they want
+    addMapRefreshButton();
   }
 }
 
@@ -609,7 +624,7 @@ function orbitalCalc(callback, orbit) {
   var arg = orbit.Arg * .017453292519943295;
   var mean = toMeanAnomaly(orbit.TrueAnom, orbit.Eccentricity);
   
-  for (x=0; x<=1500; x++) {
+  for (x=0; x<=1000; x++) {
   
     //////////////////////
     // computeMeanMotion()
@@ -815,7 +830,7 @@ function orbitalCalc(callback, orbit) {
     callback(); 
     
   // just exit and don't call anything if the calculations have been paused by switching away from the vessel
-  } else if (strPausedVesselCalculation) {
+  } else if (strPausedVesselCalculation || isOrbitRenderTerminated) {
     return;
     
   // otherwise call ourselves again for more calculations, with a small timeout to let other things happen
@@ -884,6 +899,29 @@ function removeVesselMapButtons() {
   }
 }
 
+// these buttons will go on both vessel and body maps
+function addMapRefreshButton() {
+  if (!mapRefreshButton) {
+    mapRefreshButton = L.easyButton({
+      states: [{
+        stateName: 'refresh',
+        icon: 'fa-undo',
+        title: 'Reload all orbits',
+        onClick: function(control) {
+          if (pageType == "vessel") { clearVesselPlots(); }
+          renderMapData();
+        }
+      }]
+    }).addTo(surfaceMap);
+    if (!$(".leaflet-control-zoom").is(":visible")) $(".easy-button-container").hide();
+  }
+}
+function removeMapRefreshButton() {
+  if (mapRefreshButton) {
+    surfaceMap.removeControl(mapRefreshButton);
+    mapRefreshButton = null;
+  }
+}
 function addMapCloseButton() {
   if (!mapCloseButton) {
     mapCloseButton = L.easyButton({
@@ -910,7 +948,8 @@ function showMap() {
   $("#figureDialog").dialog("close");
   $("#map").css("visibility", "visible");
   $("#map").fadeIn();
-  removeVesselMapButtons()
+  removeVesselMapButtons();
+  removeMapRefreshButton();
   addMapCloseButton();
   $("#contentHeader").html(strCurrentBody.split("-")[0]);
   document.title = "KSA Operations Tracker - " + strCurrentBody.split("-")[0];
@@ -928,11 +967,16 @@ function hideMap() {
 }
 
 // because the vessel plot is broken up into distinct orbital periods, we need to do a bit of legwork
-// to determine what index of what plot corresponds to the current UT
-function getPlotIndex() {
+// to determine what index of what plot corresponds to the given UT
+function getPlotIndex(targetUT) {
+  if (!targetUT) targetUT = currUT();
+  
+  // check that this UT is even feasible by seeing if it is greater than the last UT of this orbit
+  var lastIndex = currentVesselPlot.Data.length-1;
+  if (currentVesselPlot.Data[lastIndex].StartUT + currentVesselPlot.Data[lastIndex].Orbit.length < targetUT) { return null; }
 
   // get the total amount of seconds that have transpired since the start of the orbital plot
-  var totalTime = currUT() - currentVesselPlot.Data[0].StartUT;
+  var totalTime = targetUT - currentVesselPlot.Data[0].StartUT;
   
   // now determine what orbit this puts us in by comparing the elapsed time to the length of the orbit and cutting down until we find a lesser amount
   // note we are not just using the current vessel orbital period because this instead takes into account the orbital calc being cancelled early
@@ -1023,4 +1067,55 @@ function getLatLngCompass(latlng) {
     cardinalLng = "E";
   }
   return {Lat: cardinalLat, Lng: cardinalLng};
+}
+
+// removes anything associated with individual vessel plots from the map
+function clearVesselPlots() {
+  if (currentVesselPlot) {
+    currentVesselPlot.Data.forEach(function(item) { 
+      if (item.Layer) {
+        layerControl.removeLayer(item.Layer); 
+        surfaceMap.removeLayer(item.Layer);
+      }
+    });
+    for (var event in currentVesselPlot.Events) {
+      if (event.Marker) surfaceMap.removeLayer(event.Marker);
+    }
+    if (vesselMarker) { 
+      surfaceMap.removeLayer(vesselMarker);
+    }
+  }
+  removeMapRefreshButton();
+}
+
+// puts an existing plot of vessel orbits back onto the map
+function redrawVesselPlots() {
+  currentVesselPlot.Data.forEach(function(item, index) { 
+    layerControl.addOverlay(item.Layer, "<i class='fa fa-minus' style='color: " + vesselOrbitColors[index] + "'></i> Vessel Orbit #" + (index+1), "Orbital Tracks");
+    item.Layer.addTo(surfaceMap);
+  });
+  for (var event in currentVesselPlot.Events) {
+    if (event.Marker) {
+      event.Marker.addTo(surfaceMap);
+      
+      // figure out which layer to add this to, if we can
+      var index = getPlotIndex(event.UT);
+      if (index) {
+        currentVesselPlot.Data[index.ObtNum].Layer.addLayer(event.Marker);
+      }
+    }
+  }
+  if (vesselMarker) {
+    vesselMarker.addTo(surfaceMap);
+    
+    // wait a second for the position update from the main tick function, then focus on the marker
+    setTimeout(function() { 
+      surfaceMap.setView(vesselMarker.getLatLng(), 3); 
+      
+      // open the vessel popup then hide it after 5s
+      vesselMarker.openPopup();
+      setTimeout(function() { vesselMarker.closePopup(); }, 5000);
+    }, 1000);
+  }
+  addMapRefreshButton();
 }

@@ -11,12 +11,16 @@ function loadCrew(crew) {
   }
 
   // modify the history so people can page back/forward
+  // only add URL variables if they aren't already included
+  if (window.location.href.includes("&")) { var strURL = window.location.href; }
+  else { var strURL = "http://www.kerbalspace.agency/Tracker/tracker.asp?crew=" + crew; }
+  
   // if this is the first page to load, replace the current history
   if (!history.state) {
-    history.replaceState({Type: pageType, ID: crew}, document.title, "http://www.kerbalspace.agency/Tracker/tracker.asp?crew=" + crew);
+    history.replaceState({Type: pageType, ID: crew}, document.title, strURL);
   // don't create a new entry if this is the same page being reloaded
   } else if (history.state.ID != crew) {
-    history.pushState({Type: pageType, ID: crew}, document.title, "http://www.kerbalspace.agency/Tracker/tracker.asp?crew=" + crew);
+    history.pushState({Type: pageType, ID: crew}, document.title, strURL);
   }
   
   // load the data depending on our view

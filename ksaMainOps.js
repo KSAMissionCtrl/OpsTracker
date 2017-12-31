@@ -182,7 +182,7 @@ function setupContent() {
                     height: "auto",
                     hide: { effect: "fade", duration: 300 }, 
                     show: { effect: "fade", duration: 300 },
-                    position: { my: "center", at: "center", of: "#map" }
+                    position: { my: "center", at: "center", of: "#contentBox" }
                     });
   
   // uncheck all the filter boxes
@@ -295,14 +295,25 @@ function swapContent(newPageType, id, ut) {
     if ($("#map").css("visibility") != "hidden" && !window.location.href.includes("&map")) $("#map").fadeOut();
     $("#content").fadeOut();
     removeVesselMapButtons();
+    clearVesselPlots();
     
-    // if a vessel orbital calculation is in progress, pause it
-    if (!layerControl.options.collapsed) {
+    // if a vessel orbital calculation is in progress, pause it as long as we are switching to a crew page or a body view of the same current one
+    if (!layerControl.options.collapsed && (newPageType.includes("crew") || (newPageType == "body" && id.split("-")[0] == strCurrentBody))) {
       layerControl._collapse();
       layerControl.options.collapsed = true;
       layerControl.removeLayer(obtTrackDataLoad);
       obtTrackDataLoad = null;
       strPausedVesselCalculation = strCurrentVessel;
+    
+    // we're heading to another body, which means we have to stop all calculations if any are in progress
+    } else if (!layerControl.options.collapsed && (newPageType == "body" && id.split("-")[0] != strCurrentBody)) {
+      layerControl._collapse();
+      layerControl.options.collapsed = true;
+      layerControl.removeLayer(obtTrackDataLoad);
+      obtTrackDataLoad = null;
+      isOrbitRenderTerminated = true;
+      clearVesselPlots();
+      currentVesselPlot = null;
     }
   } else if (pageType == "crew") {
     if (newPageType == "body") {
@@ -463,8 +474,8 @@ function swapTwitterSource(swap, source) {
       // update the MET or countdown
       $("#metCount").html(formatTime($("#metCount").attr("data")-currUT()));
       
-      // update vessel surface map information if needed
-      if (vesselMarker) {
+      // update vessel surface map information if a vessel is on the map and calculations are not running
+      if (vesselMarker && layerControl.options.collapsed) {
         var now = getPlotIndex();
 
         // update craft position and popup content

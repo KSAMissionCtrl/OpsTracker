@@ -64,7 +64,7 @@ function loadBody(body) {
     
     // modify the history so people can page back/forward
     // only add URL variables if they aren't already included
-    if (window.location.href.includes("?") && (body == strCurrentBody || !history.state)) { var strURL = window.location.href; }
+    if (window.location.href.includes("&")) { var strURL = window.location.href; }
     else { var strURL = "http://www.kerbalspace.agency/Tracker/tracker.asp?body=" + body; }
     
     // if this is the first page to load, replace the current history
@@ -507,11 +507,6 @@ function figureClick(object) {
   if (object.includes("position")) {
     $("#figureDialog").dialog("close");
   
-    // only swap to vessel view on one click if orbits are shown
-    if ($("#orbits").is(":checked")) { 
-      swapContent("vessel", ggbApplet.getValueString(object.replace("position", "id"))); 
-    }
-    
     // show the orbit if the orbits are hidden
     if (!$("#orbits").is(":checked")) {
       
@@ -546,11 +541,39 @@ function figureClick(object) {
           ggbApplet.setVisible(selectedObj.ID + "dnode", true);
         }
       }
+    }
+    
+    // if we clicked on ourselves after the orbit was selected, then jump to the vessel view
+    if (strTinyBodyLabel.replace("conic", "") == object.replace("position" , "")) { 
+      swapContent("vessel", ggbApplet.getValueString(object.replace("position", "id")));
       
-      // if we did click on ourselves, then jump to the vessel view
-      else if (selectedObj && selectedObj.ID == object.replace("position" , "")) { 
-        swapContent("vessel", ggbApplet.getValueString(object.replace("position", "id")));
-      } 
+    // otherwise select the orbit
+    } else {
+      if (strTinyBodyLabel.length) {
+        if (strTinyBodyLabel.includes("23")) {
+          ggbApplet.setLabelVisible(strTinyBodyLabel.charAt(0) + "36", false);
+        } else {
+          var objID = strTinyBodyLabel.replace("conic", "");
+          if (!$("#labels").is(":checked")) { ggbApplet.setLabelVisible(objID + "position", false); }
+          if (!$("#nodes").is(":checked")) { 
+            ggbApplet.setVisible(objID + "penode", false);
+            ggbApplet.setVisible(objID + "apnode", false);
+            ggbApplet.setVisible(objID + "anode", false);
+            ggbApplet.setVisible(objID + "dnode", false);
+          }
+          ggbOrbits.find(o => o.ID === objID).showName = false;
+          ggbOrbits.find(o => o.ID === objID).showNodes = false;
+        }
+      }
+      var objID = object.replace("position", "");
+      ggbApplet.setLabelVisible(objID + "position", true);
+      ggbApplet.setVisible(objID + "penode", true);
+      ggbApplet.setVisible(objID + "apnode", true);
+      ggbApplet.setVisible(objID + "anode", true);
+      ggbApplet.setVisible(objID + "dnode", true);
+      ggbOrbits.find(o => o.ID === objID).showName = true;
+      ggbOrbits.find(o => o.ID === objID).showNodes = true;
+      strTinyBodyLabel = object.replace("position", "conic");
     }
     return;
   }
