@@ -17,8 +17,7 @@ sConnection = "Provider=Microsoft.Jet.OLEDB.4.0;" & _
 conn.Open(sConnection)
 
 'create the tables
-set rsCraftD = Server.CreateObject("ADODB.recordset")
-set rsCraftS = Server.CreateObject("ADODB.recordset")
+set rsCraftData = Server.CreateObject("ADODB.recordset")
 set rsResources = Server.CreateObject("ADODB.recordset")
 set rsCrew = Server.CreateObject("ADODB.recordset")
 set rsComms = Server.CreateObject("ADODB.recordset")
@@ -27,8 +26,7 @@ set rslaunchTimes = Server.CreateObject("ADODB.recordset")
 set rsOrbit = Server.CreateObject("ADODB.recordset")
 
 'query the data
-rsCraftS.open "select * from [craft static data]", conn, 2
-rsCraftD.open "select * from [craft dynamic data]", conn, 2
+rsCraftData.open "select * from [craft data]", conn, 2
 rsResources.open "select * from [craft resources]", conn, 2
 rsCrew.open "select * from [crew manifest]", conn, 2
 rsComms.open "select * from [craft comms]", conn, 2
@@ -36,52 +34,38 @@ rsPorts.open "select * from [craft ports]", conn, 2
 rsOrbit.open "select * from [flight data]", conn, 2
 rslaunchTimes.open "select * from [launch times]", conn, 2
 
-'output the record in name/value pairs for each field
-rsCraftS.movefirst
-if not rsCraftS.bof then
-  for each field in rsCraftS.fields
-    output = output & replace(field.name, " ", "") & "~" & field.value & "`"
-  next
-  
-  'get rid of the last semicolon and ouput
-  output = left(output, len(output)-1)
-  output = output & "^"
-else
-  output = output & "null^"
-end if
-
 'select the dynamic craft data closest to this UT
 dim actualUT
-if not rsCraftD.eof then
-  rsCraftD.MoveLast
-  do until rsCraftD.fields.item("UT") <= UT
-    rsCraftD.MovePrevious
-    if rsCraftD.bof then exit do
+if not rsCraftData.eof then
+  rsCraftData.MoveLast
+  do until rsCraftData.fields.item("UT") <= UT
+    rsCraftData.MovePrevious
+    if rsCraftData.bof then exit do
   Loop
 end if
-actualUT = rsCraftD.fields.item("UT")
+actualUT = rsCraftData.fields.item("UT")
 
 'if we have a UT that is not the current one to jump to, reset and look again
 if request.querystring("utjump") <> "NaN" then
-  if not rsCraftD.eof then
-    rsCraftD.MoveLast
-    do until rsCraftD.fields.item("UT") <= (request.querystring("utjump") * 1)
-      rsCraftD.MovePrevious
-      if rsCraftD.bof then exit do
+  if not rsCraftData.eof then
+    rsCraftData.MoveLast
+    do until rsCraftData.fields.item("UT") <= (request.querystring("utjump") * 1)
+      rsCraftData.MovePrevious
+      if rsCraftData.bof then exit do
     Loop
   end if
 end if
 
 'output the record in name/value pairs for each field if a record exists for this time period
-if not rsCraftD.bof then
-  for each field in rsCraftD.fields
+if not rsCraftData.bof then
+  for each field in rsCraftData.fields
     output = output & replace(field.name, " ", "") & "~" & field.value & "`"
   next
   
   'if we jumped to another UT, check to see if it is the same record as the current UT. If not, we are looking at a past record
   'if it is a past record, reassign the UT time so all other records are pulled from the same past event
   if request.querystring("utjump") <> "NaN" then
-    if rsCraftD.fields.item("UT") < actualUT then
+    if rsCraftData.fields.item("UT") < actualUT then
       output = output & "PastEvent~true^"
       bPastEvent = true
       UT = request.querystring("utjump") * 1
@@ -207,9 +191,9 @@ end if
 
 'check for any future events if this is the current event
 if not bPastEvent then
-  if not rsCraftD.eof then rsCraftD.MoveNext
-  if not rsCraftD.eof then 
-    output = output & rsCraftD.fields.item("UT") & "~"
+  if not rsCraftData.eof then rsCraftData.MoveNext
+  if not rsCraftData.eof then 
+    output = output & rsCraftData.fields.item("UT") & "~"
   else
     output = output & "null~"
   end if 
@@ -242,10 +226,10 @@ else
 end if
 
 'now output all the events for the history paging
-rsCraftD.MoveFirst
-do until rsCraftD.eof
-  output = output & rsCraftD.fields.item("UT") & "~" & rsCraftD.fields.item("CraftDescTitle") & "|"
-  rsCraftD.MoveNext
+rsCraftData.MoveFirst
+do until rsCraftData.eof
+  output = output & rsCraftData.fields.item("UT") & "~" & rsCraftData.fields.item("CraftDescTitle") & "|"
+  rsCraftData.MoveNext
 loop
 output = left(output, len(output)-1)
 output = output & "*"
@@ -313,11 +297,17 @@ if not rsOrbit.eof then
     rsOrbit.movenext  
   Loop
   output = left(output, len(output)-1)
-  conn2.Close
-  Set conn2 = nothing
+  output = output & "*"
 else
   output = output & "null*"
 end if
+
+'finally, output the record in name/value pairs for each field 
+for each field in rsCrafts.fields
+  output = output & replace(field.name, " ", "") & "~" & field.value & "`"
+next
+conn2.Close
+Set conn2 = nothing
 
 'post the final results
 response.write(left(output, len(output)-1))
