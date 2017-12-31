@@ -364,21 +364,25 @@ function loadMapDataAJAX(xhttp) {
 function renderMapData() {
 
   // check if we need to wait for the vessel to finish loading or if we need to wait for the base map layers to finish loading
-  // or even if we have to wait for the GGB to finish loading!
+  // or if we have to wait for the GGB to finish loading or if we need to wait for the content area to stop moving
   if ((!currentVesselData && pageType == "vessel") || 
       !layerControl.options.collapsed ||
-      !isGGBAppletLoaded) { setTimeout(renderMapData, 250); return; }
+      !isGGBAppletLoaded || isContentMoving) { setTimeout(renderMapData, 250); return; }
   
-  // we need to calculate surface tracks for a single vessel that has orbital data not from a past event
-  if (pageType == "vessel" && currentVesselData.Orbit && !currentVesselData.DynamicData.PastEvent) {
+  // if there is a paused calculation we are returning to, then just resume calling the orbital batch
+  if (strPausedVesselCalculation == strCurrentVessel) {
+    
+    // first re-show the progress dialog and reset the load state of the map
+    $("#mapDialog").dialog("open");
     layerControl._expand();
     layerControl.options.collapsed = false;
-    
-    // for some reason this doesn't actually add the layer during an intial page load
-    if (!obtTrackDataLoad) {
-      obtTrackDataLoad = L.layerGroup();
-      layerControl.addOverlay(obtTrackDataLoad, "<i class='fa fa-cog fa-spin'></i> Loading Data...", "Orbital Tracks");
-    }
+    obtTrackDataLoad = L.layerGroup();
+    layerControl.addOverlay(obtTrackDataLoad, "<i class='fa fa-cog fa-spin'></i> Loading Data...", "Orbital Tracks");
+    strPausedVesselCalculation = null;
+    orbitalCalc(renderVesselOrbit, currentVesselData.Orbit);
+
+  // otherwise we need to calculate surface tracks for a single vessel that has orbital data not from a past event
+  } else if (pageType == "vessel" && currentVesselData.Orbit && !currentVesselData.DynamicData.PastEvent) {
     
     // if 3 orbits are longer than 100,000s we need to inform the user that this could take a while
     if ((currentVesselData.Orbit.OrbitalPeriod * 3) > 100000) {
@@ -436,6 +440,10 @@ function beginOrbitalCalc() {
   $("#progressbar").progressbar("value", 0);
   $("#progressbar").fadeIn();
   $("#mapDialog").dialog("open");
+  layerControl._expand();
+  layerControl.options.collapsed = false;
+  obtTrackDataLoad = L.layerGroup();
+  layerControl.addOverlay(obtTrackDataLoad, "<i class='fa fa-cog fa-spin'></i> Loading Data...", "Orbital Tracks");
   
   // set the current UT from which the orbital data will be propagated forward
   obtCalcUT = currUT();
@@ -546,9 +554,8 @@ function renderVesselOrbit() {
       $("#dialogTxt").fadeIn();
       $("#dialogTxt").html("You have cancelled orbital calculation prior to one full orbit. As a result, some markers (Pe, Ap, node, etc) may be missing from the plot that is rendered");
       $("#mapDialog").dialog( "option", "buttons", [{
-        text: "Got It",
+        text: "Okay",
         click: function() { 
-          isOrbitRenderCancelled = false;
           $("#mapDialog").dialog("close");
         }
       }]);
@@ -559,6 +566,10 @@ function renderVesselOrbit() {
     layerControl.options.collapsed = true;
     layerControl.removeLayer(obtTrackDataLoad);
     obtTrackDataLoad = null;
+    
+    // reset loading flags/triggers
+    strPausedVesselCalculation = null;
+    isOrbitRenderCancelled = false;
 
     // place the craft marker and assign its popup
     vesselIcon = L.icon({iconUrl: 'button_vessel_' + w2ui['menu'].get(strCurrentVessel).img.split("-")[1] + '.png', iconSize: [16, 16]});
@@ -800,13 +811,17 @@ function orbitalCalc(callback, orbit) {
   }
   
   // let the callback know if we've completed all orbital calculations, or cancel out if requested by the user
-  // otherwise call ourselves again for more calculations, with a small timeout to let other things happen
   if (orbitDataCalc.length >= orbit.OrbitalPeriod || isOrbitRenderCancelled) {
     callback(); 
+    
+  // just exit and don't call anything if the calculations have been paused by switching away from the vessel
+  } else if (strPausedVesselCalculation) {
+    return;
+    
+  // otherwise call ourselves again for more calculations, with a small timeout to let other things happen
   } else {       
     setTimeout(orbitalCalc, 1, callback, orbit);
   }
-  return;
 }
 
 function addMapResizeButton() {

@@ -17,7 +17,9 @@ function loadVessel(vessel, UT) {
   
   // modify the history so people can page back/forward
   // only add URL variables if they aren't already included
-  if (window.location.href.includes("?") && (vessel == strCurrentVessel || !history.state)) { var strURL = window.location.href; }
+  if (window.location.href.includes("?") && ((history.state && history.state.ID == strCurrentVessel) || !history.state)) { 
+    var strURL = window.location.href; 
+  }
   else { 
     if (isNaN(UT)) { var strURL = "http://www.kerbalspace.agency/Tracker/tracker.asp?vessel=" + vessel; }
     else { var strURL = "http://www.kerbalspace.agency/Tracker/tracker.asp?vessel=" + vessel + "&ut=" + UT; }
@@ -57,8 +59,7 @@ function loadVessel(vessel, UT) {
   // add vessel-specific buttons to the map and call up for a data re-render
   addMapResizeButton();
   addMapViewButton();
-  if (isContentMoving) { setTimeout(renderMapData, 450); }
-  else { renderMapData(); }
+  renderMapData();
 }
 
 // sends out the AJAX call for data to add any vessels to a GeoGebra figure/Leaflet library once it has loaded

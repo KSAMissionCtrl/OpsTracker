@@ -96,18 +96,18 @@ function raiseContent() {
 }
 function lowerContent() {
   if ($("#contentBox").css("height") != "480px") {
-    isContentMoving = true;
     $("#contentBox").css("height", "480px");
     $("#map").css("height", "480px");
     surfaceMap.invalidateSize();
     setTimeout(function() { 
       $("#contentBox").css("transform", "translateY(405px)"); 
-      isContentMoving = false;
+      isContentMoving = true;
+      setTimeout(function() { isContentMoving = false; }, 400);
       
       // until I figure out why the coordinates in the downsized map are messed up, hide the info control and don't allow scrollwheel zoom
       $(".leaflet-control-info").fadeOut();
       surfaceMap.options.scrollWheelZoom = false;
-    }, 400);
+    }, 200);
   }
 }
 
@@ -291,9 +291,19 @@ function swapContent(newPageType, id, ut) {
       swapTwitterSource();
     }
     $("#infoDialog").dialog("close");
+    $("#mapDialog").dialog("close");
     if ($("#map").css("visibility") != "hidden" && !window.location.href.includes("&map")) $("#map").fadeOut();
     $("#content").fadeOut();
     removeVesselMapButtons();
+    
+    // if a vessel orbital calculation is in progress, pause it
+    if (!layerControl.options.collapsed) {
+      layerControl._collapse();
+      layerControl.options.collapsed = true;
+      layerControl.removeLayer(obtTrackDataLoad);
+      obtTrackDataLoad = null;
+      strPausedVesselCalculation = strCurrentVessel;
+    }
   } else if (pageType == "crew") {
     if (newPageType == "body") {
       $("#infoBox").fadeOut();

@@ -32,6 +32,7 @@ var numOrbitRenders;
 var obtCalcUT;
 var timePopup;
 var currentVesselPlot;
+var strPausedVesselCalculation;
 var clock = new Date();
 var vesselPositionPopup = L.popup({offset: new L.Point(0,-1), closeButton: true, closeOnClick: false});
 var obtTrackDataLoad = null;
