@@ -60,6 +60,9 @@ function loadVessel(vessel, UT) {
   addMapResizeButton();
   addMapViewButton();
   
+  // clear off the map
+  clearVesselPlots();
+  
   // we can't be switching vessels while loading any plot data so if it's in progress, kill it
   if (!layerControl.options.collapsed) { 
     isOrbitRenderTerminated = true;
@@ -78,7 +81,7 @@ function loadVessel(vessel, UT) {
 function loadVesselOrbits() {
   if (isMenuDataLoaded) {
     var strVessels = '';
-    var menuNodes = w2ui['menu'].get(strCurrentSystem).nodes;
+    var menuNodes = w2ui['menu'].get(strCurrentBody).nodes;
     if (menuNodes.length) {
       console.log(menuNodes);
       strVessels = extractIDs(menuNodes);
@@ -192,6 +195,9 @@ function loadVesselDataAJAX(xhttp) {
       }
     } else swapTwitterSource("Mission Feed", currentVesselData.CatalogData.Timeline);
   }
+  
+  // no orbit data or mission ended? Close the dialog in case it is open
+  if (!currentVesselData.Orbit || isMissionEnded()) $("#mapDialog").dialog("close");
 
   // display all the data
   vesselInfoUpdate();
@@ -442,14 +448,28 @@ function vesselDataUpdate() {
     $("#dataField9").fadeIn();
   } else $("#dataField9").fadeOut();
   
+  ////////////////////////
+  // Additional Resources
+  ////////////////////////
+  
+  if (currentVesselData.CatalogData.AddlRes) {
+    $("#dataField10").html("<b>Additional Resources:</b> ");
+    currentVesselData.CatalogData.AddlRes.split("|").forEach(function(item) {
+      if (item.split(";")[0] < currUT()) {
+        $("#dataField10").append("<span class='tipped' title='" + item.split(";")[1] + "'><a style='color: black' href='" + item.split[2] + "'><i class='" + AddlResourceItems[item.split(";")[1]] + "'></i></a></span>&nbsp;");
+      }
+    });
+    $("#dataField10").fadeIn();
+  } else $("#dataField10").fadeOut();
+  
   ///////////////
   // Last Update
   ///////////////
   
   $("#distanceTip").html(UTtoDateTimeLocal(currentVesselData.CraftData.UT))
   if (currentVesselData.CraftData.DistanceTraveled) $("#distanceTip").append("<br>Current Distance Traveled: " + currentVesselData.CraftData.DistanceTraveled + "km");
-  $("#dataField10").html("<b>Last Update:</b> <u><span class='tip-update' style='cursor:help' data-tipped-options=\"inline: 'distanceTip'\">" + UTtoDateTime(currentVesselData.CraftData.UT) + "</span></u>")
-  $("#dataField10").fadeIn()
+  $("#dataField11").html("<b>Last Update:</b> <u><span class='tip-update' style='cursor:help' data-tipped-options=\"inline: 'distanceTip'\">" + UTtoDateTime(currentVesselData.CraftData.UT) + "</span></u>")
+  $("#dataField11").fadeIn()
 
   ///////////////////
   // Mission History
@@ -486,7 +506,6 @@ function vesselDataUpdate() {
   $("#dataLabel").html("Mission History");
   
   // hide the rest of the fields
-  $("#dataField11").fadeOut();
   $("#dataField12").fadeOut();
   $("#dataField13").fadeOut();
   $("#dataField14").fadeOut();
@@ -507,7 +526,7 @@ function vesselContentUpdate() {
   
   // remove any previous markers
   if (launchsiteMarker) surfaceMap.removeLayer(launchsiteMarker);
-    
+  
   // decide what kind of content we have to deal with
   // pre-launch/static data event
   if (currentVesselData.CraftData.Content.charAt(0) == "@") {
@@ -559,15 +578,15 @@ function vesselContentUpdate() {
   // dynamic map with orbital information
   } else if (currentVesselData.CraftData.Content.charAt(0) == "!" && !currentVesselData.CraftData.Content.includes("[")) {
   
-    // we need the orbital catalog so if it's not loaded with our data, call again later
-    if (!orbitCatalog.find(o => o.ID === strCurrentVessel)) { setTimeout(function() { vesselContentUpdate(); }, 250); return; }
+    // if the mission is ongoing, we need the orbital catalog so if it's not loaded with our data, call again later
+    if (!isMissionEnded() && !orbitCatalog.find(o => o.ID === strCurrentVessel)) { setTimeout(function() { vesselContentUpdate(); }, 250); return; }
   
     // extract the data
     var data = currentVesselData.CraftData.Content.split("!")[1].split("|");
 
-    // only show dynamic information if this is a current state
+    // only show dynamic information if this is a current state in an ongoing mission
     // note we can't use the PastEvent property here because a past event could still use the same orbital data, so compare to what's loaded for GGB
-    if (currentVesselData.Orbit.UT == orbitCatalog.find(o => o.ID === strCurrentVessel).Orbit.UT) {
+    if (!isMissionEnded() && currentVesselData.Orbit.UT == orbitCatalog.find(o => o.ID === strCurrentVessel).Orbit.UT) {
       $("#content").fadeOut();
       $("#map").css("visibility", "visible");
       $("#map").fadeIn();
@@ -589,17 +608,17 @@ function vesselContentUpdate() {
       removeMapRefreshButton();
       
       // two images
-      if (data[0].includes(".png")) {
+      if (data[1].includes(".png")) {
         $("#content").html("<div class='fullCenter'><img width='475' class='contentTip' title='Ecliptic View<br>Dynamic orbit unavailable - viewing old data' src='" + data[0] + "'>&nbsp;<img width='475' class='contentTip' title='Polar View<br>Dynamic orbit unavailable - viewing old data' src='" + data[1] + "'></div>");
         
       // one image
       } else {
-        $("#content").html("<img class='fullCenter' class='tip' title='" + data[1] + "' src='" + data[0] + "'>");
+        console.log("old data one image");
+        $("#content").html("<img class='fullCenter contentTip' title='" + data[1] + "' src='" + data[0] + "'>");
       }
     
       $("#content").fadeIn();
     }
-
   
   // static orbits with dynamic information
   } else if (currentVesselData.CraftData.Content.charAt(0) == "!" && currentVesselData.CraftData.Content.includes("[")) {

@@ -13,8 +13,8 @@
   <meta property="og:image" content="http://i.imgur.com/B7r6B2F.png" />
   
   <!-- cache of Font Awesome -->
-  <script defer src="https://use.fontawesome.com/releases/v5.0.2/js/all.js"></script>
-
+  <link href="https://use.fontawesome.com/releases/v5.0.2/css/all.css" rel="stylesheet">
+  
   <!-- CSS stylesheets -->
   <link rel="stylesheet" href="http://fonts.googleapis.com/css?family=Roboto:900">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@0.5.1/dist/leaflet.css">
@@ -86,7 +86,7 @@
       <div id='crewFooter' style='text-align: center; margin-left: 503px; margin-top: 5px; display: none'>
         <a target='_blank' href='http://www.kerbalspace.agency'>KSA Home Page</a> | 
         Ribbons &amp; Stats by <a target='_blank' href='http://forum.kerbalspaceprogram.com/index.php?/topic/61065-105-final-frontier-kerbal-individual-merits-098-1882/'>Final Frontier</a> | 
-        <a href='https://github.com/KSAMissionCtrl/FlightTracker/wiki/Crew-Roster-Documentation'>Crew Roster Wiki</a>
+        <a target='_blank' href='https://github.com/KSAMissionCtrl/OpsTracker/wiki'>Ops Tracker Wiki</a>
       </div>
       <div id='figureOptions' style='z-index: 2; color: white; position: absolute; top: 900px; left: 5px; display: none;'>
         <input class='checkboxes' name='nodes' id='nodes' type='checkbox'> <label for='nodes'>Show Nodes</label> 
@@ -111,7 +111,7 @@
         <div id='progressbar' style='display:none'></div>
       </div>
       <div id='siteDialog'></div>
-      <div id='footer' style='text-align: center; width: 955px; top: 930px; position: absolute;'><a target='_blank' href='http://www.kerbalspace.agency'>KSA Home Page</a> | 2D Orbit rendering: <a target='_blank' href='http://bit.ly/KSPTOT'>KSPTOT</a> | 3D Orbit Rendering: <a target='_blank' href='http://forum.kerbalspaceprogram.com/index.php?/topic/158826-3d-ksp-solar-system-scale-model-major-update-05202017/'>by Syntax</a> | <a target='_blank' href='https://github.com/KSAMissionCtrl/FlightTracker/wiki/Flight-Tracker-Documentation'>Flight Tracker Wiki</a></div>
+      <div id='footer' style='text-align: center; width: 955px; top: 930px; position: absolute;'><a target='_blank' href='http://www.kerbalspace.agency'>KSA Home Page</a> | 2D Orbit rendering: <a target='_blank' href='http://bit.ly/KSPTOT'>KSPTOT</a> | 3D Orbit Rendering: <a target='_blank' href='http://forum.kerbalspaceprogram.com/index.php?/topic/158826-3d-ksp-solar-system-scale-model-major-update-05202017/'>by Syntax</a> | <a target='_blank' href='https://github.com/KSAMissionCtrl/OpsTracker/wiki'>Ops Tracker Wiki</a></div>
     </div>
     <div id='sideContent'>
       

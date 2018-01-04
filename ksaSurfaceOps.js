@@ -88,6 +88,14 @@ function initializeMap() {
     iconAnchor: [8, 8]
   });
   
+  // do not allow the user to close the map when it is in fullscreen
+  surfaceMap.on('enterFullscreen', function(){
+    removeMapCloseButton();
+  });
+  surfaceMap.on('exitFullscreen', function(){
+    if (pageType == "body") addMapCloseButton();
+  });
+  
   // show controls only when the cursor is over the map
   // only show the info control if looking at the big map, as the downsized map shows wrong coordinates for some reason
   if (!is_touch_device()) { 
@@ -261,7 +269,7 @@ function loadMapDataAJAX(xhttp) {
       POIMarker._myId = -1;
     });
     layerControl.addOverlay(layerPOI, "<img src='poi.png' style='width: 10px; vertical-align: 1px;'> Points of Interest", "Ground Markers");
-    if (getParameterByName("layers").includes("poi")) {
+    if (getParameterByName("layers").includes("poi") || getParameterByName("layers").includes("points of interest")) {
       layerPOI.addTo(surfaceMap);
     }
   }
@@ -324,6 +332,7 @@ function loadMapDataAJAX(xhttp) {
   if (getParameterByName("center")) {
     var mapLocation = getParameterByName("center").split(",");
     surfaceMap.setView([mapLocation[0], mapLocation[1]], 3);
+    if (pageType == "body") { showMap(); }
   }
   
   // load map pin(s) and caption(s)?
@@ -350,11 +359,18 @@ function loadMapDataAJAX(xhttp) {
     
     // if only one marker was placed, open its popup
     if (!isMultiple) { pin.openPopup(); }
+    if (pageType == "body") { showMap(); }
+  }
+  
+  // load flight paths?
+  // for now, just open up its mission report
+  if (getParameterByName("flt")) {
+    window.open("http://www.kerbalspace.agency/index.php?s=" + w2ui['menu'].get(getParameterByName("flt")).text.replace(" ", "+"));
   }
   
   // load straight to a map?
-  // Note that this is REQUIRED only when viewing a body page if you want to show the map straight away
-  if (window.location.href.includes("&map") && pageType == "body") { showMap(); }
+  // Note that &map is REQUIRED only when viewing a body page if you want to show the map straight away without using any other commands
+  if ((window.location.href.includes("&map") || getParameterByName("layers")) && pageType == "body") { showMap(); }
   
   // done with initial data load
   layerControl._collapse();
@@ -473,7 +489,7 @@ function renderVesselOrbit() {
 
   // get the times we'll reach Ap and Pe along this orbit if we haven't already done so
   if (!currentVesselPlot.Events.Ap.Marker || !currentVesselPlot.Events.Pe.Marker) {
-    var n = Math.sqrt(bodyCatalog.find(o => o.Body === strCurrentBody).Gm/(Math.pow(Math.abs(currentVesselData.Orbit.SMA),3)));
+    var n = Math.sqrt(bodyCatalog.find(o => o.Body === strCurrentBody.split("-")[0]).Gm/(Math.pow(Math.abs(currentVesselData.Orbit.SMA),3)));
     var newMean = toMeanAnomaly(currentVesselData.Orbit.TrueAnom, currentVesselData.Orbit.Eccentricity) + n * ((obtCalcUT-orbitDataCalc.length) - currentVesselData.Orbit.Eph);
     if (newMean < 0 || newMean > 2*Math.PI) {
       newMean = Math.abs(newMean - (2*Math.PI) * Math.floor(newMean / (2*Math.PI)));
@@ -615,10 +631,10 @@ function renderBodyOrbit() {
 function orbitalCalc(callback, orbit) {
 
   // load up on some data-fetching and conversions so we're not repeating them in the batch loop
-  var gmu = bodyCatalog.find(o => o.Body === strCurrentBody).Gm; 
-  var rotPeriod = bodyCatalog.find(o => o.Body === strCurrentBody).RotPeriod;
-  var rotInit = bodyCatalog.find(o => o.Body === strCurrentBody).RotIni * .017453292519943295; 
-  var bodRad = bodyCatalog.find(o => o.Body === strCurrentBody).Radius;
+  var gmu = bodyCatalog.find(o => o.Body === strCurrentBody.split("-")[0]).Gm; 
+  var rotPeriod = bodyCatalog.find(o => o.Body === strCurrentBody.split("-")[0]).RotPeriod;
+  var rotInit = bodyCatalog.find(o => o.Body === strCurrentBody.split("-")[0]).RotIni * .017453292519943295; 
+  var bodRad = bodyCatalog.find(o => o.Body === strCurrentBody.split("-")[0]).Radius;
   var inc = orbit.Inclination * .017453292519943295;
   var raan = orbit.RAAN * .017453292519943295;
   var arg = orbit.Arg * .017453292519943295;
@@ -872,7 +888,7 @@ function addMapViewButton() {
         icon: 'fa-globe',
         title: 'View all orbits for this body',
         onClick: function(control) {
-          swapContent("body", strCurrentSystem);
+          swapContent("body", strCurrentBody);
           setTimeout(showMap, 1000);
         }
       }, {
@@ -888,15 +904,21 @@ function addMapViewButton() {
     if (!$(".leaflet-control-zoom").is(":visible")) $(".easy-button-container").hide();
   }
 }
-function removeVesselMapButtons() {
+function removeMapResizeButton() {
   if (mapResizeButton) {
     surfaceMap.removeControl(mapResizeButton);
     mapResizeButton = null;
   }
+}
+function removeMapViewButton() {
   if (mapViewButton) {
     surfaceMap.removeControl(mapViewButton);
     mapViewButton = null;
   }
+}
+function removeVesselMapButtons() {
+  removeMapResizeButton();
+  removeMapViewButton();
 }
 
 // these buttons will go on both vessel and body maps
@@ -961,8 +983,8 @@ function hideMap() {
     $("#figureOptions").fadeIn();
     $("#vesselOrbitTypes").fadeIn();
     $("#figure").fadeIn();
-    $("#contentHeader").html(strCurrentSystem.replace("-", " "));
-    document.title = "KSA Operations Tracker - " + strCurrentSystem.replace("-", " ");
+    $("#contentHeader").html(strCurrentBody.replace("-", " "));
+    document.title = "KSA Operations Tracker - " + strCurrentBody.replace("-", " ");
   }
 }
 

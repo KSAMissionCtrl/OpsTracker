@@ -34,6 +34,10 @@ var obtCalcUT;
 var timePopup;
 var currentVesselPlot;
 var strPausedVesselCalculation;
+var strCurrentBody;
+var strCurrentSystem;
+var strCurrentVessel;
+var strCurrentCrew;
 var clock = new Date();
 var vesselPositionPopup = L.popup({offset: new L.Point(0,-1), closeButton: true, closeOnClick: false});
 var obtTrackDataLoad = null;
@@ -72,10 +76,6 @@ var orbitDataCalc = [];
 var updatesList = [];
 var crewList = [];
 var strTinyBodyLabel = "";
-var strCurrentBody = "Kerbol";
-var strCurrentSystem = "Kerbol-System";
-var strCurrentVessel = "";
-var strCurrentCrew = "";
 var orbitColors = {
   probe: "#FFD800",
   debris: "#ff0000",
@@ -158,3 +158,7 @@ var mapBiomeLegend = [
     "Twin Craters" : "#B3761A",
     "Canyons" : "#534600" } }
 ];
+var AddlResourceItems = [];
+AddlResourceItems["Telemetry Data"] = "fa fa-table";
+AddlResourceItems["Mission Report"] = "fab fa-twitter";
+AddlResourceItems["Flight Analysis"] = "far fa-file";

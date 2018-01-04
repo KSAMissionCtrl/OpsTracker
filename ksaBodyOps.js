@@ -1,33 +1,3 @@
-// load the data for all the bodies in the Kerbol system
-function loadBodyAJAX(xhttp) {
-
-  // separate each of the bodies and their fields
-  var bodies = xhttp.responseText.split("|");
-  
-  // push each body into the array
-  bodies.forEach(function(item, index) {
-    var body = {};
-  
-    // separate the fields of this body
-    var fields = item.split("`");
-    fields.forEach(function(item, index) {
-    
-      // now get the name/value and assign the object
-      var pair = item.split("~");
-      if (pair[1] == "") {
-        body[pair[0]] = null;
-      } else if ($.isNumeric(pair[1])) {
-        body[pair[0]] = parseFloat(pair[1]);
-      } else {
-        body[pair[0]] = pair[1];
-      }
-    });
-    bodyCatalog.push(body);
-  });
-  isCatalogDataLoaded = true;
-  $("#figureDialog").spin(false);
-}
-
 // load a new GeoGebra figure into the main content window
 function loadBody(body) {
   
@@ -64,7 +34,7 @@ function loadBody(body) {
     
     // modify the history so people can page back/forward
     // only add URL variables if they aren't already included
-    if (window.location.href.includes("&")) { var strURL = window.location.href; }
+    if ((window.location.href.includes("&") && getParameterByName("body") == strCurrentBody) || !strCurrentBody) { var strURL = window.location.href; }
     else { var strURL = "http://www.kerbalspace.agency/Tracker/tracker.asp?body=" + body; }
     
     // if this is the first page to load, replace the current history
@@ -79,7 +49,7 @@ function loadBody(body) {
     // $("#contentHeader").spin({ scale: 0.35, position: 'relative', top: '10px', left: (((955/2) + (body.width('bold 32px arial')/2)) + 10) +'px' });
 
     // if body is already loaded, then just exit
-    if (isGGBAppletLoaded && strCurrentBody == body.split("-")[0]) { 
+    if (isGGBAppletLoaded && strCurrentBody == body) { 
       if (isDirty) {
         ggbApplet.reset();
         isDirty = false;
@@ -92,8 +62,7 @@ function loadBody(body) {
   } else if (pageType == "vessel") { isDirty = true; }
 
   // update the current body & system
-  strCurrentBody = body.split("-")[0];
-  if (body.includes("System")) { strCurrentSystem = body; }
+  strCurrentBody = body;
   
   // hide and reset stuff
   $("#figureDialog").dialog("close");
@@ -148,6 +117,36 @@ function loadBody(body) {
   $("#contentBox").spin({ position: 'relative', top: '50%', left: '50%' });
 }
 
+// load the data for all the bodies in the Kerbol system
+function loadBodyAJAX(xhttp) {
+
+  // separate each of the bodies and their fields
+  var bodies = xhttp.responseText.split("|");
+  
+  // push each body into the array
+  bodies.forEach(function(item, index) {
+    var body = {};
+  
+    // separate the fields of this body
+    var fields = item.split("`");
+    fields.forEach(function(item, index) {
+    
+      // now get the name/value and assign the object
+      var pair = item.split("~");
+      if (pair[1] == "") {
+        body[pair[0]] = null;
+      } else if ($.isNumeric(pair[1])) {
+        body[pair[0]] = parseFloat(pair[1]);
+      } else {
+        body[pair[0]] = pair[1];
+      }
+    });
+    bodyCatalog.push(body);
+  });
+  isCatalogDataLoaded = true;
+  $("#figureDialog").spin(false);
+}
+
 // called after load and after user clicks the reset
 function ggbOnInit(){
   
@@ -194,11 +193,13 @@ function ggbOnInit(){
     $("#vesselOrbitTypes").fadeIn();
   }
   
-  // select and show it in the menu
-  w2ui['menu'].select(strCurrentBody);
-  w2ui['menu'].expandParents(strCurrentBody);
-  w2ui['menu'].scrollIntoView(strCurrentBody);
-  
+  // select and show it in the menu if this is the proper page type because the figure can load after a vessel was already selected
+  if (pageType == "body") {
+    w2ui['menu'].select(strCurrentBody);
+    w2ui['menu'].expandParents(strCurrentBody);
+    w2ui['menu'].scrollIntoView(strCurrentBody);
+  }
+    
   // declutter the view after a few seconds
   // make sure a quick figure switch doesn't declutter things too fast
   clearTimeout(timeoutHandle);
@@ -424,10 +425,10 @@ function figureClick(object) {
       for (bodyIndex=0; bodyIndex<bodyCatalog.length; bodyIndex++) {
         if (strBodyName == bodyCatalog[bodyIndex].Body) { break; }
       }
-      if (bodyCatalog[bodyIndex].Image != 'null') {
+      if (bodyCatalog[bodyIndex].Image) {
         strHTML += "<img src='" + bodyCatalog[bodyIndex].Image + "' style='background-color:black;'>";
       } else {
-        strHTML += "<img src='nada.png'>";
+        strHTML += "<img src='https://i.imgur.com/advRrs1.png'>";
       }
       strHTML += "<i><p>&quot;" + bodyCatalog[bodyIndex].Desc + "&quot;</p></i><p><b>- Kerbal Astronomical Society</b></p></td>";
       strHTML += "<td style='vertical-align: top; padding: 0px; margin-top: 0px'><b>Orbital Data</b>";

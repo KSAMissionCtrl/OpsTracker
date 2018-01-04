@@ -12,7 +12,7 @@ function loadCrew(crew) {
 
   // modify the history so people can page back/forward
   // only add URL variables if they aren't already included
-  if (window.location.href.includes("&")) { var strURL = window.location.href; }
+  if (window.location.href.includes("&") && getParameterByName("crew") == strCurrentCrew) { var strURL = window.location.href; }
   else { var strURL = "http://www.kerbalspace.agency/Tracker/tracker.asp?crew=" + crew; }
   
   // if this is the first page to load, replace the current history
@@ -155,15 +155,15 @@ function loadCrewAJAX(xhttp) {
     $("#dataField1").html("<b>Completed Missions:</b> " + currentCrewData.Missions.length);
     $("#dataField1").fadeIn();
     
+    // mission days
+    $("#dataField3").html("<b>Total Mission Days:</b> " + currentCrewData.Stats.TMD);
+    $("#dataField3").fadeIn();
+    
     // docking operations? Only for pilots
     if (currentCrewData.Stats.Dockings) {
       $("#dataField2").html("<b>Docking Operations:</b> " + currentCrewData.Stats.Dockings);
       $("#dataField2").fadeIn();
     } else $("#dataField2").fadeOut();
-    
-    // mission days
-    $("#dataField3").html("<b>Total Mission Days:</b> " + currentCrewData.Stats.TMD);
-    $("#dataField3").fadeIn();
     
     // EVA time
     $("#dataField4").html("<b>Total EVA Time:</b> " + currentCrewData.Stats.TEVA);

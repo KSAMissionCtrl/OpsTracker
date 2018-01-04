@@ -130,18 +130,18 @@ function loadMenuAJAX(xhttp) {
         if ((strCurrentCrew != event.node.id && pageType == "crew") || (strCurrentCrew == event.node.id && pageType != "crew") || (strCurrentCrew != event.node.id && pageType != "crew")) { swapContent("crew", event.node.id, "NaN"); }
       } else if (event.node.img.includes("crew") && event.node.id == "crewFull") {
         if (pageType != event.node.id) { swapContent("crewFull", event.node.id, "NaN"); }
+        
+      // for now, aircraft can't be viewed so just jump to the website category for them
+      } else if (event.node.img.includes("aircraft") && event.node.parent.id != "inactiveVessels") {
+        window.open("http://www.kerbalspace.agency/index.php?s=" + event.node.text.replace(" ", "+"));
 
+      // for now, we link to another page for the DSN
       } else if (event.node.img.includes("dish")) {
-      
-        // for now, we link to another page
         window.open("http://www.kerbalspace.agency/?p=3736");
         
       // anything else that isn't a folder is a vessel
       // except if the parent is the Inactive Vessels node as that's just a category node
       } else if (!event.node.img.includes("folder") && event.node.parent.id != "inactiveVessels") {
-        
-        // for now, ignore aircraft
-        if (event.node.img.includes("aircraft")) { return; }
         
         // make sure this vessel isn't already loaded before refreshing the page if it is a vessel page
         if ((strCurrentVessel != event.node.id && pageType == "vessel") || (strCurrentVessel == event.node.id && pageType != "vessel") || (strCurrentVessel != event.node.id && pageType != "vessel")) { swapContent("vessel", event.node.id, "NaN"); }
@@ -240,7 +240,7 @@ function loadMenuAJAX(xhttp) {
       }
       
       // get the date for this vessel and extract the month and year
-      var dateUT = UTtoDateTime(soi[refIndex-1].split(";")[0], true).split(" ")[0];
+      var dateUT = UTtoDateTime(parseInt(soi[refIndex-1].split(";")[0]), true).split("@")[0];
       var month = dateUT.split("/")[0];
       var year = dateUT.split("/")[2];
       

@@ -88,25 +88,21 @@ function raiseContent() {
       $("#map").css("height", "885px");
       surfaceMap.invalidateSize();
       isContentMoving = false;
-      
-      // until I can figure out why the downsized map acts funky, only allow scrollwheel zoom on the big map
-      surfaceMap.options.scrollWheelZoom = true;
     }, 400);
   }
 }
 function lowerContent() {
   if ($("#contentBox").css("height") != "480px") {
+    isContentMoving = true;
     $("#contentBox").css("height", "480px");
     $("#map").css("height", "480px");
     surfaceMap.invalidateSize();
     setTimeout(function() { 
       $("#contentBox").css("transform", "translateY(405px)"); 
-      isContentMoving = true;
       setTimeout(function() { isContentMoving = false; }, 400);
       
-      // until I figure out why the coordinates in the downsized map are messed up, hide the info control and don't allow scrollwheel zoom
+      // until I figure out why the coordinates in the downsized map are messed up, hide the info control
       $(".leaflet-control-info").fadeOut();
-      surfaceMap.options.scrollWheelZoom = false;
     }, 200);
   }
 }
@@ -164,7 +160,7 @@ function setupContent() {
                     hide: { effect: "fade", duration: 300 }, 
                     show: { effect: "fade", duration: 300 },
                     position: { my: "center", at: "center", of: "#infoBox" },
-                    close: function( event, ui ) { 
+                    close: function(event, ui) { 
                       $(this).dialog("option", "position", { my: "center", at: "center", of: "#infoBox" }); 
                       if (pageType == "vessel") { $(this).dialog("option", { width: 643, height: 400 }); }
                       else if (pageType == "crew") { $(this).dialog("option", { width: 490, height: 600 }); }
@@ -181,7 +177,9 @@ function setupContent() {
                     height: "auto",
                     hide: { effect: "fade", duration: 300 }, 
                     show: { effect: "fade", duration: 300 },
-                    position: { my: "center", at: "center", of: "#contentBox" }
+                    position: { my: "center", at: "center", of: "#contentBox" },
+                    open: function(event, ui) { removeMapResizeButton(); },
+                    close: function(event, ui) { addMapResizeButton(); }
                     });
   
   // setup the message dialog box that will notify the user about any general website stuff
@@ -325,7 +323,6 @@ function swapContent(newPageType, id, ut) {
       $("#contentBox").spin(false);
       $("#infoBox").spin(false);
       $("#dataField0").spin(false);
-      swapTwitterSource();
     }
     $("#infoDialog").dialog("close");
     $("#mapDialog").dialog("close");
@@ -367,6 +364,7 @@ function swapContent(newPageType, id, ut) {
   // show/load the new content
   pageType = newPageType;
   if (newPageType == "body") {
+    swapTwitterSource();
     raiseContent();
     setTimeout(function() { 
       if (!window.location.href.includes("&map")) {
