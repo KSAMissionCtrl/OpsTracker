@@ -35,6 +35,7 @@ The following JavaScript libraries are used:
 - Leaflet map tiles can load slowly or not fully. If any grey tiles appear, changing zoom levels up/down and back again will display cached tiles and force a reload for any missing tiles
 - The downsized default map view for vessel pages does not interpret coordinates properly, so the info control is disabled as well as some features, but everything works fine if you size up the map view
 - In rare instances the menu will fail to load properly on initial page load. A full refresh (Ctrl+F5) seems to fix it every time
+- Collapsing/Expanding the [Operations Menu](https://github.com/KSAMissionCtrl/OpsTracker/wiki/Navigation) can sometimes cause the entire area to go blank the next time something in it is clicked on
 
 ### Future Fixes/Changes/Additions
 
@@ -60,6 +61,15 @@ The following JavaScript libraries are used:
 
 Versioning Key (v#1.#2.#3): #1=New features #2=Changes to existing features #3=Fixes to existing features
 
+**v1.1.1** (1/9/18)
+
+Fixes:
+  - When collapsing the menu the current selection is scrolled back into view
+  - [Vessel Details](Vessel Details) now give the option to see more information about a future upcoming event in the Mission History navigation dropdown
+  - [Events Calendar](https://github.com/KSAMissionCtrl/OpsTracker/wiki/Clock-&-Event-Calendar) now properly swaps the page content without reloading instead of linking to an entirely new page when selecting the vessel displayed
+  - The [Twitter Feed](https://github.com/KSAMissionCtrl/OpsTracker/wiki/Twitter-Feed) could be hidden in some instances and not re-shown on page load
+  - Additional Resources in the Vessel Details now properly links to each resource and loads it in a new tab
+
 **v1.1.0** (1/9/18)
 
 Fixes:
@@ -67,7 +77,7 @@ Fixes:
   - `loadVessel()` was using a local variable named the same as a global and changed the name to avoid confusino
 
 Changes:
-  - [Events calendar]() and [Operations Menu]() have been linked to update events so they provide new data when it is available for vessels. The events calendar updating is pretty obvious, but for items in the Operations Menu that could be hidden from view, the top-level will expand if it isn't already and badges will appear next to folders/bodies that contain updated vessels with a count of how many. The updated vessels themselves will have their names bolded
+  - [Events Calendar](https://github.com/KSAMissionCtrl/OpsTracker/wiki/Clock-&-Event-Calendar) and [Operations Menu](https://github.com/KSAMissionCtrl/OpsTracker/wiki/Navigation) have been linked to update events so they provide new data when it is available for vessels. The Events Calendar updating is pretty obvious, but for items in the Operations Menu that could be hidden from view, the top-level will expand if it isn't already and badges will appear next to folders/bodies that contain updated vessels with a count of how many. The updated vessels themselves will have their names bolded
   - The events calendar can now show vessel names that take up more than one line
 
 **v1.0.0** (1/4/18)   
