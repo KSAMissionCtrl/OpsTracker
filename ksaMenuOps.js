@@ -10,7 +10,8 @@ function loadMenuAJAX(xhttp) {
   crafts.forEach(function(item, index) {
     craftsMenu.push(rsToObj(item));
   });
-  
+  console.log(craftsMenu);
+
   // crew members returned as null are not yet able to be shown until a later date
   crew.forEach(function(item, index) {
     var fields = item.split("~");
@@ -31,78 +32,79 @@ function loadMenuAJAX(xhttp) {
     name  : 'menu',
     img   : null,
     nodes : [ 
-      { id: 'activeVessels', text: 'Active Vessels', expanded: false, group: true,
+      { id: 'activeVessels', text: 'Active Vessels', expanded: false, group: true, count: null,
         nodes: [ 
-          { id: 'Kerbol-System', text: 'Kerbol', img: 'icon-body' },
-          { id: 'Moho', text: 'Moho', img: 'icon-body', hidden: true },
-          { id: 'Eve-System', text: 'Eve', img: 'icon-body', hidden: true,
+          { id: 'Kerbol-System', text: 'Kerbol', img: 'icon-body', count: null },
+          { id: 'Moho', text: 'Moho', img: 'icon-body', hidden: true, count: null },
+          { id: 'Eve-System', text: 'Eve', img: 'icon-body', hidden: true, count: null,
             nodes: [
-              { id: 'Gilly', text: 'Gilly', img: 'icon-body', hidden: true }
+              { id: 'Gilly', text: 'Gilly', img: 'icon-body', hidden: true, count: null }
             ]},
-          { id: 'Kerbin-System', text: 'Kerbin', img: 'icon-body', hidden: true,
+          { id: 'Kerbin-System', text: 'Kerbin', img: 'icon-body', hidden: true, count: null,
             nodes: [
-              { id: 'Mun', text: 'Mun', img: 'icon-body', hidden: true },
-              { id: 'Minmus', text: 'Minmus', img: 'icon-body', hidden: true }
+              { id: 'Mun', text: 'Mun', img: 'icon-body', hidden: true, count: null },
+              { id: 'Minmus', text: 'Minmus', img: 'icon-body', hidden: true, count: null }
             ]},
-          { id: 'Duna-System', text: 'Duna', img: 'icon-body', hidden: true,
+          { id: 'Duna-System', text: 'Duna', img: 'icon-body', hidden: true, count: null,
             nodes: [
-              { id: 'Ike', text: 'Ike', img: 'icon-body', hidden: true }
+              { id: 'Ike', text: 'Ike', img: 'icon-body', hidden: true, count: null }
             ]},
-          { id: 'Dres', text: 'Dres', img: 'icon-body', hidden: true },
-          { id: 'Sorlon', text: 'Sorlon', img: 'icon-body', hidden: true },
-          { id: 'Jool-System', text: 'Jool', img: 'icon-body', hidden: true,
+          { id: 'Dres', text: 'Dres', img: 'icon-body', hidden: true, count: null },
+          { id: 'Sorlon', text: 'Sorlon', img: 'icon-body', hidden: true, count: null },
+          { id: 'Jool-System', text: 'Jool', img: 'icon-body', hidden: true, count: null,
             nodes: [
-              { id: 'Laythe', text: 'Laythe', img: 'icon-body', hidden: true },
-              { id: 'Vall', text: 'Vall', img: 'icon-body', hidden: true },
-              { id: 'Tylo', text: 'Tylo', img: 'icon-body', hidden: true },
-              { id: 'Bop', text: 'Bop', img: 'icon-body', hidden: true },
-              { id: 'Pol', text: 'Pol', img: 'icon-body', hidden: true }
+              { id: 'Laythe', text: 'Laythe', img: 'icon-body', hidden: true, count: null },
+              { id: 'Vall', text: 'Vall', img: 'icon-body', hidden: true, count: null },
+              { id: 'Tylo', text: 'Tylo', img: 'icon-body', hidden: true, count: null },
+              { id: 'Bop', text: 'Bop', img: 'icon-body', hidden: true, count: null },
+              { id: 'Pol', text: 'Pol', img: 'icon-body', hidden: true, count: null }
             ]},
-          { id: 'Sarnus-System', text: 'Sarnus', img: 'icon-body', hidden: true,
+          { id: 'Sarnus-System', text: 'Sarnus', img: 'icon-body', hidden: true, count: null,
             nodes: [
-              { id: 'Hale', text: 'Hale', img: 'icon-body', hidden: true },
-              { id: 'Ovok', text: 'Ovok', img: 'icon-body', hidden: true },
-              { id: 'Eeloo', text: 'Eeloo', img: 'icon-body', hidden: true },
-              { id: 'Slate', text: 'Slate', img: 'icon-body', hidden: true },
-              { id: 'Tekto', text: 'Tekto', img: 'icon-body', hidden: true }
+              { id: 'Hale', text: 'Hale', img: 'icon-body', hidden: true, count: null },
+              { id: 'Ovok', text: 'Ovok', img: 'icon-body', hidden: true, count: null },
+              { id: 'Eeloo', text: 'Eeloo', img: 'icon-body', hidden: true, count: null },
+              { id: 'Slate', text: 'Slate', img: 'icon-body', hidden: true, count: null },
+              { id: 'Tekto', text: 'Tekto', img: 'icon-body', hidden: true, count: null }
             ]},
-          { id: 'Urlum-System', text: 'Urlum', img: 'icon-body', hidden: true,
+          { id: 'Urlum-System', text: 'Urlum', img: 'icon-body', hidden: true, count: null,
             nodes: [
-              { id: 'Polta', text: 'Polta', img: 'icon-body', hidden: true },
-              { id: 'Priax', text: 'Priax', img: 'icon-body', hidden: true },
-              { id: 'Wal-System', text: 'Wal', img: 'icon-body', hidden: true,
+              { id: 'Polta', text: 'Polta', img: 'icon-body', hidden: true, count: null },
+              { id: 'Priax', text: 'Priax', img: 'icon-body', hidden: true, count: null },
+              { id: 'Wal-System', text: 'Wal', img: 'icon-body', hidden: true, count: null,
                 nodes: [
-                  { id: 'Tal', text: 'Tal', img: 'icon-body', hidden: true }
+                  { id: 'Tal', text: 'Tal', img: 'icon-body', hidden: true, count: null }
                 ]}
             ]},
-          { id: 'Neidon-System', text: 'Neidon', img: 'icon-body', hidden: true,
+          { id: 'Neidon-System', text: 'Neidon', img: 'icon-body', hidden: true, count: null,
             nodes: [
-              { id: 'Thatmo', text: 'Thatmo', img: 'icon-body', hidden: true },
-              { id: 'Nissee', text: 'Nissee', img: 'icon-body', hidden: true },
+              { id: 'Thatmo', text: 'Thatmo', img: 'icon-body', hidden: true, count: null },
+              { id: 'Nissee', text: 'Nissee', img: 'icon-body', hidden: true, count: null },
             ]},
-          { id: 'Plock-System', text: 'Plock', img: 'icon-body', hidden: true,
+          { id: 'Plock-System', text: 'Plock', img: 'icon-body', hidden: true, count: null,
             nodes: [
-              { id: 'Karen', text: 'Karen', img: 'icon-body', hidden: true },
+              { id: 'Karen', text: 'Karen', img: 'icon-body', hidden: true, count: null },
             ]}
         ]},
-      { id: 'inactiveVessels', text: 'Inactive Vessels', expanded: false, group: true,
+      { id: 'inactiveVessels', text: 'Inactive Vessels', expanded: false, group: true, count: null,
         nodes: [ 
-          { id: 'aircraft', text: 'Aircraft', img: 'icon-aircraft', hidden: true },
-          { id: 'asteroid', text: 'Asteroid', img: 'icon-asteroid', hidden: true },
-          { id: 'base', text: 'Base', img: 'icon-base', hidden: true },
-          { id: 'debris', text: 'Debris', img: 'icon-debris', hidden: true },
-          { id: 'lander', text: 'Lander', img: 'icon-lander', hidden: true },
-          { id: 'probe', text: 'Probe', img: 'icon-probe', hidden: true },
-          { id: 'rover', text: 'Rover', img: 'icon-rover', hidden: true },
-          { id: 'ship', text: 'Ship', img: 'icon-ship', hidden: true },
-          { id: 'station', text: 'Station', img: 'icon-station', hidden: true }
+          { id: 'aircraft', text: 'Aircraft', img: 'icon-aircraft', hidden: true, count: null },
+          { id: 'asteroid', text: 'Asteroid', img: 'icon-asteroid', hidden: true, count: null },
+          { id: 'base', text: 'Base', img: 'icon-base', hidden: true, count: null },
+          { id: 'debris', text: 'Debris', img: 'icon-debris', hidden: true, count: null },
+          { id: 'lander', text: 'Lander', img: 'icon-lander', hidden: true, count: null },
+          { id: 'probe', text: 'Probe', img: 'icon-probe', hidden: true, count: null },
+          { id: 'rover', text: 'Rover', img: 'icon-rover', hidden: true, count: null },
+          { id: 'ship', text: 'Ship', img: 'icon-ship', hidden: true, count: null },
+          { id: 'station', text: 'Station', img: 'icon-station', hidden: true, count: null }
         ]},
-      { id: 'crew', text: 'Crew Roster', expanded: false, group: true,
+      { id: 'crew', text: 'Crew Roster', expanded: false, group: true, count: null,
         nodes: [ { id: 'crewFull', text: 'Full Roster', img: 'icon-crew'}]},
-      { id: 'dsn', text: 'Deep Space Network', expanded: false, group: true,
+      { id: 'dsn', text: 'Deep Space Network', expanded: false, group: true, count: null,
         nodes: [ { id: 'dsnInfo', text: 'More Information', img: 'icon-dish'}]}
     ],
     onClick: function (event) {
+      var checkNew = false;
       
       // the type of node image will tell us what to load
       if (event.node.img.includes("body")) {
@@ -129,10 +131,12 @@ function loadMenuAJAX(xhttp) {
         // make sure this crew member isn't already loaded before refreshing the page if it is a crew page
         if ((strCurrentCrew != event.node.id && pageType == "crew") || (strCurrentCrew == event.node.id && pageType != "crew") || (strCurrentCrew != event.node.id && pageType != "crew")) { swapContent("crew", event.node.id, "NaN"); }
       } else if (event.node.img.includes("crew") && event.node.id == "crewFull") {
+        checkNew = true;
         if (pageType != event.node.id) { swapContent("crewFull", event.node.id, "NaN"); }
         
       // for now, aircraft can't be viewed so just jump to the website category for them
       } else if (event.node.img.includes("aircraft") && event.node.parent.id != "inactiveVessels") {
+        checkNew = true;
         window.open("http://www.kerbalspace.agency/index.php?s=" + event.node.text.replace(" ", "+"));
 
       // for now, we link to another page for the DSN
@@ -142,9 +146,19 @@ function loadMenuAJAX(xhttp) {
       // anything else that isn't a folder is a vessel
       // except if the parent is the Inactive Vessels node as that's just a category node
       } else if (!event.node.img.includes("folder") && event.node.parent.id != "inactiveVessels") {
+        checkNew = true;
         
         // make sure this vessel isn't already loaded before refreshing the page if it is a vessel page
         if ((strCurrentVessel != event.node.id && pageType == "vessel") || (strCurrentVessel == event.node.id && pageType != "vessel") || (strCurrentVessel != event.node.id && pageType != "vessel")) { swapContent("vessel", event.node.id, "NaN"); }
+      }
+      
+      // should we see if this is a new addition and adjust counts accordingly?
+      if (checkNew && event.node.newAdd) {
+        event.node.text = event.node.text.split(">")[1].split("<")[0];
+        event.node.newAdd = false;
+        adjustCount(event.node.parent.id, -1);
+        w2ui['menu'].refresh();
+        w2ui['menu'].scrollIntoView(event.node.id);
       }
     },
     onExpand: function (event) {
@@ -165,132 +179,7 @@ function loadMenuAJAX(xhttp) {
   });
   
   // build the menu for active/inactive vessels
-  craftsMenu.forEach(function(item, index) {
-    
-    // get the current body being orbited
-    var refNum = -2;
-    var refIndex;
-    var soi = item.SOI.split("|");
-    for (refIndex=0; refIndex<soi.length; refIndex++) {
-      var pair = soi[refIndex].split(";");
-      if (pair[0] > currUT()) { break; }
-      refNum = pair[1];
-    }
-    
-    // check for a future SOI update
-    if (refIndex < soi.length) { updatesList.push({ Type: "menu;soi", ID: item.DB, UT: soi[refIndex].split(";")[0] }); }
-    
-    // if this vessel has more than one name, get the current one
-    // also check for a future name update
-    var strVesselName;
-    if (item.Vessel.includes("|")) {
-      var nameIndex;
-      var names = item.Vessel.split("|");
-      for (nameIndex=0; nameIndex<names.length; nameIndex++) {
-        var pair = names[nameIndex].split(";");
-        if (pair[0] > currUT()) { break; }
-        refNum = parseInt(pair[1]);
-      }
-      if (nameIndex < names.length) { updatesList.push({ Type: "menu;name", ID: item.DB, UT: names[nameIndex].split(";")[0] }); }
-    } else { strVesselName = item.Vessel; }
-    
-    // handle either an active or inactive vessel
-    if (refNum >= 0) {
-    
-      // figure out which body this vessel belongs to
-      var bodyRef;
-      for (bodyRef=0; bodyRef<bodyCatalog.length; bodyRef++) { if (bodyCatalog[bodyRef].ID == refNum) { break; } }
-      if (bodyRef == bodyCatalog.length) { console.log(strVesselName + " " + refNum); console.log(bodyCatalog); }
-      
-      // if this body has moons, it is defined as a system
-      var strSys = "";
-      if (bodyCatalog[bodyRef].Moons.length) { strSys = "-System"; }
-
-      // if this body is not visible, make it so
-      if (w2ui['menu'].get('activeVessels', bodyCatalog[bodyRef].Body + strSys).hidden) { 
-        w2ui['menu'].set('activeVessels', bodyCatalog[bodyRef].Body + strSys, { hidden: false }); 
-      }
-      
-      // get the nodes for this body and insert the vessel alphabetically, after any moons
-      // or add it at the end if nothing to insert before
-      var index;
-      var menuNodes = w2ui['menu'].get('activeVessels', bodyCatalog[bodyRef].Body + strSys).nodes;
-      for (index=0; index<menuNodes.length; index++) {
-        if (!menuNodes[index].img.includes("body") && menuNodes[index].text > strVesselName) {
-          w2ui['menu'].insert(bodyCatalog[bodyRef].Body + strSys, menuNodes[index].id, { id: item.DB,
-                                                                                         text: strVesselName,
-                                                                                         img: 'icon-' + item.Type });
-          break;
-        }
-      }
-      if (index == menuNodes.length) {
-        w2ui['menu'].add(bodyCatalog[bodyRef].Body + strSys, { id: item.DB,
-                                                               text: strVesselName,
-                                                               img: 'icon-' + item.Type });
-      }
-
-      // enable & check the checkbox for this type of vessel
-      $("#" + item.Type + "-menu").removeAttr("disabled");
-      $("#" + item.Type + "-menu").prop('checked', true);
-    } else if (refNum == -1) {
-      
-      // if this vessel type is not visible, make it so
-      if (w2ui['menu'].get('inactiveVessels', item.Type).hidden) { 
-        w2ui['menu'].set('inactiveVessels', item.Type, { hidden: false }); 
-      }
-      
-      // get the date for this vessel and extract the month and year
-      var dateUT = UTtoDateTime(parseInt(soi[refIndex-1].split(";")[0]), true).split("@")[0];
-      var month = dateUT.split("/")[0];
-      var year = dateUT.split("/")[2];
-      
-      // if this year does not have a menu entry, insert one
-      // sort descending
-      var index;
-      var menuNodes = w2ui['menu'].get('inactiveVessels', item.Type).nodes;
-      if (!w2ui['menu'].find(item.Type, { id: item.Type + year }).length) {
-        for (index=0; index<menuNodes.length; index++) {
-          if (parseInt(menuNodes[index].text) < parseInt(year)) {
-            w2ui['menu'].insert(item.Type, menuNodes[index].id, { id: item.Type + year,
-                                                                  text: year,
-                                                                  img: 'icon-folder'});
-            break;
-          }
-        }
-        if (index == menuNodes.length) {
-          w2ui['menu'].add(item.Type, { id: item.Type + year,
-                                        text: year,
-                                        img: 'icon-folder'});
-        }
-      }
-
-      // if this month does not have a menu entry, insert one
-      // sort ascending
-      var months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-      if (!w2ui['menu'].find(item.Type + year, { id: item.Type + year + '-' + month }).length) {
-        menuNodes = w2ui['menu'].get(item.Type, item.Type + year).nodes;
-        for (index=0; index<menuNodes.length; index++) {
-          if (parseInt(menuNodes[index].id.split("-")[1]) > parseInt(month)) {
-            w2ui['menu'].insert(item.Type + year, menuNodes[index].id, { id: item.Type + year + '-' + month,
-                                                                         text: months[month-1],
-                                                                         img: 'icon-folder'});
-            break;
-          }
-        }
-        if (index == menuNodes.length) {
-          w2ui['menu'].add(item.Type + year, { id: item.Type + year + '-' + month,
-                                               text: months[month-1],
-                                               img: 'icon-folder'});
-        }
-      }
-      
-      // add the vessel to this month/year
-      w2ui['menu'].add(item.Type + year + '-' + month, { id: item.DB,
-                                                         text: strVesselName,
-                                                         img: 'icon-' + item.Type });
-      
-    }
-  });
+  craftsMenu.forEach(function(item) { addMenuItem(item) });
   isMenuDataLoaded = true;
   
   // show what was loaded
@@ -438,8 +327,8 @@ function filterCrewMenu(id) {
 function menuResize() {
   if ($('#menuResize').html().includes("Expand")) {
     $('#twitterBox').fadeOut(250, "swing", function () { 
-      var maxHeight = 882;
-      var height = (maxHeight - w2utils.getSize("#eventBox", 'height')) + "px";
+      maxMenuHeight = 882;
+      var height = (maxMenuHeight - w2utils.getSize("#eventBox", 'height')) + "px";
       $('#menuBox').css("height", height); 
       setTimeout(function() { 
         w2ui['menu'].bottomHTML = '<div id="menuResize" onclick="menuResize()">&and;&and;Collapse Menu&and;&and;</div>';
@@ -447,12 +336,13 @@ function menuResize() {
       }, 200);
     });
   } else {
-    var maxHeight = 290;
-    var height = (maxHeight - w2utils.getSize("#eventBox", 'height')) + "px";
+    maxMenuHeight = 340;
+    var height = (maxMenuHeight - w2utils.getSize("#eventBox", 'height')) + "px";
     $('#menuBox').css("height", height); 
     setTimeout(function() { 
       w2ui['menu'].bottomHTML = '<div id="menuResize" onclick="menuResize()">&or;&or;Expand Menu&or;&or;</div>';
       w2ui['menu'].refresh(); 
+      w2ui['menu'].refresh();
       $('#twitterBox').fadeIn(250);
     }, 200);
   }
@@ -504,4 +394,174 @@ function getParentSystem(nodeID) {
   if (w2ui['menu'].get(nodeID).parent.id == "inactiveVessels") { return "inactive"; }
   else if (w2ui['menu'].get(nodeID).parent.id.includes("System")) { return w2ui['menu'].get(nodeID).parent.id; }
   else { return getParentSystem(w2ui['menu'].get(nodeID).parent.id); }
+}
+
+// recursive function to find all parent nodes and increase/decrease their update count
+function adjustCount(nodeID, adjust) {
+  var node = w2ui['menu'].get(nodeID);
+  if (node.count) {
+    node.count += adjust;
+    if (node.count <= 0) node.count = null;
+  } else if (!node.count && adjust > 0) node.count = 1;
+  if (node.parent.id) { 
+    return adjustCount(node.parent.id, adjust);
+  } else {
+    w2ui['menu'].expand(node.id);
+    return;
+  }
+}
+
+function menuUpdate(type, ID) {
+  if (type == "soi") {
+    w2ui['menu'].remove(ID);
+    addMenuItem(craftsMenu.find(o => o.DB === ID), true);
+    adjustCount(w2ui['menu'].get(ID).parent.id, 1);
+  } else console.log("unknown menu update: " + type);
+  w2ui['menu'].refresh();
+}
+
+function addMenuItem(item, newAdd) {
+  if (!newAdd) newAdd = false;
+
+  // get the current body being orbited
+  var refNum = -2;
+  var refIndex;
+  var soi = item.SOI.split("|");
+  for (refIndex=0; refIndex<soi.length; refIndex++) {
+    var pair = soi[refIndex].split(";");
+    if (parseFloat(pair[0]) > currUT()) { break; }
+    refNum = pair[1];
+  }
+
+  // check for a future SOI update
+  if (refIndex < soi.length) { updatesList.push({ Type: "menu;soi", ID: item.DB, UT: soi[refIndex].split(";")[0] }); }
+  
+  // if this vessel has more than one name, get the current one
+  // also check for a future name update
+  var strVesselName;
+  if (item.Vessel.includes("|")) {
+    var nameIndex;
+    var names = item.Vessel.split("|");
+    for (nameIndex=0; nameIndex<names.length; nameIndex++) {
+      var pair = names[nameIndex].split(";");
+      if (parseFloat(pair[0]) > currUT()) { break; }
+      refNum = parseInt(pair[1]);
+    }
+    if (nameIndex < names.length) { updatesList.push({ Type: "menu;name", ID: item.DB, UT: names[nameIndex].split(";")[0] }); }
+  } else { strVesselName = item.Vessel; }
+  
+  // decide whether to highlight this menu item
+  var strStyle = "<span>";
+  if (newAdd) strStyle = "<span style='font-weight: bold;'>";
+  
+  // handle either an active or inactive vessel
+  if (refNum >= 0) {
+  
+    // figure out which body this vessel belongs to
+    var bodyRef;
+    for (bodyRef=0; bodyRef<bodyCatalog.length; bodyRef++) { if (bodyCatalog[bodyRef].ID == refNum) { break; } }
+    if (bodyRef == bodyCatalog.length) { console.log(strVesselName + " " + refNum); console.log(bodyCatalog); }
+    
+    // if this body has moons, it is defined as a system
+    var strSys = "";
+    if (bodyCatalog[bodyRef].Moons.length) { strSys = "-System"; }
+
+    // if this body is not visible, make it so
+    if (w2ui['menu'].get('activeVessels', bodyCatalog[bodyRef].Body + strSys).hidden) { 
+      w2ui['menu'].set('activeVessels', bodyCatalog[bodyRef].Body + strSys, { hidden: false }); 
+    }
+    
+    // get the nodes for this body and insert the vessel alphabetically, after any moons
+    // or add it at the end if nothing to insert before
+    var index;
+    var menuNodes = w2ui['menu'].get('activeVessels', bodyCatalog[bodyRef].Body + strSys).nodes;
+    for (index=0; index<menuNodes.length; index++) {
+      if (!menuNodes[index].img.includes("body") && menuNodes[index].text > strVesselName) {
+        w2ui['menu'].insert(bodyCatalog[bodyRef].Body + strSys, menuNodes[index].id, { id: item.DB,
+                                                                                       text: strStyle + strVesselName + "</span>",
+                                                                                       img: 'icon-' + item.Type,
+                                                                                       count: null,
+                                                                                       newAdd: newAdd });
+        break;
+      }
+    }
+    if (index == menuNodes.length) {
+      w2ui['menu'].add(bodyCatalog[bodyRef].Body + strSys, { id: item.DB,
+                                                             text: strStyle + strVesselName + "</span>",
+                                                             img: 'icon-' + item.Type,
+                                                             count: null,
+                                                             newAdd: newAdd });
+    }
+
+    // enable & check the checkbox for this type of vessel
+    $("#" + item.Type + "-menu").removeAttr("disabled");
+    $("#" + item.Type + "-menu").prop('checked', true);
+  } else if (refNum == -1) {
+    
+    // if this vessel type is not visible, make it so
+    if (w2ui['menu'].get('inactiveVessels', item.Type).hidden) { 
+      w2ui['menu'].set('inactiveVessels', item.Type, { hidden: false }); 
+    }
+    
+    // get the date for this vessel and extract the month and year
+    var dateUT = UTtoDateTime(parseInt(soi[refIndex-1].split(";")[0]), true).split("@")[0];
+    var month = dateUT.split("/")[0];
+    var year = dateUT.split("/")[2];
+    
+    // if this year does not have a menu entry, insert one
+    // sort descending
+    var index;
+    var menuNodes = w2ui['menu'].get('inactiveVessels', item.Type).nodes;
+    if (!w2ui['menu'].find(item.Type, { id: item.Type + year }).length) {
+      for (index=0; index<menuNodes.length; index++) {
+        if (parseInt(menuNodes[index].text) < parseInt(year)) {
+          w2ui['menu'].insert(item.Type, menuNodes[index].id, { id: item.Type + year,
+                                                                text: year,
+                                                                img: 'icon-folder',
+                                                                count: null,
+                                                                newAdd: newAdd });
+          break;
+        }
+      }
+      if (index == menuNodes.length) {
+        w2ui['menu'].add(item.Type, { id: item.Type + year,
+                                      text: year,
+                                      img: 'icon-folder', 
+                                      count: null,
+                                      newAdd: newAdd });
+      }
+    }
+
+    // if this month does not have a menu entry, insert one
+    // sort ascending
+    var months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+    if (!w2ui['menu'].find(item.Type + year, { id: item.Type + year + '-' + month }).length) {
+      menuNodes = w2ui['menu'].get(item.Type, item.Type + year).nodes;
+      for (index=0; index<menuNodes.length; index++) {
+        if (parseInt(menuNodes[index].id.split("-")[1]) > parseInt(month)) {
+          w2ui['menu'].insert(item.Type + year, menuNodes[index].id, { id: item.Type + year + '-' + month,
+                                                                       text: months[month-1],
+                                                                       img: 'icon-folder',
+                                                                       count: null,
+                                                                       newAdd: newAdd });
+          break;
+        }
+      }
+      if (index == menuNodes.length) {
+        w2ui['menu'].add(item.Type + year, { id: item.Type + year + '-' + month,
+                                             text: months[month-1],
+                                             img: 'icon-folder',
+                                             count: null,
+                                             newAdd: newAdd });
+      }
+    }
+    
+    // add the vessel to this month/year
+    w2ui['menu'].add(item.Type + year + '-' + month, { id: item.DB,
+                                                       text: strStyle + strVesselName + "</span>",
+                                                       img: 'icon-' + item.Type,
+                                                       count: null,
+                                                       newAdd: newAdd });
+    
+  }
 }

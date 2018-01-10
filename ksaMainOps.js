@@ -72,8 +72,9 @@ if (navigator.appVersion.indexOf("Linux")!=-1) OSName="Linux";
 // current game time is the difference between current real time minus number of ms since midnight on 9/13/16
 // account for fact that game started during DST and also convert to seconds
 UT = ((clock.getTime() - foundingMoment) / 1000);
-if (clock.toString().search("Standard") >= 0) { UT -= 3600; UTC = 5; }
-if (getParameterByName("showUT")) { console.log(UT + " " + clock); }
+if (clock.toString().search("Standard") >= 0) UT -= 3600; UTC = 5;
+if (window.location.href.includes("&showUT") || window.location.href.includes("?showUT")) console.log(UT + " " + clock);
+if (getParameterByName("ut") && getCookie("missionctrl")) UT = parseFloat(getParameterByName("ut"));
 
 // handle history state changes
 window.onpopstate = function(event) { swapContent(event.state.Type, event.state.ID, event.state.UT); };
@@ -419,18 +420,12 @@ function swapContent(newPageType, id, ut) {
 // updates various content on the page depending on what update event has been triggered
 function updatePage(updateEvent) {
   if (updateEvent.Type.includes("menu")) {
-    if (updateEvent.Type.split(";")[1] == "soi") {
-      console.log("menu soi update");
-    } else if (updateEvent.Type.split(";")[1] == "name") {
-      console.log("menu name update");
-    } else if (updateEvent.Type.split(";")[1] == "crew") {
-      console.log("menu crew update");
-    } else { console.log("unknown menu update"); console.log(updateEvent); }
+    menuUpdate(updateEvent.Type.split(";")[1], updateEvent.ID);
   } else if (updateEvent.Type == "event") {
     if (updateEvent.ID == "launch") {
-      console.log("launch update");
+      writeLaunchInfo(updateEvent.Data);
     } else if (updateEvent.ID == "maneuver") {
-      console.log("maneuver update");
+      writeManeuverinfo(updateEvent.Data);
     } else { console.log("unknown event update"); console.log(updateEvent); }
   } else if (updateEvent.Type.includes("vessel") && updateEvent.ID == strCurrentVessel) {
     if (updateEvent.Type.split(";")[1] == "orbit") {
@@ -456,7 +451,7 @@ function checkPageUpdate() {
   if (updatesList.length && currUT() >= updatesList[0].UT) {
     updatePage(updatesList.shift());
     updatesListSize = updatesList.length;
-    checkPageUpdate();
+    return checkPageUpdate();
   } else { return; }
 }
 

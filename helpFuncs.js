@@ -41,7 +41,7 @@ function loadDB(url, cFunction) {
 // leave out any values that are not necessary (0y, 0d won't show, for example)
 // give seconds to 5 significant digits if precision is true
 function formatTime(time, precision) {
-  if (precision === null) { formatTime(time, false); return; }
+  if (precision === null) { return formatTime(time, false); }
   var years = 0;
   var days = 0;
   var hours = 0;
@@ -90,7 +90,7 @@ function formatTime(time, precision) {
 
 // take a date object of a given time and output "mm/dd/yyyy hh:mm:ss"
 function formatUTCTime(time, local) {
-  if (local === null) { formatUTCTime(time, false); return; }
+  if (local === null) { return formatUTCTime(time, false); }
   if (local) { 
     var hours = time.getHours(); 
     var day = time.getDate();
@@ -109,7 +109,7 @@ function formatUTCTime(time, local) {
 
 // convert a given game UT time into the equivalent "mm/dd/yyyy hh:mm:ss"
 function UTtoDateTime(setUT, local) {
-  if (local === null) { UTtoDateTime(setUT, false); return; }
+  if (local === null) { return UTtoDateTime(setUT, false); }
   var d = new Date();
   d.setTime(foundingMoment + (setUT * 1000));
   if (d.toString().search("Standard") >= 0) { d.setTime(foundingMoment + ((setUT + 3600) * 1000)); }

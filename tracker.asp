@@ -10,7 +10,7 @@
   <link rel="shortcut icon" href="../images/KSA/favicon.png" type="image/x-icon" />
 
   <!-- use this image link to force reddit to use a certain image for its thumbnail -->
-  <meta property="og:image" content="http://i.imgur.com/B7r6B2F.png" />
+  <meta property="og:image" content="http://www.kerbalspace.agency/KSA/wp-content/uploads/2016/01/KSAlogo_new_190x250.png" />
   
   <!-- cache of Font Awesome -->
   <link href="https://use.fontawesome.com/releases/v5.0.2/css/all.css" rel="stylesheet">

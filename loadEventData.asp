@@ -1,18 +1,31 @@
 <%
 
 'http://www.sorenwinslow.com/SortArray.asp
+'modified to sort by numeric in a delimited string
 Sub SortArray(TheArr,AscDesc)
   TempVal = ""
   For x = 0 to UBound(TheArr)
     For y = x+1 to UBound(TheArr)
       If AscDesc = "Desc" Then
-        If TheArr(x) < TheArr(y) then
+        If int(split(TheArr(x), ";")(0)) = int(split(TheArr(y), ";")(0)) then
+          If int(split(TheArr(x), ";")(1)) < int(split(TheArr(y), ";")(1)) then
+            TempVal = TheArr(y)
+            TheArr(y) = TheArr(x)
+            TheArr(x) = TempVal
+          end if
+        elseIf int(split(TheArr(x), ";")(0)) < int(split(TheArr(y), ";")(0)) then
           TempVal = TheArr(y)
           TheArr(y) = TheArr(x)
           TheArr(x) = TempVal
         End If
       Else
-        If TheArr(x) > TheArr(y) then
+        If int(split(TheArr(x), ";")(0)) = int(split(TheArr(y), ";")(0)) then
+          If int(split(TheArr(x), ";")(0)) > int(split(TheArr(y), ";")(0)) then
+            TempVal = TheArr(x)
+            TheArr(x) = TheArr(y)
+            TheArr(y) = TempVal
+          end if
+        elseIf int(split(TheArr(x), ";")(0)) > int(split(TheArr(y), ";")(0)) then
           TempVal = TheArr(x)
           TheArr(x) = TheArr(y)
           TheArr(y) = TempVal
@@ -77,61 +90,42 @@ do
     set rsFlightplan = Server.CreateObject("ADODB.recordset")
     set rslaunchTimes = Server.CreateObject("ADODB.recordset")
     set rsData = Server.CreateObject("ADODB.recordset")
-    
-    'determine if this DB has tables older databases may not contain
-    'not needed but kept for reference if required in the future
-    hasLaunchTimes = false
-    hasFlightplan = false
-    hasData = false
-    set adoxConn = CreateObject("ADOX.Catalog")  
-    adoxConn.activeConnection = conn2
-    for each table in adoxConn.tables 
-      if lcase(table.name) = "launch times" then hasLaunchTimes = true
-      if lcase(table.name) = "flightplan" then hasFlightplan = true
-      if lcase(table.name) = "craft static data" then hasData = true
-    next
-    'trying to open a recordset that does not exist will kill the page
-    
+    rsFlightplan.open "select * from flightplan", conn2, 1, 1
+    rslaunchTimes.open "select * from [launch times]", conn2, 1, 1
+   
     'open and get the latest records nearest to current UT
-    if hasFlightplan then
-      rsFlightplan.open "select * from flightplan", conn2, 1, 1
-      if not rsFlightplan.eof then
-        rsFlightplan.MoveLast
-        do until rsFlightplan.fields.item("UT") <= UT
-          rsFlightplan.MovePrevious
-          if rsFlightplan.bof then exit do
-        Loop
-        if not rsFlightplan.bof then
-        
-          'only add the event if the actual execution time is still in the future
-          if (rsFlightplan.fields.item("ExecuteUT") > UT) then
-            maneuvers(maneuverIndex) = rsFlightplan.fields.item("UT") & ";" & rsFlightplan.fields.item("ExecuteUT") & ";" & rsCrafts.fields.item("DB")
-            maneuverIndex = maneuverIndex + 1
-          end if
-        end if
+    if not rsFlightplan.eof then
+      rsFlightplan.MoveLast
+      do until rsFlightplan.fields.item("UT") <= UT
+        rsFlightplan.MovePrevious
+        if rsFlightplan.bof then exit do
+      Loop
+      
+      'if we reached the beginning the first record is the next event for this craft
+      if rsFlightplan.bof then rsFlightplan.MoveNext
+      
+      'only add the event if the actual execution time is still in the future
+      if (rsFlightplan.fields.item("ExecuteUT") > UT) then
+        maneuvers(maneuverIndex) = rsFlightplan.fields.item("UT") & ";" & rsFlightplan.fields.item("ExecuteUT") & ";" & rsCrafts.fields.item("DB") & ";" & rsCrafts.fields.item("Vessel") & ";" & rsFlightplan.fields.item("Desc")
+        maneuverIndex = maneuverIndex + 1
       end if
     end if
-    if hasLaunchTimes and hasData then
-      rsData.open "select * from [craft static data]", conn2, 1, 1
-      
-      'only bother looking at the launch table if a mission start time is not defined
-      if isnull(rsData.fields.item("MissionStartTime")) then
-        rslaunchTimes.open "select * from [launch times]", conn2, 1, 1
-        if not rslaunchTimes.eof then
-          rslaunchTimes.MoveLast
-          do until rslaunchTimes.fields.item("UT") <= UT
-            rslaunchTimes.MovePrevious
-            if rslaunchTimes.bof then exit do
-          Loop
-          if not rslaunchTimes.bof then
-            
-            'only add the event if the actual launch time is still in the future
-            if rslaunchTimes.fields.item("LaunchTime") > UT then
-              launches(launchIndex) = rslaunchTimes.fields.item("UT") & ";" & rslaunchTimes.fields.item("LaunchTime") & ";" & rsCrafts.fields.item("DB")
-              launchesIndex = launchesIndex + 1
-            end if
-          end if
-        end if
+    if not rslaunchTimes.eof then
+      rslaunchTimes.MoveLast
+      do until rslaunchTimes.fields.item("UT") <= UT
+        rslaunchTimes.MovePrevious
+        if rslaunchTimes.bof then exit do
+      Loop
+
+      'if we reached the beginning the first record is the next event for this craft
+      if rslaunchTimes.bof then rslaunchTimes.MoveNext
+        
+      'only add the event if the actual launch time is still in the future
+      if rslaunchTimes.fields.item("LaunchTime") > UT or isNull(rslaunchTimes.fields.item("LaunchTime")) then
+        launchTime = rslaunchTimes.fields.item("LaunchTime")
+        if isNull(rslaunchTimes.fields.item("LaunchTime")) then launchTime = "hold"
+        launches(launchIndex) = rslaunchTimes.fields.item("UT") & ";" & launchTime & ";" & rsCrafts.fields.item("DB") & ";" & rsCrafts.fields.item("Vessel") & ";" & rsCrafts.fields.item("Desc")
+        launchIndex = launchIndex + 1
       end if
     end if
     conn2.Close
@@ -143,13 +137,32 @@ do
 loop until rsCrafts.eof
 
 'resize the arrays down to just what was stored and sort them
-ReDim preserve launches(launchesIndex)
-ReDim preserve maneuvers(maneuverIndex)
-Call SortArray(launches,"Asc")
-Call SortArray(maneuvers,"Asc")
+ReDim preserve launches(launchIndex-1)
+ReDim preserve maneuvers(maneuverIndex-1)
+Call SortArray(launches,"Desc")
+Call SortArray(maneuvers,"Desc")
 
-'for now, with no future anything, just return nulls
-response.write("null~null~null~null~null|null~null~null~null~null")
+'output the data
+if UBound(launches) >= 0 then
+  response.write(launches(0) & "|")
+else
+  response.write("null|")
+end if
+if UBound(launches) >= 1 then
+  response.write(launches(1) & "^")
+else
+  response.write("null^")
+end if
+if UBound(maneuvers) >= 0 then
+  response.write(maneuvers(0) & "|")
+else
+  response.write("null|")
+end if
+if UBound(maneuvers) >= 1 then
+  response.write(maneuvers(1))
+else
+  response.write("null")
+end if
 
 conn.Close
 Set conn = nothing

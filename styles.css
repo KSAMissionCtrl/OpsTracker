@@ -260,6 +260,7 @@ input:disabled+label {
   text-align: center;
   margin-top: 5px;
   padding: 5px;
+  height: 76px;
 }
 
 #launch {

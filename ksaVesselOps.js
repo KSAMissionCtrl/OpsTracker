@@ -1,19 +1,19 @@
 // available content height: 480px (initially) / 885px (Max)
-function loadVessel(vessel, UT) {
-  if (!UT && !getParameterByName("ut")) { loadVessel(vessel, "NaN"); return; }
-  if (!UT && getParameterByName("ut")) { loadVessel(vessel, parseInt(getParameterByName("ut"))); return; }
+function loadVessel(vessel, givenUT) {
+  if (!givenUT && !getParameterByName("ut")) { return loadVessel(vessel, "NaN"); }
+  if (!givenUT && getParameterByName("ut")) { return loadVessel(vessel, parseInt(getParameterByName("ut"))); }
   
   // can't continue if menu data hasn't loaded. Try again in 250ms
   if (!isMenuDataLoaded) {
     setTimeout(function() {
-      loadVessel(vessel, UT);
+      loadVessel(vessel, givenUT);
     }, 250)
     return;
   }
   
   // we can't let anyone jump to a UT later than the current UT
-  if (!isNaN(UT) && UT > currUT()) { UT = "NaN"; }
-  vesselPastUT = UT;
+  if (!isNaN(givenUT) && givenUT > currUT() && !getCookie("missionctrl")) { givenUT = "NaN"; }
+  vesselPastUT = givenUT;
   
   // modify the history so people can page back/forward
   // only add URL variables if they aren't already included
@@ -21,18 +21,18 @@ function loadVessel(vessel, UT) {
     var strURL = window.location.href; 
   }
   else { 
-    if (isNaN(UT)) { var strURL = "http://www.kerbalspace.agency/Tracker/tracker.asp?vessel=" + vessel; }
-    else { var strURL = "http://www.kerbalspace.agency/Tracker/tracker.asp?vessel=" + vessel + "&ut=" + UT; }
+    if (isNaN(givenUT)) { var strURL = "http://www.kerbalspace.agency/Tracker/tracker.asp?vessel=" + vessel; }
+    else { var strURL = "http://www.kerbalspace.agency/Tracker/tracker.asp?vessel=" + vessel + "&ut=" + givenUT; }
   }
   
   // if this is the first page to load, replace the current history
   var strURL;
   if (!history.state) {
-    history.replaceState({Type: "vessel", ID: vessel, UT: parseInt(UT)}, document.title, strURL);
+    history.replaceState({Type: "vessel", ID: vessel, UT: parseInt(givenUT)}, document.title, strURL);
   // don't create a new entry if this is the same page being reloaded
   // however if its the same page but a different time, then that's different
-  } else if (history.state.ID != vessel || (history.state.ID == vessel && (currentVesselData && !isNaN(UT) && currentVesselData.CraftData.UT != UT))) {
-    history.pushState({Type: "vessel", ID: vessel, UT: parseInt(UT)}, document.title, strURL);
+  } else if (history.state.ID != vessel || (history.state.ID == vessel && (currentVesselData && !isNaN(givenUT) && currentVesselData.CraftData.UT != givenUT))) {
+    history.pushState({Type: "vessel", ID: vessel, UT: parseInt(givenUT)}, document.title, strURL);
   } 
   
   // if this vessel is not in the current catalog, we need to load a new system
@@ -52,8 +52,8 @@ function loadVessel(vessel, UT) {
   $("#dataLabel").html("Loading Data...");
   
   // put out the call for the vessel data
-  console.log("loadVesselData.asp?craft=" + strCurrentVessel + "&UT=" + currUT() + "&UTjump=" + UT);
-  loadDB("loadVesselData.asp?craft=" + strCurrentVessel + "&UT=" + currUT() + "&UTjump=" + UT, loadVesselDataAJAX);
+  console.log("loadVesselData.asp?craft=" + strCurrentVessel + "&UT=" + currUT() + "&UTjump=" + givenUT);
+  loadDB("loadVesselData.asp?craft=" + strCurrentVessel + "&UT=" + currUT() + "&UTjump=" + givenUT, loadVesselDataAJAX);
   currentVesselData = null;
   
   // add vessel-specific buttons to the map
