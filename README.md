@@ -60,7 +60,17 @@ The following JavaScript libraries are used:
 
 Versioning Key (v#1.#2.#3): #1=New features #2=Changes to existing features #3=Fixes to existing features
 
-**v1.0.0** (1/4/18)
+**v1.1.0** (1/9/18)
+
+Fixes:
+  - found some more strings that were being compared to numbers without first being converted into numbers themselves
+  - `loadVessel()` was using a local variable named the same as a global and changed the name to avoid confusino
+
+Changes:
+  - [Events calendar]() and [Operations Menu]() have been linked to update events so they provide new data when it is available for vessels. The events calendar updating is pretty obvious, but for items in the Operations Menu that could be hidden from view, the top-level will expand if it isn't already and badges will appear next to folders/bodies that contain updated vessels with a count of how many. The updated vessels themselves will have their names bolded
+  - The events calendar can now show vessel names that take up more than one line
+
+**v1.0.0** (1/4/18)   
 (all fixes/changes/additions listed are based on v4.12 of the [Flight Tracker](https://github.com/KSAMissionCtrl/FlightTracker#change-log))
 
 Fixes:
