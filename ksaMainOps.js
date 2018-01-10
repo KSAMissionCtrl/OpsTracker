@@ -194,7 +194,7 @@ function setupContent() {
                     height: "auto",
                     hide: { effect: "fade", duration: 300 }, 
                     show: { effect: "fade", duration: 300 },
-                    position: { my: "center", at: "center", of: "#contentBox" }
+                    position: { my: "center", at: "center", of: "#mainContent" }
                     });
   
   // uncheck all the filter boxes
@@ -253,8 +253,8 @@ function setupContent() {
 
 // switch from one layout to another
 function swapContent(newPageType, id, ut) {
-  if (!ut && !getParameterByName("ut")) { swapContent(newPageType, id, "NaN"); return; }
-  if (!ut && getParameterByName("ut")) { swapContent(newPageType, id, parseInt(getParameterByName("ut"))); return; }
+  if (!ut && !getParameterByName("ut")) ut = "NaN";
+  if (!ut && getParameterByName("ut")) ut = parseInt(getParameterByName("ut"));
   
   // initial page load
   if (!pageType) {

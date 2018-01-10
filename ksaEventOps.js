@@ -48,7 +48,7 @@ function writeLaunchInfo(data) {
   if (data) {
     var fields = data.split(";");
     var strHTML = "<strong>Next Launch</strong><br>";
-    strHTML += "<a id='launchLink' href='http://www.kerbalspace.agency/Tracker/tracker.asp?vessel=" + fields[2] + "'>" + fields[3] + "</a><br>";
+    strHTML += "<span id='launchLink' class='fauxLink' onclick=\"swapContent('vessel', '" + fields[2] + "')\">" + fields[3] + "</span><br>";
     
     // regular launch, or hold event?
     if (fields[2] != "hold") {
@@ -60,7 +60,7 @@ function writeLaunchInfo(data) {
     }
     $("#launch").html(strHTML);
     if (w2utils.getSize("#launch", 'height') > w2utils.getSize("#maneuver", 'height')) {
-      $('#twitterBox').hide();
+      if (isMenuDataLoaded) $('#twitterBox').hide();
       $("#eventBox").css("height", ((w2utils.getSize("#eventBox", 'height')-17) + (w2utils.getSize("#launch", 'height')-39)) + "px");
       $('#menuBox').css("height", (maxMenuHeight - w2utils.getSize("#eventBox", 'height')) + "px"); 
       setTimeout(function() { 
@@ -93,7 +93,7 @@ function writeManeuverinfo(data) {
     maneuverCountdown = parseFloat(data[1]) - (currUT());
     $("#maneuver").html(strHTML);
     if (w2utils.getSize("#maneuver", 'height') > w2utils.getSize("#launch", 'height')) {
-      $('#twitterBox').hide();
+      if (isMenuDataLoaded) $('#twitterBox').hide();
       $("#eventBox").css("height", ((w2utils.getSize("#eventBox", 'height')-17) + (w2utils.getSize("#maneuver", 'height')-39)) + "px");
       $('#menuBox').css("height", (maxMenuHeight - w2utils.getSize("#eventBox", 'height')) + "px"); 
       setTimeout(function() { 

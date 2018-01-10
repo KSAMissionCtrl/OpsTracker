@@ -342,7 +342,7 @@ function menuResize() {
     setTimeout(function() { 
       w2ui['menu'].bottomHTML = '<div id="menuResize" onclick="menuResize()">&or;&or;Expand Menu&or;&or;</div>';
       w2ui['menu'].refresh(); 
-      w2ui['menu'].refresh();
+      w2ui['menu'].scrollIntoView(w2ui['menu'].find({selected: true})[0].id); 
       $('#twitterBox').fadeIn(250);
     }, 200);
   }

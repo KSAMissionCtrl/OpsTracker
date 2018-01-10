@@ -456,7 +456,7 @@ function vesselDataUpdate() {
     $("#dataField10").html("<b>Additional Resources:</b> ");
     currentVesselData.CatalogData.AddlRes.split("|").forEach(function(item) {
       if (item.split(";")[0] < currUT()) {
-        $("#dataField10").append("<span class='tipped' title='" + item.split(";")[1] + "'><a style='color: black' href='" + item.split[2] + "'><i class='" + AddlResourceItems[item.split(";")[1]] + "'></i></a></span>&nbsp;");
+        $("#dataField10").append("<span class='tipped' title='" + item.split(";")[1] + "'><a target='_blank' style='color: black' href='" + item.split(";")[2] + "'><i class='" + AddlResourceItems[item.split(";")[1]] + "'></i></a></span>&nbsp;");
       }
     });
     $("#dataField10").fadeIn();
@@ -474,6 +474,7 @@ function vesselDataUpdate() {
   ///////////////////
   // Mission History
   ///////////////////
+  
   $("#missionHistory").fadeIn()
   
   // reset the history
@@ -504,6 +505,15 @@ function vesselDataUpdate() {
     }
   });
   $("#dataLabel").html("Mission History");
+  
+  // check for future event
+  if (currentVesselData.CraftData.NextEventTitle && !currentVesselData.CraftData.PastEvent) {
+    $("#nextEvent").append($('<option>', {
+      value: currentVesselData.CraftData.NextEventTitle,
+      text: "Scheduled Event"
+    }));
+    $("#nextEvent").prop("disabled", false);
+  }
   
   // hide the rest of the fields
   $("#dataField12").fadeOut();
@@ -678,8 +688,21 @@ $("#infoBox").hover(function() {
 $("#prevEvent").change(function () {
   if ($("#prevEvent").val()) { loadVessel(strCurrentVessel, $("#prevEvent").val()); }
 });
-$("#nextEvent").change(function () {          
-  if ($("#nextEvent").val()) { loadVessel(strCurrentVessel, $("#nextEvent").val()); }
+$("#nextEvent").change(function () {
+  
+  // could be a future event
+  if ($("#nextEvent").val() && $("#nextEvent").val() != "Next Event(s)") { 
+    if (isNaN($("#nextEvent").val())) {
+      $("#siteDialog").html($("#nextEvent").val());
+      $("#siteDialog").dialog("option", "title", "Scheduled Event");
+      $("#siteDialog").dialog("option", "width", 250);
+      $("#siteDialog").dialog( "option", "buttons", [{
+        text: "Close",
+        click: function() { $("#siteDialog").dialog("close"); }
+      }]);
+      $("#siteDialog").dialog("open");
+    } else loadVessel(strCurrentVessel, $("#nextEvent").val());
+  }
 });
 
 // opens the dialog box with more details - this is the same box that holds crew details, was just implemented here first
