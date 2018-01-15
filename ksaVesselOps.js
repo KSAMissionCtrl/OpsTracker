@@ -15,23 +15,18 @@ function loadVessel(vessel, givenUT) {
   if (!isNaN(givenUT) && givenUT > currUT() && !getCookie("missionctrl")) { givenUT = "NaN"; }
   vesselPastUT = givenUT;
   
-  // modify the history so people can page back/forward
-  // only add URL variables if they aren't already included
-  if (window.location.href.includes("&") && !window.location.href.includes("&ut")) { 
-    var strURL = window.location.href; 
-  }
-  else { 
-    if (isNaN(givenUT)) { var strURL = "http://www.kerbalspace.agency/Tracker/tracker.asp?vessel=" + vessel; }
-    else { var strURL = "http://www.kerbalspace.agency/Tracker/tracker.asp?vessel=" + vessel + "&ut=" + givenUT; }
-  }
-  
   // if this is the first page to load, replace the current history
   var strURL;
   if (!history.state) {
+    if (window.location.href.includes("&")) var strURL = window.location.href;
+    else var strURL = "http://www.kerbalspace.agency/Tracker/tracker.asp?vessel=" + vessel;
     history.replaceState({Type: "vessel", ID: vessel, UT: parseInt(givenUT)}, document.title, strURL);
+    
   // don't create a new entry if this is the same page being reloaded
   // however if its the same page but a different time, then that's different
   } else if (history.state.ID != vessel || (history.state.ID == vessel && (currentVesselData && !isNaN(givenUT) && currentVesselData.CraftData.UT != givenUT))) {
+    if (isNaN(givenUT)) { var strURL = "http://www.kerbalspace.agency/Tracker/tracker.asp?vessel=" + vessel; }
+    else { var strURL = "http://www.kerbalspace.agency/Tracker/tracker.asp?vessel=" + vessel + "&ut=" + givenUT; }
     history.pushState({Type: "vessel", ID: vessel, UT: parseInt(givenUT)}, document.title, strURL);
   } 
   
@@ -61,7 +56,7 @@ function loadVessel(vessel, givenUT) {
   addMapViewButton();
   
   // clear off the map
-  clearVesselPlots();
+  clearSurfacePlots();
   
   // we can't be switching vessels while loading any plot data so if it's in progress, kill it
   if (!layerControl.options.collapsed) { 
@@ -70,7 +65,7 @@ function loadVessel(vessel, givenUT) {
     layerControl.options.collapsed = true;
     if (obtTrackDataLoad) layerControl.removeLayer(obtTrackDataLoad);
     obtTrackDataLoad = null;
-    clearVesselPlots();
+    clearSurfacePlots();
     currentVesselPlot = null;
     vesselMarker = null;
   }
@@ -607,7 +602,7 @@ function vesselContentUpdate() {
         $("#mapDialog").dialog("close");
         redrawVesselPlots(); 
       } else {
-        clearVesselPlots();
+        clearSurfacePlots();
         renderMapData();
       }
       

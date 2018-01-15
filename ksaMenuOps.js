@@ -110,35 +110,59 @@ function loadMenuAJAX(xhttp) {
       if (event.node.img.includes("body")) {
       
         // make sure this body isn't already loaded before refreshing the page if it is a body page
-        if ((strCurrentBody != event.node.id.split("-")[0] && pageType == "body") || (strCurrentBody == event.node.id.split("-")[0] && pageType != "body") || (strCurrentBody != event.node.id.split("-")[0] && pageType != "body")) { 
+        if ((strCurrentBody != event.node.id && pageType == "body") || (strCurrentBody == event.node.id && pageType != "body") || (strCurrentBody != event.node.id && pageType != "body")) { 
 
           // only allow non-system ids that are under the main category to load
           // otherwise load the parent id
           if (!event.node.id.includes("System")) {
             if (event.node.parent.id == "activeVessels") {
-              swapContent("body", event.node.id, "NaN"); 
+              swapContent("body", event.node.id); 
             } else {
               if (strCurrentBody != event.node.parent.id.split("-")[0]) {
-                swapContent("body", event.node.parent.id, "NaN");
+                swapContent("body", event.node.parent.id);
               }
             }
           } else {
-            swapContent("body", event.node.id, "NaN"); 
+            swapContent("body", event.node.id); 
           }
         }
       } else if (event.node.img.includes("crew") && event.node.id != "crewFull") {
       
         // make sure this crew member isn't already loaded before refreshing the page if it is a crew page
-        if ((strCurrentCrew != event.node.id && pageType == "crew") || (strCurrentCrew == event.node.id && pageType != "crew") || (strCurrentCrew != event.node.id && pageType != "crew")) { swapContent("crew", event.node.id, "NaN"); }
+        if ((strCurrentCrew != event.node.id && pageType == "crew") || (strCurrentCrew == event.node.id && pageType != "crew") || (strCurrentCrew != event.node.id && pageType != "crew")) { swapContent("crew", event.node.id); }
       } else if (event.node.img.includes("crew") && event.node.id == "crewFull") {
         checkNew = true;
-        if (pageType != event.node.id) { swapContent("crewFull", event.node.id, "NaN"); }
+        if (pageType != event.node.id) { swapContent("crewFull", event.node.id); }
         
-      // for now, aircraft can't be viewed so just jump to the website category for them
+      // call for the aircraft track if it doesn't already exist and show the map or switch to Kerbin if it is not loaded
       } else if (event.node.img.includes("aircraft") && event.node.parent.id != "inactiveVessels") {
         checkNew = true;
-        window.open("http://www.kerbalspace.agency/index.php?s=" + event.node.text.replace(" ", "+"));
-
+        if (!fltPaths || (fltPaths && !fltPaths.find(o => o.ID === event.node.id))) {
+          if (strCurrentBody.includes("Kerbin")) {
+            fltTrackDataLoad = L.layerGroup();
+            layerControl._expand();
+            layerControl.options.collapsed = false;
+            layerControl.addOverlay(fltTrackDataLoad, "<i class='fa fa-cog fa-spin'></i> Loading Data...", "Flight Tracks");
+            loadDB("loadFltData.asp?data=" + event.node.id, loadFltDataAJAX);
+            showMap();
+          } else {
+            swapContent("body", "Kerbin-System", event.node.id);
+          }
+          
+        // if the data already exists...
+        } else if (fltPaths && fltPaths.find(o => o.ID === event.node.id)) {
+          var path = fltPaths.find(o => o.ID === event.node.id);
+          
+          // add it back to the map and the control if it has been removed
+          if (path.Deleted) {
+            layerControl.addOverlay(path.Layer, "<i class='fa fa-minus' style='color: " + path.Color + "'></i> " + path.Info.Title, "Flight Tracks");
+            path.Layer.addTo(surfaceMap);
+            path.Deleted = false;
+            
+          // just add it back to the map in case it was hidden
+          } else path.Layer.addTo(surfaceMap);
+        }
+        
       // for now, we link to another page for the DSN
       } else if (event.node.img.includes("dish")) {
         window.open("http://www.kerbalspace.agency/?p=3736");
@@ -149,7 +173,7 @@ function loadMenuAJAX(xhttp) {
         checkNew = true;
         
         // make sure this vessel isn't already loaded before refreshing the page if it is a vessel page
-        if ((strCurrentVessel != event.node.id && pageType == "vessel") || (strCurrentVessel == event.node.id && pageType != "vessel") || (strCurrentVessel != event.node.id && pageType != "vessel")) { swapContent("vessel", event.node.id, "NaN"); }
+        if ((strCurrentVessel != event.node.id && pageType == "vessel") || (strCurrentVessel == event.node.id && pageType != "vessel") || (strCurrentVessel != event.node.id && pageType != "vessel")) { swapContent("vessel", event.node.id); }
       }
       
       // should we see if this is a new addition and adjust counts accordingly?
@@ -187,7 +211,7 @@ function loadMenuAJAX(xhttp) {
   if (getParameterByName("body")) { menuID = getParameterByName("body"); }
   if (getParameterByName("vessel")) { menuID = getParameterByName("vessel"); }
   if (getParameterByName("crew")) { menuID = getParameterByName("crew"); }
-  if (menuID) {
+  if (menuID && !window.location.href.includes("flt")) {
     w2ui['menu'].select(menuID);
     w2ui['menu'].expandParents(menuID);
   }

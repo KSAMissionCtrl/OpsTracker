@@ -36,12 +36,14 @@ var currentVesselPlot;
 var strPausedVesselCalculation;
 var strCurrentBody;
 var strCurrentSystem;
-var strCurrentVessel;
 var strCurrentCrew;
+var flightsToLoad;
 var clock = new Date();
 var vesselPositionPopup = L.popup({offset: new L.Point(0,-1), closeButton: true, closeOnClick: false});
+var flightPositionPopup = L.popup({offset: new L.Point(0,-1), closeButton: true, maxWidth: 500});
 var obtTrackDataLoad = null;
 var srfTrackDataLoad = null;
+var fltTrackDataLoad = null;
 var isGGBAppletLoaded = false;
 var isCatalogDataLoaded = false;
 var isMenuDataLoaded = false;
@@ -76,7 +78,9 @@ var orbitCatalog = [];
 var orbitDataCalc = [];
 var updatesList = [];
 var crewList = [];
+var fltPaths = [];
 var strTinyBodyLabel = "";
+var strCurrentVessel = "undefined";
 var orbitColors = {
   probe: "#FFD800",
   debris: "#ff0000",
@@ -88,6 +92,18 @@ var vesselOrbitColors = [
   "#4CFF00",
   "#FFD800",
   "#FF0000"
+];
+var surfacePathColors = [
+  "#FF0000",
+  "#FFD800",
+  "#4CFF00",
+  "#00FFFF",
+  "#0094FF",
+  "#0026FF",
+  "#4800FF",
+  "#B200FF",
+  "#FF00DC",
+  "#FF006E"
 ];
 var srfLocations = {
   KSC: [-0.0972, -74.5577]

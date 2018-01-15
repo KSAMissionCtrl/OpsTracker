@@ -43,7 +43,11 @@ output = output & "^"
 'output the mission records up to the current UT
 rsMissions.movefirst
 do until rsMissions.fields.item("UT") > UT
-  output = output & rsMissions.fields.item("Link") & ";" & rsMissions.fields.item("Title") & "|"
+  for each field in rsMissions.fields
+    output = output & replace(field.name, " ", "") & "~" & field.value & "`"
+  next
+  output = left(output, len(output)-1)
+  output = output & "|"
   rsMissions.movenext
   if rsMissions.eof then exit do
 loop
@@ -55,7 +59,11 @@ output = output & "^"
 'output the ribbon records up to the current UT
 rsRibbons.movefirst
 do until rsRibbons.fields.item("UT") > UT
-  output = output & rsRibbons.fields.item("Ribbon") & ";" & rsRibbons.fields.item("Title") & ";" & rsRibbons.fields.item("Override") & "|"
+  for each field in rsRibbons.fields
+    output = output & replace(field.name, " ", "") & "~" & field.value & "`"
+  next
+  output = left(output, len(output)-1)
+  output = output & "|"
   rsRibbons.movenext
   if rsRibbons.eof then exit do
 loop

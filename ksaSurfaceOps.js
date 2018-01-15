@@ -362,19 +362,115 @@ function loadMapDataAJAX(xhttp) {
     if (pageType == "body") { showMap(); }
   }
   
-  // load flight paths?
-  // for now, just open up its mission report
-  if (getParameterByName("flt")) {
-    window.open("http://www.kerbalspace.agency/index.php?s=" + w2ui['menu'].get(getParameterByName("flt")).text.replace(" ", "+"));
+  // load flight paths, taking into account they may already be loaded
+  if (getParameterByName("flt") && pageType == "body") {
+    flightsToLoad = getQueryParams("flt");
+    do {
+      var flight = flightsToLoad.shift();
+      if (!fltPaths || (fltPaths && !fltPaths.find(o => o.ID === flight))) {
+        fltTrackDataLoad = L.layerGroup();
+        layerControl._expand();
+        layerControl.options.collapsed = false;
+        layerControl.addOverlay(fltTrackDataLoad, "<i class='fa fa-cog fa-spin'></i> Loading Data...", "Flight Tracks");
+        loadDB("loadFltData.asp?data=" + flight, loadFltDataAJAX);
+        break;
+      }
+    } while (flightsToLoad.length);
+    showMap();
   }
   
   // load straight to a map?
   // Note that &map is REQUIRED only when viewing a body page if you want to show the map straight away without using any other commands
   if ((window.location.href.includes("&map") || getParameterByName("layers")) && pageType == "body") { showMap(); }
   
-  // done with initial data load
-  layerControl._collapse();
-  layerControl.options.collapsed = true;
+  // done with data load?
+  checkDataLoad();
+}
+
+function loadFltDataAJAX(xhttp) {
+  
+  // split and parse the flight data
+  var fltInfo = rsToObj(xhttp.responseText.split("^")[0]);
+  var fltData = [];
+  xhttp.responseText.split("^")[1].split("|").forEach(function(item) { fltData.push(rsToObj(item)); });
+  
+  // make sure we don't overstep bounds on the color index
+  if (fltPaths.length >= surfacePathColors.length) var colorIndex = fltPaths.length - (surfacePathColors.length * (Math.floor(fltPaths.length)/surfacePathColors.length));
+  else var colorIndex = fltPaths.length;
+  console.log(colorIndex);
+  console.log(surfacePathColors[colorIndex]);
+  fltPaths.push({ Info: fltInfo,
+                  Data: fltData,
+                  Layer: L.featureGroup(),
+                  Pins: [],
+                  Html: null,
+                  ID: xhttp.responseText.split("^")[2],
+                  Deleted: false,
+                  Color: surfacePathColors[colorIndex] });
+  
+  // draw the flight paths
+  var path = [];
+  var startIndex = 0;
+  fltPaths[fltPaths.length-1].Data.forEach(function(position, index) {
+  
+    // detect if we've crossed off the edge of the map and need to cut the path
+    // compare this lng to the prev and if it changed from negative to positive or vice versa, we hit the edge  
+    // (check if the lng is over 100 to prevent detecting a sign change while crossing the meridian)
+    if (path.length && (((position.Lng < 0 && path[path.length-1].Lng > 0) && Math.abs(position.Lng) > 100) || ((position.Lng > 0 && path[path.length-1].lng < 0) && Math.abs(position.Lng) > 100))) { 
+    
+      // time to cut this path off and create a surface track to setup
+      // add this path to the layer and reset to start building a new path
+      fltPaths[fltPaths.length-1].Layer.addLayer(setupFlightSurfacePath(path, startIndex, path.length));
+      path = [];
+      startIndex = index;
+    }
+    path.push({ lat: position.Lat, lng: position.Lng });
+  });
+  fltPaths[fltPaths.length-1].Layer.addLayer(setupFlightSurfacePath(path, startIndex, path.length));
+  
+  // if there was only one track, make it visible and zoom in on it
+  if (fltPaths.length == 1) {
+    fltPaths[0].Layer.addTo(surfaceMap);
+    surfaceMap.setView([fltPaths[0].Data[0].Lat, fltPaths[0].Data[0].Lng], 3);
+  }
+  
+  // delete the loading layer and add the flight path layer to the control and the map
+  layerControl.removeLayer(fltTrackDataLoad);
+  console.log(fltPaths[fltPaths.length-1].Color);
+  layerControl.addOverlay(fltPaths[fltPaths.length-1].Layer, "<i class='fa fa-minus' style='color: " + fltPaths[fltPaths.length-1].Color + "'></i> " + fltPaths[fltPaths.length-1].Info.Title, "Flight Tracks");
+  fltPaths[fltPaths.length-1].Layer.addTo(surfaceMap)
+  
+  // get more flight data?
+  if (flightsToLoad) {
+    if (flightsToLoad.length) {
+      fltTrackDataLoad = L.layerGroup();
+      layerControl.addOverlay(fltTrackDataLoad, "<i class='fa fa-cog fa-spin'></i> Loading Data...", "Flight Tracks");
+      loadDB("loadFltData.asp?data=" + flightsToLoad.shift(), loadFltDataAJAX);
+  
+    // done with data load?
+    } else {
+      fltTrackDataLoad = null;
+      flightsToLoad = null;
+      checkDataLoad();
+      
+      // if there is just one, select it in the menu
+      if (fltPaths.length == 1) {
+        w2ui['menu'].select(fltPaths[0].ID);
+        w2ui['menu'].expandParents(fltPaths[0].ID);
+        w2ui['menu'].scrollIntoView(fltPaths[0].ID);
+      
+      // otherwise just select and open the category
+      } else {
+        w2ui['menu'].select("aircraft");
+        w2ui['menu'].expand("aircraft");
+        w2ui['menu'].expandParents("aircraft");
+        w2ui['menu'].scrollIntoView("aircraft");
+      }
+    }
+  } else {
+    fltTrackDataLoad = null;
+    checkDataLoad();
+  }
 }
 
 function renderMapData() {
@@ -480,12 +576,9 @@ function renderVesselOrbit() {
   // we have completed a batch of calculations, store the data
   currentVesselPlot.Data.push({
     Orbit: orbitDataCalc,
-    Layer: null,
+    Layer: L.featureGroup(),
     StartUT: obtCalcUT-orbitDataCalc.length
   });
-
-  // add the layer to the control in prep for adding paths and markers
-  currentVesselPlot.Data[currentVesselPlot.Data.length-1].Layer = L.featureGroup();
 
   // get the times we'll reach Ap and Pe along this orbit if we haven't already done so
   if (!currentVesselPlot.Events.Ap.Marker || !currentVesselPlot.Events.Pe.Marker) {
@@ -541,9 +634,8 @@ function renderVesselOrbit() {
       // add this path to the layer and reset to start building a new path
       currentVesselPlot.Data[currentVesselPlot.Data.length-1].Layer.addLayer(setupVesselSurfacePath(path, currentVesselPlot.Data.length-1));
       path = [];
-    
-    // still on the map, so create a new array entry for this location
-    } else { path.push(position.Latlng); }
+    } 
+    path.push(position.Latlng);
   });
   
   // setup the final path stretch and add it to the layer
@@ -586,10 +678,9 @@ function renderVesselOrbit() {
     } else { $("#mapDialog").dialog("close"); }
     
     // done with the loading notice
-    layerControl._collapse();
-    layerControl.options.collapsed = true;
     layerControl.removeLayer(obtTrackDataLoad);
     obtTrackDataLoad = null;
+    checkDataLoad();
     
     // reset loading flags/triggers
     strPausedVesselCalculation = null;
@@ -973,6 +1064,7 @@ function showMap() {
   removeVesselMapButtons();
   removeMapRefreshButton();
   addMapCloseButton();
+  redrawFlightPlots();
   $("#contentHeader").html(strCurrentBody.split("-")[0]);
   document.title = "KSA Operations Tracker - " + strCurrentBody.split("-")[0];
 }
@@ -1029,6 +1121,132 @@ function getDataPoint(obtNum, target) {
   }
 
   return index;
+}
+
+// take care of all the details that need to be applied to a flight's surface track as this needs to be done in two separate places
+function setupFlightSurfacePath(path, index, length) {
+    
+  var srfTrack = L.polyline(path, {smoothFactor: 1.75, clickable: true, color: fltPaths[fltPaths.length-1].Color, weight: 3, opacity: 1});
+  
+  // save the beginning index of this line to make it faster when searching for a data point by not having to look through the whole array
+  // also save the current flight index to identify the data needed for the popups
+  // also also save the length of the path
+  srfTrack._myId = index + "," + (fltPaths.length-1) + "," + length;
+  
+  // show the time and data for this position
+  srfTrack.on('mouseover mousemove', function(e) {
+    var idStr = e.target._myId.split(",");
+    var index = parseInt(idStr[0]);
+    var indexFlt = parseInt(idStr[1]);
+    var margin = 0.1;
+    
+    // traverse the latlon array and get the diff between the current index and the location hovered
+    // if it is smaller than the margin, stop. If the entire path is searched, increase the margin and try again
+    while (true) {
+      if (Math.abs(fltPaths[indexFlt].Data[index].Lat - e.latlng.lat) < margin && Math.abs(fltPaths[indexFlt].Data[index].Lng - e.latlng.lng) < margin) { break; }
+      index++;
+      
+      // be sure to account for running to the end of the current path or end of array
+      if (index - parseInt(idStr[1]) >= parseInt(idStr[2]) || index >= fltPaths[indexFlt].Data.length) {
+        index = parseInt(idStr[0]);
+        margin += 0.1;
+      }
+    }
+
+    // compose the popup HTML and place it on the cursor location then display it
+    var cardinal = getLatLngCompass({lat: fltPaths[indexFlt].Data[index].Lat, lng: fltPaths[indexFlt].Data[index].Lng});
+    if (timePopup) { surfaceMap.closePopup(timePopup); }
+    timePopup = new L.Rrose({ offset: new L.Point(0,-1), closeButton: false, autoPan: false });
+    timePopup.setLatLng(e.latlng);
+    timePopup.setContent(UTtoDateTime(fltPaths[indexFlt].Data[index].UT) + ' UTC<br>Latitude: ' + numeral(fltPaths[indexFlt].Data[index].Lat).format('0.0000') + '&deg;' + cardinal.Lat + '<br>Longitutde: ' + numeral(fltPaths[indexFlt].Data[index].Lng).format('0.0000') + '&deg;' + cardinal.Lng + '<br>Altitude ASL: ' + numeral(fltPaths[indexFlt].Data[index].ASL/1000).format('0,0.000') + ' km<br>Altitude AGL: ' + numeral(fltPaths[indexFlt].Data[index].AGL/1000).format('0,0.000') + " km<br>Velocity: " + numeral(fltPaths[indexFlt].Data[index].Spd).format('0,0.000') + " m/s" + '<br>Distance from KSC: ' + numeral(fltPaths[indexFlt].Data[index].Dist/1000).format('0,0.000') + " km<p>Click for additional flight information</p>");
+    timePopup.openOn(surfaceMap);
+  });
+  
+  // remove the mouseover popup
+  srfTrack.on('mouseout', function(e) {
+    if (timePopup) { surfaceMap.closePopup(timePopup); }
+    timePopup = null;
+  });
+  
+  // when clicking along this line, display the mission data info
+  srfTrack.on('click', function(e) {
+    surfaceMap.closePopup(timePopup);
+    timePopup = null;
+    var indexFlt = parseInt(e.target._myId.split(",")[1]);
+
+    // compose the popup HTML?    
+    if (!fltPaths[indexFlt].Html) {
+
+      var strHTML = "<table style='border: 0px; border-collapse: collapse;'><tr><td style='vertical-align: top; width: 256px;'>";
+      strHTML += "<img src='" + fltPaths[indexFlt].Info.Img + "' width='256px'></td>";
+      strHTML += "<td style='vertical-align: top;'><b><span style='font-size: 24px; line-height: 20px'>" + fltPaths[indexFlt].Info.Title + "</span></b><p>";
+      
+      // see if there is a marker link in the description
+      if (fltPaths[indexFlt].Info.Desc.indexOf("loc=") >= 0) {
+        
+        // cut up to the link
+        strHTML += fltPaths[indexFlt].Info.Desc.slice(0, fltPaths[indexFlt].Info.Desc.indexOf("<a"));
+        
+        // extract the popup data, checking for multiple links
+        var charLinkIndex = 0;
+        for (linkNum=0; linkNum<fltPaths[indexFlt].Info.Desc.match(/<a/g).length; linkNum++) {
+          
+          // push a new pin group to the list
+          fltPaths[indexFlt].Pins.push({Group: []});
+          
+          // get the full link text
+          var linkStr = fltPaths[indexFlt].Info.Desc.slice(fltPaths[indexFlt].Info.Desc.indexOf("<a", charLinkIndex), fltPaths[indexFlt].Info.Desc.indexOf('">', charLinkIndex));
+
+          // iterate through all the pins
+          var charPinIndex = 0;
+          for (pinNum=0; pinNum<linkStr.match(/loc=/g).length; pinNum++) {
+          
+            // get the pin from the link
+            // this works except for the last pin
+            if (pinNum < linkStr.match(/loc=/g).length-1) {
+              var pinData = fltPaths[indexFlt].Info.Desc.slice(fltPaths[indexFlt].Info.Desc.indexOf("loc=", charLinkIndex + charPinIndex)+4, fltPaths[indexFlt].Info.Desc.indexOf('&amp', fltPaths[indexFlt].Info.Desc.indexOf("loc=", charLinkIndex + charPinIndex))).split(",");
+            } else {
+              var pinData = fltPaths[indexFlt].Info.Desc.slice(fltPaths[indexFlt].Info.Desc.indexOf("loc=", charLinkIndex + charPinIndex)+4, fltPaths[indexFlt].Info.Desc.indexOf('"', fltPaths[indexFlt].Info.Desc.indexOf("loc=", charLinkIndex + charPinIndex))).split(",");
+            }
+            
+            // push the data to the group
+            fltPaths[indexFlt].Pins[linkNum].Group.push({Lat: pinData[0],
+                                                        Lng: pinData[1],
+                                                        HTML: pinData[2],
+                                                        Pin: null});
+                                                                                
+            // set the index so we search past the previous location
+            charPinIndex = fltPaths[indexFlt].Info.Desc.indexOf("loc=", charLinkIndex + charPinIndex)+4;
+          }
+
+          // set the link name
+          strHTML += "<span onclick='popupMarkerOpen(" + indexFlt + "," + linkNum + ")' style='color: blue; cursor: pointer'>" + fltPaths[indexFlt].Info.Desc.slice(fltPaths[indexFlt].Info.Desc.indexOf('">', charLinkIndex)+2, fltPaths[indexFlt].Info.Desc.indexOf('</a>', charLinkIndex)) + "</span>";
+          
+          // set the index so we search past the previous link
+          charLinkIndex = fltPaths[indexFlt].Info.Desc.indexOf("</a>", charLinkIndex)+4;
+            
+          // if we're going around for more links, get the text between this and the next one
+          if (fltPaths[indexFlt].Info.Desc.match(/<a/g).length > 1) {
+            strHTML += fltPaths[indexFlt].Info.Desc.slice(charLinkIndex, fltPaths[indexFlt].Info.Desc.indexOf("<a", charLinkIndex));
+          }
+        }
+          
+        // get the rest of the text
+        strHTML += fltPaths[indexFlt].Info.Desc.slice(charLinkIndex, fltPaths[indexFlt].Info.Desc.length) + "</p><p>";
+      } else {
+        strHTML += fltPaths[indexFlt].Info.Desc + "</p><p>";
+      }
+      strHTML += "<a href='" + fltPaths[indexFlt].Info.Report + "' target='_blank' style='text-decoration: none'>Mission Report</a> | <span class='fauxLink' onclick='removeFltPath(" + indexFlt + ")'>Remove from map</span></p></td></tr></table>";
+      fltPaths[indexFlt].Html = strHTML;
+    }
+    
+    // fill, position and display the popup
+    flightPositionPopup.setContent(fltPaths[indexFlt].Html);
+    flightPositionPopup.setLatLng(e.latlng);
+    flightPositionPopup.openOn(surfaceMap);
+  });
+  
+  return srfTrack;
 }
 
 // take care of all the details that need to be applied to a vessel's surface track as this needs to be done in two separate places
@@ -1091,8 +1309,8 @@ function getLatLngCompass(latlng) {
   return {Lat: cardinalLat, Lng: cardinalLng};
 }
 
-// removes anything associated with individual vessel plots from the map
-function clearVesselPlots() {
+// removes all ground plots from the map along with any associated markers
+function clearSurfacePlots() {
   if (currentVesselPlot) {
     currentVesselPlot.Data.forEach(function(item) { 
       if (item.Layer) {
@@ -1106,6 +1324,18 @@ function clearVesselPlots() {
     if (vesselMarker) { 
       surfaceMap.removeLayer(vesselMarker);
     }
+  }
+  if (fltPaths.length) {
+    fltPaths.forEach(function(path) {
+      layerControl.removeLayer(path.Layer); 
+      surfaceMap.removeLayer(path.Layer);
+      
+      path.Pins.forEach(function(pin) {
+        pin.Group.forEach(function(marker) {
+          if (marker.Pin) surfaceMap.removeLayer(marker.Pin);
+        });
+      });
+    });
   }
   removeMapRefreshButton();
 }
@@ -1140,4 +1370,65 @@ function redrawVesselPlots() {
     }, 1000);
   }
   addMapRefreshButton();
+}
+
+// puts any existing plots of flights back onto the map
+function redrawFlightPlots() {
+  if (fltPaths.length) {
+    fltPaths.forEach(function(path, index) {
+      if (index >= surfacePathColors.length) var colorIndex = index - (surfacePathColors.length * (Math.floor(index/surfacePathColors.length)));
+      else var colorIndex = index;
+      layerControl.addOverlay(path.Layer, "<i class='fa fa-minus' style='color: " + surfacePathColors[colorIndex] + "'></i> " + path.Info.Title, "Flight Tracks");
+      path.Layer.addTo(surfaceMap)
+    });
+  }
+}
+
+// ensures the layer control does not collapse until all data is loaded
+function checkDataLoad() {
+  if (!obtTrackDataLoad && !srfTrackDataLoad && !fltTrackDataLoad) {
+    layerControl._collapse();
+    layerControl.options.collapsed = true;
+  }
+}
+
+// places a pin or group of pins when a link is clicked in a flight path mission data window
+function popupMarkerOpen(indexFlt, linkNum) {
+  surfaceMap.closePopup(flightPositionPopup);
+
+  for (pinIndex=0; pinIndex<fltPaths[indexFlt].Pins[linkNum].Group.length; pinIndex++) {
+  
+    // don't create this pin if it is already created
+    if (!fltPaths[indexFlt].Pins[linkNum].Group[pinIndex].Pin) {
+      fltPaths[indexFlt].Pins[linkNum].Group[pinIndex].Pin = L.marker([fltPaths[indexFlt].Pins[linkNum].Group[pinIndex].Lat, fltPaths[indexFlt].Pins[linkNum].Group[pinIndex].Lng]).bindPopup(decodeURI(fltPaths[indexFlt].Pins[linkNum].Group[pinIndex].HTML) + "<p><center><span onclick='popupMarkerClose(" + indexFlt + "," + linkNum + "," + pinIndex + ")' style='color: blue; cursor: pointer;'>Remove Pin</span></center></p>", {closeButton: false}).addTo(surfaceMap);
+      fltPaths[indexFlt].Layer.addLayer(fltPaths[indexFlt].Pins[linkNum].Group[pinIndex].Pin);
+      
+      // if there is just one pin, open the popup
+      if (fltPaths[indexFlt].Pins[linkNum].Group.length == 1) { fltPaths[indexFlt].Pins[linkNum].Group[pinIndex].Pin.openPopup(); }
+      
+    // if the pin is already created, open the popup
+    } else {
+      fltPaths[indexFlt].Pins[linkNum].Group[pinIndex].Pin.openPopup();
+    }
+  }
+}
+
+// removes a single pin when user clicks link in pin popup
+function popupMarkerClose(indexFlt, linkNum, pinIndex) {
+  surfaceMap.removeLayer(fltPaths[indexFlt].Pins[linkNum].Group[pinIndex].Pin);
+  fltPaths[indexFlt].Pins[linkNum].Group[pinIndex].Pin = null;
+}
+
+// removes a single flight path, but doesn't delete it in case the request for it is made again
+function removeFltPath(index) {
+  surfaceMap.closePopup(flightPositionPopup);
+  layerControl.removeLayer(fltPaths[index].Layer); 
+  surfaceMap.removeLayer(fltPaths[index].Layer);
+  
+  fltPaths[index].Pins.forEach(function(pin) {
+    pin.Group.forEach(function(marker) {
+      if (marker.Pin) surfaceMap.removeLayer(marker.Pin);
+    });
+  });
+  fltPaths[index].Deleted = true;
 }

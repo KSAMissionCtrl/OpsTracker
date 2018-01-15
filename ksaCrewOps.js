@@ -11,16 +11,14 @@ function loadCrew(crew) {
   }
 
   // modify the history so people can page back/forward
-  // only add URL variables if they aren't already included
-  if (window.location.href.includes("&") && getParameterByName("crew") == strCurrentCrew) { var strURL = window.location.href; }
-  else { var strURL = "http://www.kerbalspace.agency/Tracker/tracker.asp?crew=" + crew; }
-  
   // if this is the first page to load, replace the current history
   if (!history.state) {
+    if (window.location.href.includes("&")) var strURL = window.location.href;
+    else var strURL = "http://www.kerbalspace.agency/Tracker/tracker.asp?crew=" + crew;
     history.replaceState({Type: pageType, ID: crew}, document.title, strURL);
   // don't create a new entry if this is the same page being reloaded
   } else if (history.state.ID != crew) {
-    history.pushState({Type: pageType, ID: crew}, document.title, strURL);
+    history.pushState({Type: pageType, ID: crew}, document.title, "http://www.kerbalspace.agency/Tracker/tracker.asp?crew=" + crew);
   }
   
   // load the data depending on our view
@@ -63,8 +61,8 @@ function loadCrewAJAX(xhttp) {
   // parse the missions and the ribbons
   var missions = [];
   var ribbons = [];
-  crewData[1].split("|").forEach(function(item, index) { missions.push({Link: item.split(";")[0], Title: item.split(";")[1]}); });
-  crewData[2].split("|").forEach(function(item, index) { ribbons.push({Ribbon: item.split(";")[0], Title: item.split(";")[1], Override: item.split(";")[2]}); });
+  crewData[1].split("|").forEach(function(item, index) { missions.push(rsToObj(item)); });
+  crewData[2].split("|").forEach(function(item, index) { ribbons.push(rsToObj(item)); });
   missions.reverse();
   
   // check for any future updates
@@ -205,11 +203,12 @@ function loadCrewAJAX(xhttp) {
       $("#dataField10").empty();
       $("#dataField11").empty();
       $("#dataField11").fadeOut();
+      console.log(currentCrewData.Ribbons);
       currentCrewData.Ribbons.forEach(function(item, index) {
-      
+        
         // only show this ribbon if it has not been supersceded by a later one
         if (!item.Override || (item.Override && item.Override > currUT())) {
-          $("#dataField10").append("<img src='http://www.blade-edge.com/Roster/Ribbons/" + item.Ribbon + ".png' width='109px' class='tip' style='cursor: help' data-tipped-options=\"maxWidth: 150, position: 'top'\" title='<center>" + item.Title + "</center>'>");
+          $("#dataField10").append("<img src='http://www.blade-edge.com/Roster/Ribbons/" + item.Ribbon + ".png' width='109px' class='tip' style='cursor: help' data-tipped-options=\"maxWidth: 150, position: 'top'\" title='<center>" + item.Title + "<hr>" + item.Desc + "<hr>Earned on " + UTtoDateTime(item.UT).split("@")[0].trim() + "</center>'>");
         } else {
           $("#dataField11").fadeIn();
           if (!$("#dataField11").html()) {
@@ -253,7 +252,7 @@ function ribbonDisplayToggle() {
   if ($("#dataField11").html().includes("Show")) {
       $("#dataField10").empty();
       currentCrewData.Ribbons.forEach(function(item, index) {
-        $("#dataField10").append("<img src='http://www.blade-edge.com/Roster/Ribbons/" + item.Ribbon + ".png' width='109px' class='tip' style='cursor: help' data-tipped-options=\"maxWidth: 150, position: 'top'\" title='<center>" + item.Title + "</center>'>");
+        $("#dataField10").append("<img src='http://www.blade-edge.com/Roster/Ribbons/" + item.Ribbon + ".png' width='109px' class='tip' style='cursor: help' data-tipped-options=\"maxWidth: 150, position: 'top'\" title='<center>" + item.Title + "<hr>" + item.Desc + "<hr>Earned on " + UTtoDateTime(item.UT).split("@")[0].trim() + "</center>'>");
       });
     $("#dataField11").html("<center><span class='fauxLink' onclick='ribbonDisplayToggle()'>Hide Multiple Ribbons</span></center>");
   } else if ($("#dataField11").html().includes("Hide")) {
@@ -262,7 +261,7 @@ function ribbonDisplayToggle() {
       
         // only show this ribbon if it has not been supersceded by a later one
         if (!item.Override || (item.Override && item.Override > currUT())) {
-          $("#dataField10").append("<img src='http://www.blade-edge.com/Roster/Ribbons/" + item.Ribbon + ".png' width='109px' class='tip' style='cursor: help' data-tipped-options=\"maxWidth: 150, position: 'top'\" title='<center>" + item.Title + "</center>'>");
+          $("#dataField10").append("<img src='http://www.blade-edge.com/Roster/Ribbons/" + item.Ribbon + ".png' width='109px' class='tip' style='cursor: help' data-tipped-options=\"maxWidth: 150, position: 'top'\" title='<center>" + item.Title + "<hr>" + item.Desc + "<hr>Earned on " + UTtoDateTime(item.UT).split("@")[0].trim() + "</center>'>");
         }
       });
     $("#dataField11").html("<center><span class='fauxLink' onclick='ribbonDisplayToggle()'>Show All Ribbons</span></center>");

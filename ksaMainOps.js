@@ -252,7 +252,8 @@ function setupContent() {
 }
 
 // switch from one layout to another
-function swapContent(newPageType, id, ut) {
+function swapContent(newPageType, id, ut, flt) {
+  if (!flt && isNaN(ut)) flt = ut;
   if (!ut && !getParameterByName("ut")) ut = "NaN";
   if (!ut && getParameterByName("ut")) ut = parseInt(getParameterByName("ut"));
   
@@ -302,7 +303,7 @@ function swapContent(newPageType, id, ut) {
   
   // not a total content swap, just new data
   if (pageType == newPageType) {
-    if (newPageType == "body") { loadBody(id); }
+    if (newPageType == "body") { loadBody(id, flt); }
     if (newPageType == "vessel") { loadVessel(id, ut); }
     if (newPageType == "crew") { loadCrew(id); }
     return;
@@ -330,7 +331,7 @@ function swapContent(newPageType, id, ut) {
     if ($("#map").css("visibility") != "hidden" && !window.location.href.includes("&map")) $("#map").fadeOut();
     $("#content").fadeOut();
     removeVesselMapButtons();
-    clearVesselPlots();
+    clearSurfacePlots();
     
     // if a vessel orbital calculation is in progress, pause it as long as we are switching to a crew page or a body view of the same current one
     if (!layerControl.options.collapsed && (newPageType.includes("crew") || (newPageType == "body" && id.split("-")[0] == strCurrentBody))) {
@@ -347,7 +348,7 @@ function swapContent(newPageType, id, ut) {
       layerControl.removeLayer(obtTrackDataLoad);
       obtTrackDataLoad = null;
       isOrbitRenderTerminated = true;
-      clearVesselPlots();
+      clearSurfacePlots();
       currentVesselPlot = null;
     }
   } else if (pageType == "crew") {
@@ -374,7 +375,7 @@ function swapContent(newPageType, id, ut) {
         $("#figure").fadeIn();
       }
       $("#contentBox").fadeIn();
-      loadBody(id); 
+      loadBody(id, flt); 
     }, 600);
   } else if (newPageType == "vessel") {
     lowerContent();

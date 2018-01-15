@@ -1,5 +1,5 @@
 // load a new GeoGebra figure into the main content window
-function loadBody(body) {
+function loadBody(body, flt) {
   
   // an attempt was made to load orbital data for an inactive vessel
   if (body == "inactive") { return; }
@@ -14,7 +14,7 @@ function loadBody(body) {
   isGGBAppletLoading = true;
   
   // select and show it in the menu - if we can't do this now it'll get called again after GGB init
-  if (isMenuDataLoaded) {
+  if (isMenuDataLoaded && !flt && !window.location.href.includes("flt")) {
     w2ui['menu'].select(body);
     w2ui['menu'].expandParents(body);
     w2ui['menu'].scrollIntoView(body);
@@ -32,16 +32,15 @@ function loadBody(body) {
     $("#contentHeader").html(body.replace("-", " "));
     document.title = "KSA Operations Tracker" + " - " + body.replace("-", " ");
     
-    // modify the history so people can page back/forward
-    // only add URL variables if they aren't already included
-    if ((window.location.href.includes("&") && getParameterByName("body") == strCurrentBody) || !strCurrentBody) { var strURL = window.location.href; }
-    else { var strURL = "http://www.kerbalspace.agency/Tracker/tracker.asp?body=" + body; }
-    
     // if this is the first page to load, replace the current history
     // don't create a new entry if this is the same page being reloaded
     if (!history.state) {
+      if (window.location.href.includes("&")) var strURL = window.location.href;
+      else strURL = "http://www.kerbalspace.agency/Tracker/tracker.asp?body=" + body;
       history.replaceState({Type: "body", ID: body}, document.title, strURL); 
     } else if (history.state.ID != body) {
+      var strURL = "http://www.kerbalspace.agency/Tracker/tracker.asp?body=" + body;
+      if (flt) strURL += "&flt=" + flt;
       history.pushState({Type: "body", ID: body}, document.title, strURL); 
     }
 
@@ -68,7 +67,7 @@ function loadBody(body) {
   $("#figureDialog").dialog("close");
   isGGBAppletLoaded = false;
   orbitCatalog = [];
-  strCurrentVessel = "";
+  strCurrentVessel = "undefined";
   $("#figureOptions").fadeOut();
   $("#nodes").prop('checked', true);
   $("#labels").prop('checked', true);
@@ -194,7 +193,7 @@ function ggbOnInit(){
   }
   
   // select and show it in the menu if this is the proper page type because the figure can load after a vessel was already selected
-  if (pageType == "body") {
+  if (pageType == "body" && !window.location.href.includes("flt")) {
     w2ui['menu'].select(strCurrentBody);
     w2ui['menu'].expandParents(strCurrentBody);
     w2ui['menu'].scrollIntoView(strCurrentBody);
@@ -286,7 +285,7 @@ function addGGBOrbit(vesselID, orbitData) {
     ggbApplet.evalCommand(ggbID + 'maut=Mod(' + ggbID + 'mean + ' + ggbID + 'meanmotion (UT-' + orbitData.Eph + '), 2pi)');
     ggbApplet.evalCommand(ggbID + 'eaut=Iteration(M - (M - ' + ggbID + 'ecc sin(M) - ' + ggbID + 'maut) / (1 - ' + ggbID + 'ecc cos(M)), M, {' + ggbID + 'maut}, 20)');
     ggbApplet.evalCommand(ggbID + 'position=Point(' + ggbID + 'conic, ' + ggbID + 'eaut / (2pi))');
-    ggbApplet.setCaption(ggbID + 'position', w2ui['menu'].get('activeVessels', vesselID).text.split(" (")[0]);
+    ggbApplet.setCaption(ggbID + 'position', w2ui['menu'].get('activeVessels', vesselID).text.split(">")[1].split("<")[0]);
     ggbApplet.setLabelStyle(ggbID + 'position', 3);
     ggbApplet.setPointSize(ggbID + 'position', 2);
     ggbApplet.setLabelVisible(ggbID + 'position', true);
