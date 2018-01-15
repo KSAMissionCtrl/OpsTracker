@@ -31,11 +31,12 @@ The following JavaScript libraries are used:
 ### Known Issues
 
 - **Operations Tracker is currently in active development, so visiting the page may cause browser errors, failures to load, etc. However after it has been worked on it is left in a usable state**
-- Leaflet map can be finicky in a number of ways - most notably it doesn't mousewheel zoom centered on the cursor and can sometimes load showing off the edge of the map or refuse to load tiles. Generally can be fixed by upsizing/downsizing or going fullscreen
+- Leaflet map can be finicky in a number of ways - most notably it doesn't mousewheel zoom centered on the cursor and can sometimes load showing off the edge of the map or refuse to load tiles. It can also fail to render paths and markers or not allow you to properly hover for information over paths. Generally these issues can all be fixed by upsizing/downsizing or going fullscreen
 - Leaflet map tiles can load slowly or not fully. If any grey tiles appear, changing zoom levels up/down and back again will display cached tiles and force a reload for any missing tiles
 - The downsized default map view for vessel pages does not interpret coordinates properly, so the info control is disabled as well as some features, but everything works fine if you size up the map view
 - In rare instances the menu will fail to load properly on initial page load. A full refresh (Ctrl+F5) seems to fix it every time
 - Collapsing/Expanding the [Operations Menu](https://github.com/KSAMissionCtrl/OpsTracker/wiki/Navigation) can sometimes cause the entire area to go blank the next time something in it is clicked on
+- Sometimes the flight information popup will fail to close when a location pin is selected or the data removed
 
 ### Future Fixes/Changes/Additions
 
@@ -60,6 +61,21 @@ The following JavaScript libraries are used:
 ### Change Log
 
 Versioning Key (v#1.#2.#3): #1=New features #2=Changes to existing features #3=Fixes to existing features
+
+**v2.0.0** (1/14/18)
+
+Fixes:
+  - Browser history now only preserves URL parameters if it is the first time the page is loaded so what is shown in the URL bar remains consistent with past activity
+  - Vessel names in the [Orbital View](https://github.com/KSAMissionCtrl/OpsTracker/wiki/Orbital-View) are no longer displaying HTML tags 
+  - The content no longer reloads itself if you click on the menu item for a body that is already loaded
+  - Surface tracks are no longer missing a plot point everytime the path wrapped around to the other side of the map
+  
+Changes:
+  - Crew ribbons have a new back-end DB format for easier maintenence. Display is the same
+  
+Additions:
+  - [Flight plotting](https://github.com/KSAMissionCtrl/OpsTracker/wiki/Surface-Map#flight-plotting) is now supported when you select an aircraft from the Inactive Vessels list, allowing also for plots to be loaded with page load using the `&flt` command
+  - Added and updated some Known Issues
 
 **v1.1.1** (1/9/18)
 
