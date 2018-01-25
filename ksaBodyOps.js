@@ -66,7 +66,6 @@ function loadBody(body, flt) {
   // hide and reset stuff
   $("#figureDialog").dialog("close");
   isGGBAppletLoaded = false;
-  orbitCatalog = [];
   strCurrentVessel = "undefined";
   $("#figureOptions").fadeOut();
   $("#nodes").prop('checked', true);
@@ -123,26 +122,9 @@ function loadBodyAJAX(xhttp) {
   var bodies = xhttp.responseText.split("|");
   
   // push each body into the array
-  bodies.forEach(function(item, index) {
-    var body = {};
-  
-    // separate the fields of this body
-    var fields = item.split("`");
-    fields.forEach(function(item, index) {
-    
-      // now get the name/value and assign the object
-      var pair = item.split("~");
-      if (pair[1] == "") {
-        body[pair[0]] = null;
-      } else if ($.isNumeric(pair[1])) {
-        body[pair[0]] = parseFloat(pair[1]);
-      } else {
-        body[pair[0]] = pair[1];
-      }
-    });
-    bodyCatalog.push(body);
+  bodies.forEach(function(item) {
+    bodyCatalog.push(rsToObj(item));  
   });
-  isCatalogDataLoaded = true;
   $("#figureDialog").spin(false);
 }
 
@@ -185,13 +167,6 @@ function ggbOnInit(){
   // listen for any objects clicked on
   ggbApplet.registerClickListener("figureClick");
   
-  // load any vessels in orbit around this object, or if this was a reload, just redraw them
-  if (!orbitCatalog.length && !loadVesselOrbits()) { isGGBAppletLoaded = true; isGGBAppletLoading = false;  }
-  else if (orbitCatalog.length) { 
-    orbitCatalog.forEach(function(item, index) { if (item.Orbit) { addGGBOrbit(item.ID, item.Orbit); } }); 
-    $("#vesselOrbitTypes").fadeIn();
-  }
-  
   // select and show it in the menu if this is the proper page type because the figure can load after a vessel was already selected
   if (pageType == "body" && !window.location.href.includes("flt")) {
     w2ui['menu'].select(strCurrentBody);
@@ -204,21 +179,60 @@ function ggbOnInit(){
   clearTimeout(timeoutHandle);
   timeoutHandle = setTimeout(declutterGGB, 2500);
   
-  // load the surface map
+  // load additional data
   loadMap();
+  vesselsToLoad = extractIDs(w2ui['menu'].get(strCurrentBody).nodes).split(";");
+  if (vesselsToLoad.length > 1) {
+    $("#vesselLoaderMsg").spin({ scale: 0.35, position: 'relative', top: '8px', left: '0px' });
+    $("#vesselLoaderMsg").fadeIn();
+    clearTimeout(timeoutHandle);
+    loadVesselOrbits();
+  } else isGGBAppletLoaded = true; isGGBAppletLoading = false;
+}
+
+// adds to the figure the orbits of any vessels around this body
+function loadVesselOrbits() {
+  if (isMenuDataLoaded) {
+    
+    // try to find the vessel in the catalog and add it if it's there, removing it from the array
+    // take into account vessels with no orbital data, which will just be removed
+    // if it's not there, call for the data and wait for it to be returned
+    var vessel = opsCatalog.find(o => o.ID === vesselsToLoad[0]);
+    if (vessel && vessel.CurrentData && vessel.CurrentData.Orbit) addGGBOrbit(vesselsToLoad.shift(), vessel.CurrentData.Orbit);
+    if (vessel && vessel.CurrentData && !vessel.CurrentData.Orbit) vesselsToLoad.shift();
+    else if (vessel && !vessel.CurrentData && !vessel.isLoading) {
+      loadDB("loadOpsData.asp?db=" + vessel.ID + "&UT=" + currUT() + "&type=" + vessel.Type + "&pastUT=NaN", loadOpsDataAJAX);
+    } else if (!vessel) vesselsToLoad.shift();
+    
+    // callback if there is still data to load
+    if (vesselsToLoad.length) setTimeout(loadVesselOrbits, 1);
+    else {
+      isGGBAppletLoaded = true;
+      isGGBAppletLoading = false;
+      $("#vesselLoaderMsg").spin(false);
+      $("#vesselLoaderMsg").fadeOut();
+      if ($("#figure").is(":visible")) { 
+        $("#vesselOrbitTypes").fadeIn(); 
+        
+        // check again in a few ms just in case we popped up as the figure was fading out
+        setTimeout(function() { if (!$("#figure").is(":visible")) $("#vesselOrbitTypes").hide(); }, 250);
+      }
+      timeoutHandle = setTimeout(declutterGGB, 2500);
+    }
+  } else { setTimeout(loadVesselOrbits, 150); }
 }
 
 // creates an orbit on the currently-loaded GeoGebra figure
 function addGGBOrbit(vesselID, orbitData) {
     
-    // TODO we can't add the same orbit twice so if this is already created, destroy it
+    // we need to ensure the body data is loaded first
+    if (!bodyCatalog) setTimeout(addGGBOrbit, 150, vesselID, orbitData);
     
     // need the data of the body this vessel is in orbit around
     // get the current body being orbited using its parent node in the menu
     // then look it up in the body catalog
     var strBodyName = w2ui['menu'].get('activeVessels', vesselID).parent.id.split("-")[0];
-    var bodyData = [];
-    bodyCatalog.forEach(function(item, index) { if (item.Body == strBodyName) { bodyData = item; return; }});
+    var bodyData = bodyCatalog.find(o => o.Body === strBodyName);
     
     // type of vessel so we can color things appropriately
     var strVesselType = w2ui['menu'].get('activeVessels', vesselID).img.split("-")[1];
@@ -417,42 +431,39 @@ function figureClick(object) {
   if (object.includes("36") || object.includes("37")) {
 
     // show the planet data
-    if (isCatalogDataLoaded) {
+    if (bodyCatalog.length) {
       var strBodyName = ggbApplet.getCaption(object.charAt(0) + "36");
       var strHTML = "<table style='border: 0px; border-collapse: collapse;'><tr><td style='vertical-align: top; width: 256px;'>";
-      var bodyIndex;
-      for (bodyIndex=0; bodyIndex<bodyCatalog.length; bodyIndex++) {
-        if (strBodyName == bodyCatalog[bodyIndex].Body) { break; }
-      }
-      if (bodyCatalog[bodyIndex].Image) {
-        strHTML += "<img src='" + bodyCatalog[bodyIndex].Image + "' style='background-color:black;'>";
+      var bodyData = bodyCatalog.find(o => o.Body === strBodyName);
+      if (bodyData.Image) {
+        strHTML += "<img src='" + bodyData.Image + "' style='background-color:black;'>";
       } else {
         strHTML += "<img src='https://i.imgur.com/advRrs1.png'>";
       }
-      strHTML += "<i><p>&quot;" + bodyCatalog[bodyIndex].Desc + "&quot;</p></i><p><b>- Kerbal Astronomical Society</b></p></td>";
+      strHTML += "<i><p>&quot;" + bodyData.Desc + "&quot;</p></i><p><b>- Kerbal Astronomical Society</b></p></td>";
       strHTML += "<td style='vertical-align: top; padding: 0px; margin-top: 0px'><b>Orbital Data</b>";
-      strHTML += "<p>Apoapsis: " + bodyCatalog[bodyIndex].Ap + " m<br>";
-      strHTML += "Periapsis: " + bodyCatalog[bodyIndex].Pe + " m<br>";
-      strHTML += "Eccentricity: " + bodyCatalog[bodyIndex].Ecc + "<br>";
-      strHTML += "Inclination: "+ bodyCatalog[bodyIndex].Inc + "&deg;<br>";
-      strHTML += "Orbital period: " + formatTime(bodyCatalog[bodyIndex].ObtPeriod, false) + "<br>";
-      strHTML += "Orbital velocity: " + bodyCatalog[bodyIndex].ObtVel + " m/s</p><p><b>Physical Data</b></p>";
-      strHTML += "<p>Equatorial radius: " + numeral(bodyCatalog[bodyIndex].Radius*1000).format('0,0') + " m<br>";
-      strHTML += "Mass: " + bodyCatalog[bodyIndex].Mass.replace("+", "e") + " kg<br>";
-      strHTML += "Density: " + bodyCatalog[bodyIndex].Density + " kg/m<sup>3</sup><br>";
-      gravity = bodyCatalog[bodyIndex].SurfaceG.split(":");
+      strHTML += "<p>Apoapsis: " + bodyData.Ap + " m<br>";
+      strHTML += "Periapsis: " + bodyData.Pe + " m<br>";
+      strHTML += "Eccentricity: " + bodyData.Ecc + "<br>";
+      strHTML += "Inclination: "+ bodyData.Inc + "&deg;<br>";
+      strHTML += "Orbital period: " + formatTime(bodyData.ObtPeriod, false) + "<br>";
+      strHTML += "Orbital velocity: " + bodyData.ObtVel + " m/s</p><p><b>Physical Data</b></p>";
+      strHTML += "<p>Equatorial radius: " + numeral(bodyData.Radius*1000).format('0,0') + " m<br>";
+      strHTML += "Mass: " + bodyData.Mass.replace("+", "e") + " kg<br>";
+      strHTML += "Density: " + bodyData.Density + " kg/m<sup>3</sup><br>";
+      gravity = bodyData.SurfaceG.split(":");
       strHTML += "Surface gravity: " + gravity[0] + " m/s<sup>2</sup> <i>(" + gravity[1] + " g)</i><br>";
-      strHTML += "Escape velocity: " + bodyCatalog[bodyIndex].EscapeVel + " m/s<br>";
-      strHTML += "Rotational period: " + formatTime(bodyCatalog[bodyIndex].SolarDay, true) + "<br>";
-      strHTML += "Atmosphere: " + bodyCatalog[bodyIndex].Atmo + "</p>";
-      if (bodyCatalog[bodyIndex].Moons) { strHTML += "<p><b>Moons</b></p><p>" + bodyCatalog[bodyIndex].Moons + "</p>"; }
+      strHTML += "Escape velocity: " + bodyData.EscapeVel + " m/s<br>";
+      strHTML += "Rotational period: " + formatTime(bodyData.SolarDay, true) + "<br>";
+      strHTML += "Atmosphere: " + bodyData.Atmo + "</p>";
+      if (bodyData.Moons) { strHTML += "<p><b>Moons</b></p><p>" + bodyData.Moons + "</p>"; }
       if (getParameterByName("body") == "Kerbin-System" && strBodyName == "Kerbin") {
         strHTML += "<p><span onclick='showMap()' style='cursor: pointer; color: blue; text-decoration: none;'>View Surface</span> | ";
-      } else if (bodyCatalog[bodyIndex].Moons && !$("#contentHeader").html().includes(strBodyName)) {
+      } else if (bodyData.Moons && !$("#contentHeader").html().includes(strBodyName)) {
         strHTML += "<span class='fauxLink' onclick='loadBody(&quot;" + strBodyName + "-System&quot;)'>View System</span> | "
       }
       // no nodes to show unless body has an eccentric or inclined orbit
-      if ((parseFloat(bodyCatalog[bodyIndex].Ecc) || parseFloat(bodyCatalog[bodyIndex].Inc)) && !$("#contentHeader").html().includes(strBodyName)) {
+      if ((parseFloat(bodyData.Ecc) || parseFloat(bodyData.Inc)) && !$("#contentHeader").html().includes(strBodyName)) {
         if (ggbOrbits.find(o => o.ID === object.charAt(0)).showNodes) {
           strHTML += "<span onclick='nodesToggle(&quot;" + object + "&quot;)' style='cursor: pointer; color: blue;'>Hide Nodes</span>"
         } else {

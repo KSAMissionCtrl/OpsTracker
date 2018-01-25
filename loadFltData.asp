@@ -37,7 +37,7 @@ do until rsFlightData.eof
   flightDataStr = left(flightDataStr, len(flightDataStr)-1)
   
   'for now, use a low resolution since users can not zoom in much
-  rsFlightData.move 30
+  rsFlightData.move 15
   if not rsFlightData.eof then flightDataStr = flightDataStr & "|"
 loop
 

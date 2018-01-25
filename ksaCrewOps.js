@@ -3,7 +3,6 @@ function loadCrew(crew) {
   
   // can't continue if menu data hasn't loaded. Try again in 250ms
   if (!isMenuDataLoaded) {
-    isPageLoad = true;
     setTimeout(function() {
       loadCrew(crew);
     }, 250)
@@ -16,6 +15,7 @@ function loadCrew(crew) {
     if (window.location.href.includes("&")) var strURL = window.location.href;
     else var strURL = "http://www.kerbalspace.agency/Tracker/tracker.asp?crew=" + crew;
     history.replaceState({Type: pageType, ID: crew}, document.title, strURL);
+    
   // don't create a new entry if this is the same page being reloaded
   } else if (history.state.ID != crew) {
     history.pushState({Type: pageType, ID: crew}, document.title, "http://www.kerbalspace.agency/Tracker/tracker.asp?crew=" + crew);
@@ -29,6 +29,7 @@ function loadCrew(crew) {
     // get the full crew listing and start to show them all
     crewList = extractIDs(w2ui['menu'].get('crew').nodes).split(";");
     strCurrentCrew = showFullRoster();
+    loadCrewAJAX();
     document.title = "KSA Operations Tracker - Full Roster";
   } else {
     strCurrentCrew = crew;
@@ -39,41 +40,65 @@ function loadCrew(crew) {
     w2ui['menu'].select(strCurrentCrew);
     w2ui['menu'].expandParents(strCurrentCrew);
     w2ui['menu'].scrollIntoView(strCurrentCrew);
+    
+    // load the data
+    loadCrewAJAX();
   }
-  
-  // don't call for the DB load if the page is just loading when this is the full crew roster - the menu loading will do this for us upon sorting
-  if (pageType == "crewFull" && !isPageLoad || pageType != "crewFull") {
-    loadDB("loadCrewData.asp?crew=" + strCurrentCrew + "&UT=" + currUT(), loadCrewAJAX);
-  }
-  isPageLoad = false;
 }
 
 function loadCrewAJAX(xhttp) {
 
-  // parse out the data
-  var crewData = xhttp.responseText.split("^");
+  // if the call was made to get data, we should have data
+  if (xhttp) {
   
-  // parse the recordsets
-  var stats = rsToObj(crewData[0]);
-  var history = rsToObj(crewData[3]);
-  var bkgnd = rsToObj(crewData[5]);
-  
-  // parse the missions and the ribbons
-  var missions = [];
-  var ribbons = [];
-  crewData[1].split("|").forEach(function(item, index) { missions.push(rsToObj(item)); });
-  crewData[2].split("|").forEach(function(item, index) { ribbons.push(rsToObj(item)); });
-  missions.reverse();
-  
-  // check for any future updates
-  var updates = crewData[4].split("~");
-  if (updates[0] != "null") { updatesList.push({ Type: "crew;stats", ID: strCurrentCrew, UT: parseFloat(updates[0]) }); }
-  if (updates[1] != "null") { updatesList.push({ Type: "crew;mission", ID: strCurrentCrew, UT: parseFloat(updates[1]) }); }
-  if (updates[2] != "null") { updatesList.push({ Type: "crew;ribbon", ID: strCurrentCrew, UT: parseFloat(updates[2]) }); }
-  if (updates[3] != "null") { updatesList.push({ Type: "crew;backgrnd", ID: strCurrentCrew, UT: parseFloat(updates[3]) }); }
-  
-  // store all the data
-  currentCrewData = { Stats: stats, History: history, Background: bkgnd, Missions: missions, Ribbons: ribbons };
+    // parse out the data
+    var data = xhttp.responseText.split("Typ3crew")[1].split("*");
+    
+    // the crew catalog data is first
+    var catalog = rsToObj(data[0]);
+    
+    // the various tables of the current record are next
+    var dataTables = data[1].split("^");
+    var stats = rsToObj(dataTables[0]);
+    var history = rsToObj(dataTables[3]);
+    
+    // parse the missions and the ribbons
+    var missions = [];
+    var ribbons = [];
+    if (dataTables[1] != "null") dataTables[1].split("|").forEach(function(item, index) { missions.push(rsToObj(item)); });
+    if (dataTables[2] != "null") dataTables[2].split("|").forEach(function(item, index) { ribbons.push(rsToObj(item)); });
+    missions.reverse();
+    
+    // store all the data
+    currentCrewData = { Stats: stats,
+                        History: history,
+                        Background: catalog,
+                        Missions: missions,
+                        Ribbons: ribbons };
+    
+  // otherwise we are looking up the data in the catalog
+  } else {
+    var crew = opsCatalog.find(o => o.ID === strCurrentCrew);
+
+    // extract the data if it is available
+    if (crew && crew.CurrentData) {
+      currentCrewData = crew.CurrentData;
+
+    // get the data if it hasn't been loaded yet, then callback to wait for it to load
+    } else if (crew && !crew.CurrentData && !crew.isLoading) {
+      crew.isLoading = true;
+      loadDB("loadOpsData.asp?db=" + strCurrentCrew + "&ut=" + currUT() + "&type=crew" + "&pastUT=NaN", loadOpsDataAJAX);
+      return setTimeout(loadCrewAJAX, 100);
+    
+    // callback to check the catalog again if it's loading right now
+    } else if (crew && !crew.CurrentData && crew.isLoading) {
+      return setTimeout(loadCrewAJAX, 100);
+    
+    // if it's not in the catalog we need to do a data call for a deceased crew member
+    } else if (!crew) {
+      return loadDB("loadOpsData.asp?db=" + strCurrentCrew + "&ut=" + currUT() + "&type=crew" + "&pastUT=NaN", loadCrewAJAX);
+    }
+  }
   
   // what to do with it?
   // full crew roster show data in a tooltip for each crew member
@@ -92,7 +117,7 @@ function loadCrewAJAX(xhttp) {
     
     // call for another?
     strCurrentCrew = showFullRoster();
-    if (strCurrentCrew) { loadDB("loadCrewData.asp?crew=" + strCurrentCrew + "&UT=" + currUT(), loadCrewAJAX); }
+    if (strCurrentCrew) loadCrewAJAX();
   
   // individual crew page
   } else {
@@ -172,7 +197,7 @@ function loadCrewAJAX(xhttp) {
     $("#dataField5").fadeIn();
     
     // distance traveled
-    $("#dataField6").html("<b>Total Mission Distance Traveled:</b> " + currentCrewData.Stats.Distance);
+    $("#dataField6").html("<b>Total Mission Distance Traveled:</b> " + numeral(currentCrewData.Stats.Distance).format('0,0.000') + "km");
     $("#dataField6").fadeIn();
     
     // status
@@ -201,21 +226,17 @@ function loadCrewAJAX(xhttp) {
     // ribbons
     if (currentCrewData.Ribbons.length) {
       $("#dataField10").empty();
-      $("#dataField11").empty();
-      $("#dataField11").fadeOut();
-      console.log(currentCrewData.Ribbons);
       currentCrewData.Ribbons.forEach(function(item, index) {
         
         // only show this ribbon if it has not been supersceded by a later one
         if (!item.Override || (item.Override && item.Override > currUT())) {
           $("#dataField10").append("<img src='http://www.blade-edge.com/Roster/Ribbons/" + item.Ribbon + ".png' width='109px' class='tip' style='cursor: help' data-tipped-options=\"maxWidth: 150, position: 'top'\" title='<center>" + item.Title + "<hr>" + item.Desc + "<hr>Earned on " + UTtoDateTime(item.UT).split("@")[0].trim() + "</center>'>");
         } else {
-          $("#dataField11").fadeIn();
-          if (!$("#dataField11").html()) {
-            $("#dataField11").html("<center><span class='fauxLink' onclick='ribbonDisplayToggle()'>Show All Ribbons</span></center>");
-          }
+          $("#dataField11").html("<center><span class='fauxLink' onclick='ribbonDisplayToggle()'>Show All Ribbons</span></center>");
         }
       });
+      if (currentCrewData.Ribbons.find(o => o.Override)) $("#dataField11").fadeIn();
+      else $("#dataField11").fadeOut();
     } else { $("#dataField10").html("<center>No Ribbons Yet Awarded</center>"); }
     $("#dataField10").fadeIn();
     
@@ -272,4 +293,11 @@ function ribbonDisplayToggle() {
   if (is_touch_device()) { showOpt = 'click'; }
   else { showOpt = 'mouseenter'; }
   Tipped.create('.tip', { showOn: showOpt, hideOnClickOutside: is_touch_device(), hideOn: {element: 'mouseleave'} });
+}
+
+function updateCrewData(crew) {
+
+  // fetch new data. Add a second just to make sure we don't get the same current data
+  crew.isLoading = true;
+  loadDB("loadOpsData.asp?db=" + crew.ID + "&UT=" + (currUT()+1) + "&type=" + crew.Type + "&pastUT=NaN", loadOpsDataAJAX);
 }

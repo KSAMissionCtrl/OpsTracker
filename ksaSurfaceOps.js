@@ -397,8 +397,6 @@ function loadFltDataAJAX(xhttp) {
   // make sure we don't overstep bounds on the color index
   if (fltPaths.length >= surfacePathColors.length) var colorIndex = fltPaths.length - (surfacePathColors.length * (Math.floor(fltPaths.length)/surfacePathColors.length));
   else var colorIndex = fltPaths.length;
-  console.log(colorIndex);
-  console.log(surfacePathColors[colorIndex]);
   fltPaths.push({ Info: fltInfo,
                   Data: fltData,
                   Layer: L.featureGroup(),
@@ -436,7 +434,6 @@ function loadFltDataAJAX(xhttp) {
   
   // delete the loading layer and add the flight path layer to the control and the map
   layerControl.removeLayer(fltTrackDataLoad);
-  console.log(fltPaths[fltPaths.length-1].Color);
   layerControl.addOverlay(fltPaths[fltPaths.length-1].Layer, "<i class='fa fa-minus' style='color: " + fltPaths[fltPaths.length-1].Color + "'></i> " + fltPaths[fltPaths.length-1].Info.Title, "Flight Tracks");
   fltPaths[fltPaths.length-1].Layer.addTo(surfaceMap)
   

@@ -34,16 +34,10 @@ do
   
   'only bother moving further if this vessel is on the menu
   if ref > -2 then
-  
-    'output the record in name/value pairs for each field
-    record = ""
-    for each field in rsCrafts.fields
-      record = record & replace(field.name, " ", "") & "~" & field.value & "`"
-    next
-    
-    'get rid of the last symbol and ouput
-    record = left(record, len(record)-1)
-    response.write record
+    response.write(rsCrafts.fields.item("DB") & "~" &_
+                   rsCrafts.fields.item("Vessel") & "~" &_
+                   rsCrafts.fields.item("SOI") & "~" &_
+                   rsCrafts.fields.item("Type"))
   end if
   
   'advance the recordset point and repeat
@@ -76,16 +70,9 @@ do
                    rsKerbal.fields.item("Assignment") & "~" &_
                    rsCrew.fields.item("Kerbal") & "~")
   else
-    response.write("null~null~null~null~" & rsCrew.fields.item("Kerbal") & "~")
+    response.write("null~" & rsCrew.fields.item("Kerbal"))
   end if
   
-  'check for a future record
-  if not rsKerbal.eof then rsKerbal.MoveNext
-  if not rsKerbal.eof then 
-    response.write(rsKerbal.fields.item("UT"))
-  else
-    response.write("null")
-  end if
   conn2.Close
   Set conn2 = nothing
   rsCrew.movenext

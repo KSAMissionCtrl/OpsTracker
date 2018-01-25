@@ -74,7 +74,7 @@ if (navigator.appVersion.indexOf("Linux")!=-1) OSName="Linux";
 UT = ((clock.getTime() - foundingMoment) / 1000);
 if (clock.toString().search("Standard") >= 0) UT -= 3600; UTC = 5;
 if (window.location.href.includes("&showUT") || window.location.href.includes("?showUT")) console.log(UT + " " + clock);
-if (getParameterByName("ut") && getCookie("missionctrl")) UT = parseFloat(getParameterByName("ut"));
+if (getParameterByName("setut") && getCookie("missionctrl")) UT = parseFloat(getParameterByName("setut"));
 
 // handle history state changes
 window.onpopstate = function(event) { swapContent(event.state.Type, event.state.ID, event.state.UT); };
@@ -254,8 +254,7 @@ function setupContent() {
 // switch from one layout to another
 function swapContent(newPageType, id, ut, flt) {
   if (!flt && isNaN(ut)) flt = ut;
-  if (!ut && !getParameterByName("ut")) ut = "NaN";
-  if (!ut && getParameterByName("ut")) ut = parseInt(getParameterByName("ut"));
+  if (!ut) ut = "NaN";
   
   // initial page load
   if (!pageType) {
@@ -334,22 +333,20 @@ function swapContent(newPageType, id, ut, flt) {
     clearSurfacePlots();
     
     // if a vessel orbital calculation is in progress, pause it as long as we are switching to a crew page or a body view of the same current one
-    if (!layerControl.options.collapsed && (newPageType.includes("crew") || (newPageType == "body" && id.split("-")[0] == strCurrentBody))) {
-      layerControl._collapse();
-      layerControl.options.collapsed = true;
-      layerControl.removeLayer(obtTrackDataLoad);
+    if (!layerControl.options.collapsed && (newPageType.includes("crew") || (newPageType == "body" && id == strCurrentBody))) {
+      if (obtTrackDataLoad) layerControl.removeLayer(obtTrackDataLoad);
       obtTrackDataLoad = null;
       strPausedVesselCalculation = strCurrentVessel;
+      checkDataLoad()
     
     // we're heading to another body, which means we have to stop all calculations if any are in progress
-    } else if (!layerControl.options.collapsed && (newPageType == "body" && id.split("-")[0] != strCurrentBody)) {
-      layerControl._collapse();
-      layerControl.options.collapsed = true;
-      layerControl.removeLayer(obtTrackDataLoad);
+    } else if (!layerControl.options.collapsed && (newPageType == "body" && id != strCurrentBody)) {
+      if (obtTrackDataLoad) layerControl.removeLayer(obtTrackDataLoad);
       obtTrackDataLoad = null;
       isOrbitRenderTerminated = true;
       clearSurfacePlots();
       currentVesselPlot = null;
+      checkDataLoad()
     }
   } else if (pageType == "crew") {
     if (newPageType == "body") {
@@ -420,6 +417,7 @@ function swapContent(newPageType, id, ut, flt) {
 
 // updates various content on the page depending on what update event has been triggered
 function updatePage(updateEvent) {
+  console.log(updateEvent);
   if (updateEvent.Type.includes("menu")) {
     menuUpdate(updateEvent.Type.split(";")[1], updateEvent.ID);
   } else if (updateEvent.Type == "event") {
@@ -428,22 +426,13 @@ function updatePage(updateEvent) {
     } else if (updateEvent.ID == "maneuver") {
       writeManeuverinfo(updateEvent.Data);
     } else { console.log("unknown event update"); console.log(updateEvent); }
-  } else if (updateEvent.Type.includes("vessel") && updateEvent.ID == strCurrentVessel) {
-    if (updateEvent.Type.split(";")[1] == "orbit") {
-      console.log("vessel orbit update");
-    } else if (updateEvent.Type.split(";")[1] == "flightplan") {
-      console.log("vessel flightplan update");
-    } else if (updateEvent.Type.split(";")[1] == "data") {
-      console.log("vessel data update");
-    } else if (updateEvent.Type.split(";")[1] == "resources") {
-      console.log("vessel resources update");
-    } else if (updateEvent.Type.split(";")[1] == "crew") {
-      console.log("vessel crew update");
-    } else if (updateEvent.Type.split(";")[1] == "comms") {
-      console.log("vessel comms update");
-    } else if (updateEvent.Type.split(";")[1] == "ports") {
-      console.log("vessel ports update");
-    } else { console.log("unknown vessel update"); console.log(updateEvent); }
+  } else if (updateEvent.Type == "object") {
+    var obj = opsCatalog.find(o => o.ID === updateEvent.ID);
+    if (!obj) console.log("unknown update object" + obj);
+    else {
+      if (obj.Type == "crew") updateCrewData(obj);
+      if (obj.Type == "vessel") updateVesselData(obj);
+    }
   }
 }
 
@@ -471,6 +460,132 @@ function swapTwitterSource(swap, source) {
   $("#twitterTimeline").html("<a class='twitter-timeline' data-chrome='nofooter noheader' data-height='500' href='"+ source + "'>Loading Tweets...</a> <script async src='https://platform.twitter.com/widgets.js' charset='utf-8'>");
 }
 
+// loads data for all active vessels and crew so they can be updated
+function loadOpsDataAJAX(xhttp) {
+
+  if (xhttp) {
+  
+    // header info uses "Typ3" as a unique identifier to parse out the craft ID from the rest of the data
+    // since I ran out of special character to use
+    var object = opsCatalog.find(o => o.ID === xhttp.responseText.split("Typ3")[0]);
+    
+    // decide what type of object we are parsing data for
+    if (xhttp.responseText.includes("Typ3vessel")) {
+      
+      // separate the main data segments
+      var data = xhttp.responseText.split("Typ3vessel")[1].split("*");
+      
+      // the vessel catalog data is first
+      var catalog = rsToObj(data[0]);
+      
+      // the various tables of the current record are next
+      var dataTables = data[1].split("^");
+      var craft = rsToObj(dataTables[0]);
+      var resources = rsToObj(dataTables[1]);
+      var crew = rsToObj(dataTables[2]);
+      var comms = rsToObj(dataTables[3]);
+      var obt = rsToObj(dataTables[4]);
+      var ports = rsToObj(dataTables[5]);
+      object.CurrentData = { CatalogData: catalog,
+                             CraftData: craft,
+                             Resources: resources,
+                             Manifest: crew,
+                             Comms: comms,
+                             Orbit: obt,
+                             Ports: ports,
+                             History: null, LaunchTimes: null, OrbitalHistory: null };
+      
+      // followed by any future events
+      dataTables = data[2].split("^");
+      craft = rsToObj(dataTables[0]);
+      resources = rsToObj(dataTables[1]);
+      crew = rsToObj(dataTables[2]);
+      comms = rsToObj(dataTables[3]);
+      obt = rsToObj(dataTables[4]);
+      ports = rsToObj(dataTables[5]);
+      object.FutureData = { CraftData: craft,
+                            Resources: resources,
+                            Manifest: crew,
+                            Comms: comms,
+                            Orbit: obt,
+                            Ports: ports };
+      
+      // parse and sort the histories and launch times
+      var history = [];
+      var launches = [];
+      var obtHist = [];
+      data[3].split("|").forEach(function(item) { history.push({UT: parseFloat(item.split("~")[0]), Title: item.split("~")[1]}); });
+      if (data[4].split("|") != "null") {
+        data[4].split("|").forEach(function(item) { launches.push({UT: parseFloat(item.split("~")[0]), LaunchTime: parseFloat(item.split("~")[1])}); });
+      }
+      if (data[5].split("|") != "null") {
+        data[5].split("|").forEach(function(item) { obtHist.push({UT: parseFloat(item.split("~")[0]), Period: parseFloat(item.split("~")[1])}); });
+      }
+      object.CurrentData.History = history;
+      object.CurrentData.LaunchTimes = launches;
+      object.CurrentData.OrbitalHistory = obtHist;
+    } else if (xhttp.responseText.includes("Typ3crew")) {
+      var data = xhttp.responseText.split("Typ3crew")[1].split("*");
+      
+      // the crew catalog data is first
+      var catalog = rsToObj(data[0]);
+      
+      // the various tables of the current record are next
+      var dataTables = data[1].split("^");
+      var stats = rsToObj(dataTables[0]);
+      var history = rsToObj(dataTables[3]);
+      
+      // parse the missions and the ribbons
+      var missions = [];
+      var ribbons = [];
+      if (dataTables[1] != "null") dataTables[1].split("|").forEach(function(item, index) { missions.push(rsToObj(item)); });
+      if (dataTables[2] != "null") dataTables[2].split("|").forEach(function(item, index) { ribbons.push(rsToObj(item)); });
+      missions.reverse();
+      object.CurrentData = { Stats: stats,
+                           History: history,
+                           Background: catalog,
+                           Missions: missions,
+                           Ribbons: ribbons };
+      
+      // followed by any future events
+      var dataTables = data[2].split("^");
+      var stats = rsToObj(dataTables[0]);
+      var history = rsToObj(dataTables[3]);
+      
+      // parse the missions and the ribbons
+      var missions = [];
+      var ribbons = [];
+      if (dataTables[1] != "null") dataTables[1].split("|").forEach(function(item, index) { missions.push(rsToObj(item)); });
+      if (dataTables[2] != "null") dataTables[2].split("|").forEach(function(item, index) { ribbons.push(rsToObj(item)); });
+      missions.reverse();
+      object.FutureData = { Stats: stats,
+                          History: history,
+                          Missions: missions,
+                          Ribbons: ribbons };
+    }
+    object.isLoading = false;
+    
+    // determine if this object has a future event that we need to plan an update for
+    var updateUT = null;
+    for (var prop in object.FutureData) {
+      if (object.FutureData[prop] && 
+      ((object.FutureData[prop].UT && !updateUT) || (object.FutureData[prop].UT && object.FutureData[prop].UT < updateUT))) { 
+        updateUT = object.FutureData[prop].UT
+      }
+    }
+    if (updateUT) updatesList.push({ Type: "object", ID: object.ID, UT: updateUT });
+  }
+  
+  // is there anything that has not been loaded yet?
+  for (i=0; i<opsCatalog.length; i++) {
+    if (!opsCatalog[i].isLoading && !opsCatalog[i].CurrentData) {
+      opsCatalog[i].isLoading = true;
+      loadDB("loadOpsData.asp?db=" + opsCatalog[i].ID + "&UT=" + currUT() + "&type=" + opsCatalog[i].Type + "&pastUT=NaN", loadOpsDataAJAX);
+    }
+  }
+  if (!opsCatalog.find(o => o.isLoading === true)) console.log(opsCatalog);
+}
+
 // loop and update the page every second
 // no longer using setInterval, as suggested via
 // http://stackoverflow.com/questions/6685396/execute-the-first-time-the-setinterval-without-delay
@@ -485,13 +600,21 @@ function swapTwitterSource(swap, source) {
   checkPageUpdate();
 
   // update the clocks
-  $('#ksctime').html(UTtoDateTime(currUT(), true));
-  if (launchCountdown > 0) { $('#launchCountdown').html(formatTime(launchCountdown, false)); }
-  else if (launchCountdown == 0) { $('#launchCountdown').html("LIFTOFF!!"); }
-  if (maneuverCountdown > 0) { $('#maneuverCountdown').html(formatTime(maneuverCountdown, false)); }
-  else if (maneuverCountdown == 0) { $('#maneuverCountdown').html("EXECUTE!!"); }
-  launchCountdown--;
-  maneuverCountdown--;
+  $('#ksctime').html(UTtoDateTime(currUT(true), true));
+  if (!isNaN(launchCountdown) && launchCountdown - currUT(true) > 0) $('#launchCountdown').html(formatTime(launchCountdown - currUT(true), false));
+  else if (!isNaN(launchCountdown) && launchCountdown - currUT(true) <= 0) { 
+    $('#launchCountdown').html("LIFTOFF!!"); 
+    launchCountdown = "null";
+    strCurrentLaunchVessel = null;
+    setTimeout(function() { loadDB("loadEventData.asp?UT=" + currUT(), loadEventsAJAX); }, 5000);
+  }
+  if (!isNaN(maneuverCountdown) && maneuverCountdown - currUT(true) > 0) $('#maneuverCountdown').html(formatTime(maneuverCountdown - currUT(true), false));
+  else if (!isNaN(maneuverCountdown) && maneuverCountdown - currUT(true) <= 0) { 
+    $('#maneuverCountdown').html("EXECUTE!!"); 
+    maneuverCountdown = "null";
+    strCurrentManeuverVessel = null;
+    setTimeout(function() { loadDB("loadEventData.asp?UT=" + currUT(), loadEventsAJAX); }, 5000);
+  }
   
   // update the dynamic orbit figure
   if (isGGBAppletLoaded) { ggbApplet.setValue("UT", currUT()); }

@@ -1,8 +1,7 @@
 // available content height: 480px (initially) / 885px (Max)
 function loadVessel(vessel, givenUT) {
-  if (!givenUT && !getParameterByName("ut")) { return loadVessel(vessel, "NaN"); }
-  if (!givenUT && getParameterByName("ut")) { return loadVessel(vessel, parseInt(getParameterByName("ut"))); }
-  
+  if (!givenUT) givenUT = "NaN";
+
   // can't continue if menu data hasn't loaded. Try again in 250ms
   if (!isMenuDataLoaded) {
     setTimeout(function() {
@@ -18,21 +17,24 @@ function loadVessel(vessel, givenUT) {
   // if this is the first page to load, replace the current history
   var strURL;
   if (!history.state) {
-    if (window.location.href.includes("&")) var strURL = window.location.href;
+    if (window.location.href.includes("&ut")) {
+      var strURL = window.location.href;
+      givenUT = parseInt(getParameterByName("ut"));
+    }
     else var strURL = "http://www.kerbalspace.agency/Tracker/tracker.asp?vessel=" + vessel;
     history.replaceState({Type: "vessel", ID: vessel, UT: parseInt(givenUT)}, document.title, strURL);
     
   // don't create a new entry if this is the same page being reloaded
   // however if its the same page but a different time, then that's different
-  } else if (history.state.ID != vessel || (history.state.ID == vessel && (currentVesselData && !isNaN(givenUT) && currentVesselData.CraftData.UT != givenUT))) {
-    if (isNaN(givenUT)) { var strURL = "http://www.kerbalspace.agency/Tracker/tracker.asp?vessel=" + vessel; }
-    else { var strURL = "http://www.kerbalspace.agency/Tracker/tracker.asp?vessel=" + vessel + "&ut=" + givenUT; }
+  } else if (history.state.ID != vessel || (history.state.ID == vessel && givenUT != "NaN")) {
+    if (givenUT != "NaN") var strURL = "http://www.kerbalspace.agency/Tracker/tracker.asp?vessel=" + vessel + "&ut=" + givenUT;
+    else var strURL = "http://www.kerbalspace.agency/Tracker/tracker.asp?vessel=" + vessel;
     history.pushState({Type: "vessel", ID: vessel, UT: parseInt(givenUT)}, document.title, strURL);
   } 
   
-  // if this vessel is not in the current catalog, we need to load a new system
+  // if this vessel is not in the current system, we need to load a new system
   // we can't call this function until the menu is loaded
-  if (!orbitCatalog.length || !orbitCatalog.find(o => o.ID === vessel)) { loadBody(getParentSystem(vessel)); }
+  if (getParentSystem(vessel) != strCurrentBody) loadBody(getParentSystem(vessel));
   
   strCurrentVessel = vessel;
   
@@ -47,9 +49,8 @@ function loadVessel(vessel, givenUT) {
   $("#dataLabel").html("Loading Data...");
   
   // put out the call for the vessel data
-  console.log("loadVesselData.asp?craft=" + strCurrentVessel + "&UT=" + currUT() + "&UTjump=" + givenUT);
-  loadDB("loadVesselData.asp?craft=" + strCurrentVessel + "&UT=" + currUT() + "&UTjump=" + givenUT, loadVesselDataAJAX);
   currentVesselData = null;
+  loadVesselAJAX(null, givenUT);
   
   // add vessel-specific buttons to the map
   addMapResizeButton();
@@ -71,152 +72,202 @@ function loadVessel(vessel, givenUT) {
   }
 }
 
-// sends out the AJAX call for data to add any vessels to a GeoGebra figure/Leaflet library once it has loaded
-// calls itself repeatedly in the event that the menu is not yet loaded
-function loadVesselOrbits() {
-  if (isMenuDataLoaded) {
-    var strVessels = '';
-    var menuNodes = w2ui['menu'].get(strCurrentBody).nodes;
-    if (menuNodes.length) {
-      console.log(menuNodes);
-      strVessels = extractIDs(menuNodes);
-      if (strVessels.length) { 
-        loadDB("loadVesselOrbitData.asp?crafts=" + strVessels.substring(0, strVessels.length-1) + "&UT=" + currUT() + "&UTjump=" + getParameterByName("ut"), loadVesselOrbitsAJAX);
-        if (pageType == "body") {
-          $("#vesselLoaderMsg").spin({ scale: 0.35, position: 'relative', top: '8px', left: '0px' });
-          $("#vesselLoaderMsg").fadeIn();
-        }
-        return true;
-      } else { return false; }
-    }
-  } else { setTimeout(loadVesselOrbits, 250); }
-}
-
-// parses data that allows the GeoGebra figure and Leaflet map to display orbital/maneuver data for vessels in the current system view
-function loadVesselOrbitsAJAX(xhttp) {
-
-  // separate the vessels
-  var vessels = xhttp.responseText.split("*");
-  
-  // parse the data blocks for each vessel
-  vessels.forEach(function(item, index) {
-  
-    // parse the fields and create the table objects
-    var dataBlocks = item.split("|");
-    var strVesselDB = dataBlocks[0];
-    var orbit = rsToObj(dataBlocks[1]);
-    var flightplan = rsToObj(dataBlocks[2]);
-    orbitCatalog.push({ ID: strVesselDB, Orbit: orbit, Flightplan: flightplan });
-    if (orbitCatalog[orbitCatalog.length-1].Orbit) { addGGBOrbit(strVesselDB, orbit); }
-    
-    // check for future updates
-    var updates = dataBlocks[3].split("~");
-    if (updates[0] != "null") { updatesList.push({ Type: "vessel;orbit", ID: strVesselDB, UT: updates[0] }); }
-    if (updates[1] != "null") { updatesList.push({ Type: "vessel;flightplan", ID: strVesselDB, UT: updates[0] }); }
-  });
-  console.log(orbitCatalog);
-  isOrbitDataLoaded = true;
-  isGGBAppletLoaded = true;
-  isGGBAppletLoading = false;
-  if (pageType == "body") {
-    $("#vesselLoaderMsg").spin(false);
-    $("#vesselLoaderMsg").fadeOut();
-    if ($("#figure").is(":visible")) { $("#vesselOrbitTypes").fadeIn(); }
-  }
-  
-  // make sure a quick figure switch doesn't declutter things too fast
-  timeoutHandle = setTimeout(declutterGGB, 2500);
+// parses data used to display information on parts for vessels
+function loadPartsAJAX(xhttp) {
+  xhttp.responseText.split("^").forEach(function(item) { partsCatalog.push(rsToObj(item)); });
+  console.log(partsCatalog);
 }
 
 // parses data that shows up for the vessel currently selected in the menu
-function loadVesselDataAJAX(xhttp) {
+function loadVesselAJAX(xhttp, time) {
   
-  // separate the data tables and update data
-  var dataTables = xhttp.responseText.split("*")[0].split("^");
-  var updates = xhttp.responseText.split("*")[1].split("~");
+  // if the call was made to get data, we should have data
+  if (xhttp) {
+
+    // separate the main data segments
+    var data = xhttp.responseText.split("Typ3vessel")[1].split("*");
+    
+    // the vessel catalog data is first
+    var catalog = rsToObj(data[0]);
+    
+    // the various tables of the current record are next
+    var dataTables = data[1].split("^");
+    var craft = rsToObj(dataTables[0]);
+    var resources = rsToObj(dataTables[1]);
+    var crew = rsToObj(dataTables[2]);
+    var comms = rsToObj(dataTables[3]);
+    var obt = rsToObj(dataTables[4]);
+    var ports = rsToObj(dataTables[5]);
+
+    // parse and sort the histories and launch times
+    var history = [];
+    var launches = [];
+    var obtHist = [];
+    data[3].split("|").forEach(function(item) { history.push({UT: parseFloat(item.split("~")[0]), Title: item.split("~")[1]}); });
+    if (data[4].split("|") != "null") {
+      data[4].split("|").forEach(function(item) { launches.push({UT: parseFloat(item.split("~")[0]), LaunchTime: parseFloat(item.split("~")[1])}); });
+    }
+    if (data[5].split("|") != "null") {
+      data[5].split("|").forEach(function(item) { obtHist.push({UT: parseFloat(item.split("~")[0]), Period: parseFloat(item.split("~")[1])}); });
+    }
+    
+    // store all the data
+    currentVesselData = { CatalogData: catalog,
+                          CraftData: craft,
+                          Resources: resources,
+                          Manifest: crew,
+                          Comms: comms,
+                          Ports: ports,
+                          Orbit: obt,
+                          History: history,
+                          LaunchTimes: launches,
+                          OrbitalHistory: obtHist };
   
-  // parse the fields and create the table objects
-  var data = rsToObj(dataTables[0]);
-  var resources = rsToObj(dataTables[1]);
-  var crew = rsToObj(dataTables[2]);
-  var comms = rsToObj(dataTables[3]);
-  var obt = rsToObj(dataTables[4]);
-  var ports = rsToObj(dataTables[5]);
+  // try to fetch the data from the catalog
+  } else {
   
-  // check for future updates
-  if (updates[0] != "null") { updatesList.push({ Type: "vessel;data", ID: strCurrentVessel, UT: parseFloat(updates[0]) }); }
-  if (updates[1] != "null") { updatesList.push({ Type: "vessel;resources", ID: strCurrentVessel, UT: parseFloat(updates[1]) }); }
-  if (updates[2] != "null") { updatesList.push({ Type: "vessel;crew", ID: strCurrentVessel, UT: parseFloat(updates[2]) }); }
-  if (updates[3] != "null") { updatesList.push({ Type: "vessel;comms", ID: strCurrentVessel, UT: parseFloat(updates[3]) }); }
-  if (updates[4] != "null") { updatesList.push({ Type: "vessel;ports", ID: strCurrentVessel, UT: parseFloat(updates[4]) }); }
-  
-  // parse and sort the histories and launch times
-  var history = [];
-  var launches = [];
-  var obtHist = [];
-  xhttp.responseText.split("*")[2].split("|").forEach(function(item, index) { history.push({UT: parseFloat(item.split("~")[0]), Title: item.split("~")[1]}); });
-  if (xhttp.responseText.split("*")[3].split("|") != "null") {
-    xhttp.responseText.split("*")[3].split("|").forEach(function(item, index) { launches.push({UT: parseFloat(item.split("~")[0]), LaunchTime: parseFloat(item.split("~")[1])}); });
+    // if we are not looking for a past date, we may be able to just pull from catalog data
+    if (time == "NaN") {
+      var vessel = opsCatalog.find(o => o.ID === strCurrentVessel);
+      
+      // copy over the data if it is available
+      // was originally just doing currentVesselData = vessel.CurrentData but this created a reference link!!
+      if (vessel && vessel.CurrentData) {
+        currentVesselData = {};
+        for (var prop in vessel.CurrentData) {
+          currentVesselData[prop] = vessel.CurrentData[prop];
+        }
+
+      // get the data if it hasn't been loaded yet, then callback to wait for it to load
+      } else if (vessel && !vessel.CurrentData && !vessel.isLoading) {
+        vessel.isLoading = true;
+        loadDB("loadOpsData.asp?db=" + strCurrentVessel + "&ut=" + currUT() + "&type=vessel" + "&pastUT=NaN", loadOpsDataAJAX);
+        return setTimeout(loadVesselAJAX, 100, xhttp, time);
+      
+      // callback to check the catalog again if it's loading right now
+      } else if (vessel && !vessel.CurrentData && vessel.isLoading) {
+        return setTimeout(loadVesselAJAX, 100, xhttp, time);
+      
+      // if it's not in the catalog we need to do a data call for an inactive vessel
+      } else if (!vessel) {
+        return loadDB("loadOpsData.asp?db=" + strCurrentVessel + "&ut=" + currUT() + "&type=vessel" + "&pastUT=NaN", loadVesselAJAX);
+      }
+    
+    // we are getting a past event that we will need to fetch new data for
+    } else {
+      return loadDB("loadOpsData.asp?db=" + strCurrentVessel + "&ut=" + currUT() + "&type=vessel" + "&pastUT=" + time, loadVesselAJAX);
+    }
   }
-  if (xhttp.responseText.split("*")[4].split("|") != "null") {
-    xhttp.responseText.split("*")[4].split("|").forEach(function(item, index) { obtHist.push({UT: parseFloat(item.split("~")[0]), Period: parseFloat(item.split("~")[1])}); });
-  }
-  
-  // parse the catalog data
-  var cat = rsToObj(xhttp.responseText.split("*")[5]);
-  
-  // store all the data
-  currentVesselData = { CatalogData: cat, CraftData: data, Resources: resources, Manifest: crew, Comms: comms, Ports: ports, Orbit: obt, History: history, LaunchTimes: launches, OrbitalHistory: obtHist };
-  console.log(currentVesselData);
   
   // kill all spinners
   $("#infoBox").spin(false);
   $("#contentBox").spin(false);
+  
+  // setup the content header sections
+  $("#contentHeader").html("<span id='patches'></span>&nbsp;<span id='title'></span>&nbsp;<span id='tags'></span>");
 
   // update with the vessel name for this record
-  $("#contentHeader").html(currentVesselData.CraftData.CraftName);
-  document.title = "KSA Operations Tracker" + " - " + currentVesselData.CraftData.CraftName + ": " + currentVesselData.CraftData.CraftDescTitle;
+  vesselTitleUpdate();
   
   // tag loading
-  //$("#contentHeader").spin({ scale: 0.35, position: 'relative', top: '10px', left: (((955/2) + (strVesselName.width('bold 32px arial')/2)) + 10) +'px' });
+  //$("#tags").spin({ scale: 0.35, position: 'relative', top: '10px', left: (((955/2) + (strVesselName.width('bold 32px arial')/2)) + 10) +'px' });
   
   // update the twitter timeline?
+  vesselTimelineUpdate();
+  
+  $("#patches").empty();
+  if (currentVesselData.CatalogData.Patches) {
+    
+    // program patch
+    $("#patches").append("<a target='_blank' href='" + currentVesselData.CatalogData.Patches.split("|")[0].split(";")[2] + "'><img id='programPatch' class='tipped' data-tipped-options=\"position: 'bottom'\" style='height: 35px;' title=\"<center>Click to view the " + currentVesselData.CatalogData.Patches.split("|")[0].split(";")[0] + " Program page</center><br /><img src='" + currentVesselData.CatalogData.Patches.split("|")[0].split(";")[1] + "'>\" src='" + currentVesselData.CatalogData.Patches.split("|")[0].split(";")[1] + "'></a>&nbsp;");
+    
+    // vessel patch?
+    if (currentVesselData.CatalogData.Patches.split("|").length > 1) {
+      $("#patches").append("<a target='_blank' href='" + currentVesselData.CatalogData.Patches.split("|")[1].split(";")[2] + "'><img id='vesselPatch' class='tipped' data-tipped-options=\"position: 'bottom'\" style='height: 35px; cursor: pointer;' title=\"<center>Click to view the " + currentVesselData.CatalogData.Patches.split("|")[1].split(";")[0] + " vessel page</center><br /><img src='" + currentVesselData.CatalogData.Patches.split("|")[1].split(";")[1] + "'>\" src='" + currentVesselData.CatalogData.Patches.split("|")[1].split(";")[1] + "'></a>&nbsp;");
+    }
+
+    // mission patch?
+    if (currentVesselData.CatalogData.Patches.split("|").length > 2) {
+      $("#patches").append("<img id='missionPatch' class='tipped' data-tipped-options=\"position: 'bottom'\" style='height: 35px; cursor: help;' title=\"<img src='" + currentVesselData.CatalogData.Patches.split("|")[2].split(";")[1] + "<br /><center>" + currentVesselData.CatalogData.Patches.split("|")[2].split(";")[0] + "</center>' src='" + currentVesselData.CatalogData.Patches.split("|")[2].split(";")[1] + "'>&nbsp;");
+    }
+  }
+
+  // no orbit data or mission ended? Close the dialog in case it is open
+  if (!currentVesselData.Orbit || isMissionEnded()) $("#mapDialog").dialog("close");
+
+  // display all the updateable data
+  vesselInfoUpdate();
+  vesselMETUpdate();
+  vesselVelocityUpdate();
+  vesselPeUpdate();
+  vesselApUpdate();
+  vesselEccUpdate();
+  vesselIncUpdate();
+  vesselPeriodUpdate();
+  vesselCrewUpdate();
+  vesselResourcesUpdate();
+  vesselCommsUpdate();
+  vesselAddlResUpdate();
+  vesselLastUpdate();
+  vesselHistoryUpdate();
+  vesselContentUpdate();
+  
+  // hide the rest of the fields that are unused for now
+  $("#dataField12").fadeOut();
+  $("#dataField13").fadeOut();
+  $("#dataField14").fadeOut();
+  $("#dataField15").fadeOut();
+  $("#dataField16").fadeOut();
+
+  // create the tooltips
+  // behavior of tooltips depends on the device
+  if (is_touch_device()) { showOpt = 'click'; }
+  else { showOpt = 'mouseenter'; }
+  Tipped.create('.tipped', { showOn: showOpt, hideOnClickOutside: is_touch_device(), detach: false, hideOn: {element: 'mouseleave'} });
+  Tipped.create('.tip-update', { showOn: showOpt, hideOnClickOutside: is_touch_device(), detach: false, hideOn: {element: 'mouseleave'} });
+}
+
+function vesselTimelineUpdate(update) {
+
+  // only check for an existing mission feed if this is an update call, otherwise it could alredy exist from another craft when only switching vessels
   if (currentVesselData.CatalogData.Timeline) { 
     
     // if this timeline is date stamped, don't show it unless we are past the date
     if (currentVesselData.CatalogData.Timeline.split(";").length > 1) {
-      if (currUT() > currentVesselData.CatalogData.Timeline.split(";")[0]) { 
-        swapTwitterSource("Mission Feed", currentVesselData.CatalogData.Timeline.split(";")[1]); 
-      }
-    } else swapTwitterSource("Mission Feed", currentVesselData.CatalogData.Timeline);
+      if (currUT() > parseFloat(currentVesselData.CatalogData.Timeline.split(";")[0])) { 
+        if (!update || (update && !$("#twitterTimelineSelection").html().includes("Mission Feed"))) {
+          swapTwitterSource("Mission Feed", currentVesselData.CatalogData.Timeline.split(";")[1]);
+          if (update) flashUpdate("#twitterTimelineSelection", "#77C6FF", "#FFF");
+        }
+      
+      // not yet to the time, so setup an update call
+      } else updatesList.push({ Type: "object", ID: currentVesselData.CatalogData.DB, UT: parseFloat(currentVesselData.CatalogData.Timeline.split(";")[0]) });
+    } else if (!update) swapTwitterSource("Mission Feed", currentVesselData.CatalogData.Timeline);
   }
-  
-  // no orbit data or mission ended? Close the dialog in case it is open
-  if (!currentVesselData.Orbit || isMissionEnded()) $("#mapDialog").dialog("close");
-
-  // display all the data
-  vesselInfoUpdate();
-  vesselDataUpdate();
-  vesselContentUpdate();
 }
 
-// parses data used to display information on parts for vessels
-function loadPartsAJAX(xhttp) {
-  xhttp.responseText.split("^").forEach(function(item, index) { partsCatalog.push(rsToObj(item)); });
-  console.log(partsCatalog);
+function vesselTitleUpdate(update) {
+  if (update && $("#title").html() != currentVesselData.CraftData.CraftName) {
+    flashUpdate("#title", "#77C6FF", "#FFF");
+    $("#title").html(currentVesselData.CraftData.CraftName);
+    document.title = "KSA Operations Tracker" + " - " + currentVesselData.CraftData.CraftName + ": " + currentVesselData.CraftData.CraftDescTitle;
+  } else {
+    $("#title").html(currentVesselData.CraftData.CraftName);
+    document.title = "KSA Operations Tracker" + " - " + currentVesselData.CraftData.CraftName + ": " + currentVesselData.CraftData.CraftDescTitle;
+  }
 }
 
 // updates all the data in the Info Box
-function vesselInfoUpdate() {
+function vesselInfoUpdate(update) {
   
   // setup the basics
   $("#infoImg").html("<img src='" + getVesselImage() + "'>");
   $("#infoTitle").html(currentVesselData.CraftData.CraftDescTitle);
   $("#infoTitle").attr("class", "infoTitle vessel");
+  if (update) flashUpdate("#infoTitle", "#77C6FF", "#000");
   $("#infoDialog").html(currentVesselData.CraftData.CraftDescContent);
   $("#infoDialog").dialog("option", "title", "Additional Information - " + currentVesselData.CraftData.CraftDescTitle);
   $("#infoDialog").dialog("option", {width: 643, height: 400});
-  $("#partsImg").empty();
   
   // is there a parts overlay?
   if (getPartsHTML()) {
@@ -252,37 +303,10 @@ function vesselInfoUpdate() {
     }, function() {
       isTipShow = false;
     });
-  }
+  } else $("#partsImg").empty();
 }
 
-function vesselDataUpdate() {
-
-  ///////////
-  // Patches
-  ///////////
-  
-  if (currentVesselData.CatalogData.Patches) {
-    var strTitle = $("#contentHeader").html();
-    
-    // program patch
-    $("#contentHeader").html("<a target='_blank' href='" + currentVesselData.CatalogData.Patches.split("|")[0].split(";")[2] + "'><img id='programPatch' class='tipped' data-tipped-options=\"position: 'bottom'\" style='height: 35px;' title=\"<center>Click to view the " + currentVesselData.CatalogData.Patches.split("|")[0].split(";")[0] + " Program page</center><br /><img src='" + currentVesselData.CatalogData.Patches.split("|")[0].split(";")[1] + "'>\" src='" + currentVesselData.CatalogData.Patches.split("|")[0].split(";")[1] + "'></a>&nbsp;");
-    
-    // vessel patch?
-    if (currentVesselData.CatalogData.Patches.split("|").length > 1) {
-      $("#contentHeader").append("<a target='_blank' href='" + currentVesselData.CatalogData.Patches.split("|")[1].split(";")[2] + "'><img id='vesselPatch' class='tipped' data-tipped-options=\"position: 'bottom'\" style='height: 35px; cursor: pointer;' title=\"<center>Click to view the " + currentVesselData.CatalogData.Patches.split("|")[1].split(";")[0] + " vessel page</center><br /><img src='" + currentVesselData.CatalogData.Patches.split("|")[1].split(";")[1] + "'>\" src='" + currentVesselData.CatalogData.Patches.split("|")[1].split(";")[1] + "'></a>&nbsp;");
-    }
-
-    // mission patch?
-    if (currentVesselData.CatalogData.Patches.split("|").length > 2) {
-      $("#contentHeader").append("<img id='missionPatch' class='tipped' data-tipped-options=\"position: 'bottom'\" style='height: 35px; cursor: help;' title=\"<img src='" + currentVesselData.CatalogData.Patches.split("|")[2].split(";")[1] + "<br /><center>" + currentVesselData.CatalogData.Patches.split("|")[2].split(";")[0] + "</center>' src='" + currentVesselData.CatalogData.Patches.split("|")[2].split(";")[1] + "'>&nbsp;");
-    }
-    
-    $("#contentHeader").append(strTitle);
-  } 
-  
-  ///////////////////
-  // MET/Launch Time
-  ///////////////////
+function vesselMETUpdate(update) {
   
   // get the current launch time - defer to mission start time if it's available
   var launchTime = currentVesselData.CatalogData.MissionStartTime;
@@ -295,27 +319,28 @@ function vesselDataUpdate() {
   
   // show the data field
   // we don't know the start time right now
+  var strHTML;
   if (!launchTime) {
-    $("#dataField0").html("<b>" + currentVesselData.CraftData.MissionStartTerm + ":</b><span style='cursor:help' class='tip-update' data-tipped-options=\"inline: 'metTip'\"> <u>To Be Determined</u>");
+    strHTML = "<b>" + currentVesselData.CraftData.MissionStartTerm + ":</b><span style='cursor:help' class='tip-update' data-tipped-options=\"inline: 'metTip'\"> <u>To Be Determined</u>";
     
   // post the current launch time
   } else {
-    $("#dataField0").html("<b>" + currentVesselData.CraftData.MissionStartTerm + ":</b><span style='cursor:help' class='tip-update' data-tipped-options=\"inline: 'metTip'\"> <u>" + UTtoDateTime(launchTime) + " UTC</u>");
+    strHTML = "<b>" + currentVesselData.CraftData.MissionStartTerm + ":</b><span style='cursor:help' class='tip-update' data-tipped-options=\"inline: 'metTip'\"> <u>" + UTtoDateTime(launchTime) + " UTC</u>";
   }
   $("#dataField0").fadeIn();
   
-  // decide what goes in the tooltip - clear it so we can use append for all scenarios
-  $("#metTip").empty();
+  // decide what goes in the tooltip
+  var strTip = "";
   
   // we don't know yet
-  if (!launchTime) { $("#metTip").append("launch time currently being assessed<br>"); }
+  if (!launchTime) { strTip = "launch time currently being assessed<br>"; }
 
   // if this is a past event and there was more than one launch time, find what time equals the current UT
   // if it is in a state greater than the current one, that's the actual current launch time
   if (currentVesselData.CraftData.PastEvent && currentVesselData.LaunchTimes.length > 1) {
     for (i=currentVesselData.LaunchTimes.length-1; i>=0; i--) {
       if (currentVesselData.LaunchTimes[i].UT <= currUT() && currentVesselData.LaunchTimes[i].UT > currentVesselData.CraftData.UT) {
-        $("#metTip").append("Actual Launch Time: " + UTtoDateTime(currentVesselData.LaunchTimes[i].LaunchTime) + " UTC<br>");
+        strTip += "Actual Launch Time: " + UTtoDateTime(currentVesselData.LaunchTimes[i].LaunchTime) + " UTC<br>";
         launchTime = currentVesselData.LaunchTimes[i].LaunchTime
         break;
       }
@@ -325,47 +350,92 @@ function vesselDataUpdate() {
   // add further details based on mission status
   // mission hasn't started yet
   if (currUT() <= launchTime) {
-    $("#metTip").append("Time to Launch: <span data='" + launchTime + "' id='metCount'>" + formatTime(launchTime-currUT()) + "</span>");
+    strTip += "Time to Launch: <span data='" + launchTime + "' id='metCount'>" + formatTime(launchTime-currUT()) + "</span>";
     
   // mission is ongoing
   } else if (!isMissionEnded()) {
-    $("#metTip").append("Mission Elapsed Time: <span data='" + launchTime + "' id='metCount'>" + formatTime(currUT()-launchTime) + "</span>");
+    strTip += "Mission Elapsed Time: <span data='" + launchTime + "' id='metCount'>" + formatTime(currUT()-launchTime) + "</span>";
     
   // mission has ended
   } else if (isMissionEnded()) {
-    $("#metTip").append(getMissionEndMsg() + "<br>Mission Elapsed Time: <span id='metCount'>" + formatTime(getMissionEndTime()-launchTime) + "</span>");
+    strTip += getMissionEndMsg() + "<br>Mission Elapsed Time: <span id='metCount'>" + formatTime(getMissionEndTime()-launchTime) + "</span>";
   }
-  
-  ////////////////
-  // Orbital Data
-  ////////////////
-  
+  if (update && strHTML + strTip != currentVesselData.CraftData.HTML) {
+    flashUpdate("#dataField0", "#77C6FF", "#FFF");
+    $("#dataField0").html(strHTML);
+    $("#metTip").html(strTip);
+  } else {
+    $("#dataField0").html(strHTML);
+    $("#metTip").html(strTip);
+  }
+  currentVesselData.CraftData.HTML = strHTML = strTip;
+}
+
+function vesselVelocityUpdate(update) {
   if (currentVesselData.Orbit) {
-  
-    // VELOCITY
-    $("#avgVelTip").html("<span id='avgVelUpdate'>Periapsis: " + numeral(currentVesselData.Orbit.VelocityPe).format('0.000') + "km/s<br>Apoapsis: " + numeral(currentVesselData.Orbit.VelocityAp).format('0.000') + "km/s</span>");
-    $("#dataField1").html("<b><u><span style='cursor:help' class='tip-update' data-tipped-options=\"inline: 'avgVelTip'\">Average Velocity:</u></b> " + numeral((currentVesselData.Orbit.VelocityPe+currentVesselData.Orbit.VelocityAp)/2).format('0.000') + "km/s");
+    var strTip = "<span id='avgVelUpdate'>Periapsis: " + numeral(currentVesselData.Orbit.VelocityPe).format('0.000') + "km/s<br>Apoapsis: " + numeral(currentVesselData.Orbit.VelocityAp).format('0.000') + "km/s</span>";
+    var strHTML = "<b><u><span style='cursor:help' class='tip-update' data-tipped-options=\"inline: 'avgVelTip'\">Average Velocity:</u></b> " + numeral((currentVesselData.Orbit.VelocityPe+currentVesselData.Orbit.VelocityAp)/2).format('0.000') + "km/s";
     $("#dataField1").fadeIn();
-    
-    // PERIAPSIS
-    $("#dataField2").html("<b>Periapsis:</b> " + numeral(currentVesselData.Orbit.Periapsis).format('0,0.000') + "km");
+    if (update && (!currentVesselData.Orbit.VelocityHTML || (currentVesselData.Orbit.VelocityHTML && strHTML + strTip != currentVesselData.Orbit.VelocityHTML))) {
+      flashUpdate("#dataField1", "#77C6FF", "#FFF");
+      $("#avgVelTip").html(strTip);
+      $("#dataField1").html(strHTML);
+    } else {
+      $("#avgVelTip").html(strTip);
+      $("#dataField1").html(strHTML);
+    }
+    currentVesselData.Orbit.VelocityHTML = strHTML + strTip;
+  } else $("#dataField1").fadeOut();
+}
+
+function vesselPeUpdate(update) {
+  if (currentVesselData.Orbit) {
+    var strHTML = "<b>Periapsis:</b> " + numeral(currentVesselData.Orbit.Periapsis).format('0,0.000') + "km";
     $("#dataField2").fadeIn();
-    
-    // APOAPSIS
-    $("#dataField3").html("<b>Apoapsis:</b> " + numeral(currentVesselData.Orbit.Apoapsis).format('0,0.000') + "km");
+    if (update && strHTML != $("#dataField2").html()) {
+      flashUpdate("#dataField2", "#77C6FF", "#FFF");
+      $("#dataField2").html(strHTML);
+    } else $("#dataField2").html(strHTML);
+  } else $("#dataField2").fadeOut();
+}
+
+function vesselApUpdate(update) {
+  if (currentVesselData.Orbit) {
+    var strHTML = "<b>Apoapsis:</b> " + numeral(currentVesselData.Orbit.Apoapsis).format('0,0.000') + "km";
     $("#dataField3").fadeIn();
-    
-    // ECCENTRICITY
-    $("#dataField4").html("<b>Eccentricity:</b> " + numeral(currentVesselData.Orbit.Eccentricity).format('0.000'));
+    if (update && strHTML != $("#dataField3").html()) {
+      flashUpdate("#dataField3", "#77C6FF", "#FFF");
+      $("#dataField3").html(strHTML);
+    } else $("#dataField3").html(strHTML);
+  } else $("#dataField3").fadeOut();
+}
+
+function vesselEccUpdate(update) {
+  if (currentVesselData.Orbit) {
+    var strHTML = "<b>Eccentricity:</b> " + numeral(currentVesselData.Orbit.Eccentricity).format('0.000');
     $("#dataField4").fadeIn();
-    
-    // INCLINATION
-    $("#dataField5").html("<b>Inclination:</b> " + numeral(currentVesselData.Orbit.Inclination).format('0.000') + "&deg;");
+    if (update && strHTML != $("#dataField4").html()) {
+      flashUpdate("#dataField4", "#77C6FF", "#FFF");
+      $("#dataField4").html(strHTML);
+    } else $("#dataField4").html(strHTML);
+  } else $("#dataField4").fadeOut();
+}
+
+function vesselIncUpdate(update) {
+  if (currentVesselData.Orbit) {
+    var strHTML = "<b>Inclination:</b> " + numeral(currentVesselData.Orbit.Inclination).format('0.000') + "&deg;";
     $("#dataField5").fadeIn();
-    
-    // ORBITAL PERIOD
-    $("#periodTip").html(formatTime(currentVesselData.Orbit.OrbitalPeriod));
-    $("#dataField6").html("<b>Orbital Period:</b> <u><span style='cursor:help' class='tip-update' data-tipped-options=\"inline: 'periodTip'\">" + numeral(currentVesselData.Orbit.OrbitalPeriod).format('0,0.000') + "s</span></u>");
+    if (update && strHTML != $("#dataField5").html()) {
+      flashUpdate("#dataField5", "#77C6FF", "#FFF");
+      $("#dataField5").html(strHTML);
+    } else $("#dataField5").html(strHTML);
+  } else $("#dataField5").fadeOut();
+}
+
+function vesselPeriodUpdate(update) {
+  if (currentVesselData.Orbit) {
+    var strTip = formatTime(currentVesselData.Orbit.OrbitalPeriod);
+    var strHTML = "<b>Orbital Period:</b> <u><span style='cursor:help' class='tip-update' data-tipped-options=\"inline: 'periodTip'\">" + numeral(currentVesselData.Orbit.OrbitalPeriod).format('0,0.000') + "s</span></u>";
     $("#dataField6").fadeIn();
 
     // calculate the  number of orbits
@@ -380,32 +450,35 @@ function vesselDataUpdate() {
       // add the orbits done during this time
       numOrbits += timeDiff/currentVesselData.OrbitalHistory[obt].Period;
     }
-    if (numOrbits > 0) { $("#periodTip").append("<br>Number of Orbits: " + numeral(numOrbits).format('0,0.00')); }
-  } else {
-    $("#dataField1").fadeOut();
-    $("#dataField2").fadeOut();
-    $("#dataField3").fadeOut();
-    $("#dataField4").fadeOut();
-    $("#dataField5").fadeOut();
-    $("#dataField6").fadeOut();
-  }
-  
-  ////////
-  // Crew
-  ////////
-  
+    if (numOrbits > 0) { strTip += "<br>Number of Orbits: " + numeral(numOrbits).format('0,0.00'); }
+    if (update && (!currentVesselData.Orbit.OrbitalPeriodHTML || (currentVesselData.Orbit.OrbitalPeriodHTML && strHTML + strTip != currentVesselData.Orbit.OrbitalPeriodHTML))) {
+      flashUpdate("#dataField6", "#77C6FF", "#FFF");
+      $("#dataField6").html(strHTML);
+      $("#periodTip").html(strTip);
+    } else {
+      $("#dataField6").html(strHTML);
+      $("#periodTip").html(strTip);
+    }
+    currentVesselData.Orbit.OrbitalPeriodHTML = strHTML + strTip;
+  } else $("#dataField6").fadeOut();
+}
+
+function vesselCrewUpdate(update) {
   if (currentVesselData.Manifest) {
-    $("#dataField7").html("<b>Crew:</b> ");
+    var strHTML = "<b>Crew:</b> ";
     currentVesselData.Manifest.Crew.split("|").forEach(function(item, index) {
-      $("#dataField7").append("<img class='tipped' title='" + item.split(";")[0] + "<br>Boarded on: " + UTtoDateTime(parseFloat(item.split(";")[2])).split("@")[0] + "<br>Mission Time: " + formatTime(currUT() - parseFloat(item.split(";")[2])).split(",")[0] + "' style='cursor: pointer' src='http://www.kerbalspace.agency/Tracker/favicon.ico'></a>&nbsp;");
+      strHTML += "<img class='tipped' title='" + item.split(";")[0] + "<br>Boarded on: " + UTtoDateTime(parseFloat(item.split(";")[2])).split("@")[0] + "<br>Mission Time: " + formatTime(currUT() - parseFloat(item.split(";")[2])).split(",")[0] + "' style='cursor: pointer' src='http://www.kerbalspace.agency/Tracker/favicon.ico'></a>&nbsp;";
     });
     $("#dataField7").fadeIn();
+    if (update && (!currentVesselData.Manifest.CrewHTML || (currentVesselData.Manifest.CrewHTML && strHTML != currentVesselData.Manifest.CrewHTML))) {
+      flashUpdate("#dataField7", "#77C6FF", "#FFF");
+      $("#dataField7").html(strHTML);
+    } else $("#dataField7").html(strHTML);
+    currentVesselData.Manifest.CrewHTML = strHTML;
   } else $("#dataField7").fadeOut();
+}
   
-  /////////////
-  // Resources
-  /////////////
-  
+function vesselResourcesUpdate(update) {
   if (currentVesselData.Resources) {
     var strHTML = "<span class='tipped' style='cursor:help' title='Total &Delta;v: ";
     if (currentVesselData.Resources.DeltaV !== null) { strHTML += numeral(currentVesselData.Resources.DeltaV).format('0.000') + "km/s"; }
@@ -417,59 +490,75 @@ function vesselDataUpdate() {
     if (currentVesselData.Resources.ResourceMass !== null) { strHTML += numeral(currentVesselData.Resources.ResourceMass).format('0.000') + "t"; }
     else { strHTML += "N/A"; }
     strHTML += "'><b><u>Resources:</u></b></span> ";
-    $("#dataField8").html(strHTML);
     if (currentVesselData.Resources.Resources) {
       currentVesselData.Resources.Resources.split("|").forEach(function(item, index) {
-        $("#dataField8").append("<img class='tipped' title='" + item.split(";")[1] + "' style='cursor: pointer' src='" + item.split(";")[0] + ".png'></a>&nbsp;");
+        strHTML += "<img class='tipped' title='" + item.split(";")[1] + "' style='cursor: pointer' src='" + item.split(";")[0] + ".png'></a>&nbsp;";
       });
-    } else $("#dataField8").append("None");
+    } else strHTML += "None";
     $("#dataField8").fadeIn();
+    if (update && (!currentVesselData.Resources.HTML || (currentVesselData.Resources.HTML && strHTML != currentVesselData.Resources.HTML))) {
+      flashUpdate("#dataField8", "#77C6FF", "#FFF");
+      $("#dataField8").html(strHTML);
+    } else $("#dataField8").html(strHTML);
+    currentVesselData.Resources.HTML = strHTML;
   } else $("#dataField8").fadeOut();
-  
-  /////////
-  // Comms
-  /////////
-  
+}
+
+function vesselCommsUpdate(update) {
   if (currentVesselData.Comms) {
     strHTML = "<span class='tipped' style='cursor:help' title='";
     if (currentVesselData.Comms.Connection) { strHTML += "Signal Delay: <0.003s"; }
     else { strHTML += "No Connection"; }
-    $("#dataField9").html(strHTML + "'><b><u>Comms:</u></b></span> ");
+    strHTML += "'><b><u>Comms:</u></b></span> ";
     if (currentVesselData.Comms.Comms) {
       currentVesselData.Comms.Comms.split("|").forEach(function(item, index) {
-        $("#dataField9").append("<img class='tipped' title='" + item.split(";")[1] + "' style='cursor: pointer' src='" + item.split(";")[0] + ".png'></a>&nbsp;");
+        strHTML += "<img class='tipped' title='" + item.split(";")[1] + "' style='cursor: pointer' src='" + item.split(";")[0] + ".png'></a>&nbsp;";
       });
-    } else $("#dataField9").append("None");
+    } else strHTML += "None";
     $("#dataField9").fadeIn();
+    if (update && (!currentVesselData.Comms.CommsHTML || (currentVesselData.Comms.CommsHTML && strHTML != currentVesselData.Comms.CommsHTML))) {
+      flashUpdate("#dataField9", "#77C6FF", "#FFF");
+      $("#dataField9").html(strHTML);
+    } else $("#dataField9").html(strHTML);
+    currentVesselData.Comms.CommsHTML = strHTML;
   } else $("#dataField9").fadeOut();
-  
-  ////////////////////////
-  // Additional Resources
-  ////////////////////////
-  
+}
+
+function vesselAddlResUpdate(update) {
   if (currentVesselData.CatalogData.AddlRes) {
-    $("#dataField10").html("<b>Additional Resources:</b> ");
+    var newRes;
+    var strHTML;
     currentVesselData.CatalogData.AddlRes.split("|").forEach(function(item) {
-      if (item.split(";")[0] < currUT()) {
-        $("#dataField10").append("<span class='tipped' title='" + item.split(";")[1] + "'><a target='_blank' style='color: black' href='" + item.split(";")[2] + "'><i class='" + AddlResourceItems[item.split(";")[1]] + "'></i></a></span>&nbsp;");
+      if (parseFloat(item.split(";")[0]) < currUT()) {
+        strHTML += "<span class='tipped' title='" + item.split(";")[1] + "'><a target='_blank' style='color: black' href='" + item.split(";")[2] + "'><i class='" + AddlResourceItems[item.split(";")[1]] + "'></i></a></span>&nbsp;";
+      
+      // if the item isn't visible yet, save the UT so we can add an update notice for it
+      } else {
+        if (!newRes) newRes = parseFloat(item.split(";")[0]);
+        else if (parseFloat(item.split(";")[0]) < newRes) newRes = parseFloat(item.split(";")[0]);
       }
     });
-    $("#dataField10").fadeIn();
+    if (strHTML) {
+      if (update && (!currentVesselData.CatalogData.AddlResHTML || (currentVesselData.CatalogData.AddlResHTML && strHTML != currentVesselData.CatalogData.AddlResHTML))) {
+        flashUpdate("#dataField10", "#77C6FF", "#FFF");
+        $("#dataField10").html("<b>Additional Resources:</b> " + strHTML);
+      } else $("#dataField10").html("<b>Additional Resources:</b> " + strHTML);
+      $("#dataField10").fadeIn();
+      currentVesselData.CatalogData.AddlResHTML = strHTML;
+    }
+    if (newRes) updatesList.push({ Type: "object", ID: currentVesselData.CatalogData.DB, UT: newRes });
   } else $("#dataField10").fadeOut();
-  
-  ///////////////
-  // Last Update
-  ///////////////
-  
+}
+
+function vesselLastUpdate(update) {
   $("#distanceTip").html(UTtoDateTimeLocal(currentVesselData.CraftData.UT))
   if (currentVesselData.CraftData.DistanceTraveled) $("#distanceTip").append("<br>Current Distance Traveled: " + currentVesselData.CraftData.DistanceTraveled + "km");
   $("#dataField11").html("<b>Last Update:</b> <u><span class='tip-update' style='cursor:help' data-tipped-options=\"inline: 'distanceTip'\">" + UTtoDateTime(currentVesselData.CraftData.UT) + "</span></u>")
   $("#dataField11").fadeIn()
+  if (update) flashUpdate("#dataField11", "#77C6FF", "#FFF");
+}
 
-  ///////////////////
-  // Mission History
-  ///////////////////
-  
+function vesselHistoryUpdate() {
   $("#missionHistory").fadeIn()
   
   // reset the history
@@ -509,20 +598,6 @@ function vesselDataUpdate() {
     }));
     $("#nextEvent").prop("disabled", false);
   }
-  
-  // hide the rest of the fields
-  $("#dataField12").fadeOut();
-  $("#dataField13").fadeOut();
-  $("#dataField14").fadeOut();
-  $("#dataField15").fadeOut();
-  $("#dataField16").fadeOut();
-
-  // create the tooltips
-  // behavior of tooltips depends on the device
-  if (is_touch_device()) { showOpt = 'click'; }
-  else { showOpt = 'mouseenter'; }
-  Tipped.create('.tipped', { showOn: showOpt, hideOnClickOutside: is_touch_device(), detach: false, hideOn: {element: 'mouseleave'} });
-  Tipped.create('.tip-update', { showOn: showOpt, hideOnClickOutside: is_touch_device(), detach: false, hideOn: {element: 'mouseleave'} });
 }
 
 function vesselContentUpdate() {
@@ -573,25 +648,25 @@ function vesselContentUpdate() {
     }
     launchsiteMarker.openPopup(); 
     
-    // close the popup after 5 seconds
+    // close the popup after 5 seconds if this is a past event or a prelaunch state
     // make sure to reset the timeout in case the page has been loaded with new data before the 5s expire
     clearTimeout(mapMarkerTimeout);
-    mapMarkerTimeout = setTimeout(function () { 
-      launchsiteMarker.closePopup(); 
-    }, 5000);
+    if (currentVesselData.CraftData.PastEvent || strLaunchIconCaption) {
+      mapMarkerTimeout = setTimeout(function () { 
+        launchsiteMarker.closePopup(); 
+      }, 5000);
+    }
     
   // dynamic map with orbital information
   } else if (currentVesselData.CraftData.Content.charAt(0) == "!" && !currentVesselData.CraftData.Content.includes("[")) {
-  
-    // if the mission is ongoing, we need the orbital catalog so if it's not loaded with our data, call again later
-    if (!isMissionEnded() && !orbitCatalog.find(o => o.ID === strCurrentVessel)) { setTimeout(function() { vesselContentUpdate(); }, 250); return; }
   
     // extract the data
     var data = currentVesselData.CraftData.Content.split("!")[1].split("|");
 
     // only show dynamic information if this is a current state in an ongoing mission
-    // note we can't use the PastEvent property here because a past event could still use the same orbital data, so compare to what's loaded for GGB
-    if (!isMissionEnded() && currentVesselData.Orbit.UT == orbitCatalog.find(o => o.ID === strCurrentVessel).Orbit.UT) {
+    // note we can't use the PastEvent property here because a past event could still use the same orbital data
+    // so instead we will compare it to the current data that was loaded for its catalog object
+    if (!isMissionEnded() && currentVesselData.Orbit.UT == opsCatalog.find(o => o.ID === strCurrentVessel).CurrentData.Orbit.UT) {
       $("#content").fadeOut();
       $("#map").css("visibility", "visible");
       $("#map").fadeIn();
@@ -618,7 +693,6 @@ function vesselContentUpdate() {
         
       // one image
       } else {
-        console.log("old data one image");
         $("#content").html("<img class='fullCenter contentTip' title='" + data[1] + "' src='" + data[0] + "'>");
       }
     
@@ -629,15 +703,6 @@ function vesselContentUpdate() {
   } else if (currentVesselData.CraftData.Content.charAt(0) == "!" && currentVesselData.CraftData.Content.includes("[")) {
     $("#map").css("visibility", "visible");
     $("#map").fadeIn();
-  
-    // we need the orbital catalog so if it's not loaded with our data, call again later
-    if (!orbitCatalog.find(o => o.ID === strCurrentVessel)) { setTimeout(function() { vesselContentUpdate(); }, 250); return; }
-
-    // only show dynamic information if this is a current state
-    if (currentVesselData.Orbit.UT == orbitCatalog.find(o => o.ID === strCurrentVessel).Orbit.UT) {
-    // we're looking at old orbital data
-    } else {
-    }
   
     $("#content").fadeOut();
 
@@ -681,7 +746,7 @@ $("#infoBox").hover(function() {
 
 // upon selection of a new list item, take the user to that event
 $("#prevEvent").change(function () {
-  if ($("#prevEvent").val()) { loadVessel(strCurrentVessel, $("#prevEvent").val()); }
+  if ($("#prevEvent").val()) { loadVessel(strCurrentVessel, parseFloat($("#prevEvent").val())); }
 });
 $("#nextEvent").change(function () {
   
@@ -696,7 +761,7 @@ $("#nextEvent").change(function () {
         click: function() { $("#siteDialog").dialog("close"); }
       }]);
       $("#siteDialog").dialog("open");
-    } else loadVessel(strCurrentVessel, $("#nextEvent").val());
+    } else loadVessel(strCurrentVessel, parseFloat($("#nextEvent").val()));
   }
 });
 
@@ -707,7 +772,7 @@ function showInfoDialog() {
 
 // provides full details for all vessel parts, ensures the parts catalog is loaded
 function assignPartInfo() {
-  if (!partsCatalog.length) { setTimeout(assignPartInfo, 500); }
+  if (!partsCatalog.length) { setTimeout(assignPartInfo, 100); }
   else {
     $("area").each(function( index ) {
       if ($(this ).attr("title").substr(0,1) == "&") {
@@ -745,6 +810,67 @@ function assignPartInfo() {
       Tipped.create('.nonFFTip', { showOn: showOpt, hideOnClickOutside: is_touch_device(), target: 'mouse', offset: { y: 2 } });
     }
   }
+}
+
+function updateVesselData(vessel) {
+  
+  // perform a live data update if we are looking at the vessel in question at the moment at its current record
+  if (pageType == "vessel" && strCurrentVessel == vessel.ID && !currentVesselData.CraftData.PastEvent) {
+  
+    // update the current data with the updated data and then carry out updates to individual sections
+    for (var futureProp in vessel.FutureData) {
+      for (var prop in currentVesselData) {
+      
+        // only update data that exists and is current for this time 
+        if (futureProp == prop && vessel.FutureData[futureProp] && vessel.FutureData[futureProp].UT <= currUT()) {
+          currentVesselData[prop] = vessel.FutureData[futureProp];
+        }
+      }
+    }
+    vesselTimelineUpdate(true);
+    vesselInfoUpdate(true);
+    vesselVelocityUpdate(true);
+    vesselPeUpdate(true);
+    vesselApUpdate(true);
+    vesselEccUpdate(true);
+    vesselIncUpdate(true);
+    vesselPeriodUpdate(true);
+    vesselCrewUpdate(true);
+    vesselResourcesUpdate(true);
+    vesselCommsUpdate(true);
+    vesselAddlResUpdate(true);
+    vesselMETUpdate(true);
+    vesselLastUpdate(true);
+    vesselHistoryUpdate();
+    console.log(vessel);
+    if (vessel.CurrentData.CraftData.Content != vessel.FutureData.CraftData.Content) vesselContentUpdate();
+    
+    // create the tooltips
+    // behavior of tooltips depends on the device
+    if (is_touch_device()) { showOpt = 'click'; }
+    else { showOpt = 'mouseenter'; }
+    Tipped.create('.tipped', { showOn: showOpt, hideOnClickOutside: is_touch_device(), detach: false, hideOn: {element: 'mouseleave'} });
+    Tipped.create('.tip-update', { showOn: showOpt, hideOnClickOutside: is_touch_device(), detach: false, hideOn: {element: 'mouseleave'} });
+  }
+  
+  // check the current launch time for this UT if this vessel is listed in the event calendar
+  if (strCurrentLaunchVessel == vessel.ID) {
+    var launchTime;
+    for (i=vessel.CurrentData.LaunchTimes.length-1; i>=0; i--) {
+      launchTime = vessel.CurrentData.LaunchTimes[i].LaunchTime;
+      if (vessel.CurrentData.LaunchTimes[i].UT <= currUT()) break;
+    }
+    
+    // if we have a new launchtime for this update we need to refresh the events calendar
+    if (launchCountdown != launchTime) {
+      $("#launch").spin({ scale: 0.5, position: 'relative', top: '20px', left: '50%' });
+      loadDB("loadEventData.asp?UT=" + (currUT()+1), loadEventsAJAX);
+    }
+  }
+  
+  // fetch new data. Add a second just to make sure we don't get the same current data
+  vessel.isLoading = true;
+  loadDB("loadOpsData.asp?db=" + vessel.ID + "&UT=" + (currUT()+1) + "&type=" + vessel.Type + "&pastUT=NaN", loadOpsDataAJAX);
 }
 
 // depends on whether we are referenceing a UT that is the current time or not

@@ -26,6 +26,7 @@ String.prototype.width = function(font) {
 // call up an AJAX query and assign it to a callback function
 // https://www.w3schools.com/xml/ajax_xmlhttprequest_response.asp
 function loadDB(url, cFunction) {
+  console.log(url);
   var xhttp;
   xhttp=new XMLHttpRequest();
   xhttp.onreadystatechange = function() {
@@ -136,7 +137,10 @@ function capitalizeFirstLetter(string) {
 
 // makes sure the current UT returned is proper for all considerations
 // currently just convert from ms to s
-function currUT() { return UT + (tickDelta / 1000); }
+function currUT(round) { 
+  if (round) return Math.round(UT + (tickDelta / 1000)); 
+  else return UT + (tickDelta / 1000); 
+}
 
 // need to keep original date static so to get the current time we have to just update a new date object
 function currTime() { return new Date(clock.getTime() + tickDelta); }
@@ -266,4 +270,16 @@ function getCookie(cname) {
     if (c.indexOf(name) == 0) return c.substring(name.length, c.length);
   }
   return "";
+}
+
+// flashes some color on the element to bring attention to it when it updates
+// https://stackoverflow.com/questions/38370854/making-a-div-flash-just-once
+function flashUpdate(element, startColor, endColor) {
+  $(element).animate({
+    "background-color": startColor
+  }, 50, function () {
+    $(element).animate({
+      "background-color": endColor
+    }, 500);
+  });
 }
