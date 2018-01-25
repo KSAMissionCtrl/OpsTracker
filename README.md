@@ -30,13 +30,13 @@ The following JavaScript libraries are used:
 
 ### Known Issues
 
-- **Operations Tracker is currently in active development, so visiting the page may cause browser errors, failures to load, etc. However after it has been worked on it is left in a usable state**
+- **Operations Tracker is currently in active development with work being done on the live page, so visiting at times may cause browser errors, failures to load, etc. However after it has been worked on it is left in a usable state**
 - Leaflet map can be finicky in a number of ways - most notably it doesn't mousewheel zoom centered on the cursor and can sometimes load showing off the edge of the map or refuse to load tiles. It can also fail to render paths and markers or not allow you to properly hover for information over paths. Generally these issues can all be fixed by upsizing/downsizing or going fullscreen
 - Leaflet map tiles can load slowly or not fully. If any grey tiles appear, changing zoom levels up/down and back again will display cached tiles and force a reload for any missing tiles
 - The downsized default map view for vessel pages does not interpret coordinates properly, so the info control is disabled as well as some features, but everything works fine if you size up the map view
-- In rare instances the menu will fail to load properly on initial page load. A full refresh (Ctrl+F5) seems to fix it every time
 - Collapsing/Expanding the [Operations Menu](https://github.com/KSAMissionCtrl/OpsTracker/wiki/Navigation) can sometimes cause the entire area to go blank the next time something in it is clicked on
 - Sometimes the flight information popup will fail to close when a location pin is selected or the data removed
+- Ground tracks calculated for vessels are supposed to be redrawn if the vessel is re-visited before another vessel with orbital data is viewed - this currently no longer happens for some reason although the map will still center on the current position
 
 ### Future Fixes/Changes/Additions
 
@@ -46,13 +46,13 @@ The following JavaScript libraries are used:
 * 2-3 additional zoom levels for dynamic map
 * Allow surface maps for gas giants just for the sake of vessel/moon plotting
 * note the number of crew aboard and use that to calculate in real-time the remaining duration for any included life support resources (need to decide what life support system to use first - USI or TAC)
-* back-end interface that allows creation/modification of records through the website when detecting the missionctrl cookie for updating craft and crew databases
+* back-end interface that allows creation/modification of records through the website when detecting the admin cookie for updating craft and crew databases
 * [push notifications](https://developer.mozilla.org/en-US/docs/Web/API/Push_API)?
 * [Animate rover tracks](https://github.com/IvanSanchez/Leaflet.Polyline.SnakeAnim)? (for drawing old drive paths upon page load, not as a means to do "live" pathing)
 * Be able to tell if a trajectory intercepting the atmosphere is an aerobrake or re-entry
 * Detect trajectories that hit the surface on airless bodies and show a landing mark
 * Proper terminator display taking orbital inclination into account ([Leaflet.Curve](https://github.com/elfalem/Leaflet.curve)) - can possibly adapt [ScanSat code](https://forum.kerbalspaceprogram.com/index.php?/topic/87351-ksp-130-scansat-v179-dev-version-june-28-2017/&do=findComment&comment=2993781)
-* Communicate with the website to display update badges on the menu items for Flight Tracker and Crew Roster
+* Communicate with the WordPress website to display update badges on the menu items for Flight Tracker and Crew Roster
 * Playback controls for aircraft ground track data. Include in popup windows to let ppl jump to beginning or end of track and see a real-time update of data (center popup, move along track)
 * Allow download of aircraft flight data in spreadsheet form via the More Info pop-up
 * Upgrade to the latest version of Leaflet using a [new maps library](https://gitlab.com/IvanSanchez/Leaflet.Kerbal)
@@ -61,6 +61,28 @@ The following JavaScript libraries are used:
 ### Change Log
 
 Versioning Key (v#1.#2.#3): #1=New features #2=Changes to existing features #3=Fixes to existing features
+
+**v3.0.0** (1/25/18)
+
+Fixes:
+  - The clock and any countdown timers are no longer sometimes 1s off each other because of a decimal to whole number comparison being done that would round the decimal up or down depending on when the page was loaded
+  - Distance Traveled in the [Crew Details](https://github.com/KSAMissionCtrl/OpsTracker/wiki/Crew-Roster#crew-details) is now formatted and labeled as kilometers
+  - Option to show all ribbons for Crew Details no longer fades in/out with every change from one crew data to the next
+  - The [Event Calendar](https://github.com/KSAMissionCtrl/OpsTracker/wiki/Clock-&-Event-Calendar) now properly resizes itself if needed when new data is fetched for it after the page has finished its initial load
+  - You can now select a flight track from a vessel or crew details page and the surface map will show properly
+  - No longer comparing a string to an integer in several places, one of which was causing intermittent page load failures (removed Known Issue)
+  - Vessels withe multiple names over a period of time will now have the proper name displayed in the menu
+  - Active Vessels are once again properly sorted in alphabetical order
+  - The currently-selected menu item is scrolled back into view when the [Menu Filters](https://github.com/KSAMissionCtrl/OpsTracker/wiki/Navigation#filters) are hidden
+  - [Vessel Filters](https://github.com/KSAMissionCtrl/OpsTracker/wiki/Orbital-View#vesselasteroid-filters) no longer stay visible atop the [Surface Map](https://github.com/KSAMissionCtrl/OpsTracker/wiki/Surface-Map) in instances where the data finished loading after the map was displayed
+  - Various code optimizations
+
+Changes:
+  - Once an event is reached, the Event Calendar will fetch new event information after 5 seconds
+  - During an ascent when viewing the dynamic map the info popup for the craft location no longer auto-hides after 5 seconds
+
+Additions:
+  - Now that all the data can be loaded intially, the update system has been overhauled so data can be loaded initially and cached for the next update so changes are instant, with the following update data loaded in the background. This also means active crew and vessels are displayed much faster when they are viewed. Deceased crew and inactive vessels still have their data fetched when viewed, and viewing past events requires a data fetch although the data for the next update of any active vessel remains cached regardless of whether a past event is being viewed or not. If you are looking at the vessel being updated there will be a visual indication of new data being displayed. Currently this does not happen for crew pages. This system is the groundwork for browser notifications
 
 **v2.0.0** (1/14/18)
 
