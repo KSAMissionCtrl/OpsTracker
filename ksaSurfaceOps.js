@@ -1064,6 +1064,7 @@ function showMap() {
   redrawFlightPlots();
   $("#contentHeader").html(strCurrentBody.split("-")[0]);
   document.title = "KSA Operations Tracker - " + strCurrentBody.split("-")[0];
+  if (launchsiteMarker) surfaceMap.removeLayer(launchsiteMarker);
 }
 
 function hideMap() {

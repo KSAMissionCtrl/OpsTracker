@@ -121,6 +121,7 @@ function UTtoDateTime(setUT, local) {
 function UTtoDateTimeLocal(setUT) {
   var d = new Date();
   d.setTime(foundingMoment + (setUT * 1000));
+  if (d.toString().search("Standard") >= 0) { d.setTime(foundingMoment + ((setUT + 3600) * 1000)); }
   return d.toString();
 }
 

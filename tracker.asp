@@ -10,7 +10,7 @@
   <link rel="shortcut icon" href="../images/KSA/favicon.png" type="image/x-icon" />
 
   <!-- use this image link to force reddit to use a certain image for its thumbnail -->
-  <meta property="og:image" content="http://www.kerbalspace.agency/KSA/wp-content/uploads/2016/01/KSAlogo_new_190x250.png" />
+  <meta property="og:image" content="https://i.imgur.com/LVSKMUN.png" />
   
   <!-- cache of Font Awesome -->
   <link href="https://use.fontawesome.com/releases/v5.0.2/css/all.css" rel="stylesheet">
@@ -93,6 +93,7 @@
         <input class='checkboxes' name='labels' id='labels' type='checkbox'> <label for='labels'>Show Names</label> 
         <input class='checkboxes' name='orbits' id='orbits' type='checkbox'> <label for='orbits'>Show Orbits</label>
         <input class='checkboxes' name='ref' id='ref' type='checkbox'> <label for='ref'>Show Reference Line</label>
+        <input class='checkboxes' name='soi' id='soi' type='checkbox'> <label for='soi'>Show Spheres of Influence</label>
       </div>
       <div id='vesselLoaderMsg' style='z-index: 2; color: white; position: absolute; top: 900px; left: 795px; display: none;'>
         &nbsp;&nbsp;&nbsp;Loading Vessel Data...
@@ -147,7 +148,7 @@
       <!-- Twitter display -->
 
       <div id='twitterBox'><a href="https://twitter.com/KSA_MissionCtrl" class="twitter-follow-button" data-show-count="true">Follow @KSA_MissionCtrl</a><script async src="//platform.twitter.com/widgets.js" charset="utf-8"></script></center>
-      <div id='twitterTimelineSelection' style='font-size: 12px'>Sources: <strong>KSA Main Feed</strong></div>
+      <div id='twitterTimelineSelection' style='font-size: 12px'>Source: <strong>KSA Main Feed</strong></div>
       <div id='twitterTimeline'><a class="twitter-timeline" data-chrome="nofooter noheader" data-height="500" href="https://twitter.com/KSA_MissionCtrl">Loading Tweets...</a> <script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script></div>
       </div>
     </div>

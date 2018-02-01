@@ -228,7 +228,10 @@ function loadVesselAJAX(xhttp, time) {
 }
 
 function vesselTimelineUpdate(update) {
-
+  
+  // clear out any previous source, regardless
+  swapTwitterSource();
+  
   // only check for an existing mission feed if this is an update call, otherwise it could alredy exist from another craft when only switching vessels
   if (currentVesselData.CatalogData.Timeline) { 
     
@@ -240,8 +243,10 @@ function vesselTimelineUpdate(update) {
           if (update) flashUpdate("#twitterTimelineSelection", "#77C6FF", "#FFF");
         }
       
-      // not yet to the time, so setup an update call
-      } else updatesList.push({ Type: "object", ID: currentVesselData.CatalogData.DB, UT: parseFloat(currentVesselData.CatalogData.Timeline.split(";")[0]) });
+      // not yet to the time, so setup an update call, but don't bother if this mission is over
+      } else if (!isMissionEnded()) {
+        updatesList.push({ Type: "object", ID: currentVesselData.CatalogData.DB, UT: parseFloat(currentVesselData.CatalogData.Timeline.split(";")[0]) });
+      }
     } else if (!update) swapTwitterSource("Mission Feed", currentVesselData.CatalogData.Timeline);
   }
 }
@@ -527,7 +532,7 @@ function vesselCommsUpdate(update) {
 function vesselAddlResUpdate(update) {
   if (currentVesselData.CatalogData.AddlRes) {
     var newRes;
-    var strHTML;
+    var strHTML = '';
     currentVesselData.CatalogData.AddlRes.split("|").forEach(function(item) {
       if (parseFloat(item.split(";")[0]) < currUT()) {
         strHTML += "<span class='tipped' title='" + item.split(";")[1] + "'><a target='_blank' style='color: black' href='" + item.split(";")[2] + "'><i class='" + AddlResourceItems[item.split(";")[1]] + "'></i></a></span>&nbsp;";
@@ -553,7 +558,7 @@ function vesselAddlResUpdate(update) {
 function vesselLastUpdate(update) {
   $("#distanceTip").html(UTtoDateTimeLocal(currentVesselData.CraftData.UT))
   if (currentVesselData.CraftData.DistanceTraveled) $("#distanceTip").append("<br>Current Distance Traveled: " + currentVesselData.CraftData.DistanceTraveled + "km");
-  $("#dataField11").html("<b>Last Update:</b> <u><span class='tip-update' style='cursor:help' data-tipped-options=\"inline: 'distanceTip'\">" + UTtoDateTime(currentVesselData.CraftData.UT) + "</span></u>")
+  $("#dataField11").html("<b>Last Update:</b> <u><span class='tip-update' style='cursor:help' data-tipped-options=\"inline: 'distanceTip'\">" + UTtoDateTime(currentVesselData.CraftData.UT) + " UTC</span></u>")
   $("#dataField11").fadeIn()
   if (update) flashUpdate("#dataField11", "#77C6FF", "#FFF");
 }
@@ -666,7 +671,8 @@ function vesselContentUpdate() {
     // only show dynamic information if this is a current state in an ongoing mission
     // note we can't use the PastEvent property here because a past event could still use the same orbital data
     // so instead we will compare it to the current data that was loaded for its catalog object
-    if (!isMissionEnded() && currentVesselData.Orbit.UT == opsCatalog.find(o => o.ID === strCurrentVessel).CurrentData.Orbit.UT) {
+    // also do not show the map if the planet doesn't have one - for now just check for it orbiting Kerbin
+    if (!isMissionEnded() && currentVesselData.Orbit.UT == opsCatalog.find(o => o.ID === strCurrentVessel).CurrentData.Orbit.UT && getParentSystem(strCurrentVessel) == "Kerbin-System") {
       $("#content").fadeOut();
       $("#map").css("visibility", "visible");
       $("#map").fadeIn();
@@ -681,7 +687,7 @@ function vesselContentUpdate() {
         renderMapData();
       }
       
-    // we're looking at old orbital data
+    // we're looking at old orbital data or a planet with no map
     } else {
       if ($("#map").css("visibility") != "hidden") $("#map").fadeOut();
       $("#mapDialog").dialog("close");
@@ -689,7 +695,12 @@ function vesselContentUpdate() {
       
       // two images
       if (data[1].includes(".png")) {
-        $("#content").html("<div class='fullCenter'><img width='475' class='contentTip' title='Ecliptic View<br>Dynamic orbit unavailable - viewing old data' src='" + data[0] + "'>&nbsp;<img width='475' class='contentTip' title='Polar View<br>Dynamic orbit unavailable - viewing old data' src='" + data[1] + "'></div>");
+        
+        // why is the dynamic map not being displayed?
+        if (currentVesselData.CraftData.PastEvent) var strReason = "viewing old data";
+        if (getParentSystem(strCurrentVessel) != "Kerbin-System") var strReason = "no surface map available";
+        
+        $("#content").html("<div class='fullCenter'><img width='475' class='contentTip' title='Ecliptic View<br>Dynamic orbit unavailable - " + strReason + "' src='" + data[0] + "'>&nbsp;<img width='475' class='contentTip' title='Polar View<br>Dynamic orbit unavailable - " + strReason + "' src='" + data[1] + "'></div>");
         
       // one image
       } else {

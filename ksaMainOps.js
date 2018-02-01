@@ -214,6 +214,7 @@ function setupContent() {
     if ($(this).attr("name") == "labels") { toggleLabels($(this).is(":checked")); }
     if ($(this).attr("name") == "orbits") { toggleOrbits($(this).is(":checked")); }
     if ($(this).attr("name") == "ref") { toggleRefLine($(this).is(":checked")); }
+    if ($(this).attr("name") == "soi") { toggleSOI($(this).is(":checked")); }
     if ($(this).attr("id").includes("menu")) { filterVesselMenu($(this).attr("name"), $(this).is(":checked")); }
     if ($(this).attr("id").includes("filter")) { filterVesselOrbits($(this).attr("name"), $(this).is(":checked")); }
   });
@@ -447,14 +448,14 @@ function checkPageUpdate() {
 
 function swapTwitterSource(swap, source) {
   if (swap && source) {
-    $("#twitterTimelineSelection").html("Sources: <span class='fauxLink' onclick=\"swapTwitterSource('" + swap + "')\">KSA Main Feed</span> | <b>" + swap + "</b>");
+    $("#twitterTimelineSelection").html("Source: <span class='fauxLink' onclick=\"swapTwitterSource('" + swap + "')\">KSA Main Feed</span> | <b>" + swap + "</b>");
     twitterSource = source;
   } else if (swap && !source) {
     if (twitterSource.split(";").length > 1) { src = twitterSource.split(";")[1]; }
     else { src = twitterSource; }
-    $("#twitterTimelineSelection").html("Sources: <b>KSA Main Feed</b> | <span class='fauxLink' onclick=\"swapTwitterSource('" + swap + "', '" + src + "')\">" + swap + "</span>");
+    $("#twitterTimelineSelection").html("Source: <b>KSA Main Feed</b> | <span class='fauxLink' onclick=\"swapTwitterSource('" + swap + "', '" + src + "')\">" + swap + "</span>");
   } else if (!swap && !source) {
-    $("#twitterTimelineSelection").html("Sources: <b>KSA Main Feed</b>");
+    $("#twitterTimelineSelection").html("Source: <b>KSA Main Feed</b>");
   }
   if (!source) { source = "https://twitter.com/KSA_MissionCtrl"; }
   $("#twitterTimeline").html("<a class='twitter-timeline' data-chrome='nofooter noheader' data-height='500' href='"+ source + "'>Loading Tweets...</a> <script async src='https://platform.twitter.com/widgets.js' charset='utf-8'>");
@@ -626,7 +627,7 @@ function loadOpsDataAJAX(xhttp) {
     if (!isMissionEnded()) {
     
       // update the MET or countdown
-      $("#metCount").html(formatTime($("#metCount").attr("data")-currUT()));
+      $("#metCount").html(formatTime($("#metCount").attr("data")-currUT(true)));
       
       // update vessel surface map information if a vessel is on the map and calculations are not running
       if (vesselMarker && layerControl.options.collapsed) {
@@ -642,7 +643,7 @@ function loadOpsDataAJAX(xhttp) {
         
         // update the Ap/Pe markers if they exist, and check for passing
         if (currentVesselPlot.Events.Ap.Marker) {
-          $('#apTime').html(formatTime(currentVesselPlot.Events.Ap.UT - currUT()));
+          $('#apTime').html(formatTime(currentVesselPlot.Events.Ap.UT - currUT(true)));
           if (currentVesselPlot.Events.Ap.UT <= currUT()) {
 
             // just add on the time of an orbit to get the time for the next Ap
@@ -667,7 +668,7 @@ function loadOpsDataAJAX(xhttp) {
           }
         }
         if (currentVesselPlot.Events.Pe.Marker) {
-          $('#peTime').html(formatTime(currentVesselPlot.Events.Pe.UT - currUT()));
+          $('#peTime').html(formatTime(currentVesselPlot.Events.Pe.UT - currUT(true)));
           if (currentVesselPlot.Events.Pe.UT <= currUT()) {
             currentVesselPlot.Events.Pe.UT += currentVesselData.Orbit.OrbitalPeriod;
             currentVesselPlot.Data[now.ObtNum].Layer.removeLayer(currentVesselPlot.Events.Pe.Marker);

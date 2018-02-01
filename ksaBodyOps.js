@@ -139,6 +139,7 @@ function ggbOnInit(){
   $("#labels").prop('checked', true);
   $("#orbits").prop('checked', true);
   $("#ref").prop('checked', true);
+  $("#soi").prop('checked', true);
 
   // disable the spinner & show checkboxes if this is the first load
   if (!isGGBAppletLoaded && pageType == "body") { 
@@ -215,7 +216,7 @@ function loadVesselOrbits() {
         $("#vesselOrbitTypes").fadeIn(); 
         
         // check again in a few ms just in case we popped up as the figure was fading out
-        setTimeout(function() { if (!$("#figure").is(":visible")) $("#vesselOrbitTypes").hide(); }, 250);
+        setTimeout(function() { if (!$("#figure").is(":visible")) $("#vesselOrbitTypes").hide(); }, 500);
       }
       timeoutHandle = setTimeout(declutterGGB, 2500);
     }
@@ -322,6 +323,7 @@ function declutterGGB() {
         ggbApplet.setVisible(item.ID + "27", false);
         ggbApplet.setVisible(item.ID + "28", false);
         ggbApplet.setVisible(item.ID + "32", false);
+        ggbApplet.setVisible(item.ID + "39", false);
       } else {
         ggbApplet.setVisible(item.ID + "apnode", false);
         ggbApplet.setVisible(item.ID + "penode", false);
@@ -342,6 +344,7 @@ function declutterGGB() {
   $("#nodes").prop('checked', false);
   $("#labels").prop('checked', false);
   $("#ref").prop('checked', false);
+  $("#soi").prop('checked', false);
   
   // nullify to let anyone else know this has already happened
   timeoutHandle = null;
@@ -754,4 +757,11 @@ function filterVesselOrbits(id, checked) {
       }
     });
   }
+}
+function toggleSOI(isChecked) {
+  ggbOrbits.forEach(function(item, index) { 
+    if (item.Type == "body") {
+      ggbApplet.setVisible(item.ID + "39", isChecked);
+    }
+  });
 }
