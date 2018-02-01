@@ -44,7 +44,6 @@ The following JavaScript libraries are used:
 * Updated biome maps for stock planets
 * Ground tracking for rovers. Resolution of movement dependent on whether max zoom level can be increased
 * 2-3 additional zoom levels for dynamic map
-* Allow surface maps for gas giants just for the sake of vessel/moon plotting
 * note the number of crew aboard and use that to calculate in real-time the remaining duration for any included life support resources (need to decide what life support system to use first - USI or TAC)
 * back-end interface that allows creation/modification of records through the website when detecting the admin cookie for updating craft and crew databases
 * [push notifications](https://developer.mozilla.org/en-US/docs/Web/API/Push_API)?
@@ -52,7 +51,6 @@ The following JavaScript libraries are used:
 * Be able to tell if a trajectory intercepting the atmosphere is an aerobrake or re-entry
 * Detect trajectories that hit the surface on airless bodies and show a landing mark
 * Proper terminator display taking orbital inclination into account ([Leaflet.Curve](https://github.com/elfalem/Leaflet.curve)) - can possibly adapt [ScanSat code](https://forum.kerbalspaceprogram.com/index.php?/topic/87351-ksp-130-scansat-v179-dev-version-june-28-2017/&do=findComment&comment=2993781)
-* Communicate with the WordPress website to display update badges on the menu items for Flight Tracker and Crew Roster
 * Playback controls for aircraft ground track data. Include in popup windows to let ppl jump to beginning or end of track and see a real-time update of data (center popup, move along track)
 * Allow download of aircraft flight data in spreadsheet form via the More Info pop-up
 * Upgrade to the latest version of Leaflet using a [new maps library](https://gitlab.com/IvanSanchez/Leaflet.Kerbal)
@@ -61,6 +59,22 @@ The following JavaScript libraries are used:
 ### Change Log
 
 Versioning Key (v#1.#2.#3): #1=New features #2=Changes to existing features #3=Fixes to existing features
+
+**v3.1.0** (2/1/18)
+
+Fixes:
+  - The local time shown in the tooltip for the Last Update field in [Vessel Details](https://github.com/KSAMissionCtrl/OpsTracker/wiki/Vessel-Details) now properly accounts for DST
+  - [Vessel Filters](https://github.com/KSAMissionCtrl/OpsTracker/wiki/Orbital-View#vesselasteroid-filters) behavior has been tweaked again to prevent it from displaying atop the dynamic map after page load
+  - Countdowns for the time to launch tooltips as well as Ap/Pe markers now also make proper use of the fix in v3.0.0 that kept the main clock in sync by no longer comparing a whole number to a decimal
+  - Launchsite marker now removes itself from the [Surface Map](https://github.com/KSAMissionCtrl/OpsTracker/wiki/Surface-Map) when it is viewed from a pre-launch vessel
+  - When switching from a vessel that does have a mission [Twitter Feed](https://github.com/KSAMissionCtrl/OpsTracker/wiki/Twitter-Feed) to one that does not, the default main feed is now loaded
+  - Vessel Details page no longer schedules an update for an upcoming twitter mission timeline posting if the mission has ended
+  - Additional Resources field on the Vessel Details page no longer prepends "undefined" to the list of resources
+  - Planets other than Kerbin, Mun or Minmus with spacecraft in orbit will not attempt to load the dynamic map
+  
+Changes:
+  - The [Orbital View](https://github.com/KSAMissionCtrl/OpsTracker/wiki/Orbital-View) now automatically hides sphere of influence bubbles when decluttering the view after initial load and the option to show/hide them has been added to the view options at the bottom
+  - Last Update field in the Vessel Details view now specifies the time as UTC
 
 **v3.0.0** (1/25/18)
 
@@ -103,7 +117,7 @@ Additions:
 
 Fixes:
   - When collapsing the menu the current selection is scrolled back into view
-  - [Vessel Details](Vessel Details) now give the option to see more information about a future upcoming event in the Mission History navigation dropdown
+  - [Vessel Details](https://github.com/KSAMissionCtrl/OpsTracker/wiki/Vessel-Details) now give the option to see more information about a future upcoming event in the Mission History navigation dropdown
   - [Events Calendar](https://github.com/KSAMissionCtrl/OpsTracker/wiki/Clock-&-Event-Calendar) now properly swaps the page content without reloading instead of linking to an entirely new page when selecting the vessel displayed
   - The [Twitter Feed](https://github.com/KSAMissionCtrl/OpsTracker/wiki/Twitter-Feed) could be hidden in some instances and not re-shown on page load
   - Additional Resources in the Vessel Details now properly links to each resource and loads it in a new tab
