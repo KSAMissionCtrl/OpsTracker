@@ -364,7 +364,7 @@ function swapContent(newPageType, id, ut, flt) {
   // show/load the new content
   pageType = newPageType;
   if (newPageType == "body") {
-    swapTwitterSource();
+    if ($("#twitterTimelineSelection").html().includes("|")) swapTwitterSource();
     raiseContent();
     setTimeout(function() { 
       if (!window.location.href.includes("&map")) {
@@ -404,7 +404,7 @@ function swapContent(newPageType, id, ut, flt) {
     raiseContent();
     $("#infoBox").fadeOut();
     $("#dataBox").fadeOut();
-    swapTwitterSource();
+    if ($("#twitterTimelineSelection").html().includes("|")) swapTwitterSource();
     $("#crewFooter").fadeOut();
     $("#footer").fadeIn();
     $("#contentBox").fadeIn();
@@ -604,6 +604,8 @@ function loadOpsDataAJAX(xhttp) {
   $('#ksctime').html(UTtoDateTime(currUT(true), true));
   if (!isNaN(launchCountdown) && launchCountdown - currUT(true) > 0) $('#launchCountdown').html(formatTime(launchCountdown - currUT(true), false));
   else if (!isNaN(launchCountdown) && launchCountdown - currUT(true) <= 0) { 
+    
+    // cleanup the event data and prep for checking for new events
     $('#launchCountdown').html("LIFTOFF!!"); 
     launchCountdown = "null";
     strCurrentLaunchVessel = null;

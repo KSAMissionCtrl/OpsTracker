@@ -228,9 +228,9 @@ function loadVesselAJAX(xhttp, time) {
 }
 
 function vesselTimelineUpdate(update) {
-  
-  // clear out any previous source, regardless
-  swapTwitterSource();
+
+  // if there are multiple sources and this isn't an update then clear to just the main source
+  if ($("#twitterTimelineSelection").html().includes("|") && !update) swapTwitterSource();
   
   // only check for an existing mission feed if this is an update call, otherwise it could alredy exist from another craft when only switching vessels
   if (currentVesselData.CatalogData.Timeline) { 
@@ -290,6 +290,7 @@ function vesselInfoUpdate(update) {
         // div containing image map is below the title header, so offset must be applied
         // div containing all content is left-margin: auto to center on page, so offset must be applied
         areaCenter = $(this).attr("coords").split(",");
+        console.log($(this).attr("coords"));
         $("#mapTip").css("width", parseInt(areaCenter[2])*2);
         $("#mapTip").css("height", parseInt(areaCenter[2])*2);
         $("#mapTip").css("top", parseInt(areaCenter[1])+$("#infoBox").position().top-parseInt(areaCenter[2]));
@@ -354,7 +355,7 @@ function vesselMETUpdate(update) {
   
   // add further details based on mission status
   // mission hasn't started yet
-  if (currUT() <= launchTime) {
+  if (currUT() < launchTime) {
     strTip += "Time to Launch: <span data='" + launchTime + "' id='metCount'>" + formatTime(launchTime-currUT()) + "</span>";
     
   // mission is ongoing
@@ -769,9 +770,12 @@ $("#nextEvent").change(function () {
       $("#siteDialog").dialog("option", "width", 250);
       $("#siteDialog").dialog( "option", "buttons", [{
         text: "Close",
-        click: function() { $("#siteDialog").dialog("close"); }
+        click: function() { 
+          $("#siteDialog").dialog("close");
+        }
       }]);
       $("#siteDialog").dialog("open");
+      $("#nextEvent").val("Next Event(s)");
     } else loadVessel(strCurrentVessel, parseFloat($("#nextEvent").val()));
   }
 });
