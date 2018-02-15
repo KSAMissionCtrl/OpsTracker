@@ -60,6 +60,16 @@ The following JavaScript libraries are used:
 
 Versioning Key (v#1.#2.#3): #1=New features #2=Changes to existing features #3=Fixes to existing features
 
+**v4.0.0** (2/15/18)
+
+Fixes:
+  - The tooltip for the mission launch time now changes from a countdown to launch to a count up in mission elapsed time when the countdown reaches 0 during a launch viewing
+  - The twitter source no longer resets to the main feed only when a page is updated or swapped unless a crew or mission feed is loaded
+  - After selecting a "Scheduled Event" from the Next Events dropdown box it is reset to allow the user to select it again
+  
+Additions:
+  - None, this was an erroneous change to the major revision number thanks to failing to review the changes before submission and thinking a new addition was included. Can't edit the commit name to v3.1.1 so looks like we're now on v4
+
 **v3.1.0** (2/1/18)
 
 Fixes:
