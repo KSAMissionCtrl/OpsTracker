@@ -17,7 +17,7 @@ function loadBody(body, flt) {
   if (isMenuDataLoaded && !flt && !window.location.href.includes("flt")) {
     w2ui['menu'].select(body);
     w2ui['menu'].expandParents(body);
-    w2ui['menu'].scrollIntoView(body);
+    w2ui['menu'].scrollIntoView(body);       
   }  
   
   // hide the map just in case its open
@@ -125,11 +125,13 @@ function loadBodyAJAX(xhttp) {
   bodies.forEach(function(item) {
     bodyCatalog.push(rsToObj(item));  
   });
+  console.log(bodyCatalog);
   $("#figureDialog").spin(false);
 }
 
 // called after load and after user clicks the reset
-function ggbOnInit(){
+function ggbOnInit() {
+  console.log("ggbOnInit()");
   
   // reset all the orbits since the figure itself is reset
   ggbOrbits = [];

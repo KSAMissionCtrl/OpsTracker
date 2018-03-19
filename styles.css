@@ -149,6 +149,15 @@ input:disabled+label {
   display: none;
 }
 
+.imgmap {
+  width: 10px;
+  height: 10px; 
+  background-color: blue;
+  opacity: 0;
+  position: absolute;
+  cursor: help;
+}
+
 #menuResize {
   margin: 2px;
   text-align: center;

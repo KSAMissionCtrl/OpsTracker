@@ -1,8 +1,8 @@
 function initializeMap() {
 
-  // allow multiple popups to be open at the same time
+  /* allow multiple popups to be open at the same time
   // http://jsfiddle.net/paulovieira/yVLJf/
-  L.KSP.Map = L.KSP.Map.extend({
+  L.Map = L.Map.extend({
     openPopup: function(popup) {
       this._popup = popup;
 
@@ -10,11 +10,12 @@ function initializeMap() {
         popup: this._popup
       });
     }
-  });
+  });*/
   
   // create the map with some custom options
   // details on Leaflet API can be found here - http://leafletjs.com/reference.html
-  surfaceMap = new L.KSP.Map('map', {
+  surfaceMap = new L.Map('map', {
+    crs: L.CRS.Kerbin.Equirectangular,
     center: [0,0],
     bodyControl: false,
     layersControl: false,
@@ -22,6 +23,7 @@ function initializeMap() {
     minZoom: 0,
     maxZoom: 5,
     zoom: 2,
+    worldCopyJump: true,
     fullscreenControl: true,
     fullscreenControlOptions: {
       position: 'topleft'
@@ -114,7 +116,7 @@ function initializeMap() {
     });
     surfaceMap.on('mousemove', function(e) {
     
-      // wait to add the info control until mouse movement detected because it initializes to "undefined" coordinates
+      /* wait to add the info control until mouse movement detected because it initializes to "undefined" coordinates
       // don't add the control if we're looking at the downsized map because the coordinates are off for some reason
       if (!infoControl && mapData && $("#map").css("height") != "480px") {
         infoControl = new L.KSP.Control.Info({
@@ -123,7 +125,7 @@ function initializeMap() {
             slopeInfo: mapData.Slope
           });
         surfaceMap.addControl(infoControl);
-      }
+      }*/
       
       // if we are still loading data, do not let the layer control collapse
       if (!layerControl.options.collapsed) { layerControl._expand(); }
@@ -135,9 +137,6 @@ function initializeMap() {
   layerControl.addOverlay(L.layerGroup(), "<i class='fa fa-cog fa-spin'></i> Loading Data...");
   layerControl._expand();
   layerControl.options.collapsed = false;
-
-  // add the legend control to the map - will be automatically displayed by activating a base layer that uses it
-  surfaceMap.addControl(new L.KSP.Control.Legend());
 
   // no idea why but doing this makes it work better for when loading straight to the map in the body view
   setTimeout(function() {
@@ -182,51 +181,37 @@ function loadMapDataAJAX(xhttp) {
   if (mapData.Aerial) { var strSatLabel = "Aerial"; }
   if (mapData.Satellite) { var strSatLabel = "Sattelite"; }
   layerControl.addBaseLayer(
-    L.KSP.tileLayer(L.KSP.TileLayer.TYPE_SATELLITE,
-      L.KSP.TileLayer.DEFAULT_URL,
-      L.KSP.CRS.EPSG4326, {
+    L.tileLayer.kerbalMaps({
         body: strCurrentBody.split("-")[0].toLowerCase(),
         style: "sat"
       }
     ).addTo(surfaceMap), strSatLabel);
-  if (mapData.Slope) {
-    var slopeBase = L.KSP.tileLayer(
-      L.KSP.TileLayer.TYPE_COLORRELIEF,
-      L.KSP.TileLayer.DEFAULT_URL,
-      L.KSP.CRS.EPSG4326, {
-        body: strCurrentBody.split("-")[0].toLowerCase(),
-        style: "slope",
-        legend: L.KSP.Legend.SLOPE
-      }
-    )
-    layerControl.addBaseLayer(slopeBase, "Slope");
-  }
-  
+
   // show the entire control until everything is finished loading
   layerControl._expand();
   layerControl.options.collapsed = false;
   
   // load the rest of the tile layers, where available
-  if (mapData.Terrain) {
-    var reliefBase = L.KSP.tileLayer(
-      L.KSP.TileLayer.TYPE_COLORRELIEF,
-      L.KSP.TileLayer.DEFAULT_URL,
-      L.KSP.CRS.EPSG4326, {
+  if (mapData.Slope) {
+    var slopeBase = L.tileLayer.kerbalMaps({
         body: strCurrentBody.split("-")[0].toLowerCase(),
-        style: "color",
-        legend: mapElevationLegend.find(o => o.ID === strCurrentBody.split("-")[0]).Data
+        style: "slope"
       }
-    )
+    );
+    layerControl.addBaseLayer(slopeBase, "Slope");
+  }
+  if (mapData.Terrain) {
+    var reliefBase = L.tileLayer.kerbalMaps({
+        body: strCurrentBody.split("-")[0].toLowerCase(),
+        style: "color"
+      }
+    );
     layerControl.addBaseLayer(reliefBase, "Color Relief");
   }
   if (mapData.Biome) {
-    var biomeBase = L.KSP.tileLayer(
-      L.KSP.TileLayer.TYPE_COLORRELIEF,
-      L.KSP.TileLayer.DEFAULT_URL,
-      L.KSP.CRS.EPSG4326, {
+    var biomeBase = L.tileLayer.kerbalMaps({
         body: strCurrentBody.split("-")[0].toLowerCase(),
-        style: "biome",
-        legend: mapBiomeLegend.find(o => o.ID === strCurrentBody.split("-")[0]).Data
+        style: "biome"
       }
     );
     layerControl.addBaseLayer(biomeBase, "Biome");

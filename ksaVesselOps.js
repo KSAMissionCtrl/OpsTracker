@@ -172,8 +172,10 @@ function loadVesselAJAX(xhttp, time) {
   // tag loading
   //$("#tags").spin({ scale: 0.35, position: 'relative', top: '10px', left: (((955/2) + (strVesselName.width('bold 32px arial')/2)) + 10) +'px' });
   
-  // update the twitter timeline?
-  vesselTimelineUpdate();
+  // update the twitter timeline only if the current one loaded isn't already the one we want to load
+  var thisTimeline = '';
+  if (currentVesselData.CatalogData.Timeline) thisTimeline = currentVesselData.CatalogData.Timeline.split(";")[1];
+  if (thisTimeline != twitterSource) vesselTimelineUpdate();
   
   $("#patches").empty();
   if (currentVesselData.CatalogData.Patches) {
@@ -194,6 +196,17 @@ function loadVesselAJAX(xhttp, time) {
 
   // no orbit data or mission ended? Close the dialog in case it is open
   if (!currentVesselData.Orbit || isMissionEnded()) $("#mapDialog").dialog("close");
+  
+  // if the current body is undefined then this is an inactive vessel, load the one the vessel was last in
+  if (!strCurrentBody) { 
+    var soiList = currentVesselData.CatalogData.SOI.split("|");
+    
+    // last element is always the inactive body ID
+    soiList.pop();
+    var lastBody = soiList.pop();
+    strCurrentBody = bodyCatalog.find(o => o.ID === parseInt(lastBody.split(";")[1])).Body + "-System";
+    loadMap();
+  }
 
   // display all the updateable data
   vesselInfoUpdate();
@@ -276,39 +289,26 @@ function vesselInfoUpdate(update) {
   
   // is there a parts overlay?
   if (getPartsHTML()) {
-    $("#partsImg").html(getPartsHTML());
+    var partsImgHTML = '';
+    var imgMapData = getPartsHTML();
+    
+    // create divs for every <area> tag
+    imgMapData.split("<area").forEach(function(item) {
+      if (item.includes('coords="')) {
+        var areaCenter = item.split('coords="')[1].split('"')[0].split(",");
+        partsImgHTML += "<div id='" + item.split('title="&')[1].split('"')[0] + "' class='imgmap' style='";
+        partsImgHTML += "top: " + (parseInt(areaCenter[1])-5) + "px; ";
+        partsImgHTML += "left: " + (parseInt(areaCenter[0])+$("#infoBox").position().left+$("#mainContent").position().left-5) + "px;";
+        partsImgHTML += "'></div>";
+      }
+    });
+    
+    // extract the image name
+    partsImgHTML += "<img src='https://i.imgur.com/" + imgMapData.split("/")[3].split(".")[0] + ".png'/>";
+
+    $("#partsImg").html(partsImgHTML);
     setTimeout(function(){ if (!$('#infoBox').is(":hover")) $("#partsImg").fadeOut(1000); }, 1000);
     assignPartInfo();
-    
-    // Non-Firefox support for image map tooltips with Tipped
-    $("area").hover(function() { 
-
-      // HTML data is stashed in the alt attribute so other browsers don't show their own tooltip
-      if (browserName != "Firefox" && $(this).attr("alt")) { 
-        $("#mapTipData").html($(this).attr("alt"));
-        // get the coordinate data for the area and size/center the div around it
-        // div containing image map is below the title header, so offset must be applied
-        // div containing all content is left-margin: auto to center on page, so offset must be applied
-        areaCenter = $(this).attr("coords").split(",");
-        console.log($(this).attr("coords"));
-        $("#mapTip").css("width", parseInt(areaCenter[2])*2);
-        $("#mapTip").css("height", parseInt(areaCenter[2])*2);
-        $("#mapTip").css("top", parseInt(areaCenter[1])+$("#infoBox").position().top-parseInt(areaCenter[2]));
-        $("#mapTip").css("left", parseInt(areaCenter[0])+$("#infoBox").position().left+$("#mainContent").position().left-parseInt(areaCenter[2]));
-        $("#mapTip").show();
-      }
-    }, function() {
-
-      // called once the div is shown atop this
-      Tipped.refresh(".nonFFTip");
-    });
-    
-    // set flag to tell main image that tooltip is or is no longer visible
-    $("#mapTip").hover(function() { 
-      isTipShow = true;
-    }, function() {
-      isTipShow = false;
-    });
   } else $("#partsImg").empty();
 }
 
@@ -339,32 +339,38 @@ function vesselMETUpdate(update) {
   var strTip = "";
   
   // we don't know yet
-  if (!launchTime) { strTip = "launch time currently being assessed<br>"; }
+  if (!launchTime && !currentVesselData.CraftData.PastEvent) { strTip = "launch time currently being assessed<br>"; }
+  else {
 
-  // if this is a past event and there was more than one launch time, find what time equals the current UT
-  // if it is in a state greater than the current one, that's the actual current launch time
-  if (currentVesselData.CraftData.PastEvent && currentVesselData.LaunchTimes.length > 1) {
-    for (i=currentVesselData.LaunchTimes.length-1; i>=0; i--) {
-      if (currentVesselData.LaunchTimes[i].UT <= currUT() && currentVesselData.LaunchTimes[i].UT > currentVesselData.CraftData.UT) {
-        strTip += "Actual Launch Time: " + UTtoDateTime(currentVesselData.LaunchTimes[i].LaunchTime) + " UTC<br>";
-        launchTime = currentVesselData.LaunchTimes[i].LaunchTime
-        break;
+    // if this is a past event and there was more than one launch time, find what time equals the current UT
+    // if it is in a state greater than the current one, that's the actual current launch time
+    if (currentVesselData.CraftData.PastEvent && currentVesselData.LaunchTimes.length > 1) {
+      for (i=currentVesselData.LaunchTimes.length-1; i>=0; i--) {
+        if (currentVesselData.LaunchTimes[i].UT <= currUT() && currentVesselData.LaunchTimes[i].UT > currentVesselData.CraftData.UT) {
+          if (!currentVesselData.LaunchTimes[i].LaunchTime) {
+            strTip += "Launch has been scrubbed or put on hold<br>Actual Launch Time: To Be Determined";
+          } else {
+            strTip += "Actual Launch Time: " + UTtoDateTime(currentVesselData.LaunchTimes[i].LaunchTime) + " UTC<br>";
+          }
+          launchTime = currentVesselData.LaunchTimes[i].LaunchTime
+          break;
+        }
       }
     }
-  }
-  
-  // add further details based on mission status
-  // mission hasn't started yet
-  if (currUT() < launchTime) {
-    strTip += "Time to Launch: <span data='" + launchTime + "' id='metCount'>" + formatTime(launchTime-currUT()) + "</span>";
     
-  // mission is ongoing
-  } else if (!isMissionEnded()) {
-    strTip += "Mission Elapsed Time: <span data='" + launchTime + "' id='metCount'>" + formatTime(currUT()-launchTime) + "</span>";
-    
-  // mission has ended
-  } else if (isMissionEnded()) {
-    strTip += getMissionEndMsg() + "<br>Mission Elapsed Time: <span id='metCount'>" + formatTime(getMissionEndTime()-launchTime) + "</span>";
+    // add further details based on mission status
+    // mission hasn't started yet
+    if (launchTime && currUT() < launchTime) {
+      strTip += "Time to Launch: <span data='" + launchTime + "' id='metCount'>" + formatTime(launchTime-currUT()) + "</span>";
+      
+    // mission is ongoing
+    } else if (launchTime && !isMissionEnded()) {
+      strTip += "Mission Elapsed Time: <span data='" + launchTime + "' id='metCount'>" + formatTime(currUT()-launchTime) + "</span>";
+      
+    // mission has ended
+    } else if (launchTime && isMissionEnded()) {
+      strTip += getMissionEndMsg() + "<br>Mission Elapsed Time: <span id='metCount'>" + formatTime(getMissionEndTime()-launchTime) + "</span>";
+    }
   }
   if (update && strHTML + strTip != currentVesselData.CraftData.HTML) {
     flashUpdate("#dataField0", "#77C6FF", "#FFF");
@@ -748,11 +754,11 @@ $("#infoBox").hover(function() {
   
     // wait to give tooltips a chance to hide on mouseover before checking to see if we're actually off the image
     setTimeout(function() {
-      if (!$('#infoBox').is(":hover") && !isTipShow) {
+      if (!$('#infoBox').is(":hover")) {
         $("#infoTitle").html(currentVesselData.CraftData.CraftDescTitle);
         $("#partsImg").fadeOut();
       }
-    }, 250);
+    }, 1000);
   }
 });
 
@@ -789,41 +795,14 @@ function showInfoDialog() {
 function assignPartInfo() {
   if (!partsCatalog.length) { setTimeout(assignPartInfo, 100); }
   else {
-    $("area").each(function( index ) {
-      if ($(this ).attr("title").substr(0,1) == "&") {
-        strPartName = $(this ).attr("title").substr(1,$(this ).attr("title").length-1);
+    $(".imgmap").each(function(index) {
+      var part = $(this).attr("id");
 
-        // we have to hack our own tooltips in other browsers so only redo the title attribute in Firefox
-        if (browserName == "Firefox") {
-          $(this).attr("title", partsCatalog.find(o => o.Part === strPartName).HTML);
-          
-        // for other browsers we are going to move the data to the alt tag so they don't create a tooltip
-        // and we can use it to plug the data into a dynamic tooltip attached to a div that moves over the cursor location
-        } else {
-          $(this).attr("title", ""); 
-          $(this).attr("alt", partsCatalog.find(o => o.Part === strPartName).HTML);
-        }
-      }
+       // behavior of tooltips depends on the device
+      if (is_touch_device()) { showOpt = 'click'; }
+      else { showOpt = 'mouseenter'; }
+      Tipped.create("#" + part, partsCatalog.find(o => o.Part === part).HTML, { showOn: showOpt, hideOnClickOutside: is_touch_device(), target: 'mouse', offset: { y: 2 } });
     });
-    
-    // Non-Firefox support for image map tooltips
-    // check every <area> tag on the page for any title data remaining from custom part data not taken from the database
-    $("area").each(function( index ) {
-      if (browserName != "Firefox" && $(this).attr("title")) {
-        $(this).attr("alt", $(this).attr("title")); 
-        $(this).attr("title", ""); 
-      }
-    });      
-
-    // create the tooltips
-    // behavior of tooltips depends on the device
-    if (is_touch_device()) { showOpt = 'click'; }
-    else { showOpt = 'mouseenter'; }
-    if (browserName == "Firefox") {
-      Tipped.create('area', { showOn: showOpt, hideOnClickOutside: is_touch_device(), target: 'mouse', offset: { y: 2 } });
-    } else {
-      Tipped.create('.nonFFTip', { showOn: showOpt, hideOnClickOutside: is_touch_device(), target: 'mouse', offset: { y: 2 } });
-    }
   }
 }
 

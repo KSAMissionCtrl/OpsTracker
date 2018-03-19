@@ -15,15 +15,19 @@
   <!-- cache of Font Awesome -->
   <link href="https://use.fontawesome.com/releases/v5.0.2/css/all.css" rel="stylesheet">
   
-  <!-- CSS stylesheets -->
-  <link rel="stylesheet" href="http://fonts.googleapis.com/css?family=Roboto:900">
+  <!-- CSS stylesheets 
   <link rel="stylesheet" href="https://unpkg.com/leaflet@0.5.1/dist/leaflet.css">
+  <link rel="stylesheet" href="../lib/leaflet.ksp-src.css">
+  -->
+  <link rel="stylesheet" href="http://fonts.googleapis.com/css?family=Roboto:900">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.3.1/dist/leaflet.css"
+   integrity="sha512-Rksm5RenBEKSKFjgI3a41vrjkw4EVPlJ3+OiI65vTjIdo9brlAacEuKOiQ5OFh7cOI1bkDwLqdLw3Zg0cRJAAQ=="
+   crossorigin=""/>
   <link rel="stylesheet" href="../lib/jquery-ui.min.css">
   <link rel="stylesheet" href="../lib/tipped.css">
   <link rel="stylesheet" href="../lib/w2ui-1.5.rc1.css">
   <link rel="stylesheet" href="../lib/Control.FullScreen.css">
   <link rel="stylesheet" href="../lib/leaflet.groupedlayercontrol.min.css">
-  <link rel="stylesheet" href="../lib/leaflet.ksp-src.css">
   <link rel="stylesheet" href="../lib/leaflet.label.css">
   <link rel="stylesheet" href="../lib/leaflet.rrose.css">
   <link rel="stylesheet" href="../lib/easy-button.css">
@@ -33,14 +37,10 @@
 <body onload='setupContent()'>
 
   <!-- hidden divs used to contain data to show in dynamic tooltip -->
-  <div id='mapTipData' style='display: none'></div>
   <div id='metTip' style='display: none'></div>
   <div id='avgVelTip' style='display: none'></div>
   <div id='periodTip' style='display: none'></div>
   <div id='distanceTip' style='display: none'></div>
-
-  <!-- hidden div with dynamic tooltip for non-Firefox use to display over image maps -->
-  <div id="mapTip" class='nonFFTip' data-tipped-options="inline: 'mapTipData', target: 'mouse', behavior: 'hide', detach: false"></div>
 
   <div id='contentContainer'>
     <div id='mainContent'>
@@ -153,25 +153,31 @@
       </div>
     </div>
   </div>
-  <!-- JS files -->
+  <!-- JS files 
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.5.1/leaflet-src.js"></script>
+  <script src="../lib/leaflet.ksp-src.js"></script>
+  <script src="../lib/proj4js-combined.js"></script>
+  <script src="../lib/proj4leaflet.js"></script>
+  -->
   <script src="http://ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js"></script>
   <script src="https://cdn.geogebra.org/apps/deployggb.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.5.1/leaflet-src.js"></script>
+  <script src="https://unpkg.com/leaflet@1.3.1/dist/leaflet.js"
+   integrity="sha512-/Nsx9X4HebavoBvEBuyp3I7od5tA0UzAxs+j83KgC8PU0kgB4XiK4Lfe4y4cgBtaRJQEIFCW+oC506aPT2L1zw=="
+   crossorigin=""></script>
   <script src="../lib/jquery-ui.min.js"></script>
   <script src="../lib/spin.min.js"></script>  
   <script src="../lib/jquery.spin.js"></script>
   <script src="../lib/numeral.min.js"></script>
   <script src="../lib/tipped.js"></script>
   <script src="../lib/w2ui-1.5.rc1.js"></script>
-  <script src="../lib/proj4js-combined.js"></script>
-  <script src="../lib/proj4leaflet.js"></script>
-  <script src="../lib/leaflet.ksp-src.js"></script>
   <script src="../lib/leaflet.label.js"></script>
   <script src="../lib/Control.FullScreen.js"></script>
   <script src="../lib/leaflet.groupedlayercontrol.min.js"></script>
   <script src="../lib/leaflet.rrose-src.js"></script>
   <script src="../lib/easy-button.js"></script>
   <script src="../lib/sylvester.js"></script>
+  <script src="../lib/crs.js"></script>
+  <script src="../lib/tile.js"></script>
   <script src="helpFuncs.js"></script>
   <script src="ksaGlobals.js"></script>
   <script src="ksaEventOps.js"></script>

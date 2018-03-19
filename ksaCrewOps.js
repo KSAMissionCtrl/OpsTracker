@@ -152,7 +152,7 @@ function loadCrewAJAX(xhttp) {
     var days = hours * 24;
     var years = days * 365;
     var age = (Date.now() - bday.getTime()) / years;
-    var strBackgrnd = "<b>Birth Date:</b> " + (bday.getMonth() + 1) + "/" + bday.getDate() + "/" + bday.getFullYear() + " (Age: " + numeral(age).format('0.00') + ")";
+    var strBackgrnd = "<b>Birth Date:</b> " + (bday.getUTCMonth() + 1) + "/" + bday.getUTCDate() + "/" + bday.getUTCFullYear() + " (Age: " + numeral(age).format('0.00') + ")";
     
     // family name with help icon for more info
     strBackgrnd += "<p><b>Family Name:</b> " + currentCrewData.Background.FamName + "&nbsp;<img src='qmark.png' style='margin-bottom: 10px; left: initial; cursor: help' class='tip' data-tipped-options=\"position: 'right', maxWidth: 135\" title='as a show of global unity, all adult kerbals take the surname of the first planetary leader'></p>";

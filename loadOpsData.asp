@@ -429,7 +429,7 @@ elseif request.querystring("type") = "vessel" then
       output = output & replace(field.name, " ", "") & "~" & field.value & "`"
     next
     output = left(output, len(output)-1)
-    output = output & "^"
+    output = output & "*"
   else
     output = output & "null*"
   end if

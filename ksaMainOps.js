@@ -72,7 +72,7 @@ if (navigator.appVersion.indexOf("Linux")!=-1) OSName="Linux";
 // current game time is the difference between current real time minus number of ms since midnight on 9/13/16
 // account for fact that game started during DST and also convert to seconds
 UT = ((clock.getTime() - foundingMoment) / 1000);
-if (clock.toString().search("Standard") >= 0) UT -= 3600; UTC = 5;
+if (clock.toString().search("Standard") >= 0) { UT -= 3600; UTC = 5; }
 if (window.location.href.includes("&showUT") || window.location.href.includes("?showUT")) console.log(UT + " " + clock);
 if (getParameterByName("setut") && getCookie("missionctrl")) UT = parseFloat(getParameterByName("setut"));
 
@@ -475,7 +475,7 @@ function loadOpsDataAJAX(xhttp) {
       
       // separate the main data segments
       var data = xhttp.responseText.split("Typ3vessel")[1].split("*");
-      
+
       // the vessel catalog data is first
       var catalog = rsToObj(data[0]);
       
