@@ -14,7 +14,6 @@ The following JavaScript libraries are used:
 * [Leaflet](http://leafletjs.com/)
 * [Leaflet.KSP](https://github.com/saik0/Leaflet.KSP)
 * [Sylvester](http://sylvester.jcoglan.com/)
-* [Leaflet.Label](https://github.com/Leaflet/Leaflet.label)
 * [Numeral](http://numeraljs.com/)
 * [Tipped](http://www.tippedjs.com/)
 * [Codebird](https://github.com/jublonet/codebird-js)
@@ -27,37 +26,39 @@ The following JavaScript libraries are used:
 * [w2ui sidebar](http://w2ui.com/web/demo/sidebar)
 * [Leaflet.EasyButton](https://github.com/CliffCloud/Leaflet.EasyButton)
 * [Font Awesome](http://fontawesome.io/icons/)
+* [Leaflet.LinearMeasurement](https://github.com/NLTGit/Leaflet.LinearMeasurement)
+* [Leaflet.MousePosition](https://github.com/ardhi/Leaflet.MousePosition)
 
 ### Known Issues
 
 - **Operations Tracker is currently in active development with work being done on the live page, so visiting at times may cause browser errors, failures to load, etc. However after it has been worked on it is left in a usable state**
 - Leaflet map can be finicky in a number of ways - most notably it doesn't mousewheel zoom centered on the cursor and can sometimes load showing off the edge of the map or refuse to load tiles. It can also fail to render paths and markers or not allow you to properly hover for information over paths. Generally these issues can all be fixed by upsizing/downsizing or going fullscreen
-- Leaflet map tiles can load slowly or not fully. If any grey tiles appear, changing zoom levels up/down and back again will display cached tiles and force a reload for any missing tiles
-- The downsized default map view for vessel pages does not interpret coordinates properly, so the info control is disabled as well as some features, but everything works fine if you size up the map view
+- The downsized default map view for vessel pages is not able to show position info for orbital plots when hovering over the lines. Sizing up the map or going fullscreen will enable this feature
 - Collapsing/Expanding the [Operations Menu](https://github.com/KSAMissionCtrl/OpsTracker/wiki/Navigation) can sometimes cause the entire area to go blank the next time something in it is clicked on
-- Sometimes the flight information popup will fail to close when a location pin is selected or the data removed
-- Ground tracks calculated for vessels are supposed to be redrawn if the vessel is re-visited before another vessel with orbital data is viewed - this currently no longer happens for some reason although the map will still center on the current position
+- Orbital ground tracks calculated for vessels are supposed to be redrawn if the vessel is re-visited before another vessel with orbital data is viewed - this currently no longer happens for some reason although the map will still center on the current position
+- Ground tracks for aircraft can sometimes not be hovered over to display additional information for that point in the flight. Try zooming in closer or panning the map view around a bit
 
 ### Future Fixes/Changes/Additions
 
-* New sat/terrain/biome maps for OPM
-* Updated biome maps for stock planets
-* Ground tracking for rovers. Resolution of movement dependent on whether max zoom level can be increased
-* 2-3 additional zoom levels for dynamic map
-* note the number of crew aboard and use that to calculate in real-time the remaining duration for any included life support resources (need to decide what life support system to use first - USI or TAC)
-* back-end interface that allows creation/modification of records through the website when detecting the admin cookie for updating craft and crew databases
-* [push notifications](https://developer.mozilla.org/en-US/docs/Web/API/Push_API)?
-* [Animate rover tracks](https://github.com/IvanSanchez/Leaflet.Polyline.SnakeAnim)? (for drawing old drive paths upon page load, not as a means to do "live" pathing)
-* Be able to tell if a trajectory intercepting the atmosphere is an aerobrake or re-entry
-* Detect trajectories that hit the surface on airless bodies and show a landing mark
-* Proper terminator display taking orbital inclination into account ([Leaflet.Curve](https://github.com/elfalem/Leaflet.curve)) - can possibly adapt [ScanSat code](https://forum.kerbalspaceprogram.com/index.php?/topic/87351-ksp-130-scansat-v179-dev-version-june-28-2017/&do=findComment&comment=2993781)
-* Playback controls for aircraft ground track data. Include in popup windows to let ppl jump to beginning or end of track and see a real-time update of data (center popup, move along track)
-* Allow download of aircraft flight data in spreadsheet form via the More Info pop-up
-* Hyperbolic orbit rendering in GeoGebra figures
+See all current bugs and future enhancements over in our [Issues Tracker](https://github.com/KSAMissionCtrl/OpsTracker/issues).
 
 ### Change Log
 
 Versioning Key (v#1.#2.#3): #1=New features #2=Changes to existing features #3=Fixes to existing features
+
+**v6.0.0** (3/20/18)
+
+Fixes:
+  - Multiple popups can be displayed on the map again
+  
+Changes:
+  - Clicking on the map no longer closes a popup. You must click on the X or again on the object that opened the popup
+  - You can no longer pan off the edge of the map, the view will bounce back
+  - Leaflet.Label has been replaced with the native tooltip ability for popping up text when hovering over [Labels](https://github.com/KSAMissionCtrl/OpsTracker/wiki/Surface-Map#layers-control)
+  
+Additions:
+  - [Measurement Control](https://github.com/KSAMissionCtrl/OpsTracker/wiki/Surface-Map#measurement-control) allows for plotting surface lines on the map to get distances and bearings
+  - A scale and mouse coordinate control have been placed in the bottom-left corner of the [Surface Map](https://github.com/KSAMissionCtrl/OpsTracker/wiki/Surface-Map) 
 
 **v5.0.0** (3/19/18)
 
