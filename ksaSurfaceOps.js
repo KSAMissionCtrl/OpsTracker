@@ -1,17 +1,5 @@
 function initializeMap() {
 
-  /* allow multiple popups to be open at the same time
-  // http://jsfiddle.net/paulovieira/yVLJf/
-  L.Map = L.Map.extend({
-    openPopup: function(popup) {
-      this._popup = popup;
-
-      return this.addLayer(popup).fire('popupopen', {
-        popup: this._popup
-      });
-    }
-  });*/
-  
   // create the map with some custom options
   // details on Leaflet API can be found here - http://leafletjs.com/reference.html
   surfaceMap = new L.Map('map', {
@@ -23,7 +11,9 @@ function initializeMap() {
     minZoom: 0,
     maxZoom: 5,
     zoom: 2,
-    worldCopyJump: true,
+    maxBounds: [[-90,-180], [90,180]],
+    maxBoundsViscosity: 0.5,
+    closePopupOnClick: false,
     fullscreenControl: true,
     fullscreenControlOptions: {
       position: 'topleft'
@@ -102,42 +92,67 @@ function initializeMap() {
   // only show the info control if looking at the big map, as the downsized map shows wrong coordinates for some reason
   if (!is_touch_device()) { 
     surfaceMap.on('mouseover', function(e) {
-      if ($("#map").css("height") != "480px") { $(".leaflet-control-info").fadeIn(); }
+      $(".leaflet-control-mouseposition").fadeIn();
+      $(".leaflet-control-scale").fadeIn();
       $(".leaflet-control-zoom").fadeIn();
       $(".leaflet-control-layers").fadeIn();
       $(".easy-button-container").fadeIn();
       $(".easy-button-button").fadeIn();
+      $(".icon-ruler").fadeIn();
     });
     surfaceMap.on('mouseout', function(e) {
-      $(".leaflet-control-info").fadeOut();
+      $(".leaflet-control-mouseposition").fadeOut();
+      $(".leaflet-control-scale").fadeOut();
       $(".leaflet-control-zoom").fadeOut();
       $(".leaflet-control-layers").fadeOut();
       $(".easy-button-container").fadeOut();
+      $(".icon-ruler").fadeOut();
     });
     surfaceMap.on('mousemove', function(e) {
     
-      /* wait to add the info control until mouse movement detected because it initializes to "undefined" coordinates
-      // don't add the control if we're looking at the downsized map because the coordinates are off for some reason
-      if (!infoControl && mapData && $("#map").css("height") != "480px") {
-        infoControl = new L.KSP.Control.Info({
-            elevInfo: mapData.Terrain,
-            biomeInfo: mapData.Biome,
-            slopeInfo: mapData.Slope
-          });
-        surfaceMap.addControl(infoControl);
-      }*/
-      
       // if we are still loading data, do not let the layer control collapse
       if (!layerControl.options.collapsed) { layerControl._expand(); }
     });
   }
+  
+  // extend the measurement control to allow the user to see the position of all the points they placed
+  var Ruler = L.Control.LinearMeasurement.extend({
+    layerSelected: function(e) {
+      var html = '<b>Selected Points:</b><p>';
+      e.points.forEach(function(latlng, index) {
+        if (index == 0) {
+          html += latlng[0].lat + "," + latlng[0].lng + "<br>";
+          html += latlng[1].lat + "," + latlng[1].lng + "<br>";
+        } else {
+          html += latlng[1].lat + "," + latlng[1].lng;
+          if (index < e.points.length-1) html += "<br>";
+        }
+      });
+      html += "</p>";
+      e.total_label.bindPopup(L.popup().setContent(html), { offset: [45, 0] });
+      e.total_label.openPopup();
+    }
+  });  
+  surfaceMap.addControl(new Ruler({
+      unitSystem: 'metric', 
+      color: '#FFD800',
+      show_azimut: true,
+      show_last_node: true,
+      contrastingColor: '#FFD800'
+    }));
   
   // add a layer control to let ppl know data is being loaded
   layerControl = L.control.groupedLayers().addTo(surfaceMap);
   layerControl.addOverlay(L.layerGroup(), "<i class='fa fa-cog fa-spin'></i> Loading Data...");
   layerControl._expand();
   layerControl.options.collapsed = false;
-
+  
+  // add a coordinates control
+  L.control.mousePosition().addTo(surfaceMap);
+  
+  // add a scale control
+  L.control.scale().addTo(surfaceMap);
+  
   // no idea why but doing this makes it work better for when loading straight to the map in the body view
   setTimeout(function() {
     if (pageType != "vessel") {
@@ -225,7 +240,7 @@ function loadMapDataAJAX(xhttp) {
     flagData.forEach(function(item, index) {
       var flag = item.split(";");
       flagMarker = L.marker([flag[0],flag[1]], {icon: flagIcon, zIndexOffset: 100});
-      flagMarker.bindPopup("<b>" + flag[3] + "</b><br />" + flag[4] + "<br />" + flag[6] + "<br />" + numeral(flag[2]/1000).format('0.000') + "km<br /><br />&quot;" + flag[5] + "&quot;<br /><br /><a target='_blank' href='" + flag[7] + "'>" + flag[8] + "</a>", {closeButton: false});
+      flagMarker.bindPopup("<b>" + flag[3] + "</b><br />" + flag[4] + "<br />" + flag[6] + "<br />" + numeral(flag[2]/1000).format('0.000') + "km<br /><br />&quot;" + flag[5] + "&quot;<br /><br /><a target='_blank' href='" + flag[7] + "'>" + flag[8] + "</a>", {autoClose: false});
       layerFlags.addLayer(flagMarker);
 
       // set the ID to make the map click function ignore this popup and add it to the map
@@ -249,7 +264,7 @@ function loadMapDataAJAX(xhttp) {
       POIMarker = L.marker([POI[0],POI[1]], {icon: POIIcon, zIndexOffset: 100});
       strHTML = "<b>" + POI[3] + "</b><br>" + numeral(POI[2]/1000).format('0.000') + " km";
       if (POI[4] != "null") { strHTML += "<p>" + POI[4] + "</p>"; }
-      POIMarker.bindPopup(strHTML, {closeButton: false});
+      POIMarker.bindPopup(strHTML, {autoClose: false});
       layerPOI.addLayer(POIMarker);
       POIMarker._myId = -1;
     });
@@ -270,7 +285,7 @@ function loadMapDataAJAX(xhttp) {
       strHTML = "<b>";
       if (anomaly[3] != "null") { strHTML += anomaly[3]; } else { strHTML += "Unkown Anomaly"; }
       strHTML += "</b><br>" + numeral(anomaly[2]/1000).format('0.000') + " km";
-      anomalyMarker.bindPopup(strHTML, {closeButton: false});
+      anomalyMarker.bindPopup(strHTML, {autoClose: false});
       layerAnomalies.addLayer(anomalyMarker);
       anomalyMarker._myId = -1;
     });
@@ -287,7 +302,7 @@ function loadMapDataAJAX(xhttp) {
     var layerLabels = L.layerGroup();
     labelData.forEach(function(item, index) {
       var label = item.split(";");
-      labelMarker = L.marker([label[0],label[1]], {icon: labelIcon, zIndexOffset: 100}).bindLabel(label[2], {className: 'labeltext'});
+      labelMarker = L.marker([label[0],label[1]], {icon: labelIcon, zIndexOffset: 100}).bindTooltip(label[2], {direction: 'top', offset: [0,-10]});
       layerLabels.addLayer(labelMarker);
       labelMarker._myId = -1;
       
@@ -306,10 +321,13 @@ function loadMapDataAJAX(xhttp) {
   // also set up future show/hide events
   setTimeout(function() {
     if (!$('#map').is(":hover")) { 
+      $(".leaflet-control-mouseposition").fadeOut();
+      $(".leaflet-control-scale").fadeOut();
       $(".leaflet-control-info").fadeOut();
       $(".leaflet-control-zoom").fadeOut();
       $(".leaflet-control-layers").fadeOut();
       $(".easy-button-container").fadeOut();
+      $(".icon-ruler").fadeOut();
     }
   }, 3000);
 
@@ -331,7 +349,7 @@ function loadMapDataAJAX(xhttp) {
       if (index > 0) isMultiple = true;
       mapLocation = item.split(",");
       if (mapLocation.length > 2) {
-        pin = L.marker([mapLocation[0], mapLocation[1]]).bindPopup(mapLocation[2], {closeButton: false});
+        pin = L.marker([mapLocation[0], mapLocation[1]]).bindPopup(mapLocation[2], {autoClose: false});
       } else {
         pin = L.marker([mapLocation[0], mapLocation[1]], {clickable: false});
       }
@@ -586,7 +604,7 @@ function renderVesselOrbit() {
       // add the marker, assign its information popup and give it a callback for instant update when opened, then add it to the current layer
       currentVesselPlot.Events.Ap.Marker = L.marker(orbitDataCalc[apTime].Latlng, {icon: apIcon}); 
       var strTimeDate = UTtoDateTime(obtCalcUT-orbitDataCalc.length + apTime);
-      currentVesselPlot.Events.Ap.Marker.bindPopup("<center>Time to Apoapsis<br><span id='apTime'>" + formatTime(apTime) + "</span><br><span id='apDate'>" + strTimeDate.split("@")[0] + '<br>' + strTimeDate.split("@")[1] + "</span> UTC</center>", {closeButton: true});
+      currentVesselPlot.Events.Ap.Marker.bindPopup("<center>Time to Apoapsis<br><span id='apTime'>" + formatTime(apTime) + "</span><br><span id='apDate'>" + strTimeDate.split("@")[0] + '<br>' + strTimeDate.split("@")[1] + "</span> UTC</center>", {autoClose: false});
       currentVesselPlot.Events.Ap.Marker.on('click', function(e) {
         $('#apTime').html(formatTime(currentVesselPlot.Events.Ap.UT - currUT()));
       });
@@ -595,7 +613,7 @@ function renderVesselOrbit() {
     if (!currentVesselPlot.Events.Pe.Marker && peTime < orbitDataCalc.length) { 
       currentVesselPlot.Events.Pe.Marker = L.marker(orbitDataCalc[peTime].Latlng, {icon: peIcon}); 
       var strTimeDate = UTtoDateTime(obtCalcUT-orbitDataCalc.length + peTime);
-      currentVesselPlot.Events.Pe.Marker.bindPopup("<center>Time to Periapsis<br><span id='peTime'>" + formatTime(peTime) + "</span><br><span id='peDate'>" + strTimeDate.split("@")[0] + '<br>' + strTimeDate.split("@")[1] + "</span> UTC</center>", {closeButton: true});
+      currentVesselPlot.Events.Pe.Marker.bindPopup("<center>Time to Periapsis<br><span id='peTime'>" + formatTime(peTime) + "</span><br><span id='peDate'>" + strTimeDate.split("@")[0] + '<br>' + strTimeDate.split("@")[1] + "</span> UTC</center>", {autoClose: false});
       currentVesselPlot.Events.Pe.Marker.on('click', function(e) {
         $('#peTime').html(formatTime(currentVesselPlot.Events.Pe.UT - currUT()));
       });
@@ -671,7 +689,7 @@ function renderVesselOrbit() {
     // place the craft marker and assign its popup
     vesselIcon = L.icon({iconUrl: 'button_vessel_' + w2ui['menu'].get(strCurrentVessel).img.split("-")[1] + '.png', iconSize: [16, 16]});
     vesselMarker = L.marker(currentVesselPlot.Data[0].Orbit[0].Latlng, {icon: vesselIcon, zIndexOffset: 100}).addTo(surfaceMap);
-    vesselMarker.bindPopup("Lat: <span id='lat'>-000.0000&deg;S</span><br>Lng: <span id='lng'>-000.0000&deg;W</span><br>Alt: <span id='alt'>000,000.000km</span><br>Vel: <span id='vel'>000,000.000km/s</span>", {closeButton: true});
+    vesselMarker.bindPopup("Lat: <span id='lat'>-000.0000&deg;S</span><br>Lng: <span id='lng'>-000.0000&deg;W</span><br>Alt: <span id='alt'>000,000.000km</span><br>Vel: <span id='vel'>000,000.000km/s</span>", {autoClose: false});
 
     // set up a listener for popup events so we can immediately update the information and not have to wait for the next tick event
     vesselMarker.on('click', function(e) {
@@ -1109,7 +1127,12 @@ function getDataPoint(obtNum, target) {
 // take care of all the details that need to be applied to a flight's surface track as this needs to be done in two separate places
 function setupFlightSurfacePath(path, index, length) {
     
-  var srfTrack = L.polyline(path, {smoothFactor: 1.75, clickable: true, color: fltPaths[fltPaths.length-1].Color, weight: 3, opacity: 1});
+  var srfTrack = L.polyline(path, {
+    smoothFactor: 1.75, 
+    clickable: true, 
+    color: fltPaths[fltPaths.length-1].Color, 
+    weight: 3, 
+    opacity: 1});
   
   // save the beginning index of this line to make it faster when searching for a data point by not having to look through the whole array
   // also save the current flight index to identify the data needed for the popups
@@ -1383,7 +1406,7 @@ function popupMarkerOpen(indexFlt, linkNum) {
   
     // don't create this pin if it is already created
     if (!fltPaths[indexFlt].Pins[linkNum].Group[pinIndex].Pin) {
-      fltPaths[indexFlt].Pins[linkNum].Group[pinIndex].Pin = L.marker([fltPaths[indexFlt].Pins[linkNum].Group[pinIndex].Lat, fltPaths[indexFlt].Pins[linkNum].Group[pinIndex].Lng]).bindPopup(decodeURI(fltPaths[indexFlt].Pins[linkNum].Group[pinIndex].HTML) + "<p><center><span onclick='popupMarkerClose(" + indexFlt + "," + linkNum + "," + pinIndex + ")' style='color: blue; cursor: pointer;'>Remove Pin</span></center></p>", {closeButton: false}).addTo(surfaceMap);
+      fltPaths[indexFlt].Pins[linkNum].Group[pinIndex].Pin = L.marker([fltPaths[indexFlt].Pins[linkNum].Group[pinIndex].Lat, fltPaths[indexFlt].Pins[linkNum].Group[pinIndex].Lng]).bindPopup(decodeURI(fltPaths[indexFlt].Pins[linkNum].Group[pinIndex].HTML, {autoClose: false}) + "<p><center><span onclick='popupMarkerClose(" + indexFlt + "," + linkNum + "," + pinIndex + ")' style='color: blue; cursor: pointer;'>Remove Pin</span></center></p>", {closeButton: false}).addTo(surfaceMap);
       fltPaths[indexFlt].Layer.addLayer(fltPaths[indexFlt].Pins[linkNum].Group[pinIndex].Pin);
       
       // if there is just one pin, open the popup

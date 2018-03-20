@@ -18,6 +18,7 @@
   <!-- CSS stylesheets 
   <link rel="stylesheet" href="https://unpkg.com/leaflet@0.5.1/dist/leaflet.css">
   <link rel="stylesheet" href="../lib/leaflet.ksp-src.css">
+  <link rel="stylesheet" href="../lib/leaflet.label.css">
   -->
   <link rel="stylesheet" href="http://fonts.googleapis.com/css?family=Roboto:900">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.3.1/dist/leaflet.css"
@@ -28,9 +29,10 @@
   <link rel="stylesheet" href="../lib/w2ui-1.5.rc1.css">
   <link rel="stylesheet" href="../lib/Control.FullScreen.css">
   <link rel="stylesheet" href="../lib/leaflet.groupedlayercontrol.min.css">
-  <link rel="stylesheet" href="../lib/leaflet.label.css">
   <link rel="stylesheet" href="../lib/leaflet.rrose.css">
   <link rel="stylesheet" href="../lib/easy-button.css">
+  <link rel="stylesheet" href="../lib/L.Control.MousePosition.css">
+  <link rel="stylesheet" href="../lib/Leaflet.LinearMeasurement.css">
   <link rel="stylesheet" href="styles.css?v=1.0">
 </head>
 
@@ -158,6 +160,7 @@
   <script src="../lib/leaflet.ksp-src.js"></script>
   <script src="../lib/proj4js-combined.js"></script>
   <script src="../lib/proj4leaflet.js"></script>
+  <script src="../lib/leaflet.label.js"></script>
   -->
   <script src="http://ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js"></script>
   <script src="https://cdn.geogebra.org/apps/deployggb.js"></script>
@@ -170,7 +173,6 @@
   <script src="../lib/numeral.min.js"></script>
   <script src="../lib/tipped.js"></script>
   <script src="../lib/w2ui-1.5.rc1.js"></script>
-  <script src="../lib/leaflet.label.js"></script>
   <script src="../lib/Control.FullScreen.js"></script>
   <script src="../lib/leaflet.groupedlayercontrol.min.js"></script>
   <script src="../lib/leaflet.rrose-src.js"></script>
@@ -178,6 +180,8 @@
   <script src="../lib/sylvester.js"></script>
   <script src="../lib/crs.js"></script>
   <script src="../lib/tile.js"></script>
+  <script src="../lib/L.Control.MousePosition.js"></script>
+  <script src="../lib/Leaflet.LinearMeasurement.js"></script>
   <script src="helpFuncs.js"></script>
   <script src="ksaGlobals.js"></script>
   <script src="ksaEventOps.js"></script>

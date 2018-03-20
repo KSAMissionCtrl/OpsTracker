@@ -652,7 +652,7 @@ function vesselContentUpdate() {
     } else {
       cardinalLon = "E";
     }
-    launchsiteMarker.bindPopup(strLaunchIconCaption + data[2] + launchAltitude + "<br>[" + numeral(Math.abs(data[0])).format('0.0000') + "&deg;" + cardinalLat + ", " + numeral(Math.abs(data[1])).format('0.0000') + "&deg;" + cardinalLon + "]" , {closeButton: true});
+    launchsiteMarker.bindPopup(strLaunchIconCaption + data[2] + launchAltitude + "<br>[" + numeral(Math.abs(data[0])).format('0.0000') + "&deg;" + cardinalLat + ", " + numeral(Math.abs(data[1])).format('0.0000') + "&deg;" + cardinalLon + "]" , {closeOnClick: false});
     if (!strLaunchIconCaption.length) {
       surfaceMap.fitBounds([srfLocations.KSC, [data[0], data[1]]]);
     } else {
