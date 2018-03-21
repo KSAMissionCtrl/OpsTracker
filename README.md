@@ -37,6 +37,7 @@ The following JavaScript libraries are used:
 - Collapsing/Expanding the [Operations Menu](https://github.com/KSAMissionCtrl/OpsTracker/wiki/Navigation) can sometimes cause the entire area to go blank the next time something in it is clicked on
 - Orbital ground tracks calculated for vessels are supposed to be redrawn if the vessel is re-visited before another vessel with orbital data is viewed - this currently no longer happens for some reason although the map will still center on the current position
 - Ground tracks for aircraft can sometimes not be hovered over to display additional information for that point in the flight. Try zooming in closer or panning the map view around a bit
+- Starting from the default Kerbol System overview it has been sometimes impossible to select another body from the [Operations Menu](https://github.com/KSAMissionCtrl/OpsTracker/wiki/Navigation). Selecting a vessel will fail to load the surface map when needed. No apparent errors are logged on page load or when attempting to select another body. Reloading the website should clear this up for now
 
 ### Future Fixes/Changes/Additions
 
