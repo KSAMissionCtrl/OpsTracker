@@ -12,7 +12,7 @@ The following KSP mods/apps are used to provide the data the Operations Tracker 
 The following JavaScript libraries are used:
 
 * [Leaflet](http://leafletjs.com/)
-* [Leaflet.KSP](https://github.com/saik0/Leaflet.KSP)
+* [Leaflet.Kerbal](https://gitlab.com/IvanSanchez/Leaflet.Kerbal)
 * [Sylvester](http://sylvester.jcoglan.com/)
 * [Numeral](http://numeraljs.com/)
 * [Tipped](http://www.tippedjs.com/)
@@ -46,6 +46,19 @@ See all current bugs and future enhancements over in our [Issues Tracker](https:
 ### Change Log
 
 Versioning Key (v#1.#2.#3): #1=New features #2=Changes to existing features #3=Fixes to existing features
+
+**v6.1.0** (3/21/18)
+
+Fixes:
+  - Surface map loader is now more ready to handle loading between different bodies
+  - Map controls hide completely when mouse if off the map - before there was a tiny container box visible in the upper-left
+  - [Surface Map](https://github.com/KSAMissionCtrl/OpsTracker/wiki/Surface-Map) now transitions better between full surface view and vessel view without having to make the map fullscreen to allow it to pan properly
+  
+Changes:
+  - Updated Leaflet.Fullscreen plugin
+  - Removed Leaflet.KSP from list of dependencies, added Leaflet.Kerbal
+  - New known issue added: Starting from the default Kerbol System overview it has been sometimes impossible to select another body from the [Operations Menu](https://github.com/KSAMissionCtrl/OpsTracker/wiki/Navigation). Selecting a vessel will fail to load the surface map when needed. No apparent errors are logged on page load or when attempting to select another body. Reloading the website should clear this up for now
+  
 
 **v6.0.0** (3/20/18)
 
