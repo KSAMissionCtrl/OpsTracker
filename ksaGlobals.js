@@ -35,6 +35,7 @@ var timePopup;
 var currentVesselPlot;
 var strPausedVesselCalculation;
 var strCurrentBody;
+var strCurrentMap;
 var strCurrentSystem;
 var strCurrentCrew;
 var strCurrentLaunchVessel;

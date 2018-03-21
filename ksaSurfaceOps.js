@@ -92,21 +92,12 @@ function initializeMap() {
   // only show the info control if looking at the big map, as the downsized map shows wrong coordinates for some reason
   if (!is_touch_device()) { 
     surfaceMap.on('mouseover', function(e) {
-      $(".leaflet-control-mouseposition").fadeIn();
-      $(".leaflet-control-scale").fadeIn();
-      $(".leaflet-control-zoom").fadeIn();
-      $(".leaflet-control-layers").fadeIn();
-      $(".easy-button-container").fadeIn();
-      $(".easy-button-button").fadeIn();
-      $(".icon-ruler").fadeIn();
+      $(".leaflet-top").fadeIn();
+      $(".leaflet-bottom.leaflet-left").fadeIn();
     });
     surfaceMap.on('mouseout', function(e) {
-      $(".leaflet-control-mouseposition").fadeOut();
-      $(".leaflet-control-scale").fadeOut();
-      $(".leaflet-control-zoom").fadeOut();
-      $(".leaflet-control-layers").fadeOut();
-      $(".easy-button-container").fadeOut();
-      $(".icon-ruler").fadeOut();
+      $(".leaflet-top").fadeOut();
+      $(".leaflet-bottom.leaflet-left").fadeOut();
     });
     surfaceMap.on('mousemove', function(e) {
     
@@ -141,12 +132,6 @@ function initializeMap() {
       contrastingColor: '#FFD800'
     }));
   
-  // add a layer control to let ppl know data is being loaded
-  layerControl = L.control.groupedLayers().addTo(surfaceMap);
-  layerControl.addOverlay(L.layerGroup(), "<i class='fa fa-cog fa-spin'></i> Loading Data...");
-  layerControl._expand();
-  layerControl.options.collapsed = false;
-  
   // add a coordinates control
   L.control.mousePosition().addTo(surfaceMap);
   
@@ -172,9 +157,21 @@ function loadMap(map) {
     }, 250)
     return;
   }
-  
-  // call up the map data to load
-  loadDB("loadMapData.asp?map=" + map + "&UT=" + currUT(), loadMapDataAJAX);
+ 
+  // if there is no current map or the map is different, continue with the load
+  if (!strCurrentMap || (strCurrentMap && strCurrentMap != map)) {
+    strCurrentMap = map;
+    
+    // add a new layer control to let ppl know data is being loaded
+    if (layerControl) surfaceMap.removeControl(layerControl);
+    layerControl = L.control.groupedLayers().addTo(surfaceMap);
+    layerControl.addOverlay(L.layerGroup(), "<i class='fa fa-cog fa-spin'></i> Loading Data...");
+    layerControl._expand();
+    layerControl.options.collapsed = false;
+    
+    // call up the map data to load
+    loadDB("loadMapData.asp?map=" + map + "&UT=" + currUT(), loadMapDataAJAX);
+  }
 }
 
 function loadMapDataAJAX(xhttp) {
@@ -321,13 +318,8 @@ function loadMapDataAJAX(xhttp) {
   // also set up future show/hide events
   setTimeout(function() {
     if (!$('#map').is(":hover")) { 
-      $(".leaflet-control-mouseposition").fadeOut();
-      $(".leaflet-control-scale").fadeOut();
-      $(".leaflet-control-info").fadeOut();
-      $(".leaflet-control-zoom").fadeOut();
-      $(".leaflet-control-layers").fadeOut();
-      $(".easy-button-container").fadeOut();
-      $(".icon-ruler").fadeOut();
+      $(".leaflet-top").fadeOut();
+      $(".leaflet-bottom.leaflet-left").fadeOut();
     }
   }, 3000);
 
@@ -478,7 +470,7 @@ function renderMapData() {
   // check if we need to wait for the vessel to finish loading or if we need to wait for the base map layers to finish loading
   // or if we have to wait for the GGB to finish loading or if we need to wait for the content area to stop moving
   if ((!currentVesselData && pageType == "vessel") || 
-      !layerControl.options.collapsed ||
+      (layerControl && !layerControl.options.collapsed) ||
       !isGGBAppletLoaded || isContentMoving) { setTimeout(renderMapData, 250); return; }
 
   // if there is a paused calculation we are returning to, then just resume calling the orbital batch
@@ -1068,6 +1060,7 @@ function showMap() {
   $("#contentHeader").html(strCurrentBody.split("-")[0]);
   document.title = "KSA Operations Tracker - " + strCurrentBody.split("-")[0];
   if (launchsiteMarker) surfaceMap.removeLayer(launchsiteMarker);
+  surfaceMap.invalidateSize();
 }
 
 function hideMap() {
@@ -1376,6 +1369,7 @@ function redrawVesselPlots() {
     }, 1000);
   }
   addMapRefreshButton();
+  surfaceMap.invalidateSize();
 }
 
 // puts any existing plots of flights back onto the map

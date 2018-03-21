@@ -60,7 +60,7 @@ function loadVessel(vessel, givenUT) {
   clearSurfacePlots();
   
   // we can't be switching vessels while loading any plot data so if it's in progress, kill it
-  if (!layerControl.options.collapsed) { 
+  if (layerControl && !layerControl.options.collapsed) { 
     isOrbitRenderTerminated = true;
     layerControl._collapse();
     layerControl.options.collapsed = true;
