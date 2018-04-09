@@ -35,7 +35,6 @@ The following JavaScript libraries are used:
 - Leaflet map can be finicky in a number of ways - most notably it doesn't mousewheel zoom centered on the cursor and can sometimes load showing off the edge of the map or refuse to load tiles. It can also fail to render paths and markers or not allow you to properly hover for information over paths. Generally these issues can all be fixed by upsizing/downsizing or going fullscreen
 - The downsized default map view for vessel pages is not able to show position info for orbital plots when hovering over the lines. Sizing up the map or going fullscreen will enable this feature
 - Collapsing/Expanding the [Operations Menu](https://github.com/KSAMissionCtrl/OpsTracker/wiki/Navigation) can sometimes cause the entire area to go blank the next time something in it is clicked on
-- Orbital ground tracks calculated for vessels are supposed to be redrawn if the vessel is re-visited before another vessel with orbital data is viewed - this currently no longer happens for some reason although the map will still center on the current position
 - Ground tracks for aircraft can sometimes not be hovered over to display additional information for that point in the flight. Try zooming in closer or panning the map view around a bit
 - Starting from the default Kerbol System overview it has been sometimes impossible to select another body from the [Operations Menu](https://github.com/KSAMissionCtrl/OpsTracker/wiki/Navigation). Selecting a vessel will fail to load the surface map when needed. No apparent errors are logged on page load or when attempting to select another body. Reloading the website should clear this up for now
 
@@ -46,6 +45,21 @@ See all current bugs and future enhancements over in our [Issues Tracker](https:
 ### Change Log
 
 Versioning Key (v#1.#2.#3): #1=New features #2=Changes to existing features #3=Fixes to existing features
+
+**v6.2.0** (4/8/18)
+
+Fixes:
+  - Dialog for map now removes the map resize button everytime it pops up, not just the first time
+  - Map no longer errors out due to an uninitialized control if the user mouses over it immediately upon page load
+  - Map dialog asking for how to render orbits that are too long no longer assumes it will pop up all the time and closes when switching to another vessel. Re-opens if needed
+  - Vessel marker popup no longer shows 00000 values for the vessel data when it is first opened after returning to an already-drawn plot
+  - Twitter feed now shows for timelines that don't have a UT defining when they can be shown
+  - Previously-rendered plots are now properly redrawn when the craft is visited again ([see wiki](https://github.com/KSAMissionCtrl/OpsTracker/wiki/Vessel-Details#orbital-tracking) for details)
+  - Left-side buttons to control various map functions now properly show up when they are loaded
+  
+Changes:
+  - [Twitter Feed](https://github.com/KSAMissionCtrl/OpsTracker/wiki/Twitter-Feed) now shows full dates dates with times for each tweet, including new tweets loaded when more are requested
+  - When a map dialog is open, the fullscreen control is now hidden along with the map resize button
 
 **v6.1.0** (3/21/18)
 
