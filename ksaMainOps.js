@@ -170,7 +170,7 @@ function setupContent() {
   // setup the message dialog box that will notify the user about any surface map stuff
   $("#progressbar").progressbar({ value: 0 });
   $("#mapDialog").dialog({autoOpen: false, 
-                    closeOnEscape: false, 
+    closeOnEscape: false, 
                     resizable: false, 
                     draggable: false,
                     dialogClass: "no-close",
@@ -179,10 +179,18 @@ function setupContent() {
                     hide: { effect: "fade", duration: 300 }, 
                     show: { effect: "fade", duration: 300 },
                     position: { my: "center", at: "center", of: "#contentBox" },
-                    open: function(event, ui) { removeMapResizeButton(); },
-                    close: function(event, ui) { addMapResizeButton(); }
+                    open: function(event, ui) { 
+
+                      // don't allow the user to manipulate the map size while dialog is open
+                      removeMapResizeButton(); 
+                      $(".leaflet-control-zoom-fullscreen.fullscreen-icon").hide();
+                    },
+                    close: function(event, ui) { 
+                      addMapResizeButton();
+                      $(".leaflet-control-zoom-fullscreen.fullscreen-icon").show();
+                    }
                     });
-  
+
   // setup the message dialog box that will notify the user about any general website stuff
   $("#siteDialog").dialog({autoOpen: false, 
                     closeOnEscape: false, 

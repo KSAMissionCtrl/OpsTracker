@@ -89,7 +89,6 @@ function initializeMap() {
   });
   
   // show controls only when the cursor is over the map
-  // only show the info control if looking at the big map, as the downsized map shows wrong coordinates for some reason
   if (!is_touch_device()) { 
     surfaceMap.on('mouseover', function(e) {
       $(".leaflet-top").fadeIn();
@@ -102,7 +101,7 @@ function initializeMap() {
     surfaceMap.on('mousemove', function(e) {
     
       // if we are still loading data, do not let the layer control collapse
-      if (!layerControl.options.collapsed) { layerControl._expand(); }
+      if (layerControl && !layerControl.options.collapsed) { layerControl._expand(); }
     });
   }
   
@@ -175,7 +174,7 @@ function loadMap(map) {
 }
 
 function loadMapDataAJAX(xhttp) {
-
+  console.log(xhttp);
   // could be nothing to load, so just exit
   if (xhttp.responseText == "null") return;
   
@@ -314,8 +313,7 @@ function loadMapDataAJAX(xhttp) {
     }
   }
   
-  // hide map controls after 3 seconds if the user cursor isn't over the map
-  // also set up future show/hide events
+  // hide map controls after 3 seconds if the user cursor isn't over the map (or dialog) at that time
   setTimeout(function() {
     if (!$('#map').is(":hover")) { 
       $(".leaflet-top").fadeOut();
@@ -473,6 +471,9 @@ function renderMapData() {
       (layerControl && !layerControl.options.collapsed) ||
       !isGGBAppletLoaded || isContentMoving) { setTimeout(renderMapData, 250); return; }
 
+  // close the dialog in case it was left open from another vessel
+  $("#mapDialog").dialog("close");
+
   // if there is a paused calculation we are returning to, then just resume calling the orbital batch
   if (strPausedVesselCalculation == strCurrentVessel) {
     
@@ -511,7 +512,7 @@ function renderMapData() {
       $("#dialogTxt").html("Calculating 3 orbits for this vessel could take a long time, but you can also cancel at any time and show what has been done up to that point if you wish");
       $("#dialogTxt").fadeIn();
       $("#progressbar").hide();
-      $("#mapDialog").dialog("open");
+      setTimeout(function() { $("#mapDialog").dialog("open"); }, 1000);
       
     // render out the default 3 orbits for this vessel
     } else {
@@ -684,7 +685,7 @@ function renderVesselOrbit() {
     vesselMarker.bindPopup("Lat: <span id='lat'>-000.0000&deg;S</span><br>Lng: <span id='lng'>-000.0000&deg;W</span><br>Alt: <span id='alt'>000,000.000km</span><br>Vel: <span id='vel'>000,000.000km/s</span>", {autoClose: false});
 
     // set up a listener for popup events so we can immediately update the information and not have to wait for the next tick event
-    vesselMarker.on('click', function(e) {
+    vesselMarker.on('popupopen', function(e) {
       var now = getPlotIndex();
       var cardinal = getLatLngCompass(currentVesselPlot.Data[now.ObtNum].Orbit[now.Index].Latlng);
       $('#lat').html(numeral(currentVesselPlot.Data[now.ObtNum].Orbit[now.Index].Latlng.lat).format('0.0000') + "&deg;" + cardinal.Lat);
@@ -960,7 +961,6 @@ function addMapResizeButton() {
         }
       }]
     }).addTo(surfaceMap);
-    if (!$(".leaflet-control-zoom").is(":visible")) $(".easy-button-container").hide();
   }
 }
 function addMapViewButton() {
@@ -984,7 +984,6 @@ function addMapViewButton() {
         }
       }]
     }).addTo(surfaceMap);
-    if (!$(".leaflet-control-zoom").is(":visible")) $(".easy-button-container").hide();
   }
 }
 function removeMapResizeButton() {
@@ -1018,7 +1017,6 @@ function addMapRefreshButton() {
         }
       }]
     }).addTo(surfaceMap);
-    if (!$(".leaflet-control-zoom").is(":visible")) $(".easy-button-container").hide();
   }
 }
 function removeMapRefreshButton() {
@@ -1359,14 +1357,10 @@ function redrawVesselPlots() {
   if (vesselMarker) {
     vesselMarker.addTo(surfaceMap);
     
-    // wait a second for the position update from the main tick function, then focus on the marker
-    setTimeout(function() { 
-      surfaceMap.setView(vesselMarker.getLatLng(), 3); 
-      
-      // open the vessel popup then hide it after 5s
-      vesselMarker.openPopup();
-      setTimeout(function() { vesselMarker.closePopup(); }, 5000);
-    }, 1000);
+    // open the vessel popup then hide it after 5s
+    surfaceMap.setView(vesselMarker.getLatLng(), 3); 
+    vesselMarker.openPopup();
+    setTimeout(function() { vesselMarker.closePopup(); }, 5000);
   }
   addMapRefreshButton();
   surfaceMap.invalidateSize();

@@ -14,7 +14,7 @@
   
   <!-- cache of Font Awesome -->
   <link href="https://use.fontawesome.com/releases/v5.0.2/css/all.css" rel="stylesheet">
-  
+
   <!-- CSS stylesheets 
   <link rel="stylesheet" href="https://unpkg.com/leaflet@0.5.1/dist/leaflet.css">
   <link rel="stylesheet" href="../lib/leaflet.ksp-src.css">
@@ -34,6 +34,24 @@
   <link rel="stylesheet" href="../lib/L.Control.MousePosition.css">
   <link rel="stylesheet" href="../lib/Leaflet.LinearMeasurement.css">
   <link rel="stylesheet" href="styles.css?v=1.0">
+
+   <!-- allows for use of twitter JS API functions -->
+   <script>window.twttr = (function(d, s, id) {
+    var js, fjs = d.getElementsByTagName(s)[0],
+      t = window.twttr || {};
+    if (d.getElementById(id)) return t;
+    js = d.createElement(s);
+    js.id = id;
+    js.src = "https://platform.twitter.com/widgets.js";
+    fjs.parentNode.insertBefore(js, fjs);
+  
+    t._e = [];
+    t.ready = function(f) {
+      t._e.push(f);
+    };
+  
+    return t;
+  }(document, "script", "twitter-wjs"));</script>
 </head>
 
 <body onload='setupContent()'>
@@ -46,6 +64,13 @@
 
   <div id='contentContainer'>
     <div id='mainContent'>
+      <div id='infoDialog'></div>
+      <div id='figureDialog'></div>
+      <div id='mapDialog'>
+        <div id='dialogTxt' style='display:none'></div>
+        <div id='progressbar' style='display:none'></div>
+      </div>
+      <div id='siteDialog'></div>
       <div id='contentHeader' class='header'>&nbsp;</div>
       <div id='contentBox'>
         <div id='map' class='map'></div>
@@ -107,13 +132,6 @@
         <input class='checkboxes' name='ship' id='ship-filter' type='checkbox' disabled> <label  id='ship-label' for='ship-filter'>Ship</label><br>
         <input class='checkboxes' name='station' id='station-filter' type='checkbox' disabled> <label  id='station-label' for='station-filter'>Station</label>
       </div>
-      <div id='infoDialog'></div>
-      <div id='figureDialog'></div>
-      <div id='mapDialog'>
-        <div id='dialogTxt' style='display:none'></div>
-        <div id='progressbar' style='display:none'></div>
-      </div>
-      <div id='siteDialog'></div>
       <div id='footer' style='text-align: center; width: 955px; top: 930px; position: absolute;'><a target='_blank' href='http://www.kerbalspace.agency'>KSA Home Page</a> | 2D Orbit rendering: <a target='_blank' href='http://bit.ly/KSPTOT'>KSPTOT</a> | 3D Orbit Rendering: <a target='_blank' href='http://forum.kerbalspaceprogram.com/index.php?/topic/158826-3d-ksp-solar-system-scale-model-major-update-05202017/'>by Syntax</a> | <a target='_blank' href='https://github.com/KSAMissionCtrl/OpsTracker/wiki'>Ops Tracker Wiki</a></div>
     </div>
     <div id='sideContent'>
@@ -167,7 +185,7 @@
   <script src="https://unpkg.com/leaflet@1.3.1/dist/leaflet.js"
    integrity="sha512-/Nsx9X4HebavoBvEBuyp3I7od5tA0UzAxs+j83KgC8PU0kgB4XiK4Lfe4y4cgBtaRJQEIFCW+oC506aPT2L1zw=="
    crossorigin=""></script>
-  <script src="../lib/jquery-ui.min.js"></script>
+   <script src="../lib/jquery-ui.min.js"></script>
   <script src="../lib/spin.min.js"></script>  
   <script src="../lib/jquery.spin.js"></script>
   <script src="../lib/numeral.min.js"></script>
@@ -182,6 +200,7 @@
   <script src="../lib/tile.js"></script>
   <script src="../lib/L.Control.MousePosition.js"></script>
   <script src="../lib/Leaflet.LinearMeasurement.js"></script>
+  <script src="../lib/twitTimelineMod.js"></script>
   <script src="helpFuncs.js"></script>
   <script src="ksaGlobals.js"></script>
   <script src="ksaEventOps.js"></script>

@@ -56,9 +56,6 @@ function loadVessel(vessel, givenUT) {
   addMapResizeButton();
   addMapViewButton();
   
-  // clear off the map
-  clearSurfacePlots();
-  
   // we can't be switching vessels while loading any plot data so if it's in progress, kill it
   if (layerControl && !layerControl.options.collapsed) { 
     isOrbitRenderTerminated = true;
@@ -174,7 +171,10 @@ function loadVesselAJAX(xhttp, time) {
   
   // update the twitter timeline only if the current one loaded isn't already the one we want to load
   var thisTimeline = '';
-  if (currentVesselData.CatalogData.Timeline) thisTimeline = currentVesselData.CatalogData.Timeline.split(";")[1];
+  if (currentVesselData.CatalogData.Timeline) {
+    thisTimeline = currentVesselData.CatalogData.Timeline.split(";")[1];
+    if (!thisTimeline) thisTimeline = currentVesselData.CatalogData.Timeline;
+  }
   if (thisTimeline != twitterSource) vesselTimelineUpdate();
   
   $("#patches").empty();
@@ -616,9 +616,10 @@ function vesselContentUpdate() {
   isVesselUsingMap = true;
   $("#content").empty();
   
-  // remove any previous markers
+  // remove any previous markers and surface plots
   if (launchsiteMarker) surfaceMap.removeLayer(launchsiteMarker);
-  
+  clearSurfacePlots();
+
   // decide what kind of content we have to deal with
   // pre-launch/static data event
   if (currentVesselData.CraftData.Content.charAt(0) == "@") {
@@ -690,7 +691,6 @@ function vesselContentUpdate() {
         $("#mapDialog").dialog("close");
         redrawVesselPlots(); 
       } else {
-        clearSurfacePlots();
         renderMapData();
       }
       
