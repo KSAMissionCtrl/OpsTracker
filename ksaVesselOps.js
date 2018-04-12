@@ -33,8 +33,9 @@ function loadVessel(vessel, givenUT) {
   } 
   
   // if this vessel is not in the current system, we need to load a new system
+  // unless the system that is the current system is not yet loaded
   // we can't call this function until the menu is loaded
-  if (getParentSystem(vessel) != strCurrentBody) loadBody(getParentSystem(vessel));
+  if (getParentSystem(vessel) != strCurrentBody || (getParentSystem(vessel) == strCurrentBody && !isGGBAppletLoaded)) loadBody(getParentSystem(vessel));
   
   strCurrentVessel = vessel;
   
@@ -837,7 +838,16 @@ function updateVesselData(vessel) {
     vesselLastUpdate(true);
     vesselHistoryUpdate();
     console.log(vessel);
-    if (vessel.CurrentData.CraftData.Content != vessel.FutureData.CraftData.Content) vesselContentUpdate();
+    if (vessel.CurrentData.CraftData.Content != vessel.FutureData.CraftData.Content) {
+
+      // remove the current plotted data if it exists and matches this vessel because we're going to need to draw a new plot
+      if (currentVesselPlot && currentVesselPlot.ID == strCurrentVessel) {
+        clearSurfacePlots();
+        currentVesselPlot = null;
+        vesselMarker = null;
+      }
+      vesselContentUpdate();
+    }
     
     // create the tooltips
     // behavior of tooltips depends on the device

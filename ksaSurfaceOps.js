@@ -1410,6 +1410,7 @@ function popupMarkerOpen(indexFlt, linkNum) {
 // removes a single pin when user clicks link in pin popup
 function popupMarkerClose(indexFlt, linkNum, pinIndex) {
   surfaceMap.removeLayer(fltPaths[indexFlt].Pins[linkNum].Group[pinIndex].Pin);
+  fltPaths[indexFlt].Layer.removeLayer(fltPaths[indexFlt].Pins[linkNum].Group[pinIndex].Pin);
   fltPaths[indexFlt].Pins[linkNum].Group[pinIndex].Pin = null;
 }
 
