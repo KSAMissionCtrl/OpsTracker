@@ -46,6 +46,13 @@ See all current bugs and future enhancements over in our [Issues Tracker](https:
 
 Versioning Key (v#1.#2.#3): #1=New features #2=Changes to existing features #3=Fixes to existing features
 
+**v6.2.1** (4/12/18)
+
+Fixes:
+  - Removing pins from [Flight Plots](https://github.com/KSAMissionCtrl/OpsTracker/wiki/Surface-Map#flight-plotting) removes them from the layer also now not just the map, so they do not reappear if you show and hide the path
+  - Viewing [Vessel Details](https://github.com/KSAMissionCtrl/OpsTracker/wiki/Vessel-Details) for an active vessel after the page was initially loaded for an inactive vessel now properly prompts for any orbital calculations that are needed
+  - When a vessel is updated with new data as the page is being viewed, if new orbital data is included the current plot is now removed and the new plot drawn
+
 **v6.2.0** (4/8/18)
 
 Fixes:
