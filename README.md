@@ -46,6 +46,11 @@ See all current bugs and future enhancements over in our [Issues Tracker](https:
 
 Versioning Key (v#1.#2.#3): #1=New features #2=Changes to existing features #3=Fixes to existing features
 
+**v7.0.0** (4/14/18)
+
+Additions:
+  - The surface map [Layers Control](https://github.com/KSAMissionCtrl/OpsTracker/wiki/Surface-Map#layers-control) now has a new default layer that allows you to display the sun's current position along with the terminator line that separates night and day, showing which areas of the body are in darkness. This layer is updated every second.
+
 **v6.2.1** (4/12/18)
 
 Fixes:
