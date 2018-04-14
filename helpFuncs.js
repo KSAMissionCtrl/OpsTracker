@@ -284,3 +284,11 @@ function flashUpdate(element, startColor, endColor) {
     }, 500);
   });
 }
+
+// http://cwestblog.com/2012/11/12/javascript-degree-and-radian-conversion/
+Math.radians = function(degrees) {
+  return degrees * Math.PI / 180;
+};
+Math.degrees = function(radians) {
+  return radians * 180 / Math.PI;
+};

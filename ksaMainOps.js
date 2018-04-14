@@ -626,6 +626,43 @@ function loadOpsDataAJAX(xhttp) {
     strCurrentManeuverVessel = null;
     setTimeout(function() { loadDB("loadEventData.asp?UT=" + currUT(), loadEventsAJAX); }, 5000);
   }
+
+  // update the terminator & sun display
+  // drawn based on the technique from SCANSat
+  // https://github.com/S-C-A-N/SCANsat/blob/dev/SCANsat/SCAN_Unity/SCAN_UI_MainMap.cs#L682-L704
+  if (sunMarker) {
+
+    // for now only for Kerbin, with no solar inclination
+    var sunLon = -bodyCatalog.find(o => o.Body === strCurrentBody.split("-")[0]).RotIni - (((currUT() / bodyCatalog.find(o => o.Body === strCurrentBody.split("-")[0]).SolarDay) % 1) * 360);
+    var sunLat = 0;
+    if (sunLon < -180) { sunLon += 360; }
+
+    // update the marker position
+    sunMarker.setLatLng([sunLat, sunLon]);
+
+    // calculate the new terminator line
+    var sunLatCenter = (0 + 180 + 90) % 180 - 90;
+    if (sunLatCenter >= 0) {
+      var sunLonCenter = ((sunLon + 90) + 360 + 180) % 360 - 180;
+    } else {
+      var sunLonCenter = ((sunLon - 90) + 360 + 180) % 360 - 180;
+    }
+    var gamma = Math.abs(sunLatCenter) < 0.55 ? 100 : Math.tan(Math.radians(90 - Math.abs(sunLatCenter)));
+    var terminatorPath = [];
+    for (lon=0; lon<=360; lon++) {
+      var crossingLat = Math.atan(gamma * Math.sin(Math.radians(lon - 180) - Math.radians(sunLonCenter)));
+      terminatorPath.push([Math.degrees(crossingLat), lon-180]);
+    }
+
+    // close up the polygon
+    terminatorPath.push([-90, 180]);
+    terminatorPath.push([-90, -180]);
+
+    // remove the previous layer if there is one before adding the new one
+    if (terminator) layerSolar.removeLayer(terminator);
+    terminator = L.polygon(terminatorPath, {stroke: false, fillOpacity: 0.5, fillColor: "#000000", interactive: false});
+    layerSolar.addLayer(terminator);
+  }
   
   // update the dynamic orbit figure
   if (isGGBAppletLoaded) { ggbApplet.setValue("UT", currUT()); }

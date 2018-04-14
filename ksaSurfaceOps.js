@@ -79,7 +79,12 @@ function initializeMap() {
     iconSize: [16, 16],
     iconAnchor: [8, 8]
   });
-  
+  sunIcon = L.icon({
+    iconUrl: 'sun.png',
+    iconSize: [16, 16],
+    iconAnchor: [8, 8]
+  });
+
   // do not allow the user to close the map when it is in fullscreen
   surfaceMap.on('enterFullscreen', function(){
     removeMapCloseButton();
@@ -313,6 +318,22 @@ function loadMapDataAJAX(xhttp) {
     }
   }
   
+  // the following only works for Kerbin at the moment
+  // determine the current position of the sun given the body's degree of initial rotation and rotational period
+  var sunLon = -bodyCatalog.find(o => o.Body === strCurrentBody.split("-")[0]).RotIni - (((currUT() / bodyCatalog.find(o => o.Body === strCurrentBody.split("-")[0]).SolarDay) % 1) * 360);
+  var sunLat = 0
+  if (sunLon < -180) { sunLon += 360; }
+  
+  // place the sun marker
+  sunMarker = L.marker([sunLat,sunLon], {icon: sunIcon, clickable: false});
+  layerSolar.addLayer(sunMarker);
+  
+  // add to the layer selection control
+  layerControl.addOverlay(layerSolar, "<img src='sun.png' width='10px' style='vertical-align: 1px;'> Sun/Terminator", "Ground Markers");
+  if (getParameterByName("layers").includes("sun") || getParameterByName("layers").includes("terminator")) {
+    layerSolar.addTo(surfaceMap);
+  }
+
   // hide map controls after 3 seconds if the user cursor isn't over the map (or dialog) at that time
   setTimeout(function() {
     if (!$('#map').is(":hover")) { 
@@ -1409,7 +1430,6 @@ function popupMarkerOpen(indexFlt, linkNum) {
 
 // removes a single pin when user clicks link in pin popup
 function popupMarkerClose(indexFlt, linkNum, pinIndex) {
-  surfaceMap.removeLayer(fltPaths[indexFlt].Pins[linkNum].Group[pinIndex].Pin);
   fltPaths[indexFlt].Layer.removeLayer(fltPaths[indexFlt].Pins[linkNum].Group[pinIndex].Pin);
   fltPaths[indexFlt].Pins[linkNum].Group[pinIndex].Pin = null;
 }
