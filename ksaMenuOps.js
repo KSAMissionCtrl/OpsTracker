@@ -120,6 +120,9 @@ function loadMenuAJAX(xhttp) {
       var checkNew = false;
       
       // the type of node image will tell us what to load
+      ////////////
+      // Load Body
+      ////////////
       if (event.node.img.includes("body")) {
       
         // make sure this body isn't already loaded before refreshing the page if it is a body page
@@ -138,36 +141,42 @@ function loadMenuAJAX(xhttp) {
           } else {
             swapContent("body", event.node.id); 
           }
-        }
+        
+        // if the body is already loaded, hide the map if it's visible
+        } else hideMap();
+
+      //////////////////
+      // Load Crew Page
+      //////////////////
       } else if (event.node.img.includes("crew") && event.node.id != "crewFull") {
       
         // make sure this crew member isn't already loaded before refreshing the page if it is a crew page
         if ((strCurrentCrew != event.node.id && pageType == "crew") || (strCurrentCrew == event.node.id && pageType != "crew") || (strCurrentCrew != event.node.id && pageType != "crew")) { swapContent("crew", event.node.id); }
+
+      ///////////////////
+      // Load Full Roster
+      ///////////////////
       } else if (event.node.img.includes("crew") && event.node.id == "crewFull") {
         checkNew = true;
         if (pageType != event.node.id) { swapContent("crewFull", event.node.id); }
         
-      // call for the aircraft track if it doesn't already exist and show the map or switch to Kerbin if it is not loaded
+      /////////////////
+      // Load Aircraft
+      /////////////////
       } else if (event.node.img.includes("aircraft") && event.node.parent.id != "inactiveVessels") {
         checkNew = true;
-        if (!fltPaths || (fltPaths && !fltPaths.find(o => o.ID === event.node.id))) {
-          if (strCurrentBody.includes("Kerbin")) {
-            fltTrackDataLoad = L.layerGroup();
-            layerControl._expand();
-            layerControl.options.collapsed = false;
-            layerControl.addOverlay(fltTrackDataLoad, "<i class='fa fa-cog fa-spin'></i> Loading Data...", "Flight Tracks");
-            loadDB("loadFltData.asp?data=" + event.node.id, loadFltDataAJAX);
-            if (pageType != "body") {
-              swapContent("body", strCurrentBody);
-              setTimeout(showMap, 1000);
-            } else showMap();
-          } else {
-            swapContent("body", "Kerbin-System", event.node.id);
-          }
-          
+
+        // call for the aircraft track if it doesn't already exist
+        var path = fltPaths.find(o => o.ID === event.node.id);
+        if (!path) {
+          fltTrackDataLoad = L.layerGroup();
+          layerControl._expand();
+          layerControl.options.collapsed = false;
+          layerControl.addOverlay(fltTrackDataLoad, "<i class='fa fa-cog fa-spin'></i> Loading Data...", "Flight Tracks");
+          loadDB("loadFltData.asp?data=" + event.node.id, loadFltDataAJAX);
+        
         // if the data already exists...
-        } else if (fltPaths && fltPaths.find(o => o.ID === event.node.id)) {
-          var path = fltPaths.find(o => o.ID === event.node.id);
+        } else {
           
           // add it back to the map and the control if it has been removed
           if (path.Deleted) {
@@ -176,13 +185,30 @@ function loadMenuAJAX(xhttp) {
             path.Deleted = false;
             
           // just add it back to the map in case it was hidden
-          } else path.Layer.addTo(surfaceMap);
+          } else if (!surfaceMap.hasLayer(path.Layer)) path.Layer.addTo(surfaceMap);
         }
-        
-      // for now, we link to another page for the DSN
+
+        // check that we are looking at the proper map (hardcoded to Kerbin), and load it if not
+        if (strCurrentBody.includes("Kerbin")) {
+          if (pageType != "body") {
+            swapContent("body", strCurrentBody);
+            setTimeout(showMap, 1000);
+          } else showMap();
+        } else {
+          swapContent("body", "Kerbin-System", event.node.id);
+        }
+      
+      ////////////
+      // Load DSN
+      ///////////
       } else if (event.node.img.includes("dish")) {
-        window.open("http://www.kerbalspace.agency/?p=3736");
         
+        // for now, we link to another page for the DSN
+        window.open("http://www.kerbalspace.agency/?p=3736");
+      
+      //////////////
+      // Load Vessel
+      //////////////
       // anything else that isn't a folder is a vessel
       // except if the parent is the Inactive Vessels node as that's just a category node
       } else if (!event.node.img.includes("folder") && event.node.parent.id != "inactiveVessels") {

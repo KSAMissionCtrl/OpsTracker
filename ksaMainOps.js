@@ -77,7 +77,15 @@ if (window.location.href.includes("&showUT") || window.location.href.includes("?
 if (getParameterByName("setut") && getCookie("missionctrl")) UT = parseFloat(getParameterByName("setut"));
 
 // handle history state changes
-window.onpopstate = function(event) { swapContent(event.state.Type, event.state.ID, event.state.UT); };
+window.onpopstate = function(event) { 
+  swapContent(event.state.Type, event.state.ID, event.state.UT); 
+
+  // make sure a map dialog that was commanded to show does not
+  if (mapDialogDelay) {
+    clearTimeout(mapDialogDelay);
+    mapDialogDelay = null;
+  }
+};
 
 // animate the size of the main content box
 function raiseContent() {
@@ -627,10 +635,10 @@ function loadOpsDataAJAX(xhttp) {
     setTimeout(function() { loadDB("loadEventData.asp?UT=" + currUT(), loadEventsAJAX); }, 5000);
   }
 
-  // update the terminator & sun display
+  // update the terminator & sun display if a marker exists and the current body has a solar day length (is not the sun)
   // drawn based on the technique from SCANSat
   // https://github.com/S-C-A-N/SCANsat/blob/dev/SCANsat/SCAN_Unity/SCAN_UI_MainMap.cs#L682-L704
-  if (sunMarker) {
+  if (sunMarker && bodyCatalog.find(o => o.Body === strCurrentBody.split("-")[0]).SolarDay) {
 
     // for now only for Kerbin, with no solar inclination
     var sunLon = -bodyCatalog.find(o => o.Body === strCurrentBody.split("-")[0]).RotIni - (((currUT() / bodyCatalog.find(o => o.Body === strCurrentBody.split("-")[0]).SolarDay) % 1) * 360);

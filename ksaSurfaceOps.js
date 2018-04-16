@@ -17,9 +17,14 @@ function initializeMap() {
     fullscreenControl: true,
     fullscreenControlOptions: {
       position: 'topleft'
-    }
+    },
+    contextmenu: true,
+    contextmenuItems: [{
+      text: 'Copy Coordinates',
+      callback: coordCopy
+    }]
   });
-
+  
   // define the icons for the various layer markers and events
   flagIcon = L.icon({
     iconUrl: 'button_vessel_flag.png',
@@ -76,11 +81,6 @@ function initializeMap() {
   });
   nodeIcon = L.icon({
     iconUrl: 'node.png',
-    iconSize: [16, 16],
-    iconAnchor: [8, 8]
-  });
-  sunIcon = L.icon({
-    iconUrl: 'sun.png',
     iconSize: [16, 16],
     iconAnchor: [8, 8]
   });
@@ -154,11 +154,11 @@ function initializeMap() {
 function loadMap(map) {
   if (!map && strCurrentBody) { loadMap(strCurrentBody.split("-")[0]); return; }
   
-  // can't continue if menu data hasn't loaded. Try again in 250ms
+  // can't continue if menu data hasn't loaded. Try again in 50ms
   if (!isMenuDataLoaded) {
     setTimeout(function() {
       loadMap(map);
-    }, 250)
+    }, 50)
     return;
   }
  
@@ -329,18 +329,21 @@ function loadMapDataAJAX(xhttp) {
   layerSolar.addLayer(sunMarker);
   
   // add to the layer selection control
-  layerControl.addOverlay(layerSolar, "<img src='sun.png' width='10px' style='vertical-align: 1px;'> Sun/Terminator", "Ground Markers");
+  layerControl.addOverlay(layerSolar, "<i class='fas fa-sun' style='color: #FFD800'></i> Sun/Terminator", "Ground Markers");
   if (getParameterByName("layers").includes("sun") || getParameterByName("layers").includes("terminator")) {
     layerSolar.addTo(surfaceMap);
   }
 
   // hide map controls after 3 seconds if the user cursor isn't over the map (or dialog) at that time
-  setTimeout(function() {
-    if (!$('#map').is(":hover")) { 
-      $(".leaflet-top").fadeOut();
-      $(".leaflet-bottom.leaflet-left").fadeOut();
-    }
-  }, 3000);
+  // unless this is a touchscreen device
+  if (!is_touch_device()) { 
+    setTimeout(function() {
+      if (!$('#map').is(":hover")) { 
+        $(".leaflet-top").fadeOut();
+        $(".leaflet-bottom.leaflet-left").fadeOut();
+      }
+    }, 3000);
+  }
 
   // load straight to a map location?
   if (getParameterByName("center")) {
@@ -418,27 +421,19 @@ function loadFltDataAJAX(xhttp) {
                   Html: null,
                   ID: xhttp.responseText.split("^")[2],
                   Deleted: false,
-                  Color: surfacePathColors[colorIndex] });
+                  Elev: false,
+                  Color: surfacePathColors[colorIndex],
+                  Index: fltPaths.length
+                });
   
-  // draw the flight paths
-  var path = [];
-  var startIndex = 0;
-  fltPaths[fltPaths.length-1].Data.forEach(function(position, index) {
-  
-    // detect if we've crossed off the edge of the map and need to cut the path
-    // compare this lng to the prev and if it changed from negative to positive or vice versa, we hit the edge  
-    // (check if the lng is over 100 to prevent detecting a sign change while crossing the meridian)
-    if (path.length && (((position.Lng < 0 && path[path.length-1].Lng > 0) && Math.abs(position.Lng) > 100) || ((position.Lng > 0 && path[path.length-1].lng < 0) && Math.abs(position.Lng) > 100))) { 
-    
-      // time to cut this path off and create a surface track to setup
-      // add this path to the layer and reset to start building a new path
-      fltPaths[fltPaths.length-1].Layer.addLayer(setupFlightSurfacePath(path, startIndex, path.length));
-      path = [];
-      startIndex = index;
-    }
-    path.push({ lat: position.Lat, lng: position.Lng });
+  // make sure that if a layer is hidden the current popup is too if that belongs to the layer
+  fltPaths[fltPaths.length-1].Layer._myId = fltPaths[fltPaths.length-1].Info.Title;
+  fltPaths[fltPaths.length-1].Layer.on('remove', function(e) {
+    if (flightPositionPopup.getContent() && flightPositionPopup.getContent().includes(e.target._myId)) surfaceMap.closePopup(flightPositionPopup);
   });
-  fltPaths[fltPaths.length-1].Layer.addLayer(setupFlightSurfacePath(path, startIndex, path.length));
+
+  // draw the ground track
+  renderFltPath(fltPaths.length-1);
   
   // if there was only one track, make it visible and zoom in on it
   if (fltPaths.length == 1) {
@@ -482,6 +477,7 @@ function loadFltDataAJAX(xhttp) {
     fltTrackDataLoad = null;
     checkDataLoad();
   }
+  console.log(fltPaths)
 }
 
 function renderMapData() {
@@ -533,7 +529,12 @@ function renderMapData() {
       $("#dialogTxt").html("Calculating 3 orbits for this vessel could take a long time, but you can also cancel at any time and show what has been done up to that point if you wish");
       $("#dialogTxt").fadeIn();
       $("#progressbar").hide();
-      setTimeout(function() { $("#mapDialog").dialog("open"); }, 1000);
+
+      // gives time for any map buttons to hide
+      mapDialogDelay = setTimeout(function() { 
+        $("#mapDialog").dialog("open"); 
+        mapDialogDelay = null;
+      }, 1000);
       
     // render out the default 3 orbits for this vessel
     } else {
@@ -1066,30 +1067,36 @@ function removeMapCloseButton() {
 }
 
 function showMap() {
-  $("#figureOptions").fadeOut();
-  $("#vesselOrbitTypes").fadeOut();
-  $("#figure").fadeOut();
-  $("#figureDialog").dialog("close");
-  $("#map").css("visibility", "visible");
-  $("#map").fadeIn();
-  removeVesselMapButtons();
-  removeMapRefreshButton();
-  addMapCloseButton();
-  redrawFlightPlots();
-  $("#contentHeader").html(strCurrentBody.split("-")[0]);
-  document.title = "KSA Operations Tracker - " + strCurrentBody.split("-")[0];
-  if (launchsiteMarker) surfaceMap.removeLayer(launchsiteMarker);
-  surfaceMap.invalidateSize();
+  if (!isMapShown) {
+    $("#figureOptions").fadeOut();
+    $("#vesselOrbitTypes").fadeOut();
+    $("#figure").fadeOut();
+    $("#figureDialog").dialog("close");
+    $("#map").css("visibility", "visible");
+    $("#map").fadeIn();
+    removeVesselMapButtons();
+    removeMapRefreshButton();
+    addMapCloseButton();
+    redrawFlightPlots();
+    $("#contentHeader").html(strCurrentBody.split("-")[0]);
+    document.title = "KSA Operations Tracker - " + strCurrentBody.split("-")[0];
+    if (launchsiteMarker) surfaceMap.removeLayer(launchsiteMarker);
+    surfaceMap.invalidateSize();
+    isMapShown = true;
+  }
 }
 
 function hideMap() {
-  if ($("#map").css("visibility") != "hidden") $("#map").fadeOut();
-  if (!isGGBAppletLoading) {
-    $("#figureOptions").fadeIn();
-    $("#vesselOrbitTypes").fadeIn();
-    $("#figure").fadeIn();
-    $("#contentHeader").html(strCurrentBody.replace("-", " "));
-    document.title = "KSA Operations Tracker - " + strCurrentBody.replace("-", " ");
+  if (isMapShown) {
+    if ($("#map").css("visibility") != "hidden") $("#map").fadeOut();
+    if (!isGGBAppletLoading) {
+      $("#figureOptions").fadeIn();
+      $("#vesselOrbitTypes").fadeIn();
+      $("#figure").fadeIn();
+      $("#contentHeader").html(strCurrentBody.replace("-", " "));
+      document.title = "KSA Operations Tracker - " + strCurrentBody.replace("-", " ");
+    }
+    isMapShown = false;
   }
 }
 
@@ -1137,19 +1144,46 @@ function getDataPoint(obtNum, target) {
 }
 
 // take care of all the details that need to be applied to a flight's surface track as this needs to be done in two separate places
-function setupFlightSurfacePath(path, index, length) {
-    
-  var srfTrack = L.polyline(path, {
-    smoothFactor: 1.75, 
-    clickable: true, 
-    color: fltPaths[fltPaths.length-1].Color, 
-    weight: 3, 
-    opacity: 1});
+function setupFlightSurfacePath(path, index, startIndex, length) {
   
+  // we are rendering a hotline showing elevation changes
+  if (fltPaths[index].Elev) {
+    var srfTrack = L.hotline(path, {
+      smoothFactor: 1.75, 
+      clickable: true, 
+      weight: 3, 
+      outlineWidth: 1,
+      min: 0,
+      max: 18,
+      palette: {
+        0.0: '#267F00',
+        0.125: '#00FF21',
+        0.25: '#0094FF',
+        0.375: '#00FFFF',
+        0.5: '#FFD800',
+        0.625: '#FF6A00',
+        0.75: '#FF0000',
+        0.875: '#808080',
+        1.0: '#000000'
+      }
+    });
+  } 
+  
+  // we are rendering a normal line
+  else {
+    var srfTrack = L.polyline(path, {
+      smoothFactor: 1.75, 
+      clickable: true, 
+      color: fltPaths[index].Color, 
+      weight: 3, 
+      opacity: 1
+    });
+  }
+
   // save the beginning index of this line to make it faster when searching for a data point by not having to look through the whole array
   // also save the current flight index to identify the data needed for the popups
   // also also save the length of the path
-  srfTrack._myId = index + "," + (fltPaths.length-1) + "," + length;
+  srfTrack._myId = startIndex + "," + index + "," + length;
   
   // show the time and data for this position
   srfTrack.on('mouseover mousemove', function(e) {
@@ -1191,6 +1225,9 @@ function setupFlightSurfacePath(path, index, length) {
     surfaceMap.closePopup(timePopup);
     timePopup = null;
     var indexFlt = parseInt(e.target._myId.split(",")[1]);
+    w2ui['menu'].select(fltPaths[indexFlt].ID);
+    w2ui['menu'].expandParents(fltPaths[indexFlt].ID);
+    w2ui['menu'].scrollIntoView(fltPaths[indexFlt].ID);
 
     // compose the popup HTML?    
     if (!fltPaths[indexFlt].Html) {
@@ -1254,7 +1291,7 @@ function setupFlightSurfacePath(path, index, length) {
       } else {
         strHTML += fltPaths[indexFlt].Info.Desc + "</p><p>";
       }
-      strHTML += "<a href='" + fltPaths[indexFlt].Info.Report + "' target='_blank' style='text-decoration: none'>Mission Report</a> | <span class='fauxLink' onclick='removeFltPath(" + indexFlt + ")'>Remove from map</span></p></td></tr></table>";
+      strHTML += "<a href='" + fltPaths[indexFlt].Info.Report + "' target='_blank' style='text-decoration: none'>Mission Report</a> | <span class='fauxLink' onclick='removeFltPath(" + indexFlt + ")'>Remove from map</span><br><span class='fauxLink' onclick='fltElev(" + indexFlt + ")'>Show elevation</span></p></td></tr></table>";
       fltPaths[indexFlt].Html = strHTML;
     }
     
@@ -1434,16 +1471,106 @@ function popupMarkerClose(indexFlt, linkNum, pinIndex) {
   fltPaths[indexFlt].Pins[linkNum].Group[pinIndex].Pin = null;
 }
 
-// removes a single flight path, but doesn't delete it in case the request for it is made again
+// removes a single flight path, but doesn't actually delete it in case the request for it is made again
 function removeFltPath(index) {
   surfaceMap.closePopup(flightPositionPopup);
   layerControl.removeLayer(fltPaths[index].Layer); 
   surfaceMap.removeLayer(fltPaths[index].Layer);
-  
+
   fltPaths[index].Pins.forEach(function(pin) {
     pin.Group.forEach(function(marker) {
       if (marker.Pin) surfaceMap.removeLayer(marker.Pin);
     });
   });
   fltPaths[index].Deleted = true;
+}
+
+// copies the current location of the mouse cursor to the clipboard
+// https://stackoverflow.com/questions/33855641/copy-output-of-a-javascript-variable-to-the-clipboard
+function coordCopy(context) {
+
+  // Create a dummy input to copy the variable inside it
+  var dummy = document.createElement("input");
+
+  // Add it to the document
+  document.body.appendChild(dummy);
+
+  // Set its ID
+  dummy.setAttribute("id", "dummy_id");
+
+  // Output the array into it
+  document.getElementById("dummy_id").value=context.latlng.lat + "," + context.latlng.lng;
+
+  // Select it
+  dummy.select();
+
+  // Copy its contents
+  document.execCommand("copy");
+
+  // Remove it as its not needed anymore
+  document.body.removeChild(dummy);
+}
+
+// display or hide a flight path with the line colored to show elevation changes
+function fltElev(index) {
+
+  // there can only be one, so if another path is showing elevation data, return it to normal
+  var elevPath = fltPaths.find(o => o.Elev === true);
+  if (elevPath && elevPath.Index != index) {
+    elevPath.Elev = false;
+    fltElev(elevPath.Index);
+  }
+
+  // decide what kind of data is being drawn
+  if (fltPaths[index].Html.includes("Hide elevation")) {
+    fltPaths[index].Elev = false;
+    fltPaths[index].Html = fltPaths[index].Html.replace("Hide elevation", "Show elevation");
+  } else {
+    fltPaths[index].Elev = true;
+    fltPaths[index].Html = fltPaths[index].Html.replace("Show elevation", "Hide elevation");
+  }
+  flightPositionPopup.setContent(fltPaths[index].Html);
+
+  // remove the current path and reset for a new one
+  removeFltPath(index);
+  fltPaths[index].Deleted = false;
+  fltPaths[index].Layer = L.featureGroup();
+
+  // redraw the flight path and add it back to the layer control
+  // the icon used depends on whether elevation is shown or not
+  renderFltPath(index);
+  if (fltPaths[index].Elev) {
+    layerControl.addOverlay(fltPaths[index].Layer, "<img src='terrain.png' width='10px' style='vertical-align: 1px;'> " + fltPaths[index].Info.Title, "Flight Tracks");
+  } else {
+    layerControl.addOverlay(fltPaths[index].Layer, "<i class='fa fa-minus' style='color: " + fltPaths[index].Color + "'></i> " + fltPaths[index].Info.Title, "Flight Tracks");
+  }
+  fltPaths[index].Layer.addTo(surfaceMap)
+}
+
+// plots out the various lat,lng points onto the surface map
+function renderFltPath(pathIndex) {
+  var path = [];
+  var startIndex = 0;
+  fltPaths[pathIndex].Data.forEach(function(position, index) {
+  
+    // detect if we've crossed off the edge of the map and need to cut the path
+    // compare this lng to the prev and if it changed from negative to positive or vice versa, we hit the edge  
+    // (check if the lng is over 100 to prevent detecting a sign change while crossing the meridian)
+    if (path.length && (((position.Lng < 0 && path[path.length-1].Lng > 0) && Math.abs(position.Lng) > 100) || ((position.Lng > 0 && path[path.length-1].lng < 0) && Math.abs(position.Lng) > 100))) { 
+    
+      // time to cut this path off and create a surface track to setup
+      // add this path to the layer and reset to start building a new path
+      fltPaths[pathIndex].Layer.addLayer(setupFlightSurfacePath(path, pathIndex, startIndex, path.length));
+      path = [];
+      startIndex = index;
+    }
+
+    // data required depends on whether elevation is being shown or not
+    if (fltPaths[pathIndex].Elev) {
+      path.push([position.Lat, position.Lng, position.ASL/1000]);
+    } else {
+      path.push({lat: position.Lat, lng: position.Lng});
+    }
+  });
+  fltPaths[pathIndex].Layer.addLayer(setupFlightSurfacePath(path, pathIndex, startIndex, path.length));
 }

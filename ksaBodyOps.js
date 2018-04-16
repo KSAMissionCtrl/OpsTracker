@@ -131,6 +131,14 @@ function loadBodyAJAX(xhttp) {
 
 // called after load and after user clicks the reset
 function ggbOnInit() {
+
+  // can't continue if menu data hasn't loaded. Try again in 50ms
+  if (!isMenuDataLoaded) {
+    setTimeout(function() {
+      ggbOnInit();
+    }, 50)
+    return;
+  }
   console.log("ggbOnInit()");
   
   // reset all the orbits since the figure itself is reset
