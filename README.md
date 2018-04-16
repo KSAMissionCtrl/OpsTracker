@@ -28,15 +28,16 @@ The following JavaScript libraries are used:
 * [Font Awesome](http://fontawesome.io/icons/)
 * [Leaflet.LinearMeasurement](https://github.com/NLTGit/Leaflet.LinearMeasurement)
 * [Leaflet.MousePosition](https://github.com/ardhi/Leaflet.MousePosition)
+* [Leaflet.hotline](https://github.com/iosphere/Leaflet.hotline)
+* [Leaflet.contextmenu](https://github.com/aratcliffe/Leaflet.contextmenu)
 
-### Known Issues
+### Important Known Issues
 
 - **Operations Tracker is currently in active development with work being done on the live page, so visiting at times may cause browser errors, failures to load, etc. However after it has been worked on it is left in a usable state**
 - Leaflet map can be finicky in a number of ways - most notably it doesn't mousewheel zoom centered on the cursor and can sometimes load showing off the edge of the map or refuse to load tiles. It can also fail to render paths and markers or not allow you to properly hover for information over paths. Generally these issues can all be fixed by upsizing/downsizing or going fullscreen
 - The downsized default map view for vessel pages is not able to show position info for orbital plots when hovering over the lines. Sizing up the map or going fullscreen will enable this feature
 - Collapsing/Expanding the [Operations Menu](https://github.com/KSAMissionCtrl/OpsTracker/wiki/Navigation) can sometimes cause the entire area to go blank the next time something in it is clicked on
 - Ground tracks for aircraft can sometimes not be hovered over to display additional information for that point in the flight. Try zooming in closer or panning the map view around a bit
-- Starting from the default Kerbol System overview it has been sometimes impossible to select another body from the [Operations Menu](https://github.com/KSAMissionCtrl/OpsTracker/wiki/Navigation). Selecting a vessel will fail to load the surface map when needed. No apparent errors are logged on page load or when attempting to select another body. Reloading the website should clear this up for now
 
 ### Future Fixes/Changes/Additions
 
@@ -46,6 +47,27 @@ See all current bugs and future enhancements over in our [Issues Tracker](https:
 
 Versioning Key (v#1.#2.#3): #1=New features #2=Changes to existing features #3=Fixes to existing features
 
+**v8.0.0** (4/15/18)
+
+Fixes:
+  - When adding a new [Flight Plot](https://github.com/KSAMissionCtrl/OpsTracker/wiki/Surface-Map#flight-plotting) from the [Operations Menu](https://github.com/KSAMissionCtrl/OpsTracker/wiki/Navigation) any previously-removed flights plots are no longer redrawn
+  - If the GeoGebra figure loads before the menu data it will now wait for the AJAX call return rather than get hung up in a recursive function that prevents the site from operating normally
+  - Moving quickly back/forward through the browser history no longer causes a dialog to appear asking to render orbital data when you are no longer even looking at a [Vessel Details](https://github.com/KSAMissionCtrl/OpsTracker/wiki/Vessel-Details) page
+  - When data for the sun is loaded (looking at the Kerbol System figure) the sun marker no longer tries to update its position on the [Surface Map](https://github.com/KSAMissionCtrl/OpsTracker/wiki/Surface-Map)
+  - Flight plots that have already been loaded can now be switched to and viewed via the operations menu when looking at other vessels/bodies/crew
+  - Map interface no longer automatically hides 3 seconds after loading if the device uses a touchscreen
+  - When viewing a flight plot with the additional details popup open and the plot is hidden via the [Layers Control](https://github.com/KSAMissionCtrl/OpsTracker/wiki/Surface-Map#layers-control) the popup is closed
+  - If a flight plot additional details popup is open when switching to a vessel or another body the popup is closed
+  
+Changes:
+  - When viewing a [Surface Map](https://github.com/KSAMissionCtrl/OpsTracker/wiki/Surface-Map), clicking on the same planet as the map is now another way to hide the map (as opposed to using the close map button on the map itself)
+  - Sun icon in the layers control is now a Font Awesome symbol rather than an image
+  - Selecting (left-click) a flight plot on the surface map now also selects it in the operations menu
+
+Additions:
+  - A context menu has been added as a new [Map Interaction](https://github.com/KSAMissionCtrl/OpsTracker/wiki/Surface-Map#map-interaction) - more will be done with this in later versions but for now adds a simple way to copy the current mouse position coordinates straight to the clipboard
+  - You can now select a new option in the flight plot additional details popup that shows a color gradient signifying the altitude of the aircraft over the course of its flight. Only one path at a time can show this data so they remain diferrentiated by their colors. If a path is already showing this data when another is selected, that path will automatically revert to normal. Future plans for this feature, currently only a proof of concept, can be found in [this issue](https://github.com/KSAMissionCtrl/OpsTracker/issues/51).
+  
 **v7.0.0** (4/14/18)
 
 Additions:
