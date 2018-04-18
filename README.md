@@ -11,6 +11,7 @@ The following KSP mods/apps are used to provide the data the Operations Tracker 
 
 The following JavaScript libraries are used:
 
+* [JQuery](https://jquery.com/)
 * [Leaflet](http://leafletjs.com/)
 * [Leaflet.Kerbal](https://gitlab.com/IvanSanchez/Leaflet.Kerbal)
 * [Sylvester](http://sylvester.jcoglan.com/)
@@ -46,6 +47,11 @@ See all current bugs and future enhancements over in our [Issues Tracker](https:
 ### Change Log
 
 Versioning Key (v#1.#2.#3): #1=New features #2=Changes to existing features #3=Fixes to existing features
+
+**v8.0.1** (4/18/18)
+
+Fixes:
+  - When more than one future launch or maneuver is scheduled the [Event Calendar](https://github.com/KSAMissionCtrl/OpsTracker/wiki/Clock-&-Event-Calendar) now shows the first scheduled event rather than the last
 
 **v8.0.0** (4/15/18)
 
