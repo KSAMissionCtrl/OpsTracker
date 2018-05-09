@@ -48,6 +48,13 @@ See all current bugs and future enhancements over in our [Issues Tracker](https:
 
 Versioning Key (v#1.#2.#3): #1=New features #2=Changes to existing features #3=Fixes to existing features
 
+**v8.0.2** (5/8/18)
+
+Fixes:
+  - When watching a launch countdown that goes into a HOLD state, the countdown timer in the [Event Calendar](https://github.com/KSAMissionCtrl/OpsTracker/wiki/Clock-&-Event-Calendar) now no longers comes back up after a second
+  - No longer storing a number as a string - could have potentially caused issues at some point
+  - If multiple launche times are scheduled to be publicly visible at the same time the Ops Tracker now properly chooses the closest one to display in the Event Calendar rather than the last one
+
 **v8.0.1** (4/18/18)
 
 Fixes:
