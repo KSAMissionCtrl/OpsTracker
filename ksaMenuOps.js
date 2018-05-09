@@ -516,7 +516,7 @@ function addMenuItem(item, newAdd) {
   }
 
   // check for a future SOI update
-  if (refIndex < soi.length) { updatesList.push({ Type: "menu;soi", ID: item.DB, UT: soi[refIndex].split(";")[0] }); }
+  if (refIndex < soi.length) { updatesList.push({ Type: "menu;soi", ID: item.DB, UT: parseInt(soi[refIndex].split(";")[0]) }); }
   
   // if this vessel has more than one name, get the current one
   // also check for a future name update

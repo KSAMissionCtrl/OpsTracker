@@ -10,7 +10,7 @@
   <link rel="shortcut icon" href="../images/KSA/favicon.png" type="image/x-icon" />
 
   <!-- use this image link to force reddit to use a certain image for its thumbnail -->
-  <meta property="og:image" content="https://i.imgur.com/LVSKMUN.png" />
+  <meta property="og:image" content="https://i.imgur.com/4aPWLzd.png" />
   
   <!-- cache of Font Awesome -->
   <link href="https://use.fontawesome.com/releases/v5.0.2/css/all.css" rel="stylesheet">
@@ -33,6 +33,7 @@
   <link rel="stylesheet" href="../lib/easy-button.css">
   <link rel="stylesheet" href="../lib/L.Control.MousePosition.css">
   <link rel="stylesheet" href="../lib/Leaflet.LinearMeasurement.css">
+  <link rel="stylesheet" href="../lib/leaflet.contextmenu.min.css">
   <link rel="stylesheet" href="styles.css?v=1.0">
 
    <!-- allows for use of twitter JS API functions -->
@@ -201,6 +202,8 @@
   <script src="../lib/L.Control.MousePosition.js"></script>
   <script src="../lib/Leaflet.LinearMeasurement.js"></script>
   <script src="../lib/twitTimelineMod.js"></script>
+  <script src="../lib/leaflet.contextmenu.min.js"></script>
+  <script src="../lib/leaflet.hotline.min.js"></script>
   <script src="helpFuncs.js"></script>
   <script src="ksaGlobals.js"></script>
   <script src="ksaEventOps.js"></script>

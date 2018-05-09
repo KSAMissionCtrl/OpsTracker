@@ -318,7 +318,10 @@ function vesselMETUpdate(update) {
   // get the current launch time - defer to mission start time if it's available
   var launchTime = currentVesselData.CatalogData.MissionStartTime;
   for (i=currentVesselData.LaunchTimes.length-1; i>=0; i--) {
-    if (currentVesselData.LaunchTimes[i].UT <= getLaunchUT()) {
+
+    // the first record is always the original launch time, regardless of its UT
+    // this assumption prevents the event calendar from getting confused if multiple launch times are posted
+    if (currentVesselData.LaunchTimes[i].UT <= getLaunchUT() || i == 0) {
       launchTime = currentVesselData.LaunchTimes[i].LaunchTime;
       break;
     }

@@ -59,6 +59,7 @@ function writeLaunchInfo(data) {
       launchCountdown = parseFloat(fields[1]);
     } else {
       strHTML += "<span id='launchTime'>COUNTDOWN HOLD</span><br><span id='launchCountdown'>Awaiting new L-0 time</span>";
+      launchCountdown = "null";
     }
     $("#launch").html(strHTML);
     
