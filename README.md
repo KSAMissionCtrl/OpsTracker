@@ -40,6 +40,8 @@ The following JavaScript libraries are used:
 - Collapsing/Expanding the [Operations Menu](https://github.com/KSAMissionCtrl/OpsTracker/wiki/Navigation) can sometimes cause the entire area to go blank the next time something in it is clicked on
 - Ground tracks for aircraft can sometimes not be hovered over to display additional information for that point in the flight. Try zooming in closer or panning the map view around a bit
 
+For other known issues, see the [open bug listing](https://github.com/KSAMissionCtrl/OpsTracker/issues?q=is%3Aissue+is%3Aopen+label%3Abug).
+
 ### Future Fixes/Changes/Additions
 
 See all current bugs and future enhancements over in our [Issues Tracker](https://github.com/KSAMissionCtrl/OpsTracker/issues).
