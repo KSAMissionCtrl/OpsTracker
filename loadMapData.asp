@@ -42,6 +42,7 @@ if hasTable then
 
   'output the record in name/value pairs for each field if a record exists for this time period
   if not rsMap.bof then
+    output = "Name~" & request.querystring("map") & "`"
     for each field in rsMap.fields
       output = output & replace(field.name, " ", "") & "~" & field.value & "`"
     next

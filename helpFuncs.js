@@ -183,6 +183,7 @@ function hexToRgb(hex) {
 function rsToObj(data) {
   var object = {};
   var fields = data.split("`");
+  if (data == "" || data == "null") return null;
   if (fields.length > 1) {
     fields.forEach(function(item, index) {
     

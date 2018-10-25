@@ -57,6 +57,10 @@ if request.querystring("type") = "crew" then
   rsKerbal.MoveLast
   do until rsKerbal.fields.item("UT") <= UT
     rsKerbal.MovePrevious
+    if rsKerbal.bof then
+      rsKerbal.MoveNext
+      exit do
+    end if
   Loop
 
   'output the record in name/value pairs for each field
@@ -69,30 +73,46 @@ if request.querystring("type") = "crew" then
   output = output & "^"
 
   'output the mission records up to the current UT
-  rsMissions.movefirst
-  do until rsMissions.fields.item("UT") > UT
-    for each field in rsMissions.fields
-      output = output & replace(field.name, " ", "") & "~" & field.value & "`"
-    next
-    output = left(output, len(output)-1)
-    output = output & "|"
-    rsMissions.movenext
-    if rsMissions.eof then exit do
-  loop
+  if not rsMissions.eof then
+    rsMissions.movefirst
+    if rsMissions.fields.item("UT") > UT then
+      output = output & "null|"
+    else
+      do until rsMissions.fields.item("UT") > UT
+        for each field in rsMissions.fields
+          output = output & replace(field.name, " ", "") & "~" & field.value & "`"
+        next
+        output = left(output, len(output)-1)
+        output = output & "|"
+        rsMissions.movenext
+        if rsMissions.eof then exit do
+      loop
+    end if
+  else
+    output = output & "null|"
+  end if
   output = left(output, len(output)-1)
   output = output & "^"
 
   'output the ribbon records up to the current UT
-  rsRibbons.movefirst
-  do until rsRibbons.fields.item("UT") > UT
-    for each field in rsRibbons.fields
-      output = output & replace(field.name, " ", "") & "~" & field.value & "`"
-    next
-    output = left(output, len(output)-1)
-    output = output & "|"
-    rsRibbons.movenext
-    if rsRibbons.eof then exit do
-  loop
+  if not rsRibbons.eof then
+    rsRibbons.movefirst
+    if rsRibbons.fields.item("UT") > UT then
+      output = output & "null|"
+    else
+      do until rsRibbons.fields.item("UT") > UT
+        for each field in rsRibbons.fields
+          output = output & replace(field.name, " ", "") & "~" & field.value & "`"
+        next
+        output = left(output, len(output)-1)
+        output = output & "|"
+        rsRibbons.movenext
+        if rsRibbons.eof then exit do
+      loop
+    end if
+  else
+    output = output & "null|"
+  end if
   output = left(output, len(output)-1)
   output = output & "^"
 
@@ -100,7 +120,11 @@ if request.querystring("type") = "crew" then
   rsBackground.MoveLast
   do until rsBackground.fields.item("UT") <= UT
     rsBackground.MovePrevious
-  Loop
+    if rsBackground.bof then
+    rsBackground.MoveNext
+    exit do
+  end if
+Loop
   for each field in rsBackground.fields
     output = output & replace(field.name, " ", "") & "~" & field.value & "`"
   next
@@ -118,7 +142,6 @@ if request.querystring("type") = "crew" then
   else
     output = output & "null^"
   end if 
-  if not rsMissions.eof then rsMissions.MoveNext
   if not rsMissions.eof then 
     for each field in rsMissions.fields
       output = output & replace(field.name, " ", "") & "~" & field.value & "`"
@@ -128,7 +151,6 @@ if request.querystring("type") = "crew" then
   else
     output = output & "null^"
   end if 
-  if not rsRibbons.eof then rsRibbons.MoveNext
   if not rsRibbons.eof then 
     for each field in rsRibbons.fields
       output = output & replace(field.name, " ", "") & "~" & field.value & "`"

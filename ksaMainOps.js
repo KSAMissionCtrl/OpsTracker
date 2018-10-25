@@ -126,12 +126,20 @@ function setupContent() {
   $("#maneuver").spin({ scale: 0.5, position: 'relative', top: '20px', left: '75%' });
   $("#contentBox").spin({ position: 'relative', top: '50%', left: '50%' });
   $("#figureDialog").spin({ position: 'relative', top: '45px', left: '50%' });
+  if (currUT() >= 60571076 && currUT() <= 60772851) {
+    if (checkCookies() && getCookie("missionctrl")) {}
+    else {
+      setupContentDown();
+      return;
+    }
+  }
 
   // setup the clock
   $("#clock").html("<strong>Current Time @ KSC (UTC -" + UTC + ")</strong><br><span id='ksctime' style='font-size: 16px'>" + formatUTCTime(clock, true) + "</span>");
 
-  // select the default crew roster sort
+  // select the default sort options
   $('input:radio[name=roster]').filter('[id=name]').prop('checked', true);
+  $('input:radio[name=inactive]').filter('[id=type]').prop('checked', true);
   
   // set up for AJAX requests
   // https://www.w3schools.com/xml/ajax_intro.asp
@@ -145,6 +153,11 @@ function setupContent() {
   loadDB("loadBodyData.asp", loadBodyAJAX);
   loadDB("loadPartsData.asp", loadPartsAJAX);
   
+  // JQuery UI theme the buttons used to page through mission history
+  // diabled by default, will enable as needed when vessel loads
+  // NOTE: make sure this is always before dialog setup so the X close button does not get disabled
+  $("button").button({disabled: true});
+
   // setup the planet data dialog box
   // when it is closed, it will return to the top-left of the figure
   $("#figureDialog").dialog({autoOpen: false, 
@@ -178,7 +191,7 @@ function setupContent() {
   // setup the message dialog box that will notify the user about any surface map stuff
   $("#progressbar").progressbar({ value: 0 });
   $("#mapDialog").dialog({autoOpen: false, 
-    closeOnEscape: false, 
+                    closeOnEscape: false, 
                     resizable: false, 
                     draggable: false,
                     dialogClass: "no-close",
@@ -245,9 +258,8 @@ function setupContent() {
 
   // check if this is a first-time visitor and act accordingly
   if (checkCookies()) {
-    var user = getCookie("username");
-    if (user == "") {
-      setCookie("username", "kerbal", true);
+    if (!getCookie("visitTime")) {
+      setCookie("visitTime", currUT(), true);
       bNewUser = true;
       $("#siteDialog").html("<img src='http://www.kerbalspace.agency/KSA/wp-content/uploads/2016/01/KSAlogo_new_190x250.png' style='float: left; margin: 0px 5px 0px 0px; width: 25%'>The Operations Tracker is your view into everything that is happening right now at the Kerbal Space Agency. There is a lot to view and explore - we suggest starting with the Wiki to get an idea of all you can do here. We ask you take note the Operations Tracker is under <b>heavy ongoing development</b> and may at times be inaccessible for short periods. Please help us make this the best experience possible by <a href='https://github.com/KSAMissionCtrl/OpsTracker/issues' target='_blank'>submitting bug reports</a> if you come across any problems not listed in our <a href='https://github.com/KSAMissionCtrl/OpsTracker#known-issues' target='_blank'>Known Issues</a>. Enjoy exploring the Kerbol system with us <img src='http://www.kerbalspace.agency/KSA/wp-content/uploads/2017/12/jef2zahe.png'>");
       $("#siteDialog").dialog("option", "title", "Welcome, new visitor!");
@@ -266,6 +278,12 @@ function setupContent() {
       $("#siteDialog").dialog("open");
     }
   }
+}
+function setupContentDown() {
+  setTimeout(function() {
+    $(".body").empty();
+    document.documentElement.innerHTML = 'Error connecting to server! Please wait a few minutes and try again.';
+  }, 5000);
 }
 
 // switch from one layout to another
@@ -351,15 +369,15 @@ function swapContent(newPageType, id, ut, flt) {
     
     // if a vessel orbital calculation is in progress, pause it as long as we are switching to a crew page or a body view of the same current one
     if (!layerControl.options.collapsed && (newPageType.includes("crew") || (newPageType == "body" && id == strCurrentBody))) {
-      if (obtTrackDataLoad) layerControl.removeLayer(obtTrackDataLoad);
-      obtTrackDataLoad = null;
+      if (surfaceTracksDataLoad.obtTrackDataLoad) layerControl.removeLayer(surfaceTracksDataLoad.obtTrackDataLoad);
+      surfaceTracksDataLoad.obtTrackDataLoad = null;
       strPausedVesselCalculation = strCurrentVessel;
       checkDataLoad()
     
     // we're heading to another body, which means we have to stop all calculations if any are in progress
     } else if (!layerControl.options.collapsed && (newPageType == "body" && id != strCurrentBody)) {
-      if (obtTrackDataLoad) layerControl.removeLayer(obtTrackDataLoad);
-      obtTrackDataLoad = null;
+      if (surfaceTracksDataLoad.obtTrackDataLoad) layerControl.removeLayer(surfaceTracksDataLoad.obtTrackDataLoad);
+      surfaceTracksDataLoad.obtTrackDataLoad = null;
       isOrbitRenderTerminated = true;
       clearSurfacePlots();
       currentVesselPlot = null;
@@ -541,6 +559,15 @@ function loadOpsDataAJAX(xhttp) {
       object.CurrentData.History = history;
       object.CurrentData.LaunchTimes = launches;
       object.CurrentData.OrbitalHistory = obtHist;
+
+      // update the menu data so re-sorting is accurate
+      var bodyRef = 3;
+      if (object.CurrentData.CatalogData.SOI.split("|").length > 1) bodyRef = parseInt(object.CurrentData.CatalogData.SOI.split("|")[object.CurrentData.CatalogData.SOI.split("|").length-2].split(";")[1]);
+      var craftMenuObj = craftsMenu.find(o => o.DB === object.ID);
+      craftMenuObj.Name = object.CurrentData.CatalogData.Vessel;
+      craftMenuObj.SOI = object.CurrentData.CatalogData.SOI;
+      craftMenuObj.BodyRef = bodyRef;
+
     } else if (xhttp.responseText.includes("Typ3crew")) {
       var data = xhttp.responseText.split("Typ3crew")[1].split("*");
       
@@ -567,18 +594,19 @@ function loadOpsDataAJAX(xhttp) {
       // followed by any future events
       var dataTables = data[2].split("^");
       var stats = rsToObj(dataTables[0]);
+      var missions = rsToObj(dataTables[1]);
+      var ribbons = rsToObj(dataTables[2]);
       var history = rsToObj(dataTables[3]);
-      
-      // parse the missions and the ribbons
-      var missions = [];
-      var ribbons = [];
-      if (dataTables[1] != "null") dataTables[1].split("|").forEach(function(item, index) { missions.push(rsToObj(item)); });
-      if (dataTables[2] != "null") dataTables[2].split("|").forEach(function(item, index) { ribbons.push(rsToObj(item)); });
-      missions.reverse();
       object.FutureData = { Stats: stats,
                           History: history,
                           Missions: missions,
                           Ribbons: ribbons };
+
+      // update the menu data so tooltips and re-sorting are accurate
+      var crewMenuObj = crewMenu.find(o => o.DB === object.ID);
+      crewMenuObj.Assignment = object.CurrentData.Stats.Assignment;
+      crewMenuObj.Rank = object.CurrentData.Stats.Rank;
+      crewMenuObj.Status = object.CurrentData.Stats.Status;
     }
     object.isLoading = false;
     
@@ -600,7 +628,74 @@ function loadOpsDataAJAX(xhttp) {
       loadDB("loadOpsData.asp?db=" + opsCatalog[i].ID + "&UT=" + currUT() + "&type=" + opsCatalog[i].Type + "&pastUT=NaN", loadOpsDataAJAX);
     }
   }
-  if (!opsCatalog.find(o => o.isLoading === true)) console.log(opsCatalog);
+
+  // test for loading complete
+  if (!opsCatalog.find(o => o.isLoading === true)) {
+    console.log(opsCatalog);
+
+    // if this user has cookies, badge anything that has been updated since their last visit
+    // this is also run when an update is called for a crew or vessel and badges them then as well
+    if (checkCookies()) {
+
+      // get the time of the user's last visit
+      var lastVisit = parseInt(getCookie("visitTime"));
+
+      // go through all the inactive vessels to see if any have been updated since the last visit
+      craftsMenu.forEach(function(item) {
+        var refNumUT = currSOI(item);
+        if (refNumUT[0] == -1 && lastVisit < refNumUT[1]) badgeMenuItem(item.DB, true, true);
+      });
+
+      // now check the active vessels and crew, which can have several fields with varying update times
+      var crewUpdated = false;
+      opsCatalog.forEach(function(item) {
+        var latestUT = 0;
+        if (item.Type == "vessel") {
+          
+          // find the latest UT update for the vessel
+          Object.entries(item.CurrentData).forEach(function(items) {
+            if (items[1] && items[1].UT && items[1].UT > latestUT) latestUT = items[1].UT;
+          });
+        } else {
+
+          // same as for vessels but check for arrays and test accordingly
+          Object.entries(item.CurrentData).forEach(function(items) {
+            if (items[1] && !Array.isArray(items[1])) {
+              if (items[1].UT && items[1].UT > latestUT) latestUT = items[1].UT;
+            } else if (items[1] && Array.isArray(items[1])) {
+              items[1].forEach(function(arrayItem) {
+                if (arrayItem.UT && arrayItem.UT > latestUT) latestUT = arrayItem.UT;
+              });
+            }
+          });
+        }
+
+        // if this UT is greater than when we last visited, but not greater than the current time, badge it
+        if (lastVisit <= latestUT && latestUT <= currUT()) {
+          badgeMenuItem(item.ID, true, true);
+
+          // if we badged a crew member or vessel, we should re-sort the menu
+          if (item.Type == "crew") crewUpdated = true;
+        }
+      });
+
+      // update the visit time and menu
+      setCookie("visitTime", currUT(), true);
+      if (crewUpdated) filterCrewMenu($("input[name=roster]").filter(":checked").val());
+      w2ui['menu'].refresh();
+
+      // select in the menu what was loaded
+      var menuID;
+      if (getParameterByName("body")) { menuID = getParameterByName("body"); }
+      if (getParameterByName("vessel")) { menuID = getParameterByName("vessel"); }
+      if (getParameterByName("crew")) { menuID = getParameterByName("crew"); }
+      if (menuID && !window.location.href.includes("flt")) {
+        w2ui['menu'].select(menuID);
+        w2ui['menu'].expandParents(menuID);
+        w2ui['menu'].scrollIntoView(menuID);
+      } else w2ui['menu'].scrollIntoView();
+    }
+  }
 }
 
 // loop and update the page every second
@@ -638,7 +733,7 @@ function loadOpsDataAJAX(xhttp) {
   // update the terminator & sun display if a marker exists and the current body has a solar day length (is not the sun)
   // drawn based on the technique from SCANSat
   // https://github.com/S-C-A-N/SCANsat/blob/dev/SCANsat/SCAN_Unity/SCAN_UI_MainMap.cs#L682-L704
-  if (sunMarker && bodyCatalog.find(o => o.Body === strCurrentBody.split("-")[0]).SolarDay) {
+  if (mapData && mapData.Name == "Kerbin" && sunMarker && bodyCatalog.find(o => o.Body === strCurrentBody.split("-")[0]).SolarDay) {
 
     // for now only for Kerbin, with no solar inclination
     var sunLon = -bodyCatalog.find(o => o.Body === strCurrentBody.split("-")[0]).RotIni - (((currUT() / bodyCatalog.find(o => o.Body === strCurrentBody.split("-")[0]).SolarDay) % 1) * 360);

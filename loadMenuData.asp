@@ -37,7 +37,32 @@ do
     response.write(rsCrafts.fields.item("DB") & "~" &_
                    rsCrafts.fields.item("Vessel") & "~" &_
                    rsCrafts.fields.item("SOI") & "~" &_
-                   rsCrafts.fields.item("Type"))
+                   rsCrafts.fields.item("Type") & "~")
+
+    'get the last SOI time for this vessel to use in case start/end times are not defined
+    defaultTime = 0
+    locations = split(rsCrafts.fields.item("SOI"), "|")
+    for each loc in locations
+      defaultTime = split(loc, ";")(0)
+    next 
+
+    if not isNull(rsCrafts.fields.item("MissionStartTime")) then
+      response.write(rsCrafts.fields.item("MissionStartTime") & "~")
+    else
+      response.write(defaultTime & "~")
+    end if
+    if not isNull(rsCrafts.fields.item("MissionEnd")) then
+      response.write(split(rsCrafts.fields.item("MissionEnd"), ";")(1) & "~")
+    else
+    response.write(defaultTime & "~")
+    end if
+
+    if not isNull(rsCrafts.fields.item("Patches")) then
+      response.write(split(split(rsCrafts.fields.item("Patches"), "|")(0), ";")(0) & "~" &_
+                    split(split(rsCrafts.fields.item("Patches"), "|")(1), ";")(0))
+    else
+      response.write("null~null")
+    end if
   end if
   
   'advance the recordset point and repeat
@@ -61,17 +86,17 @@ do
   rsKerbal.MoveLast
   do until rsKerbal.fields.item("UT") <= UT
     rsKerbal.MovePrevious
-    if rsKerbal.bof then exit do
+    if rsKerbal.bof then 
+      rsKerbal.MoveNext
+      exit do
+    end if
   Loop
-  if not rsKerbal.bof then
-    response.write(rsCrew.fields.item("FullName") & "~" &_
-                   rsKerbal.fields.item("Status") & "~" &_
-                   rsKerbal.fields.item("Rank") & "~" &_
-                   rsKerbal.fields.item("Assignment") & "~" &_
-                   rsCrew.fields.item("Kerbal") & "~")
-  else
-    response.write("null~" & rsCrew.fields.item("Kerbal"))
-  end if
+  response.write(rsCrew.fields.item("FullName") & "~" &_
+                 rsKerbal.fields.item("Status") & "~" &_
+                 rsKerbal.fields.item("Rank") & "~" &_
+                 rsKerbal.fields.item("Assignment") & "~" &_
+                 rsCrew.fields.item("Kerbal") & "~" &_
+                 rsKerbal.fields.item("UT") & "~")
   
   conn2.Close
   Set conn2 = nothing

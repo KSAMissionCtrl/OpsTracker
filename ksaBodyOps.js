@@ -106,7 +106,7 @@ function loadBody(body, flt) {
                     "showToolBarHelp":false,
                     "errorDialogsActive":true,
                     "useBrowserForJS":true,
-                    "filename":"ggb/" + body + ".ggb"};
+                    "filename":"ggb/" + body + ".ggb?" + Math.floor(Math.random() * 1000)};
   var views = {"is3D":1};
   var applet = new GGBApplet('5.0', parameters, views);
   applet.inject('figure');
@@ -396,7 +396,7 @@ function figureClick(object) {
     }
     return;
   
-  // for a vessel/asteroid
+  // for a vessel/asteroid orbit
   } else if (object.includes("conic")) {
     if (strTinyBodyLabel == object) {
       var objID = strTinyBodyLabel.replace("conic", "");
@@ -411,31 +411,39 @@ function figureClick(object) {
       ggbOrbits.find(o => o.ID === objID).showNodes = false;
       strTinyBodyLabel = "";
     } else {
-      if (strTinyBodyLabel.length) {
-        if (strTinyBodyLabel.includes("23")) {
-          ggbApplet.setLabelVisible(strTinyBodyLabel.charAt(0) + "36", false);
-        } else {
-          var objID = strTinyBodyLabel.replace("conic", "");
-          if (!$("#labels").is(":checked")) { ggbApplet.setLabelVisible(objID + "position", false); }
-          if (!$("#nodes").is(":checked")) { 
-            ggbApplet.setVisible(objID + "penode", false);
-            ggbApplet.setVisible(objID + "apnode", false);
-            ggbApplet.setVisible(objID + "anode", false);
-            ggbApplet.setVisible(objID + "dnode", false);
+
+      // if orbits are off, just hide the orbit unless clicking on this one when another orbit is highlighted
+      if (!$("#orbits").is(":checked") && strTinyBodyLabel == "") {
+        ggbApplet.setVisible(object, false); 
+
+      // otherwise toggle the nodes and labels
+      } else {
+        if (strTinyBodyLabel.length) {
+          if (strTinyBodyLabel.includes("23")) {
+            ggbApplet.setLabelVisible(strTinyBodyLabel.charAt(0) + "36", false);
+          } else {
+            var objID = strTinyBodyLabel.replace("conic", "");
+            if (!$("#labels").is(":checked")) { ggbApplet.setLabelVisible(objID + "position", false); }
+            if (!$("#nodes").is(":checked")) { 
+              ggbApplet.setVisible(objID + "penode", false);
+              ggbApplet.setVisible(objID + "apnode", false);
+              ggbApplet.setVisible(objID + "anode", false);
+              ggbApplet.setVisible(objID + "dnode", false);
+            }
+            ggbOrbits.find(o => o.ID === objID).showName = false;
+            ggbOrbits.find(o => o.ID === objID).showNodes = false;
           }
-          ggbOrbits.find(o => o.ID === objID).showName = false;
-          ggbOrbits.find(o => o.ID === objID).showNodes = false;
         }
+        var objID = object.replace("conic", "");
+        ggbApplet.setLabelVisible(objID + "position", true);
+        ggbApplet.setVisible(objID + "penode", true);
+        ggbApplet.setVisible(objID + "apnode", true);
+        ggbApplet.setVisible(objID + "anode", true);
+        ggbApplet.setVisible(objID + "dnode", true);
+        ggbOrbits.find(o => o.ID === objID).showName = true;
+        ggbOrbits.find(o => o.ID === objID).showNodes = true;
+        strTinyBodyLabel = object;
       }
-      var objID = object.replace("conic", "");
-      ggbApplet.setLabelVisible(objID + "position", true);
-      ggbApplet.setVisible(objID + "penode", true);
-      ggbApplet.setVisible(objID + "apnode", true);
-      ggbApplet.setVisible(objID + "anode", true);
-      ggbApplet.setVisible(objID + "dnode", true);
-      ggbOrbits.find(o => o.ID === objID).showName = true;
-      ggbOrbits.find(o => o.ID === objID).showNodes = true;
-      strTinyBodyLabel = object;
     }
     return;
   }
@@ -492,28 +500,18 @@ function figureClick(object) {
     // show the orbit if the orbits are hidden
     if (!$("#orbits").is(":checked")) {
       
-      // first find any other object that is selected and hide its orbit and nodes
-      var selectedObj = ggbOrbits.find(o => o.isSelected === true);
-      if (selectedObj) { 
+      // if we are already selected, hide our orbit
+      var selectedObj = ggbOrbits.find(o => o.ID === object.charAt(0));
+      if (selectedObj.isSelected) { 
         selectedObj.isSelected = false;
-        if (selectedObj.Type == "body") {
-          ggbApplet.setVisible(selectedObj.ID + "23", false); 
-          ggbApplet.setVisible(selectedObj.ID + "26", false);
-          ggbApplet.setVisible(selectedObj.ID + "27", false);
-          ggbApplet.setVisible(selectedObj.ID + "28", false);
-          ggbApplet.setVisible(selectedObj.ID + "32", false);
-        } else {
-          ggbApplet.setVisible(selectedObj.ID + "conic", false); 
-          ggbApplet.setVisible(selectedObj.ID + "apnode", false);
-          ggbApplet.setVisible(selectedObj.ID + "penode", false);
-          ggbApplet.setVisible(selectedObj.ID + "anode", false);
-          ggbApplet.setVisible(selectedObj.ID + "dnode", false);
-        }
-      }
-      
-      // only show the orbit (and nodes?) if we didn't click on ourselves or didn't find an object
-      if (!selectedObj || selectedObj.ID != object.charAt(0)) {
-        selectedObj = ggbOrbits.find(o => o.ID === object.charAt(0));
+        ggbApplet.setVisible(selectedObj.ID + "23", false); 
+        ggbApplet.setVisible(selectedObj.ID + "26", false);
+        ggbApplet.setVisible(selectedObj.ID + "27", false);
+        ggbApplet.setVisible(selectedObj.ID + "28", false);
+        ggbApplet.setVisible(selectedObj.ID + "32", false);
+          
+      // show the orbit, but only show the nodes if the box is checked
+      } else {
         selectedObj.isSelected = true;
         ggbApplet.setVisible(selectedObj.ID + "23", true);
         if (selectedObj.showNodes || $("#nodes").is(":checked")) {
@@ -534,26 +532,8 @@ function figureClick(object) {
     // show the orbit if the orbits are hidden
     if (!$("#orbits").is(":checked")) {
       
-      // first find any other object that is selected and hide its orbit and nodes
-      var selectedObj = ggbOrbits.find(o => o.isSelected === true);
-      if (selectedObj) { 
-        selectedObj.isSelected = false;
-        if (selectedObj.Type == "body") {
-          ggbApplet.setVisible(selectedObj.ID + "23", false); 
-          ggbApplet.setVisible(selectedObj.ID + "26", false);
-          ggbApplet.setVisible(selectedObj.ID + "27", false);
-          ggbApplet.setVisible(selectedObj.ID + "28", false);
-          ggbApplet.setVisible(selectedObj.ID + "32", false);
-        } else {
-          ggbApplet.setVisible(selectedObj.ID + "conic", false); 
-          ggbApplet.setVisible(selectedObj.ID + "apnode", false);
-          ggbApplet.setVisible(selectedObj.ID + "penode", false);
-          ggbApplet.setVisible(selectedObj.ID + "anode", false);
-          ggbApplet.setVisible(selectedObj.ID + "dnode", false);
-        }
-      }
-      
       // only show the orbit (and nodes?) if we didn't click on ourselves or didn't find an object
+      var selectedObj = null;
       if (!selectedObj || selectedObj.ID != object.replace("position" , "")) {
         selectedObj = ggbOrbits.find(o => o.ID === object.replace("position" , ""));
         selectedObj.isSelected = true;
@@ -684,8 +664,11 @@ function toggleLabels(isChecked) {
     }
   });
 }
+
+// clear out all selected flags when orbits are shown again
 function toggleOrbits(isChecked) {
   ggbOrbits.forEach(function(item, index) { 
+    if (isChecked) item.isSelected = false;
     if (!item.isSelected && !item.isHidden) {
       if (item.Type == "body") {
         ggbApplet.setVisible(item.ID + "23", isChecked);
@@ -694,10 +677,6 @@ function toggleOrbits(isChecked) {
       }
     }
   });
-  
-  // clear any selected object
-  var selectedObj = ggbOrbits.find(o => o.isSelected === true);
-  if (selectedObj) { selectedObj.isSelected = false; }
   
   // we need to hide all nodes when hiding orbits, regardless of toggle, because nothing is selected
   if (!isChecked) {
@@ -730,6 +709,25 @@ function toggleOrbits(isChecked) {
         ggbApplet.setVisible(item.ID + "penode", true);
         ggbApplet.setVisible(item.ID + "anode", true);
         ggbApplet.setVisible(item.ID + "dnode", true);
+      }
+    });
+  }
+
+  // else if the orbits are being shown, show nodes depending on the orbit setting
+  else if (isChecked) {
+    ggbOrbits.forEach(function(item, index) { 
+      if (item.showNodes) {
+        if (item.Type == "body") {
+          ggbApplet.setVisible(item.ID + "26", true);
+          ggbApplet.setVisible(item.ID + "27", true);
+          ggbApplet.setVisible(item.ID + "28", true);
+          ggbApplet.setVisible(item.ID + "32", true);
+        } else {
+          ggbApplet.setVisible(item.ID + "apnode", true);
+          ggbApplet.setVisible(item.ID + "penode", true);
+          ggbApplet.setVisible(item.ID + "anode", true);
+          ggbApplet.setVisible(item.ID + "dnode", true);
+        }
       }
     });
   }

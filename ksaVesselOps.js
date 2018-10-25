@@ -56,14 +56,20 @@ function loadVessel(vessel, givenUT) {
   // add vessel-specific buttons to the map
   addMapResizeButton();
   addMapViewButton();
+
+  // size down the map
+  lowerContent();
   
+  // close any popups
+  if (vesselPositionPopup && surfaceMap) surfaceMap.closePopup(vesselPositionPopup); 
+
   // we can't be switching vessels while loading any plot data so if it's in progress, kill it
   if (layerControl && !layerControl.options.collapsed) { 
     isOrbitRenderTerminated = true;
     layerControl._collapse();
     layerControl.options.collapsed = true;
-    if (obtTrackDataLoad) layerControl.removeLayer(obtTrackDataLoad);
-    obtTrackDataLoad = null;
+    if (surfaceTracksDataLoad.obtTrackDataLoad) layerControl.removeLayer(surfaceTracksDataLoad.obtTrackDataLoad);
+    surfaceTracksDataLoad.obtTrackDataLoad = null;
     clearSurfacePlots();
     currentVesselPlot = null;
     vesselMarker = null;
@@ -500,7 +506,7 @@ function vesselResourcesUpdate(update) {
     if (currentVesselData.Resources.DeltaV !== null) { strHTML += numeral(currentVesselData.Resources.DeltaV).format('0.000') + "km/s"; }
     else { strHTML += "N/A"; }
     strHTML += "<br>Total Mass: ";
-    if (currentVesselData.Resources.TotalMass !== null) { strHTML += numeral(currentVesselData.Resources.TotalMass).format('0.000') + "t"; }
+    if (currentVesselData.Resources.TotalMass !== null) { strHTML += numeral(currentVesselData.Resources.TotalMass).format('0,0.000') + "t"; }
     else { strHTML += "N/A"; }
     strHTML += "<br>Resource Mass: ";
     if (currentVesselData.Resources.ResourceMass !== null) { strHTML += numeral(currentVesselData.Resources.ResourceMass).format('0.000') + "t"; }
@@ -585,6 +591,10 @@ function vesselHistoryUpdate() {
   $("#nextEvent").append($('<option>', { value: null, text: 'Next Event(s)' }));
   $("#nextEvent").prop("disabled", true);
   
+  // disable history buttons - they will be re-enabled as needed
+  $("#prevEventButton").button("option", "disabled", true);
+  $("#nextEventButton").button("option", "disabled", true);
+  
   // fill up the previous events, then the next events
   currentVesselData.History.reverse().forEach(function(item, index) {
     if (item.UT < currentVesselData.CraftData.UT && item.Title != currentVesselData.CraftData.CraftDescTitle) {
@@ -593,6 +603,7 @@ function vesselHistoryUpdate() {
         text: item.Title
       }));
       $("#prevEvent").prop("disabled", false);
+      $("#prevEventButton").button("option", "disabled", false);
     }
   });
   currentVesselData.History.reverse().forEach(function(item, index) {
@@ -602,6 +613,7 @@ function vesselHistoryUpdate() {
         text: item.Title
       }));
       $("#nextEvent").prop("disabled", false);
+      $("#nextEventButton").button("option", "disabled", false);
     }
   });
   $("#dataLabel").html("Mission History");
@@ -643,7 +655,7 @@ function vesselContentUpdate() {
     
     // if launch is in progress and there's an altitude to report, include it
     var launchAltitude = "";
-    if (data.length > 3) launchAltitude = "<br>" + data[3] + "km";
+    if (data.length > 3) launchAltitude = "<br>" + data[3] + "km ASL";
     
     // place the marker and build the information window for it, then center the map on it and create a popup for it
     launchsiteMarker = L.marker([data[0], data[1]], {icon: launchsiteIcon}).addTo(surfaceMap);
@@ -790,6 +802,28 @@ $("#nextEvent").change(function () {
   }
 });
 
+// history paging via buttons
+function prevHistoryButton() {
+  var histIndex;
+  for (histIndex = 0; histIndex < currentVesselData.History.length; histIndex++) {
+    if (currentVesselData.History[histIndex].Title == currentVesselData.CraftData.CraftDescTitle) break;
+  }
+  histIndex--;
+  loadVessel(strCurrentVessel, currentVesselData.History[histIndex].UT);
+  if (histIndex == 0) $("#prevEventButton").button("option", "disabled", true);
+  $("#nextEventButton").button("option", "disabled", false);
+}
+function nextHistoryButton() {
+  var histIndex;
+  for (histIndex = 0; histIndex < currentVesselData.History.length; histIndex++) {
+    if (currentVesselData.History[histIndex].Title == currentVesselData.CraftData.CraftDescTitle) break;
+  }
+  histIndex++;
+  if (histIndex == currentVesselData.History.length-1) $("#nextEventButton").button("option", "disabled", true);
+  loadVessel(strCurrentVessel, currentVesselData.History[histIndex].UT);
+  $("#prevEventButton").button("option", "disabled", false);
+}
+
 // opens the dialog box with more details - this is the same box that holds crew details, was just implemented here first
 function showInfoDialog() {
   if (!$("#infoDialog").dialog("isOpen")) { $("#infoDialog").dialog("open") }
@@ -810,6 +844,7 @@ function assignPartInfo() {
   }
 }
 
+// called only to update the vessel data after it has already been loaded initially
 function updateVesselData(vessel) {
   
   // perform a live data update if we are looking at the vessel in question at the moment at its current record
@@ -858,7 +893,7 @@ function updateVesselData(vessel) {
     else { showOpt = 'mouseenter'; }
     Tipped.create('.tipped', { showOn: showOpt, hideOnClickOutside: is_touch_device(), detach: false, hideOn: {element: 'mouseleave'} });
     Tipped.create('.tip-update', { showOn: showOpt, hideOnClickOutside: is_touch_device(), detach: false, hideOn: {element: 'mouseleave'} });
-  }
+  } 
   
   // check the current launch time for this UT if this vessel is listed in the event calendar
   if (strCurrentLaunchVessel == vessel.ID) {

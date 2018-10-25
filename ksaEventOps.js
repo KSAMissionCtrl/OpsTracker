@@ -20,7 +20,10 @@ function loadEventsAJAX(xhttp) {
       if (launches[1] != "null") updatesList.push({ Type: "event", ID: "launch", UT: parseFloat(launches[1].split(";")[0]), Data: launches[1] });
     
     // otherwise this is an update that will happen in the future
-    } else updatesList.push({ Type: "event", ID: "launch", UT: parseFloat(fields[0]), Data: launches[0] });
+    } else {
+      updatesList.push({ Type: "event", ID: "launch", UT: parseFloat(fields[0]), Data: launches[0] });
+      writeLaunchInfo();
+    }
   } else writeLaunchInfo();
   
   // is there an upcoming maneuver?
@@ -36,7 +39,10 @@ function loadEventsAJAX(xhttp) {
       if (maneuvers[1] != "null") updatesList.push({ Type: "event", ID: "maneuver", UT: parseFloat(maneuvers[1].split(";")[0]), Data: maneuvers[1] });
     
     // otherwise this is an update that will happen in the future
-    } else updatesList.push({ Type: "event", ID: "maneuver", UT: parseFloat(fields[0]), Data: maneuvers[0] });
+    } else {
+      updatesList.push({ Type: "event", ID: "maneuver", UT: parseFloat(fields[0]), Data: maneuvers[0] });
+      writeManeuverinfo();
+    }
   } else writeManeuverinfo();
   
   // do the menu load after event load so the event box is always sized before the menu
@@ -45,6 +51,7 @@ function loadEventsAJAX(xhttp) {
 }
 
 function writeLaunchInfo(data) {
+  if (isLaunchEventCoolingDown) return;
   var size = w2utils.getSize("#launch", 'height');
   if (data) {
     var fields = data.split(";");
@@ -77,16 +84,21 @@ function writeLaunchInfo(data) {
     setTimeout(function() { 
       if (isMenuDataLoaded) {
         w2ui['menu'].refresh();
-        w2ui['menu'].scrollIntoView(w2ui['menu'].find({selected: true})[0].id);
+        if (w2ui['menu'].find({selected: true}).length) w2ui['menu'].scrollIntoView(w2ui['menu'].find({selected: true})[0].id);
       }
     }, 250);
   }
   
   // if the menu data is already loaded this was a refresh, so highlight the box
   if (isMenuDataLoaded && data) flashUpdate("#launch", "#FF0000", "#77C6FF");
+
+  // don't let another update happen for 2 seconds in case there are some rapid-fire events of the same vessel
+  isLaunchEventCoolingDown = true;
+  setTimeout(function() { isLaunchEventCoolingDown = false; }, 2000);
 }
 
 function writeManeuverinfo(data) {
+  if (isManeuverEventCoolingDown) return;
   var size = w2utils.getSize("#maneuver", 'height');
   if (data) {
     var fields = data.split(";");
@@ -109,11 +121,15 @@ function writeManeuverinfo(data) {
     setTimeout(function() { 
       if (isMenuDataLoaded) {
         w2ui['menu'].refresh();
-        w2ui['menu'].scrollIntoView(w2ui['menu'].find({selected: true})[0].id);
+        if (w2ui['menu'].find({selected: true}).length) w2ui['menu'].scrollIntoView(w2ui['menu'].find({selected: true})[0].id);
       }
     }, 250);
   }
   
   // if the menu data is already loaded this was a refresh, so highlight the box
   if (isMenuDataLoaded && data) flashUpdate("#maneuver", "#FF0000", "#77C6FF");
+
+  // don't let another update happen for 2 seconds in case there are some rapid-fire events of the same vessel
+  isManeuverEventCoolingDown = true;
+  setTimeout(function() { isManeuverEventCoolingDown = false; }, 2000);
 }

@@ -10,7 +10,7 @@
   <link rel="shortcut icon" href="../images/KSA/favicon.png" type="image/x-icon" />
 
   <!-- use this image link to force reddit to use a certain image for its thumbnail -->
-  <meta property="og:image" content="https://i.imgur.com/4aPWLzd.png" />
+  <meta property="og:image" content="https://i.imgur.com/ddmRFGX.png" />
   
   <!-- cache of Font Awesome -->
   <link href="https://use.fontawesome.com/releases/v5.0.2/css/all.css" rel="stylesheet">
@@ -102,6 +102,7 @@
         <div id='dataField15' class='dataField'></div>
         <div id='dataField16' class='dataField'></div>
         <div id='missionHistory' style='margin-top: 0px'>
+          <button id='prevEventButton' class='historyButton' onclick='prevHistoryButton()'>&lt;</button>
           <select id='prevEvent' style='margin: 2px; width: 53px'>
             <option>Prev Event(s)</option>
           </select>
@@ -109,6 +110,7 @@
           <select id='nextEvent' style='margin: 2px; width: 53px'>
             <option>Next Event(s)</option>
           </select>
+          <button id='nextEventButton' class='historyButton' onclick='nextHistoryButton()'>&gt;</button>
         </div>
       </div>
       <div id='crewFooter' style='text-align: center; margin-left: 503px; margin-top: 5px; display: none'>
@@ -150,12 +152,19 @@
         <input class='checkboxes' name='rover' id='rover-menu' type='checkbox' disabled> <label for='rover-menu'>Rover</label><br>
         <input class='checkboxes' name='ship' id='ship-menu' type='checkbox' disabled> <label for='ship-menu'>Ship</label> 
         <input class='checkboxes' name='station' id='station-menu' type='checkbox' disabled> <label for='station-menu'>Station</label> 
+        <p><strong>Inactive Vessels: </strong> 
+          <input type='radio' name='inactive' id='type' value='type'> <label for='type'>Type</label> 
+          <input type='radio' name='inactive' id='vessel' value='vessel'> <label for='vessel'>Vessel</label><br>
+          <input type='radio' name='inactive' id='program' value='program'> <label for='program'>Program</label> 
+          <input type='radio' name='inactive' id='start' value='start'> <label for='start'>Start</label> 
+          <input type='radio' name='inactive' id='end' value='end'> <label for='end'>End</label> 
+          <input type='radio' name='inactive' id='body' value='body'> <label for='body'>Body</label> 
         <p><strong>Crew Roster: </strong> 
-        <input type='radio' name='roster' id='name'> <label for='name'>Name</label> 
-        <input type='radio' name='roster' id='status'> <label for='status'>Status</label> 
-        <input type='radio' name='roster' id='rank'> <label for='rank'>Rank</label> 
-        <input type='radio' name='roster' id='assignment'> <label for='assignment'>Assignment</label>
-      </div>
+          <input type='radio' name='roster' id='name' value='name'> <label for='name'>Name</label> 
+          <input type='radio' name='roster' id='status' value='status'> <label for='status'>Status</label> 
+          <input type='radio' name='roster' id='rank' value='rank'> <label for='rank'>Rank</label> 
+          <input type='radio' name='roster' id='assignment' value='assignment'> <label for='assignment'>Assignment</label>
+        </div>
       <div id='menuBox'>&nbsp;</div>
 
       <!-- Events display -->

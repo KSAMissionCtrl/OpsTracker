@@ -35,6 +35,8 @@ var numOrbitRenders;
 var obtCalcUT;
 var timePopup;
 var currentVesselPlot;
+var currentFlightIndex;
+var currentFlightTimelineIndex;
 var strPausedVesselCalculation;
 var strCurrentBody;
 var strCurrentMap;
@@ -52,9 +54,7 @@ var clock = new Date();
 var vesselPositionPopup = L.popup({offset: new L.Point(0,-1), autoClose: false});
 var flightPositionPopup = L.popup({offset: new L.Point(0,-1), autoClose: false, maxWidth: 500});
 var layerSolar = L.layerGroup();
-var obtTrackDataLoad = null;
-var srfTrackDataLoad = null;
-var fltTrackDataLoad = null;
+var flightTimelineInterval = null;
 var isGGBAppletLoaded = false;
 var isMenuDataLoaded = false;
 var isEventDataLoaded = false;
@@ -68,6 +68,9 @@ var isContentMoving = false;
 var isOrbitRenderTerminated = false;
 var isNewUser = false;
 var isMapShown = false;
+var isMapFullscreen = false;
+var isLaunchEventCoolingDown = false;
+var isManeuverEventCoolingDown = false;
 var maxMenuHeight = 340;
 var UTC = 4;
 var tickDelta = 0;
@@ -87,14 +90,25 @@ var orbitDataCalc = [];
 var updatesList = [];
 var crewList = [];
 var fltPaths = [];
+var vesselPaths = [];
 var strTinyBodyLabel = "";
 var strCurrentVessel = "undefined";
+var bodyPaths = {
+  bodyName: "",
+  paths: []
+};
 var orbitColors = {
   probe: "#FFD800",
   debris: "#ff0000",
   ship: "#0094FF",
   station: "#B200FF",
   asteroid: "#996633"
+};
+var surfaceTracksDataLoad = {
+  obtTrackDataLoad: null,
+  fltTrackDataLoad: null,
+  vesselsTrackDataLoad: null,
+  bodiesTrackDataLoad: null
 };
 var vesselOrbitColors = [
   "#4CFF00",
@@ -187,3 +201,4 @@ var AddlResourceItems = [];
 AddlResourceItems["Telemetry Data"] = "fa fa-table";
 AddlResourceItems["Mission Report"] = "fab fa-twitter";
 AddlResourceItems["Flight Analysis"] = "far fa-file";
+var monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];

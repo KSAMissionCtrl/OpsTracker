@@ -158,6 +158,19 @@ input:disabled+label {
   cursor: help;
 }
 
+.historyButton {
+  padding-left: 5px;
+  padding-right: 5px;
+  padding-top: 3px;
+  padding-bottom: 3px;
+  margin-bottom: 3px;
+}
+
+.flightTimelineButton {
+  padding-left: 2px;
+  padding-right: 2px;
+}
+
 #menuResize {
   margin: 2px;
   text-align: center;
