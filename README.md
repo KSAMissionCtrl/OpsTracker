@@ -35,7 +35,7 @@ The following JavaScript libraries are used:
 ### Important Known Issues
 
 - **Operations Tracker is currently in active development with work being done on the live page, so visiting at times may cause browser errors, failures to load, etc. However after it has been worked on it is left in a usable state**
-- Leaflet map can be finicky in a number of ways - most notably it doesn't mousewheel zoom centered on the cursor and can sometimes load showing off the edge of the map or refuse to load tiles. It can also fail to render paths and markers or not allow you to properly hover for information over paths. Generally these issues can all be fixed by upsizing/downsizing or going fullscreen
+- Leaflet map can be finicky in a number of ways - most notably it can sometimes load showing off the edge of the map or refuse to load tiles. It can also fail to render paths and markers or not allow you to properly hover for information over paths. Generally these issues can all be fixed by upsizing/downsizing or going fullscreen
 - The downsized default map view for vessel pages is not able to show position info for orbital plots when hovering over the lines. Sizing up the map or going fullscreen will enable this feature
 - Collapsing/Expanding the [Operations Menu](https://github.com/KSAMissionCtrl/OpsTracker/wiki/Navigation) can sometimes cause the entire area to go blank the next time something in it is clicked on
 - Ground tracks for aircraft can sometimes not be hovered over to display additional information for that point in the flight. Try zooming in closer or panning the map view around a bit
@@ -49,6 +49,44 @@ See all current bugs and future enhancements over in our [Issues Tracker](https:
 ### Change Log
 
 Versioning Key (v#1.#2.#3): #1=New features #2=Changes to existing features #3=Fixes to existing features
+
+**v10.0.0** (5/28/19)
+
+Fixes:
+  - The [Event Calendar](https://github.com/KSAMissionCtrl/OpsTracker/wiki/Clock-&-Event-Calendar) clock now shows proper KSC local time when viewed in other time zones
+  - `currUT()` now always returns the current second when asking for an integer instead of a floating point value rather than sometimes rounding up to the next second
+  - Clicking on an Event Calendar vessel link is no longer possible until the [Orbital View](https://github.com/KSAMissionCtrl/OpsTracker/wiki/Orbital-View) has finished loading in order to avoid an out of order loading error
+  - Various issues resolved with out of order menu data loading
+  - Various issues resolved when transitioning from one type of data view to another and lingering unused elements remain visible
+  - Various issues resolved with map markers being quieried when they were not present
+  - Going straight from a crew view to surface track no longer hangs page load
+  - Loading straight to a surface track no longer hangs page load
+  - `getParentSystem()` now properly handles a case of there being no parent system at all if the vesselID is null
+  - Vessel that has gone from Active to Inactive no longer attempts to badge its update on the Active menu
+  - Typo in default "Unknown Anomaly" text
+  - Typo in "longitude" for surface map popup
+  - Popup for surface tracks can now be closed after opening
+  - Surface plot colors now properly cycle through to beginning and start anew
+  - Closing the surface plot flight data playback popup now also stops the map from updating
+  - Inactive Vessel sort options in the menu [Filters](https://github.com/KSAMissionCtrl/OpsTracker/wiki/Navigation#filters) now works all the time
+  - History paging now looks at UT instead of Title so events that have the same Title don't screw it up
+  - Displaying [Flight Data](https://github.com/KSAMissionCtrl/OpsTracker/wiki/Surface-Map#flight-data) will no longer cease to work for the first track loaded
+  
+Changes:
+  - [Operations Menu](https://github.com/KSAMissionCtrl/OpsTracker/wiki/Navigation) and Event Calendar vessel names that end up with only a single character or two (denoting a number) on a second line now bring down the word preceeding that number as well
+  - When vessel orbital data is updated the Orbital View will now also redraw its 3D orbit
+  - Yellow is now the first surface plot color, followed by red instead of vice-versa
+  - Pink surface plot color is now much lighter for better contrast
+  - CDN links updated to point to recent releases for FontAwesome (v5.8.1) and Leaflet (v4.0)
+  - Opening up the Inactive Vessels menu will scroll to display the folders that expand
+  - Resource icons in the [Data Box](https://github.com/KSAMissionCtrl/OpsTracker/wiki/Vessel-Details#the-data-box) will now show arrows to scroll when there are more than 5 resources included in the vessel
+  
+Additions:
+  - Real-time ascent telemetry data can be displayed for any vessel making the flight up into space. Data switches over to static event updates at whatever point the telemetry data ends. After the telemetry run is over, the user can page back to the launch event to replay the telemetry and seek forward/backwards 10s or 30s while paused. Vessels can still include static updates of major events during ascent that can be paged through while an active ascent is happening. Returning to the most recent event in the [Vessel History](https://github.com/KSAMissionCtrl/OpsTracker/wiki/Vessel-Details#vessel-history) will bring back up the real-time telemetry if time remains
+  - [Surface Map](https://github.com/KSAMissionCtrl/OpsTracker/wiki/Surface-Map) now has additional layers to show airport and ground station locations
+  - Part tooltips can now display the number that exist on a vessel
+  - Part tooltips can now include special notes at the bottom that can apply to parts on various specific vessels
+  - Launch videos can now be included as Additional Resources for the vessel Data Box
 
 **v9.0.0** (10/24/18)
 
