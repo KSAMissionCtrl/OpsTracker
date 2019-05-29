@@ -10,10 +10,12 @@
   <link rel="shortcut icon" href="../images/KSA/favicon.png" type="image/x-icon" />
 
   <!-- use this image link to force reddit to use a certain image for its thumbnail -->
-  <meta property="og:image" content="https://i.imgur.com/ddmRFGX.png" />
+  <meta property="og:image" content="https://i.imgur.com/55ZgWiL.png" />
   
   <!-- cache of Font Awesome -->
-  <link href="https://use.fontawesome.com/releases/v5.0.2/css/all.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.8.1/css/all.css" 
+  integrity="sha384-50oBUHEmvpQ+1lW4y57PTFmhCaXp0ML5d60M1M7uH2+nqUivzIebhndOJK28anvf" 
+  crossorigin="anonymous">
 
   <!-- CSS stylesheets 
   <link rel="stylesheet" href="https://unpkg.com/leaflet@0.5.1/dist/leaflet.css">
@@ -21,9 +23,9 @@
   <link rel="stylesheet" href="../lib/leaflet.label.css">
   -->
   <link rel="stylesheet" href="http://fonts.googleapis.com/css?family=Roboto:900">
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.3.1/dist/leaflet.css"
-   integrity="sha512-Rksm5RenBEKSKFjgI3a41vrjkw4EVPlJ3+OiI65vTjIdo9brlAacEuKOiQ5OFh7cOI1bkDwLqdLw3Zg0cRJAAQ=="
-   crossorigin=""/>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.4.0/dist/leaflet.css"
+  integrity="sha512-puBpdR0798OZvTTbP4A8Ix/l+A4dHDD0DGqYW6RQ+9jxkRFclaxxQb/SJAWZfWAkuyeQUytO7+7N4QKrDh+drA=="
+  crossorigin=""/>
   <link rel="stylesheet" href="../lib/jquery-ui.min.css">
   <link rel="stylesheet" href="../lib/tipped.css">
   <link rel="stylesheet" href="../lib/w2ui-1.5.rc1.css">
@@ -192,9 +194,9 @@
   -->
   <script src="http://ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js"></script>
   <script src="https://cdn.geogebra.org/apps/deployggb.js"></script>
-  <script src="https://unpkg.com/leaflet@1.3.1/dist/leaflet.js"
-   integrity="sha512-/Nsx9X4HebavoBvEBuyp3I7od5tA0UzAxs+j83KgC8PU0kgB4XiK4Lfe4y4cgBtaRJQEIFCW+oC506aPT2L1zw=="
-   crossorigin=""></script>
+  <script src="https://unpkg.com/leaflet@1.4.0/dist/leaflet.js"
+  integrity="sha512-QVftwZFqvtRNi0ZyCtsznlKSWOStnDORoefr1enyq5mVL4tmKB3S/EnC3rRJcxCPavG10IcrVGSmPh6Qw5lwrg=="
+  crossorigin=""></script>
    <script src="../lib/jquery-ui.min.js"></script>
   <script src="../lib/spin.min.js"></script>  
   <script src="../lib/jquery.spin.js"></script>

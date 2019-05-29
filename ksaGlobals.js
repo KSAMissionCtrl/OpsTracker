@@ -50,11 +50,18 @@ var launchCountdown;
 var maneuverCountdown;
 var terminator;
 var mapDialogDelay;
+var interpStart;
+var L0Time;
 var clock = new Date();
 var vesselPositionPopup = L.popup({offset: new L.Point(0,-1), autoClose: false});
 var flightPositionPopup = L.popup({offset: new L.Point(0,-1), autoClose: false, maxWidth: 500});
+var noMarkBox = L.latLngBounds(L.latLng(0.1978, -74.8389), L.latLng(-0.3516, -74.2896));
 var layerSolar = L.layerGroup();
+var menuSaveSelected = null;
 var flightTimelineInterval = null;
+var ascentInterpTimeout = null;
+var strFltTrackLoading = null;
+var ascentPopup = null;
 var isGGBAppletLoaded = false;
 var isMenuDataLoaded = false;
 var isEventDataLoaded = false;
@@ -71,11 +78,14 @@ var isMapShown = false;
 var isMapFullscreen = false;
 var isLaunchEventCoolingDown = false;
 var isManeuverEventCoolingDown = false;
+var isAscentPaused = false;
 var maxMenuHeight = 340;
 var UTC = 4;
 var tickDelta = 0;
 var updatesListSize = 0;
 var vesselRotationIndex = 0;
+var resIndex = 0;
+var ascentColorsIndex = -1;
 var planetLabels = [];
 var nodes = [];
 var nodesVisible = [];
@@ -91,8 +101,12 @@ var updatesList = [];
 var crewList = [];
 var fltPaths = [];
 var vesselPaths = [];
+var ascentTracks = [];
+var ascentMarks = [];
 var strTinyBodyLabel = "";
+var strActiveAscent = "";
 var strCurrentVessel = "undefined";
+var currentAscentData = {};
 var bodyPaths = {
   bodyName: "",
   paths: []
@@ -116,8 +130,8 @@ var vesselOrbitColors = [
   "#FF0000"
 ];
 var surfacePathColors = [
-  "#FF0000",
   "#FFD800",
+  "#FF0000",
   "#4CFF00",
   "#00FFFF",
   "#0094FF",
@@ -125,7 +139,7 @@ var surfacePathColors = [
   "#4800FF",
   "#B200FF",
   "#FF00DC",
-  "#FF006E"
+  "#FF8EDD"
 ];
 var srfLocations = {
   KSC: [-0.0972, -74.5577]
@@ -201,4 +215,5 @@ var AddlResourceItems = [];
 AddlResourceItems["Telemetry Data"] = "fa fa-table";
 AddlResourceItems["Mission Report"] = "fab fa-twitter";
 AddlResourceItems["Flight Analysis"] = "far fa-file";
+AddlResourceItems["Launch Video"] = "fab fa-youtube";
 var monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];

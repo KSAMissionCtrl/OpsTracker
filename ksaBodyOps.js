@@ -2,7 +2,7 @@
 function loadBody(body, flt) {
   
   // an attempt was made to load orbital data for an inactive vessel
-  if (body == "inactive") { return; }
+  if (body == "inactive") return;
 
   // if there is already a body loading then try calling back later
   if (isGGBAppletLoading) {
@@ -198,7 +198,11 @@ function ggbOnInit() {
     $("#vesselLoaderMsg").fadeIn();
     clearTimeout(timeoutHandle);
     loadVesselOrbits();
-  } else isGGBAppletLoaded = true; isGGBAppletLoading = false;
+  } else {
+    isGGBAppletLoaded = true; 
+    isGGBAppletLoading = false;
+    activateEventLinks();
+  }
 }
 
 // adds to the figure the orbits of any vessels around this body
@@ -220,6 +224,7 @@ function loadVesselOrbits() {
     else {
       isGGBAppletLoaded = true;
       isGGBAppletLoading = false;
+      activateEventLinks();
       $("#vesselLoaderMsg").spin(false);
       $("#vesselLoaderMsg").fadeOut();
       if ($("#figure").is(":visible")) { 
@@ -235,89 +240,115 @@ function loadVesselOrbits() {
 
 // creates an orbit on the currently-loaded GeoGebra figure
 function addGGBOrbit(vesselID, orbitData) {
-    
-    // we need to ensure the body data is loaded first
-    if (!bodyCatalog) setTimeout(addGGBOrbit, 150, vesselID, orbitData);
-    
-    // need the data of the body this vessel is in orbit around
-    // get the current body being orbited using its parent node in the menu
-    // then look it up in the body catalog
-    var strBodyName = w2ui['menu'].get('activeVessels', vesselID).parent.id.split("-")[0];
-    var bodyData = bodyCatalog.find(o => o.Body === strBodyName);
-    
-    // type of vessel so we can color things appropriately
-    var strVesselType = w2ui['menu'].get('activeVessels', vesselID).img.split("-")[1];
-    
-    // enable this vessel type in the filters menu
-    $("#" + strVesselType + "-filter").removeAttr("disabled");
-    $("#" + strVesselType + "-filter").prop('checked', true);
-    $("#" + strVesselType + "-label").css('color', orbitColors[strVesselType]);
-    
-    // convert the vessel id to a variable name suitable for GeoGebra then load the vessel into the figure
-    ggbID = vesselID.replace("-", "");
-    ggbApplet.evalCommand(ggbID + 'id="' + vesselID + '"');
-    ggbApplet.evalCommand(ggbID + 'sma=' + orbitData.SMA);
-    ggbApplet.evalCommand(ggbID + 'pe=' + (orbitData.Periapsis + bodyData.Radius));
-    ggbApplet.evalCommand(ggbID + 'ap=' + (orbitData.Apoapsis + bodyData.Radius));
-    ggbApplet.evalCommand(ggbID + 'ecc=' + orbitData.Eccentricity);
-    ggbApplet.evalCommand(ggbID + 'inc=' + (orbitData.Inclination * .017453292519943295));
-    ggbApplet.evalCommand(ggbID + 'raan=' + (orbitData.RAAN * .017453292519943295));
-    ggbApplet.evalCommand(ggbID + 'arg=' + (orbitData.Arg * .017453292519943295));
-    ggbApplet.evalCommand(ggbID + 'period=' + orbitData.OrbitalPeriod);
-    ggbApplet.evalCommand(ggbID + 'mean=' + toMeanAnomaly(orbitData.TrueAnom, orbitData.Eccentricity));
-    ggbApplet.evalCommand(ggbID + 'smna=' + ggbID + 'sma sqrt(1 - ' + ggbID + 'ecc^2)');
-    ggbApplet.evalCommand(ggbID + 'foci=' + ggbID + 'ap - ' + ggbID + 'pe');
-    ggbApplet.evalCommand(ggbID + 'meanmotion=2pi / ' + ggbID + 'period');
-    ggbApplet.evalCommand(ggbID + 'obtaxis=Line(origin, Vector((1; ' + ggbID + 'raan - pi / 2; pi / 2 - ' + ggbID + 'inc)))');
-    ggbApplet.setVisible(ggbID + 'obtaxis', false);
-    ggbApplet.evalCommand(ggbID + 'secondfocus=Rotate(Rotate((' + ggbID + 'foci; 0; 0), ' + ggbID + 'raan, zAxis), ' + ggbID + 'arg + pi, ' + ggbID + 'obtaxis)');
-    ggbApplet.setVisible(ggbID + 'secondfocus', false);
-    ggbApplet.evalCommand(ggbID + 'refpoint=Rotate(Rotate((' + ggbID + 'sma; 0; 0), ' + ggbID + 'raan, zAxis), ' + ggbID + 'arg - acos(-' + ggbID + 'ecc), ' + ggbID + 'obtaxis)');
-    ggbApplet.setVisible(ggbID + 'refpoint', false);
-    ggbApplet.evalCommand(ggbID + 'conic=Ellipse(origin, ' + ggbID + 'secondfocus, ' + ggbID + 'refpoint)');
-    ggbApplet.setColor(ggbID + 'conic', hexToRgb(orbitColors[strVesselType]).r, hexToRgb(orbitColors[strVesselType]).g, hexToRgb(orbitColors[strVesselType]).b);
-    ggbApplet.evalCommand(ggbID + 'penode=Point(' + ggbID + 'conic, 0)');
-    ggbApplet.setCaption(ggbID + 'penode', "Pe");
-    ggbApplet.setLabelStyle(ggbID + 'penode', 3);
-    ggbApplet.setLabelVisible(ggbID + 'penode', true);
-    ggbApplet.setColor(ggbID + 'penode', 0, 153, 255);
-    ggbApplet.setPointSize(ggbID + 'penode', 3);
-    ggbApplet.setFixed(ggbID + 'penode', true, false);
-    ggbApplet.evalCommand(ggbID + 'apnode=Point(' + ggbID + 'conic, 0.5)');
-    ggbApplet.setCaption(ggbID + 'apnode', "Ap");
-    ggbApplet.setLabelStyle(ggbID + 'apnode', 3);
-    ggbApplet.setLabelVisible(ggbID + 'apnode', true);
-    ggbApplet.setColor(ggbID + 'apnode', 0, 153, 255);
-    ggbApplet.setPointSize(ggbID + 'apnode', 3);
-    ggbApplet.setFixed(ggbID + 'apnode', true, false);
-    ggbApplet.evalCommand(ggbID + 'anode=If(' + ggbID + 'inc != 0, Element({Intersect(xOyPlane, ' + ggbID + 'conic)}, 1), Point(' + ggbID + 'conic, ' + ggbID + 'raan / (2pi)))');
-    ggbApplet.setCaption(ggbID + 'anode', "AN");
-    ggbApplet.setLabelStyle(ggbID + 'anode', 3);
-    ggbApplet.setLabelVisible(ggbID + 'anode', true);
-    ggbApplet.setColor(ggbID + 'anode', 51, 255, 0);
-    ggbApplet.setPointSize(ggbID + 'anode', 3);
-    ggbApplet.setFixed(ggbID + 'anode', true, false);
-    ggbApplet.evalCommand(ggbID + 'anodeta=If(' + ggbID + 'arg != 0, Angle(' + ggbID + 'penode, origin, ' + ggbID + 'anode), 0)');
-    ggbApplet.evalCommand(ggbID + 'anodeea=If(' + ggbID + 'anodeta > pi, 2pi - acos((' + ggbID + 'ecc + cos(' + ggbID + 'anodeta)) / (1 + ' + ggbID + 'ecc cos(' + ggbID + 'anodeta))), acos((' + ggbID + 'ecc + cos(' + ggbID + 'anodeta)) / (1 + ' + ggbID + 'ecc cos(' + ggbID + 'anodeta))))');
-    ggbApplet.evalCommand(ggbID + 'anodema=' + ggbID + 'anodeea - ' + ggbID + 'ecc sin(' + ggbID + 'anodeea)');
-    ggbApplet.evalCommand(ggbID + 'dnode=If(' + ggbID + 'inc != 0, Element({Intersect(xOyPlane, ' + ggbID + 'conic)}, 2), Point(' + ggbID + 'conic, (' + ggbID + 'raan + pi) / (2pi)))');
-    ggbApplet.setCaption(ggbID + 'dnode', "DN");
-    ggbApplet.setLabelStyle(ggbID + 'dnode', 3);
-    ggbApplet.setLabelVisible(ggbID + 'dnode', true);
-    ggbApplet.setColor(ggbID + 'dnode', 51, 255, 0);
-    ggbApplet.setPointSize(ggbID + 'dnode', 3);
-    ggbApplet.setFixed(ggbID + 'dnode', true, false);
-    ggbApplet.evalCommand(ggbID + 'maut=Mod(' + ggbID + 'mean + ' + ggbID + 'meanmotion (UT-' + orbitData.Eph + '), 2pi)');
-    ggbApplet.evalCommand(ggbID + 'eaut=Iteration(M - (M - ' + ggbID + 'ecc sin(M) - ' + ggbID + 'maut) / (1 - ' + ggbID + 'ecc cos(M)), M, {' + ggbID + 'maut}, 20)');
-    ggbApplet.evalCommand(ggbID + 'position=Point(' + ggbID + 'conic, ' + ggbID + 'eaut / (2pi))');
-    ggbApplet.setCaption(ggbID + 'position', w2ui['menu'].get('activeVessels', vesselID).text.split(">")[1].split("<")[0]);
-    ggbApplet.setLabelStyle(ggbID + 'position', 3);
-    ggbApplet.setPointSize(ggbID + 'position', 2);
-    ggbApplet.setLabelVisible(ggbID + 'position', true);
-    ggbApplet.setColor(ggbID + 'position', hexToRgb(orbitColors[strVesselType]).r, hexToRgb(orbitColors[strVesselType]).g, hexToRgb(orbitColors[strVesselType]).b);
-    
+  var isUpdate = false;
+
+  // we need to ensure the body data is loaded first
+  if (!bodyCatalog) setTimeout(addGGBOrbit, 150, vesselID, orbitData);
+  
+  // need the data of the body this vessel is in orbit around
+  // get the current body being orbited using its parent node in the menu
+  // don't draw the orbit if the body being orbited is not the current one
+  var strBodyName = w2ui['menu'].get('activeVessels', vesselID).parent.id.split("-")[0];
+  if (!strCurrentBody.includes(strBodyName)) return;
+
+  // convert the vessel id to a variable name suitable for GeoGebra
+  ggbID = vesselID.replace("-", "");
+
+  // if this vessel is already drawn, we need to modify it
+  if (ggbOrbits.find(o => o.ID === ggbID)) {
+    isUpdate = true;
+
+    // delete the current orbit if there isn't another one to draw and exit
+    if (!orbitData) {
+      ggbApplet.deleteObject(ggbID + 'conic');
+      ggbApplet.deleteObject(ggbID + 'penode');
+      ggbApplet.deleteObject(ggbID + 'apnode');
+      ggbApplet.deleteObject(ggbID + 'anode');
+      ggbApplet.deleteObject(ggbID + 'dnode');
+      ggbApplet.deleteObject(ggbID + 'position');
+      return;
+    }
+  } else {
+
     // add this vessel type and ID to the orbits array for filtering
     ggbOrbits.push({Type: strVesselType, ID: ggbID, showName: false, showNodes: false, isSelected: false, isHidden: false});
+  }
+
+  // look up data in the body catalog
+  var bodyData = bodyCatalog.find(o => o.Body === strBodyName);
+  
+  // type of vessel so we can color things appropriately
+  var strVesselType = w2ui['menu'].get('activeVessels', vesselID).img.split("-")[1];
+  
+  // enable this vessel type in the filters menu
+  $("#" + strVesselType + "-filter").removeAttr("disabled");
+  $("#" + strVesselType + "-filter").prop('checked', true);
+  $("#" + strVesselType + "-label").css('color', orbitColors[strVesselType]);
+  
+  // load the vessel into the figure
+  ggbApplet.evalCommand(ggbID + 'id="' + vesselID + '"');
+  ggbApplet.evalCommand(ggbID + 'sma=' + orbitData.SMA);
+  ggbApplet.evalCommand(ggbID + 'pe=' + (orbitData.Periapsis + bodyData.Radius));
+  ggbApplet.evalCommand(ggbID + 'ap=' + (orbitData.Apoapsis + bodyData.Radius));
+  ggbApplet.evalCommand(ggbID + 'ecc=' + orbitData.Eccentricity);
+  ggbApplet.evalCommand(ggbID + 'inc=' + (orbitData.Inclination * .017453292519943295));
+  ggbApplet.evalCommand(ggbID + 'raan=' + (orbitData.RAAN * .017453292519943295));
+  ggbApplet.evalCommand(ggbID + 'arg=' + (orbitData.Arg * .017453292519943295));
+  ggbApplet.evalCommand(ggbID + 'period=' + orbitData.OrbitalPeriod);
+  ggbApplet.evalCommand(ggbID + 'mean=' + toMeanAnomaly(orbitData.TrueAnom, orbitData.Eccentricity));
+  ggbApplet.evalCommand(ggbID + 'smna=' + ggbID + 'sma sqrt(1 - ' + ggbID + 'ecc^2)');
+  ggbApplet.evalCommand(ggbID + 'foci=' + ggbID + 'ap - ' + ggbID + 'pe');
+  ggbApplet.evalCommand(ggbID + 'meanmotion=2pi / ' + ggbID + 'period');
+  ggbApplet.evalCommand(ggbID + 'obtaxis=Line(origin, Vector((1; ' + ggbID + 'raan - pi / 2; pi / 2 - ' + ggbID + 'inc)))');
+  ggbApplet.setVisible(ggbID + 'obtaxis', false);
+  ggbApplet.evalCommand(ggbID + 'secondfocus=Rotate(Rotate((' + ggbID + 'foci; 0; 0), ' + ggbID + 'raan, zAxis), ' + ggbID + 'arg + pi, ' + ggbID + 'obtaxis)');
+  ggbApplet.setVisible(ggbID + 'secondfocus', false);
+  ggbApplet.evalCommand(ggbID + 'refpoint=Rotate(Rotate((' + ggbID + 'sma; 0; 0), ' + ggbID + 'raan, zAxis), ' + ggbID + 'arg - acos(-' + ggbID + 'ecc), ' + ggbID + 'obtaxis)');
+  ggbApplet.setVisible(ggbID + 'refpoint', false);
+  ggbApplet.evalCommand(ggbID + 'conic=Ellipse(origin, ' + ggbID + 'secondfocus, ' + ggbID + 'refpoint)');
+  ggbApplet.setColor(ggbID + 'conic', hexToRgb(orbitColors[strVesselType]).r, hexToRgb(orbitColors[strVesselType]).g, hexToRgb(orbitColors[strVesselType]).b);
+  ggbApplet.evalCommand(ggbID + 'penode=Point(' + ggbID + 'conic, 0)');
+  ggbApplet.setCaption(ggbID + 'penode', "Pe");
+  ggbApplet.setLabelStyle(ggbID + 'penode', 3);
+  ggbApplet.setLabelVisible(ggbID + 'penode', true);
+  ggbApplet.setColor(ggbID + 'penode', 0, 153, 255);
+  ggbApplet.setPointSize(ggbID + 'penode', 3);
+  ggbApplet.setFixed(ggbID + 'penode', true, false);
+  ggbApplet.evalCommand(ggbID + 'apnode=Point(' + ggbID + 'conic, 0.5)');
+  ggbApplet.setCaption(ggbID + 'apnode', "Ap");
+  ggbApplet.setLabelStyle(ggbID + 'apnode', 3);
+  ggbApplet.setLabelVisible(ggbID + 'apnode', true);
+  ggbApplet.setColor(ggbID + 'apnode', 0, 153, 255);
+  ggbApplet.setPointSize(ggbID + 'apnode', 3);
+  ggbApplet.setFixed(ggbID + 'apnode', true, false);
+  ggbApplet.evalCommand(ggbID + 'anode=If(' + ggbID + 'inc != 0, Element({Intersect(xOyPlane, ' + ggbID + 'conic)}, 1), Point(' + ggbID + 'conic, ' + ggbID + 'raan / (2pi)))');
+  ggbApplet.setCaption(ggbID + 'anode', "AN");
+  ggbApplet.setLabelStyle(ggbID + 'anode', 3);
+  ggbApplet.setLabelVisible(ggbID + 'anode', true);
+  ggbApplet.setColor(ggbID + 'anode', 51, 255, 0);
+  ggbApplet.setPointSize(ggbID + 'anode', 3);
+  ggbApplet.setFixed(ggbID + 'anode', true, false);
+  ggbApplet.evalCommand(ggbID + 'anodeta=If(' + ggbID + 'arg != 0, Angle(' + ggbID + 'penode, origin, ' + ggbID + 'anode), 0)');
+  ggbApplet.evalCommand(ggbID + 'anodeea=If(' + ggbID + 'anodeta > pi, 2pi - acos((' + ggbID + 'ecc + cos(' + ggbID + 'anodeta)) / (1 + ' + ggbID + 'ecc cos(' + ggbID + 'anodeta))), acos((' + ggbID + 'ecc + cos(' + ggbID + 'anodeta)) / (1 + ' + ggbID + 'ecc cos(' + ggbID + 'anodeta))))');
+  ggbApplet.evalCommand(ggbID + 'anodema=' + ggbID + 'anodeea - ' + ggbID + 'ecc sin(' + ggbID + 'anodeea)');
+  ggbApplet.evalCommand(ggbID + 'dnode=If(' + ggbID + 'inc != 0, Element({Intersect(xOyPlane, ' + ggbID + 'conic)}, 2), Point(' + ggbID + 'conic, (' + ggbID + 'raan + pi) / (2pi)))');
+  ggbApplet.setCaption(ggbID + 'dnode', "DN");
+  ggbApplet.setLabelStyle(ggbID + 'dnode', 3);
+  ggbApplet.setLabelVisible(ggbID + 'dnode', true);
+  ggbApplet.setColor(ggbID + 'dnode', 51, 255, 0);
+  ggbApplet.setPointSize(ggbID + 'dnode', 3);
+  ggbApplet.setFixed(ggbID + 'dnode', true, false);
+  ggbApplet.evalCommand(ggbID + 'maut=Mod(' + ggbID + 'mean + ' + ggbID + 'meanmotion (UT-' + orbitData.Eph + '), 2pi)');
+  ggbApplet.evalCommand(ggbID + 'eaut=Iteration(M - (M - ' + ggbID + 'ecc sin(M) - ' + ggbID + 'maut) / (1 - ' + ggbID + 'ecc cos(M)), M, {' + ggbID + 'maut}, 20)');
+  ggbApplet.evalCommand(ggbID + 'position=Point(' + ggbID + 'conic, ' + ggbID + 'eaut / (2pi))');
+  ggbApplet.setCaption(ggbID + 'position', w2ui['menu'].get('activeVessels', vesselID).text.split(">")[1].split("<")[0]);
+  ggbApplet.setLabelStyle(ggbID + 'position', 3);
+  ggbApplet.setPointSize(ggbID + 'position', 2);
+  ggbApplet.setLabelVisible(ggbID + 'position', true);
+  ggbApplet.setColor(ggbID + 'position', hexToRgb(orbitColors[strVesselType]).r, hexToRgb(orbitColors[strVesselType]).g, hexToRgb(orbitColors[strVesselType]).b);
+
+  // if we update the figure, for some reason the click callback needs to be re-enabled
+  if (isUpdate) ggbApplet.registerClickListener("figureClick");;
 }
 
 // remove all the nodes and names for everything in the figure and store them for future use

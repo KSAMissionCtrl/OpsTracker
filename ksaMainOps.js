@@ -135,7 +135,7 @@ function setupContent() {
   }
 
   // setup the clock
-  $("#clock").html("<strong>Current Time @ KSC (UTC -" + UTC + ")</strong><br><span id='ksctime' style='font-size: 16px'>" + formatUTCTime(clock, true) + "</span>");
+  $("#clock").html("<strong>Current Time @ KSC (UTC -" + UTC + ")</strong><br><span id='ksctime' style='font-size: 16px'></span>");
 
   // select the default sort options
   $('input:radio[name=roster]').filter('[id=name]').prop('checked', true);
@@ -345,6 +345,7 @@ function swapContent(newPageType, id, ut, flt) {
 
   // hide the current content
   if (pageType == "body") {
+    hideMap();
     $("#figureOptions").fadeOut();
     $("#vesselOrbitTypes").fadeOut();
     $("#figure").fadeOut();
@@ -453,6 +454,8 @@ function swapContent(newPageType, id, ut, flt) {
 // updates various content on the page depending on what update event has been triggered
 function updatePage(updateEvent) {
   console.log(updateEvent);
+  menuSaveSelected = w2ui['menu'].find({selected: true});
+  if (menuSaveSelected.length == 0) menuSaveSelected = null;
   if (updateEvent.Type.includes("menu")) {
     menuUpdate(updateEvent.Type.split(";")[1], updateEvent.ID);
   } else if (updateEvent.Type == "event") {
@@ -473,6 +476,7 @@ function updatePage(updateEvent) {
 
 // recursively check through updates so we get any that occur at the same time
 function checkPageUpdate() {
+  if (!isMenuDataLoaded) return;
   if (updatesList.length && currUT() >= updatesList[0].UT) {
     updatePage(updatesList.shift());
     updatesListSize = updatesList.length;
@@ -513,8 +517,18 @@ function loadOpsDataAJAX(xhttp) {
       // the vessel catalog data is first
       var catalog = rsToObj(data[0]);
       
+      // any ascent data is always accessible
+      var ascentData = [];
+      if (data[1] != "null") {
+        data[1].split("|").forEach(function(item) { 
+          var dataObj = rsToObj(item);
+          ascentData.push(dataObj);
+        });
+      }
+      object.ascentData = ascentData;
+
       // the various tables of the current record are next
-      var dataTables = data[1].split("^");
+      var dataTables = data[2].split("^");
       var craft = rsToObj(dataTables[0]);
       var resources = rsToObj(dataTables[1]);
       var crew = rsToObj(dataTables[2]);
@@ -531,7 +545,7 @@ function loadOpsDataAJAX(xhttp) {
                              History: null, LaunchTimes: null, OrbitalHistory: null };
       
       // followed by any future events
-      dataTables = data[2].split("^");
+      dataTables = data[3].split("^");
       craft = rsToObj(dataTables[0]);
       resources = rsToObj(dataTables[1]);
       crew = rsToObj(dataTables[2]);
@@ -549,12 +563,12 @@ function loadOpsDataAJAX(xhttp) {
       var history = [];
       var launches = [];
       var obtHist = [];
-      data[3].split("|").forEach(function(item) { history.push({UT: parseFloat(item.split("~")[0]), Title: item.split("~")[1]}); });
-      if (data[4].split("|") != "null") {
-        data[4].split("|").forEach(function(item) { launches.push({UT: parseFloat(item.split("~")[0]), LaunchTime: parseFloat(item.split("~")[1])}); });
-      }
+      data[4].split("|").forEach(function(item) { history.push({UT: parseFloat(item.split("~")[0]), Title: item.split("~")[1]}); });
       if (data[5].split("|") != "null") {
-        data[5].split("|").forEach(function(item) { obtHist.push({UT: parseFloat(item.split("~")[0]), Period: parseFloat(item.split("~")[1])}); });
+        data[5].split("|").forEach(function(item) { launches.push({UT: parseFloat(item.split("~")[0]), LaunchTime: parseFloat(item.split("~")[1])}); });
+      }
+      if (data[6].split("|") != "null") {
+        data[6].split("|").forEach(function(item) { obtHist.push({UT: parseFloat(item.split("~")[0]), Period: parseFloat(item.split("~")[1])}); });
       }
       object.CurrentData.History = history;
       object.CurrentData.LaunchTimes = launches;
@@ -681,19 +695,23 @@ function loadOpsDataAJAX(xhttp) {
 
       // update the visit time and menu
       setCookie("visitTime", currUT(), true);
-      if (crewUpdated) filterCrewMenu($("input[name=roster]").filter(":checked").val());
-      w2ui['menu'].refresh();
-
-      // select in the menu what was loaded
+      if (crewUpdated) {
+        filterCrewMenu($("input[name=roster]").filter(":checked").val());
+        w2ui['menu'].refresh();
+      }
+      
+      // select in the menu what was loaded, if that is not already the current selection
       var menuID;
       if (getParameterByName("body")) { menuID = getParameterByName("body"); }
       if (getParameterByName("vessel")) { menuID = getParameterByName("vessel"); }
       if (getParameterByName("crew")) { menuID = getParameterByName("crew"); }
-      if (menuID && !window.location.href.includes("flt")) {
-        w2ui['menu'].select(menuID);
-        w2ui['menu'].expandParents(menuID);
-        w2ui['menu'].scrollIntoView(menuID);
-      } else w2ui['menu'].scrollIntoView();
+      if (crewUpdated || !menuSaveSelected || (menuSaveSelected && (menuSaveSelected[0].id != menuID))) {
+        if (menuID && !window.location.href.includes("flt")) {
+          w2ui['menu'].select(menuID);
+          w2ui['menu'].expandParents(menuID);
+          w2ui['menu'].scrollIntoView(menuID);
+        } else w2ui['menu'].scrollIntoView();
+      }
     }
   }
 }
@@ -772,65 +790,170 @@ function loadOpsDataAJAX(xhttp) {
   
   // is there a loaded vessel we need to monitor?
   if (currentVesselData) {
-  
+
+    // does the vessel have ascent data and is it starting in the future?
+    if (currentVesselData.ascentData.length && currentVesselData.ascentData[0].UT > currUT()) {
+
+      // check if we need to transition into a realtime ascent state
+      checkLaunchTime();
+      if (strActiveAscent != strCurrentVessel                                                 // there is no ascent active yet
+      && !currentVesselData.CraftData.PastEvent                                               // we are not looking at a past event
+      && (L0Time-30 <= currUT()                                                               // we are within 30s of the launch
+      && currentVesselData.ascentData[currentVesselData.ascentData.length-1].UT > currUT()-5  // and still within 5s of the end of the telemetry
+      )) setupStreamingAscent();
+    }
+
     // is the mission still active?
-    if (!isMissionEnded()) {
+    // or is some archived telemetry attempting to play?
+    if (!isMissionEnded() || (isMissionEnded() && !isAscentPaused)) {
     
       // update the MET or countdown
       $("#metCount").html(formatTime($("#metCount").attr("data")-currUT(true)));
       
       // update vessel surface map information if a vessel is on the map and calculations are not running
-      if (vesselMarker && layerControl.options.collapsed) {
-        var now = getPlotIndex();
+      if (vesselMarker && (layerControl && layerControl.options.collapsed)) {
 
-        // update craft position and popup content
-        var cardinal = getLatLngCompass(currentVesselPlot.Data[now.ObtNum].Orbit[now.Index].Latlng);
-        vesselMarker.setLatLng(currentVesselPlot.Data[now.ObtNum].Orbit[now.Index].Latlng);
-        $('#lat').html(numeral(currentVesselPlot.Data[now.ObtNum].Orbit[now.Index].Latlng.lat).format('0.0000') + "&deg;" + cardinal.Lat);
-        $('#lng').html(numeral(currentVesselPlot.Data[now.ObtNum].Orbit[now.Index].Latlng.lng).format('0.0000') + "&deg;" + cardinal.Lng);
-        $('#alt').html(numeral(currentVesselPlot.Data[now.ObtNum].Orbit[now.Index].Alt).format('0,0.000') + " km");
-        $('#vel').html(numeral(currentVesselPlot.Data[now.ObtNum].Orbit[now.Index].Vel).format('0,0.000') + " km/s");
-        
-        // update the Ap/Pe markers if they exist, and check for passing
-        if (currentVesselPlot.Events.Ap.Marker) {
-          $('#apTime').html(formatTime(currentVesselPlot.Events.Ap.UT - currUT(true)));
-          if (currentVesselPlot.Events.Ap.UT <= currUT()) {
+        // is there an ascent going on?
+        if (strActiveAscent == strCurrentVessel && !isAscentPaused) {
 
-            // just add on the time of an orbit to get the time for the next Ap
-            currentVesselPlot.Events.Ap.UT += currentVesselData.Orbit.OrbitalPeriod;
-            
-            // remove the marker from the current layer and check if there is an orbit after this that is long enough to add the marker to
-            currentVesselPlot.Data[now.ObtNum].Layer.removeLayer(currentVesselPlot.Events.Ap.Marker);
-            if (now.ObtNum + 1 < currentVesselPlot.Data.length && 
-                currUT() + currentVesselPlot.Data[now.ObtNum+1].Orbit.length > currentVesselPlot.Events.Ap.UT) {
-            
-              // subtract the new UT of the Ap from the starting UT of the next orbit to get the proper index
-              currentVesselPlot.Events.Ap.Marker.setLatLng(currentVesselPlot.Data[now.ObtNum+1].Orbit[Math.floor(currentVesselPlot.Events.Ap.UT-currentVesselPlot.Data[now.ObtNum+1].StartUT)].Latlng);
-              var strTimeDate = UTtoDateTime(currentVesselPlot.Events.Ap.UT);
-              $('#apDate').html(strTimeDate.split("@")[0] + '<br>' + strTimeDate.split("@")[1]);
-              currentVesselPlot.Data[now.ObtNum+1].Layer.addLayer(currentVesselPlot.Events.Ap.Marker);
+          // update the mission countdown/timer
+          // UT source depends on current event state
+          if (currentVesselData.CraftData.PastEvent) var utSrc = currentVesselData.ascentData[currentAscentData.ascentIndex].UT;
+          else var utSrc = currUT(true);
+          if (L0Time > utSrc) {
+            $("#metCaption").html("Launch in:");
+            $("#met").html(formatTime(L0Time-utSrc));
+          } else {
+            $("#metCaption").html("Mission Elapsed Time:");
+            $("#met").html(formatTime(utSrc-L0Time));
+          }
+
+          // only perform interpolation if we are beyond the start of data and there is still data remaining
+          if (currUT() >= currentVesselData.ascentData[0].UT && currentAscentData.ascentIndex < currentVesselData.ascentData.length-1) {
+            interpStart = new Date().getTime();
+
+            // set the FPS to default 30 if null
+            if (!currentAscentData.FPS) currentAscentData.FPS = 30;
+            else if (currentAscentData.FPS && currentAscentData.interpCount) {
+
+              // check if we hit our target FPS and if so, increase it. Cap at 60
+              // otherwise decrease. cap at 15
+              if (currentAscentData.interpCount >= currentAscentData.FPS && currentAscentData.FPS < 60) currentAscentData.FPS += 2;
+              else if (currentAscentData.interpCount < currentAscentData.FPS-2 && currentAscentData.FPS > 15) currentAscentData.FPS -= 2;
+            }
+
+            // interpolate between the current and next values using the current FPS
+            currentAscentData.velocityDelta = (currentVesselData.ascentData[currentAscentData.ascentIndex+1].Velocity-currentVesselData.ascentData[currentAscentData.ascentIndex].Velocity)/currentAscentData.FPS;
+            currentAscentData.throttleDelta = (currentVesselData.ascentData[currentAscentData.ascentIndex+1].Throttle-currentVesselData.ascentData[currentAscentData.ascentIndex].Throttle)/currentAscentData.FPS;
+            currentAscentData.thrustDelta = (currentVesselData.ascentData[currentAscentData.ascentIndex+1].Thrust-currentVesselData.ascentData[currentAscentData.ascentIndex].Thrust)/currentAscentData.FPS;
+            currentAscentData.gravityDelta = (currentVesselData.ascentData[currentAscentData.ascentIndex+1].Gravity-currentVesselData.ascentData[currentAscentData.ascentIndex].Gravity)/currentAscentData.FPS;
+            currentAscentData.altitudeDelta = (currentVesselData.ascentData[currentAscentData.ascentIndex+1].Altitude-currentVesselData.ascentData[currentAscentData.ascentIndex].Altitude)/currentAscentData.FPS;
+            currentAscentData.apDelta = (currentVesselData.ascentData[currentAscentData.ascentIndex+1].Apoapsis-currentVesselData.ascentData[currentAscentData.ascentIndex].Apoapsis)/currentAscentData.FPS;
+            currentAscentData.qDelta = (currentVesselData.ascentData[currentAscentData.ascentIndex+1].Q-currentVesselData.ascentData[currentAscentData.ascentIndex].Q)/currentAscentData.FPS;
+            currentAscentData.peDelta = (currentVesselData.ascentData[currentAscentData.ascentIndex+1].Periapsis-currentVesselData.ascentData[currentAscentData.ascentIndex].Periapsis)/currentAscentData.FPS;
+            currentAscentData.incDelta = (currentVesselData.ascentData[currentAscentData.ascentIndex+1].Inclination-currentVesselData.ascentData[currentAscentData.ascentIndex].Inclination)/currentAscentData.FPS;
+            currentAscentData.massDelta = (currentVesselData.ascentData[currentAscentData.ascentIndex+1].Mass-currentVesselData.ascentData[currentAscentData.ascentIndex].Mass)/currentAscentData.FPS;
+            currentAscentData.fuelDelta = (currentVesselData.ascentData[currentAscentData.ascentIndex+1].TotalFuel-currentVesselData.ascentData[currentAscentData.ascentIndex].TotalFuel)/currentAscentData.FPS;
+            currentAscentData.dstDelta = (currentVesselData.ascentData[currentAscentData.ascentIndex+1].DstDownrange-currentVesselData.ascentData[currentAscentData.ascentIndex].DstDownrange)/currentAscentData.FPS;
+            currentAscentData.aoaDelta = (currentVesselData.ascentData[currentAscentData.ascentIndex+1].AoA-currentVesselData.ascentData[currentAscentData.ascentIndex].AoA)/currentAscentData.FPS;
+            currentAscentData.pitchDelta = (currentVesselData.ascentData[currentAscentData.ascentIndex+1].Pitch-currentVesselData.ascentData[currentAscentData.ascentIndex].Pitch)/currentAscentData.FPS;
+            currentAscentData.rollDelta = (currentVesselData.ascentData[currentAscentData.ascentIndex+1].Roll-currentVesselData.ascentData[currentAscentData.ascentIndex].Roll)/currentAscentData.FPS;
+            currentAscentData.hdgDelta = (currentVesselData.ascentData[currentAscentData.ascentIndex+1].Heading-currentVesselData.ascentData[currentAscentData.ascentIndex].Heading)/currentAscentData.FPS;
+            currentAscentData.latDelta = (currentVesselData.ascentData[currentAscentData.ascentIndex+1].Lat-currentVesselData.ascentData[currentAscentData.ascentIndex].Lat)/currentAscentData.FPS;
+            currentAscentData.lonDelta = (currentVesselData.ascentData[currentAscentData.ascentIndex+1].Lon-currentVesselData.ascentData[currentAscentData.ascentIndex].Lon)/currentAscentData.FPS;
+
+            // account for possible missing data
+            if (currentVesselData.ascentData[currentAscentData.ascentIndex].StageFuel) currentAscentData.stageDelta = (currentVesselData.ascentData[currentAscentData.ascentIndex+1].StageFuel-currentVesselData.ascentData[currentAscentData.ascentIndex].StageFuel)/currentAscentData.FPS;
+            else currentAscentData.stageDelta = null;
+            if (currentVesselData.ascentData[currentAscentData.ascentIndex].DstTraveled) currentAscentData.traveledDelta = (currentVesselData.ascentData[currentAscentData.ascentIndex+1].DstTraveled-currentVesselData.ascentData[currentAscentData.ascentIndex].DstTraveled)/currentAscentData.FPS;
+            else currentAscentData.traveledDelta = null;
+
+            // cancel the current interpolation timer & reset counter
+            if (ascentInterpTimeout) {
+              clearTimeout(ascentInterpTimeout);
+              ascentInterpTimeout = null;
+              currentAscentData.interpCount = 0;
+            }
+
+            // update all the data fields to clamp to the proper data each second
+            // it will then continue to call itself to interpolate
+            updateAscentData(true);
+
+            // if this is happening now we need to keep sync to real time so any page load hang doesn't screw it up
+            // otherwise we can just tick it up with the function call
+            if (!currentVesselData.CraftData.PastEvent) currentAscentData.ascentIndex = (currUT(true)+1) - currentVesselData.ascentData[0].UT;
+            else currentAscentData.ascentIndex++;
+          
+          // ascent has terminated
+          } else if (currentAscentData.ascentIndex >= currentVesselData.ascentData.length-1) {
+
+            // interpolation function timeout handle nulled
+            if (ascentInterpTimeout) {
+              clearTimeout(ascentInterpTimeout);
+              ascentInterpTimeout = null;
+            }
+
+            // one last surface track update
+            updateSurfacePlot(currentVesselData.ascentData.length-1);
+
+            // pause ascent hide the forward seek buttons & update control link
+            isAscentPaused = true;
+            $("#playbackCtrl").html("Reset Playback");
+          }
+
+        // orbital plot update, then
+        } else if (currentVesselPlot) {
+          var now = getPlotIndex();
+
+          // update craft position and popup content
+          var cardinal = getLatLngCompass(currentVesselPlot.Data[now.ObtNum].Orbit[now.Index].Latlng);
+          vesselMarker.setLatLng(currentVesselPlot.Data[now.ObtNum].Orbit[now.Index].Latlng);
+          $('#lat').html(numeral(currentVesselPlot.Data[now.ObtNum].Orbit[now.Index].Latlng.lat).format('0.0000') + "&deg;" + cardinal.Lat);
+          $('#lng').html(numeral(currentVesselPlot.Data[now.ObtNum].Orbit[now.Index].Latlng.lng).format('0.0000') + "&deg;" + cardinal.Lng);
+          $('#alt').html(numeral(currentVesselPlot.Data[now.ObtNum].Orbit[now.Index].Alt).format('0,0.000') + " km");
+          $('#vel').html(numeral(currentVesselPlot.Data[now.ObtNum].Orbit[now.Index].Vel).format('0,0.000') + " km/s");
+          
+          // update the Ap/Pe markers if they exist, and check for passing
+          if (currentVesselPlot.Events.Ap.Marker) {
+            $('#apTime').html(formatTime(currentVesselPlot.Events.Ap.UT - currUT(true)));
+            if (currentVesselPlot.Events.Ap.UT <= currUT()) {
+
+              // just add on the time of an orbit to get the time for the next Ap
+              currentVesselPlot.Events.Ap.UT += currentVesselData.Orbit.OrbitalPeriod;
               
-            // noplace else to go, so remove the marker from the map completely
-            } else { 
-              surfaceMap.removeLayer(currentVesselPlot.Events.Ap.Marker); 
-              currentVesselPlot.Events.Ap.Marker = null;
+              // remove the marker from the current layer and check if there is an orbit after this that is long enough to add the marker to
+              currentVesselPlot.Data[now.ObtNum].Layer.removeLayer(currentVesselPlot.Events.Ap.Marker);
+              if (now.ObtNum + 1 < currentVesselPlot.Data.length && 
+                  currUT() + currentVesselPlot.Data[now.ObtNum+1].Orbit.length > currentVesselPlot.Events.Ap.UT) {
+              
+                // subtract the new UT of the Ap from the starting UT of the next orbit to get the proper index
+                currentVesselPlot.Events.Ap.Marker.setLatLng(currentVesselPlot.Data[now.ObtNum+1].Orbit[Math.floor(currentVesselPlot.Events.Ap.UT-currentVesselPlot.Data[now.ObtNum+1].StartUT)].Latlng);
+                var strTimeDate = UTtoDateTime(currentVesselPlot.Events.Ap.UT);
+                $('#apDate').html(strTimeDate.split("@")[0] + '<br>' + strTimeDate.split("@")[1]);
+                currentVesselPlot.Data[now.ObtNum+1].Layer.addLayer(currentVesselPlot.Events.Ap.Marker);
+                
+              // noplace else to go, so remove the marker from the map completely
+              } else { 
+                surfaceMap.removeLayer(currentVesselPlot.Events.Ap.Marker); 
+                currentVesselPlot.Events.Ap.Marker = null;
+              }
             }
           }
-        }
-        if (currentVesselPlot.Events.Pe.Marker) {
-          $('#peTime').html(formatTime(currentVesselPlot.Events.Pe.UT - currUT(true)));
-          if (currentVesselPlot.Events.Pe.UT <= currUT()) {
-            currentVesselPlot.Events.Pe.UT += currentVesselData.Orbit.OrbitalPeriod;
-            currentVesselPlot.Data[now.ObtNum].Layer.removeLayer(currentVesselPlot.Events.Pe.Marker);
-            if (now.ObtNum + 1 < currentVesselPlot.Data.length && 
-                currUT() + currentVesselPlot.Data[now.ObtNum+1].Orbit.length > currentVesselPlot.Events.Pe.UT) {
-              currentVesselPlot.Events.Pe.Marker.setLatLng(currentVesselPlot.Data[now.ObtNum+1].Orbit[Math.floor(currentVesselPlot.Events.Pe.UT-currentVesselPlot.Data[now.ObtNum+1].StartUT)].Latlng);
-              var strTimeDate = UTtoDateTime(currentVesselPlot.Events.Pe.UT);
-              $('#peDate').html(strTimeDate.split("@")[0] + '<br>' + strTimeDate.split("@")[1]);
-              currentVesselPlot.Data[now.ObtNum+1].Layer.addLayer(currentVesselPlot.Events.Pe.Marker);
-            } else { 
-              surfaceMap.removeLayer(currentVesselPlot.Events.Pe.Marker); 
-              currentVesselPlot.Events.Pe.Marker = null;
+          if (currentVesselPlot.Events.Pe.Marker) {
+            $('#peTime').html(formatTime(currentVesselPlot.Events.Pe.UT - currUT(true)));
+            if (currentVesselPlot.Events.Pe.UT <= currUT()) {
+              currentVesselPlot.Events.Pe.UT += currentVesselData.Orbit.OrbitalPeriod;
+              currentVesselPlot.Data[now.ObtNum].Layer.removeLayer(currentVesselPlot.Events.Pe.Marker);
+              if (now.ObtNum + 1 < currentVesselPlot.Data.length && 
+                  currUT() + currentVesselPlot.Data[now.ObtNum+1].Orbit.length > currentVesselPlot.Events.Pe.UT) {
+                currentVesselPlot.Events.Pe.Marker.setLatLng(currentVesselPlot.Data[now.ObtNum+1].Orbit[Math.floor(currentVesselPlot.Events.Pe.UT-currentVesselPlot.Data[now.ObtNum+1].StartUT)].Latlng);
+                var strTimeDate = UTtoDateTime(currentVesselPlot.Events.Pe.UT);
+                $('#peDate').html(strTimeDate.split("@")[0] + '<br>' + strTimeDate.split("@")[1]);
+                currentVesselPlot.Data[now.ObtNum+1].Layer.addLayer(currentVesselPlot.Events.Pe.Marker);
+              } else { 
+                surfaceMap.removeLayer(currentVesselPlot.Events.Pe.Marker); 
+                currentVesselPlot.Events.Pe.Marker = null;
+              }
             }
           }
         }

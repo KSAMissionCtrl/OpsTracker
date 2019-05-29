@@ -90,15 +90,9 @@ function formatTime(time, precision) {
 }
 
 // take a date object of a given time and output "mm/dd/yyyy hh:mm:ss"
-function formatUTCTime(time, local) {
-  if (local === null) { return formatUTCTime(time, false); }
-  if (local) { 
-    var hours = time.getHours(); 
-    var day = time.getDate();
-  } else { 
-    var hours = time.getUTCHours(); 
-    var day = time.getUTCDate();
-  }
+function formatDateTime(time) {
+  var hours = time.getUTCHours(); 
+  var day = time.getUTCDate();
   if (hours < 0) { hours += 24; }
   if (hours < 10) { hours = "0" + hours; }
   var minutes = time.getUTCMinutes();
@@ -108,13 +102,18 @@ function formatUTCTime(time, local) {
   return ((time.getUTCMonth()+1) + '/' + day + '/' + time.getUTCFullYear() + ' @ ' + hours + ':' + minutes + ':' + seconds);
 }
 
-// convert a given game UT time into the equivalent "mm/dd/yyyy hh:mm:ss"
+// convert a given game UT time into the equivalent "mm/dd/yyyy hh:mm:ss" in UTC
 function UTtoDateTime(setUT, local) {
   if (local === null) { return UTtoDateTime(setUT, false); }
+
   var d = new Date();
   d.setTime(foundingMoment + (setUT * 1000));
   if (d.toString().search("Standard") >= 0) { d.setTime(foundingMoment + ((setUT + 3600) * 1000)); }
-  return formatUTCTime(d, local);
+
+  // if we ask for local time, apply the proper UTC offset
+  if (local) d.setUTCHours(d.getUTCHours() - UTC);
+  
+  return formatDateTime(d);
 }
 
 // convert a given game UT time into the local date time for the end user
@@ -139,7 +138,7 @@ function capitalizeFirstLetter(string) {
 // makes sure the current UT returned is proper for all considerations
 // currently just convert from ms to s
 function currUT(round) { 
-  if (round) return Math.round(UT + (tickDelta / 1000)); 
+  if (round) return Math.floor(UT + (tickDelta / 1000)); 
   else return UT + (tickDelta / 1000); 
 }
 
@@ -293,3 +292,38 @@ Math.radians = function(degrees) {
 Math.degrees = function(radians) {
   return radians * 180 / Math.PI;
 };
+
+// recursive function to shorten text word by word until it all fits on two lines
+function wrapText(limit, strText, fontSize) {
+
+  // check if the text is too long for the length limit
+  // take into account whether a line break has already been inserted or not
+  if (strText.split("</br>")[0].width(fontSize + 'px arial') > limit) {
+
+    // get all the words from the first line
+    var words = strText.split("</br>")[0].split(" ");
+
+    // put the first line back together except the last word
+    var strModifiedText = words[0];
+    for (word=1; word<words.length-1; word++) { strModifiedText += " " + words[word]; }
+
+    // add the last word after re-inserting the break
+    strModifiedText += "</br>" + words[words.length-1];
+
+    // add whatever else may have already been wrapped on the second line
+    if (strText.split("</br>").length > 1) strModifiedText += " " + strText.split("</br>")[1];
+
+    // keep wrapping as needed
+    return wrapText(limit, strModifiedText, fontSize);
+
+  // no wrapping needed
+  } else {
+
+    // if there is a second line and it's only got 2-3 characters (likely a number) shorten the length to bring down one more word
+    if (strText.split("</br>").length > 1 && strText.split("</br>")[1].length <= 3) {
+      return wrapText(limit-15, strText, fontSize);
+    } else {
+      return strText;
+    }
+  }
+}

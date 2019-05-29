@@ -197,6 +197,7 @@ elseif request.querystring("type") = "vessel" then
   set rsPorts = Server.CreateObject("ADODB.recordset")
   set rslaunchTimes = Server.CreateObject("ADODB.recordset")
   set rsOrbit = Server.CreateObject("ADODB.recordset")
+  set rsAscentData = Server.CreateObject("ADODB.recordset")
 
   'query the data
   rsCraftData.open "select * from [craft data]", conn2, 2
@@ -206,6 +207,23 @@ elseif request.querystring("type") = "vessel" then
   rsPorts.open "select * from [craft ports]", conn2, 2
   rsOrbit.open "select * from [flight data]", conn2, 2
   rslaunchTimes.open "select * from [launch times]", conn2, 2
+  rsAscentData.open "select * from [ascent data]", conn2, 2
+
+  'pour out any ascent data if it exists
+  if not rsAscentData.eof then
+    do
+      for each field in rsAscentData.fields
+        output = output & replace(field.name, " ", "") & "~" & field.value & "`"
+      next
+      output = left(output, len(output)-1)
+      output = output & "|"
+      rsAscentData.MoveNext
+    loop until rsAscentData.eof
+    output = left(output, len(output)-1)
+    output = output & "*"
+  else
+    output = output & "null*"
+  end if
 
   'select the craft data closest to this UT
   moveCount = 1
@@ -437,8 +455,8 @@ elseif request.querystring("type") = "vessel" then
   else
     output = output & "null^"
   end if 
-  if not rsPorts.eof then 
-    for each field in rsPorts.fields
+  if not rsOrbit.eof then 
+    for each field in rsOrbit.fields
       output = output & replace(field.name, " ", "") & "~" & field.value & "`"
     next
     output = left(output, len(output)-1)
@@ -446,8 +464,8 @@ elseif request.querystring("type") = "vessel" then
   else
     output = output & "null^"
   end if
-  if not rsOrbit.eof then 
-    for each field in rsOrbit.fields
+  if not rsPorts.eof then 
+    for each field in rsPorts.fields
       output = output & replace(field.name, " ", "") & "~" & field.value & "`"
     next
     output = left(output, len(output)-1)

@@ -56,7 +56,8 @@ function writeLaunchInfo(data) {
   if (data) {
     var fields = data.split(";");
     var strHTML = "<strong>Next Launch</strong><br>";
-    strHTML += "<span id='launchLink' class='fauxLink' onclick=\"swapContent('vessel', '" + fields[2] + "')\">" + fields[3] + "</span><br>";
+
+    strHTML += "<span id='launchLink' db='" + fields[2] + "'>" + wrapText(150, fields[3], 16) + "</span><br>";
     strCurrentLaunchVessel = fields[2];
     
     // regular launch, or hold event?
@@ -89,8 +90,11 @@ function writeLaunchInfo(data) {
     }, 250);
   }
   
-  // if the menu data is already loaded this was a refresh, so highlight the box
-  if (isMenuDataLoaded && data) flashUpdate("#launch", "#FF0000", "#77C6FF");
+  // if the menu data is already loaded this was a refresh, so highlight the box and activate the links
+  if (isMenuDataLoaded && data) {
+    flashUpdate("#launch", "#FF0000", "#77C6FF");
+    activateEventLinks();
+  }
 
   // don't let another update happen for 2 seconds in case there are some rapid-fire events of the same vessel
   isLaunchEventCoolingDown = true;
@@ -103,7 +107,7 @@ function writeManeuverinfo(data) {
   if (data) {
     var fields = data.split(";");
     strHTML = "<strong>Next Maneuver</strong><br>";
-    strHTML += "<a id='maneuverLink' href='http://www.kerbalspace.agency/Tracker/tracker.asp?vessel=" + fields[2] + "'>" + fields[3] + "</a><br>";
+    strHTML += "<span id='manueverLink' db='" + fields[2] + "'>" + wrapText(150, fields[3], 16) + "</span><br>";
     strCurrentManeuverVessel = fields[2];
     strHTML += "<span id='maneuverTime'>" + UTtoDateTime(parseFloat(fields[1]), true) + "</span><br>"
     strHTML += "<span id='maneuverCountdown'>" + formatTime(parseFloat(fields[1]) - (currUT())) + "</span>";
@@ -126,10 +130,25 @@ function writeManeuverinfo(data) {
     }, 250);
   }
   
-  // if the menu data is already loaded this was a refresh, so highlight the box
-  if (isMenuDataLoaded && data) flashUpdate("#maneuver", "#FF0000", "#77C6FF");
+  // if the menu data is already loaded this was a refresh, so highlight the box and activate the links
+  if (isMenuDataLoaded && data) {
+    flashUpdate("#maneuver", "#FF0000", "#77C6FF");
+    activateEventLinks();
+  }
 
   // don't let another update happen for 2 seconds in case there are some rapid-fire events of the same vessel
   isManeuverEventCoolingDown = true;
   setTimeout(function() { isManeuverEventCoolingDown = false; }, 2000);
+}
+
+// called once the GGB figure is done loading so switching to a vessel doesn't cut off the load
+function activateEventLinks() {
+  $("#manueverLink").addClass("fauxLink");
+  $("#manueverLink").click(function() {
+    swapContent('vessel', $("#manueverLink").attr("db"));
+  });
+  $("#launchLink").addClass("fauxLink");
+  $("#launchLink").click(function() {
+    swapContent('vessel', $("#launchLink").attr("db"));
+  });
 }

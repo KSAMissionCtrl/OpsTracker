@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+        <title>True Anomaly to Mean Anomaly</title>
+        <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+</head>
+
+<body>
+<script>
+  var ecc = 1.1218;
+  var truA = -131.9446 * 0.017453292519943295;
+  if (ecc < 1.0) {
+    var EA = (Math.atan2(Math.sqrt(1-(Math.pow(ecc,2)))*Math.sin(truA), ecc+Math.cos(truA)));
+    if (truA < 2*Math.PI) {
+      EA = Math.abs(EA - (2*Math.PI) * Math.floor(EA / (2*Math.PI)));
+    }
+    mean = EA - ecc*Math.sin(EA);
+    mean = Math.abs(mean - (2*Math.PI) * Math.floor(mean / (2*Math.PI)));
+  } else {
+
+    //////////////////////////////
+    // computeHyperAFromTrueAnom()
+    //////////////////////////////
+    var num = Math.tan(truA/2);
+    var denom = Math.pow((ecc+1)/(ecc-1),(1/2));
+    var HA = 2*Math.atanh(num/denom);
+
+    mean = ecc*Math.sinh(HA)-HA;
+  }
+  console.log(mean);
+</script>
+</body>
+
+</html>

@@ -166,38 +166,50 @@ function loadMenuAJAX(xhttp) {
       } else if (event.node.img.includes("aircraft") && event.node.parent.id != "inactiveVessels") {
         checkNew = true;
 
-        // call for the aircraft track if it doesn't already exist
-        var path = fltPaths.find(o => o.ID === event.node.id);
-        if (!path) {
-          surfaceTracksDataLoad.fltTrackDataLoad = L.layerGroup();
-          layerControl._expand();
-          layerControl.options.collapsed = false;
-          layerControl.addOverlay(surfaceTracksDataLoad.fltTrackDataLoad, "<i class='fa fa-cog fa-spin'></i> Loading Data...", "Flight Tracks");
-          loadDB("loadFltData.asp?data=" + event.node.id, loadFltDataAJAX);
-        
-        // if the data already exists...
-        } else {
-          
-          // add it back to the map and the control if it has been removed
-          if (path.Deleted) {
-            layerControl.addOverlay(path.Layer, "<i class='fa fa-minus' style='color: " + path.Color + "'></i> " + path.Info.Title, "Flight Tracks");
-            path.Layer.addTo(surfaceMap);
-            path.Deleted = false;
-            
-          // just add it back to the map in case it was hidden
-          } else if (!surfaceMap.hasLayer(path.Layer)) path.Layer.addTo(surfaceMap);
+        // check that we are looking at the proper map (hardcoded to Kerbin), and load it if not
+        // this will append the flight name to the URL and the path will be loaded
+        if (!strCurrentBody || (strCurrentBody && !strCurrentBody.includes("Kerbin"))) {
+          swapContent("body", "Kerbin-System", event.node.id);
+
+          // don't let an accidental double-click load this twice
+          strFltTrackLoading = event.node.id;
         }
 
-        // check that we are looking at the proper map (hardcoded to Kerbin), and load it if not
-        if (strCurrentBody.includes("Kerbin")) {
-          if (pageType != "body") {
-            swapContent("body", strCurrentBody);
+        // however if the system is already set to Kerbin, just load the path straight to the map
+        else {
+
+          // don't try to load this if it is already being loaded
+          if (strFltTrackLoading != event.node.id) {
+
+            // if this isn't the right page type, set it up
+            if (pageType != "body") swapContent("body", "Kerbin-System", event.node.id);
             setTimeout(showMap, 1000);
-          } else showMap();
-        } else {
-          swapContent("body", "Kerbin-System", event.node.id);
+
+            // call for the aircraft track if it doesn't already exist
+            var path = fltPaths.find(o => o.ID === event.node.id);
+            if (!path) {
+              surfaceTracksDataLoad.fltTrackDataLoad = L.layerGroup();
+              layerControl._expand();
+              layerControl.options.collapsed = false;
+              layerControl.addOverlay(surfaceTracksDataLoad.fltTrackDataLoad, "<i class='fa fa-cog fa-spin'></i> Loading Data...", "Flight Tracks");
+              loadDB("loadFltData.asp?data=" + event.node.id, loadFltDataAJAX);
+
+            // if the data already exists...
+            } else {
+              
+              // add it back to the map and the control if it has been removed
+              if (path.Deleted) {
+                layerControl.addOverlay(path.Layer, "<i class='fa fa-minus' style='color: " + path.Color + "'></i> " + path.Info.Title, "Flight Tracks");
+                path.Layer.addTo(surfaceMap);
+                path.Deleted = false;
+                
+              // just add it back to the map in case it was hidden
+              } else if (!surfaceMap.hasLayer(path.Layer)) path.Layer.addTo(surfaceMap);
+              showMap();
+            }
+          }
         }
-      
+        
       ////////////
       // Load DSN
       ///////////
@@ -232,6 +244,7 @@ function loadMenuAJAX(xhttp) {
       // wait a moment to allow menu to resize itself after showing the nodes
       if (event.target == 'crew') { setTimeout(function() { w2ui['menu'].scrollIntoView('crewFull'); }, 150); }
       else if (event.target == 'dsn') { setTimeout(function() { w2ui['menu'].scrollIntoView('dsnInfo'); }, 150); }
+      else if (event.target == 'inactiveVessels') { setTimeout(function() { w2ui['menu'].scrollIntoView(event.object.nodes[0].id); }, 150); }
     },
     onRender: function (event) {
     
@@ -405,7 +418,8 @@ function filterInactiveMenu(id) {
       }
     });
   }
-
+  w2ui['menu'].refresh();
+  
   if (selectedNode) {
     w2ui['menu'].select(selectedNode);
     w2ui['menu'].expandParents(selectedNode);
@@ -625,7 +639,8 @@ function extractIDs(nodes, moon) {
 
 // recursive function to find the parent system of a node n deep
 function getParentSystem(nodeID) {
-  if (w2ui['menu'].get(nodeID).parent.id == "inactiveVessels") { return "inactive"; }
+  if (!w2ui['menu'].get(nodeID).parent.id) {return null; }
+  else if (w2ui['menu'].get(nodeID).parent.id == "inactiveVessels") { return "inactive"; }
   else if (w2ui['menu'].get(nodeID).parent.id.includes("System")) { return w2ui['menu'].get(nodeID).parent.id; }
   else { return getParentSystem(w2ui['menu'].get(nodeID).parent.id); }
 }
@@ -745,7 +760,8 @@ function badgeMenuItem(strID, noSelect, noRefresh) {
   if (!noSelect) noSelect = false;
   var menuItem = w2ui['menu'].get(strID);
 
-  // don't alter this item if it's already been badged or is currently selected
+  // don't alter this item if it's already been badged, is currently selected or hasn't been found
+  if (!menuItem) return;
   if (menuItem.text.includes("bold")) return;
   if (menuItem.selected) return;
 
@@ -836,6 +852,13 @@ function showParents(node) {
 function addVesselByDate(item, parentFolder) {
   if (!parentFolder) parentFolder = "inactiveVessels";
 
+  // get the current filter type to determine the wrap width
+  if ($("input[name=inactive]").filter(":checked").val() == "start" || $("input[name=inactive]").filter(":checked").val() == "end") {
+    var wrapLimit = 210;
+  } else {
+    var wrapLimit = 180;
+  }
+
   // get the date for this vessel and extract the month and year
   var dateUT = UTtoDateTime(item.End, true).split("@")[0];
   var month = dateUT.split("/")[0];
@@ -891,7 +914,7 @@ function addVesselByDate(item, parentFolder) {
   // add the vessel to this month/year
   // and decide whether to highlight this menu item
   w2ui['menu'].add(parentFolder + year + '-' + month, { id: item.DB,
-                                                      text: "<span>" + currName(item) + "</span>",
+                                                      text: "<span>" + wrapText(wrapLimit, currName(item), 14) + "</span>",
                                                       img: 'icon-' + item.Type,
                                                       count: null });
   if (item.Badged) badgeMenuItem(item.DB, true, true);
