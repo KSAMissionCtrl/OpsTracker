@@ -50,6 +50,40 @@ See all current bugs and future enhancements over in our [Issues Tracker](https:
 
 Versioning Key (v#1.#2.#3): #1=New features #2=Changes to existing features #3=Fixes to existing features
 
+**v9.0.0** (10/24/18)
+
+Fixes:
+  - When checking the Show Orbits option, any nodes that were set to be visible will re-appear with the orbit conics
+  - The [Event Calendar](https://github.com/KSAMissionCtrl/OpsTracker/wiki/Clock-&-Event-Calendar) will no longer update twice in rapid succession due to multiple events firing of the same type
+  - Crew menu no longer shows new crew that are loaded from the database but are supposed to be active yet
+  - When switching vessels or away from the surface map view all popups on the map are now closed
+  - When switching vessels with the surface map sized up, it will size back down
+  - Total Mass in the Resources section of the Vessel Details [data box](https://github.com/KSAMissionCtrl/OpsTracker/wiki/Vessel-Details#the-data-box) now has properly formatted numbers
+  - Flight plots loaded with the site are now properly selected in the menu instead of the body they are plotted on
+  
+Changes:
+  - `rsToObj` helper function can now handle being passed a `null` value
+  - GeoGebra figures no longer load from cache to ensure the latest diagram updates are pushed as soon as they are uploaded
+  - You can now selectively show/hide as many orbits as you want when the Show Orbits option is unchecked in the Orbital View [display options](https://github.com/KSAMissionCtrl/OpsTracker/wiki/Orbital-View#display-options)
+  - Crew pages, both the full roster and the individual crew pages, now update in real-time if any changes occur while they are being viewed
+  - Crew current assignments can now be left empty. This will remove them from the roster sorting if the Assignment [menu filter](https://github.com/KSAMissionCtrl/OpsTracker/wiki/Navigation#filters) is selected
+  - Cookie for the site no longer tracks just whether the person is new to the site, but also what time they last visited
+  - When filtering Active Vessels, if unchecking filters removes all craft from a body, that body itself will now also be removed from the menu - except for Kerbol
+  - `filterCrewMenu` function can now re-sort the menu based on the current selection, or be used to change to a specific selection
+  - [Surface Map](https://github.com/KSAMissionCtrl/OpsTracker/wiki/Surface-Map) borders have been enlarged so that when zoomed in popups on the edge of the map can be read and also don't always continuously "bump" the map edge while a moving vessel is being tracked
+  - `orbitalCalc` function can now accept values to define the length of its batch calculations as well as the total length of its calculations, both of which have default values if they are ignored
+  - While the orbital data is being calculated, the title of the dialog box displays the date and time of where the calculations are currently. This can allow the user to only render long orbits up to a known point before cancelling to display the data
+  - The [flight plot](https://github.com/KSAMissionCtrl/OpsTracker/wiki/Surface-Map#flight-plotting) additional information has been changed to include less information in the popup about the mission with the mission information now available in a dialog box
+  - The surface map popup that includes data on the vessel's position and altitude during ascent now specifies the altitude as ASL to not only clarify the base altitude measurement but that this number is not downrange distance
+  
+Additions:
+  - After the site has loaded, if new content is added to the menu or an update is pushed for any vessel/crew in the menu, if that vessel/crew in question is not selected a badge will appear next to all parent folders with the number of updated vessels/crew within. The vessel/crew in question will be bolded until clicked on
+  - Upon loading the site, if cookies are enabled, any updates that occurred since the user's last visit will be noted with badges and bold titles as described above
+  - The Inactive Vessels menu now has its own list of filters to be sorted in various ways to help making craft easier to find
+  - `currName` and `currSOI` helper functions now handle parsing the strings that determine the current name and SOI of a vessel given a certain UT, allowing this data to be retrieved easier and from anywhere
+  - When selecting a [flight plot](https://github.com/KSAMissionCtrl/OpsTracker/wiki/Surface-Map#flight-plotting), new controls allow you to play back the flight progression. See the wiki link for details
+  - < and > buttons now exist at the bottom of the Vessel Details [data box](https://github.com/KSAMissionCtrl/OpsTracker/wiki/Vessel-Details#the-data-box) to allow the user to quickly page through a vessel's history in succession. The drop-down list can still be used to jump directly to any event in the mission history
+
 **v8.0.2** (5/8/18)
 
 Fixes:
