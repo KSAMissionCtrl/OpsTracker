@@ -50,6 +50,11 @@ See all current bugs and future enhancements over in our [Issues Tracker](https:
 
 Versioning Key (v#1.#2.#3): #1=New features #2=Changes to existing features #3=Fixes to existing features
 
+**v10.0.1** (6/2/19)
+
+Fixes:
+  - [Flight Plotting](https://github.com/KSAMissionCtrl/OpsTracker/wiki/Surface-Map#flight-plotting) now displays the correct mouse-over data along the track if it is cut to wrap to the other side of the map
+  
 **v10.0.0** (5/28/19)
 
 Fixes:
