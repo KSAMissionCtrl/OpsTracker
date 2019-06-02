@@ -1235,13 +1235,12 @@ function getDataPoint(obtNum, target) {
       margin += 0.1;
     }
   }
-
   return index;
 }
 
 // take care of all the details that need to be applied to a flight's surface track as this needs to be done in two separate places
 function setupFlightSurfacePath(path, index, startIndex, length) {
-  
+
   // we are rendering a hotline showing elevation changes
   if (fltPaths[index].Elev) {
     var srfTrack = L.hotline(path, {
@@ -1295,8 +1294,8 @@ function setupFlightSurfacePath(path, index, startIndex, length) {
         if (Math.abs(fltPaths[indexFlt].Data[index].Lat - e.latlng.lat) < margin && Math.abs(fltPaths[indexFlt].Data[index].Lng - e.latlng.lng) < margin) { break; }
         index++;
         
-        // be sure to account for running to the end of the current path or end of array
-        if (index - parseInt(idStr[1]) >= parseInt(idStr[2]) || index >= fltPaths[indexFlt].Data.length) {
+        // be sure to account for running to the end of the array
+        if (index >= fltPaths[indexFlt].Data.length) {
           index = parseInt(idStr[0]);
           margin += 0.1;
         }
