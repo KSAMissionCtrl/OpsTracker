@@ -10,20 +10,68 @@ function loadEventsAJAX(xhttp) {
   // is there an upcoming launch?
   var launches = events[0].split("|");
   if (launches[0] != "null") {
-  
-    // is this launch scheduled to appear already?
-    var fields = launches[0].split(";");
-    if (fields[0] <= currUT()) {
-      writeLaunchInfo(launches[0]);
+    var currLaunchIndex = -1.
+    var futureLaunchIndex = -1.
+    launches.forEach(function(item, index) {
       
-      // if there is another launch scheduled after this one, schedule the update
-      if (launches[1] != "null") updatesList.push({ Type: "event", ID: "launch", UT: parseFloat(launches[1].split(";")[0]), Data: launches[1] });
-    
-    // otherwise this is an update that will happen in the future
-    } else {
-      updatesList.push({ Type: "event", ID: "launch", UT: parseFloat(fields[0]), Data: launches[0] });
-      writeLaunchInfo();
-    }
+      // is this launch date still in the future?
+      if (item.split(";")[1] > currUT()) {
+
+        // if a current launch is already set, does this launch date come after it?
+        if (currLaunchIndex >= 0 && item.split(";")[1] > launches[currLaunchIndex].split(";")[1]) {
+
+          // is it the same vessel?
+          if (item.split(";")[2] == launches[currLaunchIndex].split(";")[2]) {
+
+            // if this later launch date is viewable, make it the current launch date
+            if (item.split(";")[0] <= currUT()) currLaunchIndex = index;
+          }
+        } else
+
+        // if a current launch is already set, does this launch date come before it?
+        if (currLaunchIndex >= 0 && item.split(";")[1] < launches[currLaunchIndex].split(";")[1]) {
+
+          // if it's a different vessel, update the current launch
+          if (item.split(";")[2] != launches[currLaunchIndex].split(";")[2]) currLaunchIndex = index;
+
+        // if no current launch set, this is the current launch
+        } else currLaunchIndex = index;
+      }
+    });
+
+    // was there a current launch found?
+    if (currLaunchIndex >= 0) {
+      launches.forEach(function(item, index) {
+        
+        // is this update date still in the future and does it come after the current launch update?
+        if (item.split(";")[0] > currUT() && item.split(";")[0] > launches[currLaunchIndex].split(";")[0]) {
+
+          // we only care about updates to the current launching vehicle
+          if (item.split(";")[2] == launches[currLaunchIndex].split(";")[2]) {
+
+            // if there is already a future launch and this update comes before it, then it's the new future update
+            if (futureLaunchIndex >= 0 && item.split(";")[0] < launches[futureLaunchIndex].split(";")[0]) {
+              futureLaunchIndex = index;
+
+            // otherwise set this as the future launch update
+            } else futureLaunchIndex = index;
+          }
+        }
+      });
+
+      // is this launch scheduled to appear already?
+      if (launches[currLaunchIndex].split(";")[0] <= currUT()) {
+        writeLaunchInfo(launches[currLaunchIndex]);
+        
+        // if there is another launch scheduled after this one, schedule the update
+        if (futureLaunchIndex >= 0) updatesList.push({ Type: "event", ID: "launch", UT: parseFloat(launches[futureLaunchIndex].split(";")[0]), Data: launches[futureLaunchIndex] });
+      
+      // otherwise this is an update that will happen in the future
+      } else {
+        updatesList.push({ Type: "event", ID: "launch", UT: parseFloat(launches[currLaunchIndex].split(";")[0]), Data: launches[currLaunchIndex] });
+        writeLaunchInfo();
+      }
+    } else writeLaunchInfo();
   } else writeLaunchInfo();
   
   // is there an upcoming maneuver?
@@ -53,6 +101,7 @@ function loadEventsAJAX(xhttp) {
 function writeLaunchInfo(data) {
   if (isLaunchEventCoolingDown) return;
   var size = w2utils.getSize("#launch", 'height');
+  var currHTML = $("#launch").html();
   if (data) {
     var fields = data.split(";");
     var strHTML = "<strong>Next Launch</strong><br>";
@@ -91,7 +140,8 @@ function writeLaunchInfo(data) {
   }
   
   // if the menu data is already loaded this was a refresh, so highlight the box and activate the links
-  if (isMenuDataLoaded && data) {
+  // also check if any change has been made to the contents
+  if (isMenuDataLoaded && data && currHTML != $("#launch").html()) {
     flashUpdate("#launch", "#FF0000", "#77C6FF");
     activateEventLinks();
   }
@@ -104,6 +154,7 @@ function writeLaunchInfo(data) {
 function writeManeuverinfo(data) {
   if (isManeuverEventCoolingDown) return;
   var size = w2utils.getSize("#maneuver", 'height');
+  var currHTML = $("#maneuver").html();
   if (data) {
     var fields = data.split(";");
     strHTML = "<strong>Next Maneuver</strong><br>";
@@ -131,7 +182,8 @@ function writeManeuverinfo(data) {
   }
   
   // if the menu data is already loaded this was a refresh, so highlight the box and activate the links
-  if (isMenuDataLoaded && data) {
+  // also check if any change has been made to the contents
+  if (isMenuDataLoaded && data && currHTML != $("#maneuver").html()) {
     flashUpdate("#maneuver", "#FF0000", "#77C6FF");
     activateEventLinks();
   }

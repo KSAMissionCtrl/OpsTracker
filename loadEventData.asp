@@ -71,9 +71,9 @@ do
   for each loc in locations
     values = split(loc, ";")
     if values(0)*1 <= UT then 
-      ref = values(1)
+      ref = values(1)*1
     end if
-  next 
+  next
   
   'only bother moving further if this vessel is active
   if ref > -1 and rsCrafts.fields.item("Type") <> "aircraft" then
@@ -111,22 +111,13 @@ do
       end if
     end if
     if not rslaunchTimes.eof then
-      rslaunchTimes.MoveLast
-      do until rslaunchTimes.fields.item("UT") <= UT
-        rslaunchTimes.MovePrevious
-        if rslaunchTimes.bof then exit do
-      Loop
-
-      'if we reached the beginning the first record is the next event for this craft
-      if rslaunchTimes.bof then rslaunchTimes.MoveNext
-        
-      'only add the event if the actual launch time is still in the future
-      if rslaunchTimes.fields.item("LaunchTime") > UT or isNull(rslaunchTimes.fields.item("LaunchTime")) then
+      do
         launchTime = rslaunchTimes.fields.item("LaunchTime")
         if isNull(rslaunchTimes.fields.item("LaunchTime")) then launchTime = "hold"
         launches(launchIndex) = rslaunchTimes.fields.item("UT") & ";" & launchTime & ";" & rsCrafts.fields.item("DB") & ";" & rsCrafts.fields.item("Vessel") & ";" & rsCrafts.fields.item("Desc")
         launchIndex = launchIndex + 1
-      end if
+        rslaunchTimes.MoveNext
+      Loop until rslaunchTimes.eof
     end if
     conn2.Close
     Set conn2 = nothing
@@ -144,14 +135,14 @@ Call SortArray(maneuvers,"Asc")
 
 'output the data
 if UBound(launches) >= 0 then
-  response.write(launches(0) & "|")
+  output = ""
+  for each launch in launches
+    output = output & launch & "|"
+  next
+  output = left(output, len(output)-1)
+  response.write(output & "^")
 else
-  response.write("null|")
-end if
-if UBound(launches) >= 1 then
-  response.write(launches(1) & "^")
-else
-  response.write("null^")
+  response.write("null|null^")
 end if
 if UBound(maneuvers) >= 0 then
   response.write(maneuvers(0) & "|")
