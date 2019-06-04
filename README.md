@@ -50,6 +50,11 @@ See all current bugs and future enhancements over in our [Issues Tracker](https:
 
 Versioning Key (v#1.#2.#3): #1=New features #2=Changes to existing features #3=Fixes to existing features
 
+**v10.1.0** (6/3/19)
+
+Changes:
+  - The [Event Calendar](https://github.com/KSAMissionCtrl/OpsTracker/wiki/Clock-&-Event-Calendar) is now smarter about how it loads launch event data and no longer requires the `UT` field in the Launches recordset to be set ahead of a previous launch to get the order of events to update properly. The `UT` field can (and should) now match the `UT` field for the Craft Data recordset where the change in launch time occurs
+
 **v10.0.1** (6/2/19)
 
 Fixes:
