@@ -62,6 +62,7 @@ var flightTimelineInterval = null;
 var ascentInterpTimeout = null;
 var strFltTrackLoading = null;
 var ascentPopup = null;
+var layerPins = null;
 var isGGBAppletLoaded = false;
 var isMenuDataLoaded = false;
 var isEventDataLoaded = false;

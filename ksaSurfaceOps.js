@@ -29,6 +29,7 @@ function initializeMap() {
   flagIcon = L.icon({
     iconUrl: 'button_vessel_flag.png',
     iconSize: [16, 16],
+    iconAnchor: [6,21] 
   });
   POIIcon = L.icon({
     popupAnchor: [0, -43], 
@@ -270,7 +271,13 @@ function loadMapDataAJAX(xhttp) {
     flagData.forEach(function(item) {
       var flag = item.split(";");
       flagMarker = L.marker([flag[0],flag[1]], {icon: flagIcon, zIndexOffset: 100});
-      flagMarker.bindPopup("<b>" + flag[3] + "</b><br />" + flag[4] + "<br />" + flag[6] + "<br />" + numeral(flag[2]/1000).format('0.000') + "km<br /><br />&quot;" + flag[5] + "&quot;<br /><br /><a target='_blank' href='" + flag[7] + "'>" + flag[8] + "</a>", {autoClose: false});
+      if (flag[4] = 'null') var strCrew = "";
+      else var strCrew = flag[4] + "<br />";
+      if (flag[8] = 'null') var strLink = "<span class='fauxLink' onclick=\"swapContent('vessel','" + flag[7] + "')\">View Vessel</span>";
+      else var strLink = "<a target='_blank' href='" + flag[7] + "'>" + flag[8] + "</a>";
+      if (flag[2] != "0") var strAlt = numeral(flag[2]/1000).format('0.000') + "km<br />";
+      else var strAlt = "";
+      flagMarker.bindPopup("<b>" + flag[3] + "</b><br />" + strCrew + UTtoDateTime(parseInt(flag[6])).split(" ")[0] + "<br />" + strAlt + "<br />&quot;" + flag[5] + "&quot;<br /><br />" + strLink, {offset: new L.Point(0,-9), autoClose: false});
       layerFlags.addLayer(flagMarker);
 
       // set the ID to make the map click function ignore this popup and add it to the map
@@ -404,6 +411,7 @@ function loadMapDataAJAX(xhttp) {
   
   // the following only works for Kerbin at the moment
   if (mapData.Name == "Kerbin") {
+
     // determine the current position of the sun given the body's degree of initial rotation and rotational period
     var sunLon = -bodyCatalog.find(o => o.Body === strCurrentBody.split("-")[0]).RotIni - (((currUT() / bodyCatalog.find(o => o.Body === strCurrentBody.split("-")[0]).SolarDay) % 1) * 360);
     var sunLat = 0
@@ -440,7 +448,7 @@ function loadMapDataAJAX(xhttp) {
   
   // load map pin(s) and caption(s)?
   if (getParameterByName("loc")) {
-    var layerPins = L.featureGroup();
+    layerPins = L.featureGroup();
     var isMultiple = false;
     var pin;
     
@@ -521,12 +529,6 @@ function loadFltDataAJAX(xhttp) {
   // draw the ground track
   renderFltPath(fltPaths.length-1);
   
-  // if there was only one track, make it visible and zoom in on it
-  if (fltPaths.length == 1) {
-    fltPaths[0].Layer.addTo(surfaceMap);
-    surfaceMap.setView([fltPaths[0].Data[0].Lat, fltPaths[0].Data[0].Lng], 3);
-  }
-  
   // delete the loading layer and add the flight path layer to the control and the map
   console.log(surfaceTracksDataLoad)
   layerControl.removeLayer(surfaceTracksDataLoad.fltTrackDataLoad);
@@ -545,27 +547,66 @@ function loadFltDataAJAX(xhttp) {
       surfaceTracksDataLoad.fltTrackDataLoad = null;
       flightsToLoad = null;
       checkDataLoad();
+      console.log(fltPaths)
       
-      // if there is just one, select it in the menu
+      // if there was only one track...
       if (fltPaths.length == 1) {
+
+        // select it in the menu
         w2ui['menu'].select(fltPaths[0].ID);
         w2ui['menu'].expandParents(fltPaths[0].ID);
         w2ui['menu'].scrollIntoView(fltPaths[0].ID);
-      
-      // otherwise just select and open the category
+
+        // check for in-progress flight
+        if (!inFlight(fltPaths[0])) {
+
+          // if there are more than two layers the plot wraps around the meridian so just show the whole map
+          // otherwise zoom in to fit the size of the plot
+          // https://stackoverflow.com/questions/5223/length-of-a-javascript-object
+          if (Object.keys(fltPaths[0].Layer._layers).length > 1) surfaceMap.setView([0,0], 1);
+          else surfaceMap.fitBounds(Object.values(fltPaths[0].Layer._layers)[0]._bounds);
+        }
+      // multiple tracks...
       } else {
+
+        // just select and open the category
         w2ui['menu'].select("aircraft");
         w2ui['menu'].expand("aircraft");
         w2ui['menu'].expandParents("aircraft");
         w2ui['menu'].scrollIntoView("aircraft");
+
+        // get the combined bounds of all the plots
+        var isDblPlotted = false;
+        var groupBounds = null;
+        fltPaths.forEach(function(item) {
+          
+          // if there are more than two layers the plot wraps around the meridian
+          if (Object.keys(item.Layer._layers).length > 1) isDblPlotted = true;
+          else {
+            if (!groupBounds) groupBounds = Object.values(item.Layer._layers)[0]._bounds;
+            else groupBounds.extend(Object.values(item.Layer._layers)[0]._bounds);
+          }
+        });
+
+        // if there is a double plot, just show the whole map otherwise fit the bounds
+        if (isDblPlotted) surfaceMap.setView([0,0], 1);
+        else surfaceMap.fitBounds(groupBounds);
       }
     }
   } else {
+
+    // check for in-progress flight
+    if (!inFlight(fltPaths[fltPaths.length-1])) {
+
+      // zoom out to the full map if the new plot jumps the meridian otherwise fit its bounds
+      if (Object.keys(fltPaths[fltPaths.length-1].Layer._layers).length > 1) surfaceMap.setView([0,0], 1);
+      else surfaceMap.fitBounds(Object.values(fltPaths[fltPaths.length-1].Layer._layers)[0]._bounds);
+    }
+
     surfaceTracksDataLoad.fltTrackDataLoad = null;
     checkDataLoad();
   }
   if (strFltTrackLoading) strFltTrackLoading = null;
-  console.log(fltPaths)
   showMap();
 }
 
@@ -724,7 +765,35 @@ function renderVesselOrbit() {
       currentVesselPlot.Data[currentVesselPlot.Data.length-1].Layer.addLayer(currentVesselPlot.Events.Pe.Marker);
     }
   }
-  
+
+  // does this path terminate in an entry to Kerbin's atmosphere?
+  if (orbitDataCalc[orbitDataCalc.length-1].Alt <= 70) {
+
+    // add the marker, assign its information popup and give it a callback for instant update when opened, then add it to the current layer
+    currentVesselPlot.Events.SoiEntry.UT = obtCalcUT;
+    currentVesselPlot.Events.SoiEntry.Marker = L.marker(orbitDataCalc[orbitDataCalc.length-1].Latlng, {icon: soiEntryIcon}); 
+    var strTimeDate = UTtoDateTime(currentVesselPlot.Events.SoiEntry.UT);
+    currentVesselPlot.Events.SoiEntry.Marker.bindPopup("<center>Time to Atmospheric Entry<br><span id='soiEntryTime'>" + formatTime(currentVesselPlot.Events.SoiEntry.UT) + "</span><br><span id='soiEntryDate'>" + strTimeDate.split("@")[0] + '<br>' + strTimeDate.split("@")[1] + "</span> UTC</center>", {autoClose: false});
+    currentVesselPlot.Events.SoiEntry.Marker.on('click', function(e) {
+      $('#soiEntryTime').html(formatTime(currentVesselPlot.Events.SoiEntry.UT - currUT()));
+    });
+    currentVesselPlot.Data[currentVesselPlot.Data.length-1].Layer.addLayer(currentVesselPlot.Events.SoiEntry.Marker);
+  } 
+
+  // does this path terminate in an exit of Kerbin's SOI?
+  else if (orbitDataCalc[orbitDataCalc.length-1].Alt >= 83559.2865) {
+
+    // add the marker, assign its information popup and give it a callback for instant update when opened, then add it to the current layer
+    currentVesselPlot.Events.SoiExit.UT = obtCalcUT;
+    currentVesselPlot.Events.SoiExit.Marker = L.marker(orbitDataCalc[orbitDataCalc.length-1].Latlng, {icon: soiExitIcon}); 
+    var strTimeDate = UTtoDateTime(currentVesselPlot.Events.SoiExit.UT);
+    currentVesselPlot.Events.SoiExit.Marker.bindPopup("<center>Time to Kerbin SOI Exit<br><span id='soiExitTime'>" + formatTime(currentVesselPlot.Events.SoiExit.UT) + "</span><br><span id='soiExitDate'>" + strTimeDate.split("@")[0] + '<br>' + strTimeDate.split("@")[1] + "</span> UTC</center>", {autoClose: false});
+    currentVesselPlot.Events.SoiExit.Marker.on('click', function(e) {
+      $('#soiExitTime').html(formatTime(currentVesselPlot.Events.SoiExit.UT - currUT()));
+    });
+    currentVesselPlot.Data[currentVesselPlot.Data.length-1].Layer.addLayer(currentVesselPlot.Events.SoiExit.Marker);
+  }
+
   // gather up the lat/lng positions into the paths to render
   var path = [];
   currentVesselPlot.Data[currentVesselPlot.Data.length-1].Orbit.forEach(function(position, posIndex) {
@@ -826,6 +895,7 @@ function orbitalCalc(callback, orbit, batchCount, limit) {
   if (!batchCount) batchCount = 1000;
   if (!limit) limit = orbit.OrbitalPeriod;
   if (isOrbitRenderTerminated) return;
+  var bAltLimit = false;
 
   // update the dialog title with the current date & time being calculated
   var strDialogTitle = "Calculating Orbit #" + (currentVesselPlot.Data.length + 1) + " of " + numOrbitRenders + " - ";
@@ -846,6 +916,7 @@ function orbitalCalc(callback, orbit, batchCount, limit) {
   
     //////////////////////
     // computeMeanMotion()
+    // all function comments are from https://github.com/Arrowstar/ksptot
     //////////////////////
     
     // adjust for motion since the time of this orbit
@@ -1041,10 +1112,23 @@ function orbitalCalc(callback, orbit, batchCount, limit) {
     
     // exit the batch prematurely if we've reached the end of the calculation period
     if (orbitDataCalc.length >= limit) { break; }
+
+    // exit the batch prematurely if we've hit Kerbin's atmosphere
+    if (alt <= 70) { 
+      bAltLimit = true;
+      break;
+    }
+
+    // exit the batch prematurely if we've exited Kerbin's SOI
+    if (alt >= 83559.2865) {
+      bAltLimit = true;
+      break;
+    }
   }
   
   // let the callback know if we've completed all orbital calculations, or cancel out if requested by the user
-  if (orbitDataCalc.length >= limit || isOrbitRenderCancelled) {
+  // or if an altitude was breached
+  if (orbitDataCalc.length >= limit || isOrbitRenderCancelled || bAltLimit) {
     callback(); 
     
   // just exit and don't call anything if the calculations have been paused by switching away from the vessel
@@ -1880,4 +1964,44 @@ function calculateSurfaceTracks(currentObject) {
 
   // keep calling ourselves until everything is loaded
   setTimeout(calculateSurfaceTracks, 1, currentObject);
+}
+
+// determines if a flight is currently active and adjusts the map accordingly
+function inFlight(fltPath) {
+
+  // if the track has a start time prior to and end time later than the current time, find the time closest to it
+  if (fltPath.Data[0].UT < currUT(true) && fltPath.Data[fltPath.Data.length-1].UT > currUT(true)) {
+    for (dataIndex=0; dataIndex<fltPath.Data.length; dataIndex++) {
+      if (fltPath.Data[dataIndex].UT > currUT(true)) {
+
+        // if there is more than one layer we need to find the layer that holds the coordinates
+        var fltLayer;
+        if (Object.keys(fltPath.Layer._layers).length > 1) {
+          Object.values(fltPath.Layer._layers).forEach(function(item) {
+            if (item._bounds.contains([fltPath.Data[dataIndex].Lat,fltPath.Data[dataIndex].Lng])) fltLayer = item;
+          });
+        } else fltLayer = Object.values(fltPath.Layer._layers)[0];
+
+        // fire a click event after popping up the initial data
+        fltLayer.fire("mouseover", { 
+          target: { 
+            _myId: fltPath.Index
+          },
+          latlng: L.latLng(fltPath.Data[dataIndex].Lat,fltPath.Data[dataIndex].Lng)
+        });
+        setTimeout(function(){
+          fltLayer.fire("click", { 
+            target: { 
+              _myId: fltPath.Index
+            },
+            latlng: L.latLng(fltPath.Data[dataIndex].Lat,fltPath.Data[dataIndex].Lng)
+          });
+        }, 250, fltLayer);
+        return true;
+      }
+    }
+  }
+
+  // otherwise if the plot has already run its course
+  else return false;
 }

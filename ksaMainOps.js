@@ -75,6 +75,7 @@ UT = ((clock.getTime() - foundingMoment) / 1000);
 if (clock.toString().search("Standard") >= 0) { UT -= 3600; UTC = 5; }
 if (window.location.href.includes("&showUT") || window.location.href.includes("?showUT")) console.log(UT + " " + clock);
 if (getParameterByName("setut") && getCookie("missionctrl")) UT = parseFloat(getParameterByName("setut"));
+if (window.location.href.includes("&live") && getParameterByName("ut") && parseFloat(getParameterByName("ut")) < UT) UT = parseFloat(getParameterByName("ut"));
 
 // handle history state changes
 window.onpopstate = function(event) { 
@@ -250,6 +251,7 @@ function setupContent() {
 
   // load page content
   if (getParameterByName("vessel").length) { swapContent("vessel", getParameterByName("vessel")); }
+  else if (window.location.href.includes("active")) { swapContent("vessel", "ascensionmk1-9"); }
   else if (getParameterByName("body").length) { swapContent("body", getParameterByName("body")); }
   else if (getParameterByName("crew").length) { 
     if (getParameterByName("crew") == "crewFull") { swapContent("crewFull", getParameterByName("crew")); }
@@ -290,6 +292,7 @@ function setupContentDown() {
 function swapContent(newPageType, id, ut, flt) {
   if (!flt && isNaN(ut)) flt = ut;
   if (!ut) ut = "NaN";
+  if (newPageType == "vessel" && pageType == "vessel" && strCurrentVessel == id) return;
   
   // initial page load
   if (!pageType) {
@@ -333,7 +336,10 @@ function swapContent(newPageType, id, ut, flt) {
       loadCrew(id);
     }
     return;
-  } 
+  }
+
+  // remove any tooltips open
+  Tipped.remove('.tipped');
   
   // not a total content swap, just new data
   if (pageType == newPageType) {
@@ -408,6 +414,10 @@ function swapContent(newPageType, id, ut, flt) {
         $("#figure").fadeIn();
       }
       $("#contentBox").fadeIn();
+      if (layerPins) {
+        layerPins.addTo(surfaceMap);
+        layerControl.addOverlay(layerPins, "<img src='defPin.png' style='width: 10px; height: 14px; vertical-align: 1px;'> Custom Pins", "Ground Markers");
+      }
       loadBody(id, flt); 
     }, 600);
   } else if (newPageType == "vessel") {
@@ -420,7 +430,13 @@ function swapContent(newPageType, id, ut, flt) {
     $("#dataBox").css("width", "295px");
     $("#contentBox").fadeIn();
     $("#map").css("visibility", "visible");
-    if (isVesselUsingMap) { $("#map").fadeIn(); }
+    if (isVesselUsingMap) { 
+      if (layerPins) {
+        surfaceMap.removeLayer(layerPins);
+        layerControl.removeLayer(layerPins); 
+      }
+      $("#map").fadeIn(); 
+    }
     else { $("#content").fadeIn(); }
     loadVessel(id, ut);
   } else if (newPageType == "crew") {
@@ -459,11 +475,7 @@ function updatePage(updateEvent) {
   if (updateEvent.Type.includes("menu")) {
     menuUpdate(updateEvent.Type.split(";")[1], updateEvent.ID);
   } else if (updateEvent.Type == "event") {
-    if (updateEvent.ID == "launch") {
-      writeLaunchInfo(updateEvent.Data);
-    } else if (updateEvent.ID == "maneuver") {
-      writeManeuverinfo(updateEvent.Data);
-    } else { console.log("unknown event update"); console.log(updateEvent); }
+    loadDB("loadEventData.asp?UT=" + currUT(), loadEventsAJAX);
   } else if (updateEvent.Type == "object") {
     var obj = opsCatalog.find(o => o.ID === updateEvent.ID);
     if (!obj) console.log("unknown update object" + obj);
@@ -784,6 +796,9 @@ function loadOpsDataAJAX(xhttp) {
     terminator = L.polygon(terminatorPath, {stroke: false, fillOpacity: 0.5, fillColor: "#000000", interactive: false});
     layerSolar.addLayer(terminator);
   }
+
+  // update any crew mission countdown that is active
+  if (pageType == "crew" && !$('#dataField10').is(':empty')) $("#crewCountdown").html(formatTime($("#crewCountdown").attr("data")-currUT(true)));
   
   // update the dynamic orbit figure
   if (isGGBAppletLoaded) { ggbApplet.setValue("UT", currUT()); }
@@ -887,7 +902,8 @@ function loadOpsDataAJAX(xhttp) {
           // ascent has terminated
           } else if (currentAscentData.ascentIndex >= currentVesselData.ascentData.length-1) {
 
-            // interpolation function timeout handle nulled
+            // interpolation function timeout handle nulled after one last update
+            updateAscentData(true);
             if (ascentInterpTimeout) {
               clearTimeout(ascentInterpTimeout);
               ascentInterpTimeout = null;
@@ -912,6 +928,13 @@ function loadOpsDataAJAX(xhttp) {
           $('#lng').html(numeral(currentVesselPlot.Data[now.ObtNum].Orbit[now.Index].Latlng.lng).format('0.0000') + "&deg;" + cardinal.Lng);
           $('#alt').html(numeral(currentVesselPlot.Data[now.ObtNum].Orbit[now.Index].Alt).format('0,0.000') + " km");
           $('#vel').html(numeral(currentVesselPlot.Data[now.ObtNum].Orbit[now.Index].Vel).format('0,0.000') + " km/s");
+
+          // update Soi markers if they exist
+          if (currentVesselPlot.Events.SoiEntry.Marker) {
+            $('#soiEntryTime').html(formatTime(currentVesselPlot.Events.SoiEntry.UT - currUT(true)));
+          } else if (currentVesselPlot.Events.SoiExit.Marker) {
+            $('#soiExitTime').html(formatTime(currentVesselPlot.Events.SoiExit.UT - currUT(true)));
+          }
           
           // update the Ap/Pe markers if they exist, and check for passing
           if (currentVesselPlot.Events.Ap.Marker) {

@@ -40,7 +40,7 @@ function loadMenuAJAX(xhttp) {
     if (parseInt(fields[5]) > currUT()) updatesList.push({ Type: "menu;crew", ID: fields[4], UT: parseInt(fields[5]) });
 
     // setup for full data load for any active crew
-    if (fields[1] != "Deceased") {
+    if (fields[1] != "Deceased" || fields[1] != "Retired") {
       opsCatalog.push({ID: fields[4],
                        Type: "crew",
                        isLoading: false,
@@ -663,15 +663,14 @@ function adjustCount(nodeID, adjust) {
 function menuUpdate(type, ID) {
   if (type == "soi") {
     w2ui['menu'].remove(ID);
-    
+    addMenuItem(craftsMenu.find(o => o.DB === ID), true);
+   
     // are we looking at it?
     if (pageType == "vessel" && strCurrentVessel == ID) {
-      addMenuItem(craftsMenu.find(o => o.DB === ID));
       w2ui['menu'].select(ID);
       w2ui['menu'].expandParents(ID);
       w2ui['menu'].scrollIntoView(ID);
     } else {
-      addMenuItem(craftsMenu.find(o => o.DB === ID), true);
       adjustCount(w2ui['menu'].get(ID).parent.id, 1);
     }
   } else if (type == "crew") {

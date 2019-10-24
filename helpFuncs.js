@@ -41,8 +41,7 @@ function loadDB(url, cFunction) {
 // take an amount of time in seconds and convert it to years, days, hours, minutes and seconds
 // leave out any values that are not necessary (0y, 0d won't show, for example)
 // give seconds to 5 significant digits if precision is true
-function formatTime(time, precision) {
-  if (precision === null) { return formatTime(time, false); }
+function formatTime(time, precision = false) {
   var years = 0;
   var days = 0;
   var hours = 0;
@@ -103,9 +102,7 @@ function formatDateTime(time) {
 }
 
 // convert a given game UT time into the equivalent "mm/dd/yyyy hh:mm:ss" in UTC
-function UTtoDateTime(setUT, local) {
-  if (local === null) { return UTtoDateTime(setUT, false); }
-
+function UTtoDateTime(setUT, local = false, fullYear = true) {
   var d = new Date();
   d.setTime(foundingMoment + (setUT * 1000));
   if (d.toString().search("Standard") >= 0) { d.setTime(foundingMoment + ((setUT + 3600) * 1000)); }
@@ -113,7 +110,15 @@ function UTtoDateTime(setUT, local) {
   // if we ask for local time, apply the proper UTC offset
   if (local) d.setUTCHours(d.getUTCHours() - UTC);
   
-  return formatDateTime(d);
+  // take off the first two digits of the year?
+  if (!fullYear) {
+    var strDateTime = formatDateTime(d);
+    var strDateTrunc = strDateTime.substr(0, strDateTime.lastIndexOf("/")+1);
+    var strDateYear = strDateTime.split("/")[2].split(" ")[0];
+    strDateYear = strDateYear.substr(2, 2);
+    var strTime = strDateTime.split("@")[1];
+    return strDateTrunc + strDateYear + " @" + strTime;
+  } else return formatDateTime(d);
 }
 
 // convert a given game UT time into the local date time for the end user

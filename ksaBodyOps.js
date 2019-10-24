@@ -231,7 +231,12 @@ function loadVesselOrbits() {
         $("#vesselOrbitTypes").fadeIn(); 
         
         // check again in a few ms just in case we popped up as the figure was fading out
-        setTimeout(function() { if (!$("#figure").is(":visible")) $("#vesselOrbitTypes").hide(); }, 500);
+        setTimeout(function() { 
+          if (!$("#figure").is(":visible")) {
+            $("#vesselOrbitTypes").hide(); 
+            $("#figureOptions").hide(); 
+          }
+        }, 500);
       }
       timeoutHandle = setTimeout(declutterGGB, 2500);
     }
@@ -244,12 +249,6 @@ function addGGBOrbit(vesselID, orbitData) {
 
   // we need to ensure the body data is loaded first
   if (!bodyCatalog) setTimeout(addGGBOrbit, 150, vesselID, orbitData);
-  
-  // need the data of the body this vessel is in orbit around
-  // get the current body being orbited using its parent node in the menu
-  // don't draw the orbit if the body being orbited is not the current one
-  var strBodyName = w2ui['menu'].get('activeVessels', vesselID).parent.id.split("-")[0];
-  if (!strCurrentBody.includes(strBodyName)) return;
 
   // convert the vessel id to a variable name suitable for GeoGebra
   ggbID = vesselID.replace("-", "");
@@ -259,7 +258,7 @@ function addGGBOrbit(vesselID, orbitData) {
     isUpdate = true;
 
     // delete the current orbit if there isn't another one to draw and exit
-    if (!orbitData) {
+    if (!orbitData || (orbitData && !orbitData.Eph)) {
       ggbApplet.deleteObject(ggbID + 'conic');
       ggbApplet.deleteObject(ggbID + 'penode');
       ggbApplet.deleteObject(ggbID + 'apnode');
@@ -268,11 +267,13 @@ function addGGBOrbit(vesselID, orbitData) {
       ggbApplet.deleteObject(ggbID + 'position');
       return;
     }
-  } else {
-
-    // add this vessel type and ID to the orbits array for filtering
-    ggbOrbits.push({Type: strVesselType, ID: ggbID, showName: false, showNodes: false, isSelected: false, isHidden: false});
   }
+
+  // need the data of the body this vessel is in orbit around
+  // get the current body being orbited using its parent node in the menu
+  // don't draw the orbit if the body being orbited is not the current one
+  var strBodyName = w2ui['menu'].get('activeVessels', vesselID).parent.id.split("-")[0];
+  if (!strCurrentBody.includes(strBodyName)) return;
 
   // look up data in the body catalog
   var bodyData = bodyCatalog.find(o => o.Body === strBodyName);
@@ -280,6 +281,9 @@ function addGGBOrbit(vesselID, orbitData) {
   // type of vessel so we can color things appropriately
   var strVesselType = w2ui['menu'].get('activeVessels', vesselID).img.split("-")[1];
   
+  // add this vessel type and ID to the orbits array for filtering
+  if (!isUpdate) ggbOrbits.push({Type: strVesselType, ID: ggbID, showName: false, showNodes: false, isSelected: false, isHidden: false});
+
   // enable this vessel type in the filters menu
   $("#" + strVesselType + "-filter").removeAttr("disabled");
   $("#" + strVesselType + "-filter").prop('checked', true);
@@ -768,7 +772,7 @@ function toggleRefLine(isChecked) {
 }
 function filterVesselOrbits(id, checked) {
   if (checked) {
-    ggbOrbits.forEach(function(item, index) {
+    ggbOrbits.forEach(function(item) {
       if (id == item.Type) {
         ggbApplet.setVisible(item.ID + "position", true);
         ggbApplet.setVisible(item.ID + "penode", $("#nodes").is(':checked'));
@@ -783,7 +787,7 @@ function filterVesselOrbits(id, checked) {
       }
     });
   } else {
-    ggbOrbits.forEach(function(item, index) {
+    ggbOrbits.forEach(function(item) {
       if (id == item.Type) {
         ggbApplet.setVisible(item.ID + "position", false);
         ggbApplet.setVisible(item.ID + "conic", false);
@@ -798,7 +802,7 @@ function filterVesselOrbits(id, checked) {
   }
 }
 function toggleSOI(isChecked) {
-  ggbOrbits.forEach(function(item, index) { 
+  ggbOrbits.forEach(function(item) { 
     if (item.Type == "body") {
       ggbApplet.setVisible(item.ID + "39", isChecked);
     }

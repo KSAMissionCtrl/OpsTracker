@@ -113,7 +113,7 @@ do
     if not rslaunchTimes.eof then
       do
         launchTime = rslaunchTimes.fields.item("LaunchTime")
-        if isNull(rslaunchTimes.fields.item("LaunchTime")) then launchTime = "hold"
+        if isNull(rslaunchTimes.fields.item("LaunchTime")) then launchTime = "0"
         launches(launchIndex) = rslaunchTimes.fields.item("UT") & ";" & launchTime & ";" & rsCrafts.fields.item("DB") & ";" & rsCrafts.fields.item("Vessel") & ";" & rsCrafts.fields.item("Desc")
         launchIndex = launchIndex + 1
         rslaunchTimes.MoveNext

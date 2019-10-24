@@ -7,73 +7,72 @@ function loadEventsAJAX(xhttp) {
   // separate the launch & maneuver event returns
   var events = xhttp.responseText.split("^");
 
+  // by default, there are no future events
+  writeLaunchInfo();
+  writeManeuverinfo();
+
+  // reset the cooldown so we can write any new data
+  isLaunchEventCoolingDown = false;
+  isManeuverEventCoolingDown = false;
+
   // is there an upcoming launch?
   var launches = events[0].split("|");
   if (launches[0] != "null") {
-    var currLaunchIndex = -1.
-    var futureLaunchIndex = -1.
-    launches.forEach(function(item, index) {
-      
-      // is this launch date still in the future?
-      if (item.split(";")[1] > currUT()) {
 
-        // if a current launch is already set, does this launch date come after it?
-        if (currLaunchIndex >= 0 && item.split(";")[1] > launches[currLaunchIndex].split(";")[1]) {
-
-          // is it the same vessel?
-          if (item.split(";")[2] == launches[currLaunchIndex].split(";")[2]) {
-
-            // if this later launch date is viewable, make it the current launch date
-            if (item.split(";")[0] <= currUT()) currLaunchIndex = index;
-          }
-        } else
-
-        // if a current launch is already set, does this launch date come before it?
-        if (currLaunchIndex >= 0 && item.split(";")[1] < launches[currLaunchIndex].split(";")[1]) {
-
-          // if it's a different vessel, update the current launch
-          if (item.split(";")[2] != launches[currLaunchIndex].split(";")[2]) currLaunchIndex = index;
-
-        // if no current launch set, this is the current launch
-        } else currLaunchIndex = index;
-      }
+    // load the launches into a list and sort it smallest to largest visible UT
+    var launchEventList = [];
+    launches.forEach(function(launchEvent) {
+      var launchDetails = launchEvent.split(";");
+      launchEventList.push({UT: parseFloat(launchDetails[0]),
+                            LaunchTime: parseFloat(launchDetails[1]),
+                            DB: launchDetails[2],
+                            Title: launchDetails[3],
+                            Desc: launchDetails[4]
+                          });
     });
+    launchEventList.sort(function(a,b) {return (a.UT > b.UT) ? 1 : ((b.UT > a.UT) ? -1 : 0);} );
+    console.log(launchEventList)
 
-    // was there a current launch found?
-    if (currLaunchIndex >= 0) {
-      launches.forEach(function(item, index) {
+    // start with the closest launch time and work forwards
+    var launchEvent;
+    for (launchEvent=0; launchEvent<launchEventList.length; launchEvent++) {
+
+      // holds are only for current launches, so jump straight through to the display
+      if (launchEventList[launchEvent].LaunchTime == 0) {
+        writeLaunchInfo(launchEventList[launchEvent]);
+        break;
+      }
+      else {
+
+        // if this launch date announcement is still forthcoming, stash the update info
+        if (launchEventList[launchEvent].UT > currUT()) {
+          updatesList.push({ Type: "event", UT: launchEventList[launchEvent].UT });
+          break;
+        } 
         
-        // is this update date still in the future and does it come after the current launch update?
-        if (item.split(";")[0] > currUT() && item.split(";")[0] > launches[currLaunchIndex].split(";")[0]) {
+        // if the launch date announcement is already visible...
+        else if (launchEventList[launchEvent].UT < currUT()) {
 
-          // we only care about updates to the current launching vehicle
-          if (item.split(";")[2] == launches[currLaunchIndex].split(";")[2]) {
-
-            // if there is already a future launch and this update comes before it, then it's the new future update
-            if (futureLaunchIndex >= 0 && item.split(";")[0] < launches[futureLaunchIndex].split(";")[0]) {
-              futureLaunchIndex = index;
-
-            // otherwise set this as the future launch update
-            } else futureLaunchIndex = index;
+          // if the launch is still to come, display it
+          if (launchEventList[launchEvent].LaunchTime > currUT()) {
+            writeLaunchInfo(launchEventList[launchEvent]);
+            break;
           }
         }
-      });
-
-      // is this launch scheduled to appear already?
-      if (launches[currLaunchIndex].split(";")[0] <= currUT()) {
-        writeLaunchInfo(launches[currLaunchIndex]);
-        
-        // if there is another launch scheduled after this one, schedule the update
-        if (futureLaunchIndex >= 0) updatesList.push({ Type: "event", ID: "launch", UT: parseFloat(launches[futureLaunchIndex].split(";")[0]), Data: launches[futureLaunchIndex] });
-      
-      // otherwise this is an update that will happen in the future
-      } else {
-        updatesList.push({ Type: "event", ID: "launch", UT: parseFloat(launches[currLaunchIndex].split(";")[0]), Data: launches[currLaunchIndex] });
-        writeLaunchInfo();
       }
-    } else writeLaunchInfo();
-  } else writeLaunchInfo();
-  
+    }
+
+    // if we didn't work through the whole list or already added a future update, find the next one
+    if (launchEvent < launchEventList.length-1 && updatesList.length == updatesListSize) {
+      for (launchEvent++; launchEvent<launchEventList.length; launchEvent++){
+        if (launchEventList[launchEvent].UT > currUT()) {
+          updatesList.push({ Type: "event", UT: launchEventList[launchEvent].UT });
+          break;
+        }
+      }
+    }
+  }
+
   // is there an upcoming maneuver?
   var maneuvers = events[1].split("|");
   if (maneuvers[0] != "null") {
@@ -99,21 +98,21 @@ function loadEventsAJAX(xhttp) {
 }
 
 function writeLaunchInfo(data) {
+  console.log(data)
   if (isLaunchEventCoolingDown) return;
   var size = w2utils.getSize("#launch", 'height');
   var currHTML = $("#launch").html();
   if (data) {
-    var fields = data.split(";");
     var strHTML = "<strong>Next Launch</strong><br>";
 
-    strHTML += "<span id='launchLink' db='" + fields[2] + "'>" + wrapText(150, fields[3], 16) + "</span><br>";
-    strCurrentLaunchVessel = fields[2];
+    strHTML += "<span id='launchLink' db='" + data.DB + "'>" + wrapText(150, data.Title, 16) + "</span><br>";
+    strCurrentLaunchVessel = data.DB;
     
     // regular launch, or hold event?
-    if (fields[1] != "hold") {
-      strHTML += "<span id='launchTime'>" + UTtoDateTime(parseFloat(fields[1]), true) + "</span><br>"
-      strHTML += "<span id='launchCountdown'>" + formatTime(parseFloat(fields[1]) - (currUT())) + "</span>";
-      launchCountdown = parseFloat(fields[1]);
+    if (data.LaunchTime > 0) {
+      strHTML += "<span id='launchTime'>" + UTtoDateTime(data.LaunchTime, true, false) + "</span><br>"
+      strHTML += "<span id='launchCountdown'>" + formatTime(data.LaunchTime - currUT()) + "</span>";
+      launchCountdown = data.LaunchTime;
     } else {
       strHTML += "<span id='launchTime'>COUNTDOWN HOLD</span><br><span id='launchCountdown'>Awaiting new L-0 time</span>";
       launchCountdown = "null";
@@ -121,7 +120,7 @@ function writeLaunchInfo(data) {
     $("#launch").html(strHTML);
     
     // add an info tooltip
-    Tipped.create("#launchLink", fields[4], { offset: { y: -10 }, maxWidth: 150, position: 'top' });
+    Tipped.create("#launchLink", data.Desc, { offset: { y: -10 }, maxWidth: 150, position: 'top' });
   } else $("#launch").html("<strong>Next Launch</strong><br>None Scheduled");
   
   // if there was a change in height with the new text update the box using the default size with no launches or maneuvers
@@ -160,7 +159,7 @@ function writeManeuverinfo(data) {
     strHTML = "<strong>Next Maneuver</strong><br>";
     strHTML += "<span id='manueverLink' db='" + fields[2] + "'>" + wrapText(150, fields[3], 16) + "</span><br>";
     strCurrentManeuverVessel = fields[2];
-    strHTML += "<span id='maneuverTime'>" + UTtoDateTime(parseFloat(fields[1]), true) + "</span><br>"
+    strHTML += "<span id='maneuverTime'>" + UTtoDateTime(parseFloat(fields[1]), true, false) + "</span><br>"
     strHTML += "<span id='maneuverCountdown'>" + formatTime(parseFloat(fields[1]) - (currUT())) + "</span>";
     maneuverCountdown = parseFloat(data[1]);
     $("#maneuver").html(strHTML);
@@ -191,6 +190,9 @@ function writeManeuverinfo(data) {
   // don't let another update happen for 2 seconds in case there are some rapid-fire events of the same vessel
   isManeuverEventCoolingDown = true;
   setTimeout(function() { isManeuverEventCoolingDown = false; }, 2000);
+
+  // if this is a crew page, no need to wait for GGB to load
+  if (pageType == "crew") activateEventLinks();
 }
 
 // called once the GGB figure is done loading so switching to a vessel doesn't cut off the load

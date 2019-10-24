@@ -4,13 +4,19 @@
 <head>
   <meta charset="utf-8">
 
+  <!-- make sure page is not cached, since there are lots of JS updates during development -->
+  <!-- http://cristian.sulea.net/blog/disable-browser-caching-with-meta-html-tags/ -->
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+  <meta http-equiv="Pragma" content="no-cache" />
+  <meta http-equiv="Expires" content="0" />
+
   <title>KSA Operations Tracker</title>
   
   <!-- Display the KSA favicon -->
   <link rel="shortcut icon" href="../images/KSA/favicon.png" type="image/x-icon" />
 
   <!-- use this image link to force reddit to use a certain image for its thumbnail -->
-  <meta property="og:image" content="https://i.imgur.com/55ZgWiL.png" />
+  <meta property="og:image" content="https://i.imgur.com/ugGunHB.png" />
   
   <!-- cache of Font Awesome -->
   <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.8.1/css/all.css" 
@@ -64,6 +70,7 @@
   <div id='avgVelTip' style='display: none'></div>
   <div id='periodTip' style='display: none'></div>
   <div id='distanceTip' style='display: none'></div>
+  <div id='crewMissionTip' style='display: none'></div>
 
   <div id='contentContainer'>
     <div id='mainContent'>
@@ -105,11 +112,11 @@
         <div id='dataField16' class='dataField'></div>
         <div id='missionHistory' style='margin-top: 0px'>
           <button id='prevEventButton' class='historyButton' onclick='prevHistoryButton()'>&lt;</button>
-          <select id='prevEvent' style='margin: 2px; width: 53px'>
+          <select id='prevEvent' style='margin: 2px; width: 52px'>
             <option>Prev Event(s)</option>
           </select>
           <span id='dataLabel' style='display: inline'>Loading Data...</span>
-          <select id='nextEvent' style='margin: 2px; width: 53px'>
+          <select id='nextEvent' style='margin: 2px; width: 52px'>
             <option>Next Event(s)</option>
           </select>
           <button id='nextEventButton' class='historyButton' onclick='nextHistoryButton()'>&gt;</button>

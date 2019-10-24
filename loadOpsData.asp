@@ -292,11 +292,12 @@ elseif request.querystring("type") = "vessel" then
     end if
   end if
   if not rsResources.bof then
+    notNull = false
     for each field in rsResources.fields
       output = output & replace(field.name, " ", "") & "~" & field.value & "`"
+      if field.name <> "UT" and field.value <> "" then notNull = true
     next
-    output = left(output, len(output)-1)
-    output = output & "^"
+    output = output & "notNull~" & notNull & "^"
   else
     output = output & "null^"
   end if
@@ -350,11 +351,12 @@ elseif request.querystring("type") = "vessel" then
     end if
   end if
   if not rsComms.bof then
+    notNull = false
     for each field in rsComms.fields
       output = output & replace(field.name, " ", "") & "~" & field.value & "`"
+      if (field.name <> "UT" or field.name <> "Connection") and field.value <> "" then notNull = true
     next
-    output = left(output, len(output)-1)
-    output = output & "^"
+    output = output & "notNull~" & notNull & "^"
   else
     output = output & "null^"
   end if
@@ -428,15 +430,16 @@ elseif request.querystring("type") = "vessel" then
   else
     output = output & "null^"
   end if 
-  if not rsResources.eof then 
+  if not rsResources.eof then
+    notNull = false
     for each field in rsResources.fields
       output = output & replace(field.name, " ", "") & "~" & field.value & "`"
+      if field.name <> "UT" and field.value <> "" then notNull = true
     next
-    output = left(output, len(output)-1)
-    output = output & "^"
+    output = output & "notNull~" & notNull & "^"
   else
     output = output & "null^"
-  end if 
+  end if
   if not rsCrew.eof then 
     for each field in rsCrew.fields
       output = output & replace(field.name, " ", "") & "~" & field.value & "`"
@@ -446,15 +449,16 @@ elseif request.querystring("type") = "vessel" then
   else
     output = output & "null^"
   end if 
-  if not rsComms.eof then 
+  if not rsComms.eof then
+    notNull = false
     for each field in rsComms.fields
       output = output & replace(field.name, " ", "") & "~" & field.value & "`"
+      if field.name <> "UT" and field.value <> "" then notNull = true
     next
-    output = left(output, len(output)-1)
-    output = output & "^"
+    output = output & "notNull~" & notNull & "^"
   else
     output = output & "null^"
-  end if 
+  end if
   if not rsOrbit.eof then 
     for each field in rsOrbit.fields
       output = output & replace(field.name, " ", "") & "~" & field.value & "`"
@@ -497,37 +501,9 @@ elseif request.querystring("type") = "vessel" then
   end if
 
   'aaaand now the orbital changes history so we can calculate orbit count
+  if not rsOrbit.bof then rsOrbit.moveFirst
   if not rsOrbit.eof then
-
-    'get the time we entered the current SOI
-    index = -1
-    locations = split(rsCrafts.fields.item("SOI"), "|")
-    for each loc in locations
-      values = split(loc, ";")
-      if values(0)*1 <= UT then 
-        index = index + 1
-      end if
-    next 
-
-    'now find that point in the flight data
-    rsOrbit.MoveLast
-    UT = split(locations(index), ";")
-    do until rsOrbit.fields.item("UT") <= UT(0)*1
-      rsOrbit.MovePrevious
-      if rsOrbit.bof then exit do
-    Loop
-    
-    'is there a future SOI?
-    forwardUT = 0
-    if index < UBound(locations) then forwardUT = split(locations(index+1), ";")(0)*1
-    
-    output = output & rsOrbit.fields.item("UT") & "~" & rsOrbit.fields.item("Orbital Period") & "|"
-    rsOrbit.movenext  
     do until rsOrbit.eof
-    
-      'cancel out if we have reached the next SOI
-      'otherwise continue to compile data
-      if forwardUT > 0 and rsOrbit.fields.item("UT") >= forwardUT then exit do
       output = output & rsOrbit.fields.item("UT") & "~" & rsOrbit.fields.item("Orbital Period") & "|"
       rsOrbit.movenext  
     Loop
