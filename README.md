@@ -34,7 +34,7 @@ The following JavaScript libraries are used:
 
 ### Important Known Issues
 
-- **Operations Tracker is currently in active development with work being done on the live page, so visiting at times may cause browser errors, failures to load, etc. However after it has been worked on it is left in a usable state**
+- **Operations Tracker is currently in active development with work being done on the live page, so visiting at times may cause browser errors, failures to load, etc. However after it has been worked on it is left in a usable state, so try again later**
 - Leaflet map can be finicky in a number of ways - most notably it can sometimes load showing off the edge of the map or refuse to load tiles. It can also fail to render paths and markers or not allow you to properly hover for information over paths. Generally these issues can all be fixed by upsizing/downsizing or going fullscreen
 - The downsized default map view for vessel pages is not able to show position info for orbital plots when hovering over the lines. Sizing up the map or going fullscreen will enable this feature
 - Collapsing/Expanding the [Operations Menu](https://github.com/KSAMissionCtrl/OpsTracker/wiki/Navigation) can sometimes cause the entire area to go blank the next time something in it is clicked on
@@ -49,6 +49,54 @@ See all current bugs and future enhancements over in our [Issues Tracker](https:
 ### Change Log
 
 Versioning Key (v#1.#2.#3): #1=New features #2=Changes to existing features #3=Fixes to existing features
+
+**v11.0.0** (10/24/19)
+
+Fixes:
+  - The checkboxes for displaying/hiding orbit types for the [Orbital View](https://github.com/KSAMissionCtrl/OpsTracker/wiki/Orbital-View) no longer sometimes appears over the [Surface Map](https://github.com/KSAMissionCtrl/OpsTracker/wiki/Surface-Map)
+  - Orbital View now removes orbits of vessels that are no longer in orbit when the vessel is updated
+  - Tooltips for crew pages are now recreated properly when an update happens while the page is loaded
+  - The option to show all ribbons in [Crew Details](https://github.com/KSAMissionCtrl/OpsTracker/wiki/Crew-Roster#crew-details) has been restored
+  - Data fields for both crew and vessels that would flash to indicate updated data which actually did not contain any updated data now only flash when the data has actually been updated
+  - Mission listing in the Crew Details is now visible again while an active mission is in effect for the crew member
+  - When the [Event Calendar](https://github.com/KSAMissionCtrl/OpsTracker/wiki/Clock-&-Event-Calendar) updates, it now fetches the next event
+  - Event calendar scheduling code re-written to fix issues regarding finding the correct launch date to post following the launch of the current mission
+  - The link to the current scheduled launch now properly activates once crew pages are loaded
+  - Tooltips that were displayed when switching to another view, vessel or crew now are destroyed so they don't remain on the page
+  - The [custom pins layer](https://github.com/KSAMissionCtrl/OpsTracker/wiki/Surface-Map#layers-control) now no longer remain on the map when switching from the Surface Map to the map viewed for an individual vessel
+  - Countdown to the current active mission on a crew page now updates
+  - Final state of ascent telemetry is now properly shown for stuff like the image and status text that only updates once per second
+  - If a vessel is currently being viewed when it switches to an Inactive state the menu now properly updates to show it under the Inactive section
+  - Flag icon for the Surface Map now properly positions the bottom of its pole over the center of the location
+  - Tooltip for the number of orbits now properly displays if vessel only has a single [flight data record](https://github.com/KSAMissionCtrl/OpsTracker/wiki/Database-Documentation#flight-data-fields)
+  - Number of orbits calculation now takes into account mission termination
+  - Number of orbits calculation now calculates up to the current UT instead of the UT of the next update
+  - Prev/Next history buttons are no longer clipping their text
+  - Use of the [Orbit Filters](https://github.com/KSAMissionCtrl/OpsTracker/wiki/Orbital-View#vesselasteroid-filters) is now effective again
+  - The distance measuring tool on the Surface Map now accurately calculates distance
+  - When viewing the vessel listed in the Event Calendar as the next to launch, clicking on the calendar link for the vessel no longer reloads the page data
+  
+Changes:
+  - Functions now use prpper JS default variables in their definitions
+  - `UTtoDateTime` can now include an option to not return the full 4-digit year and instead just return a 2-digit year
+  - A new URL parameter `&live` can be used by the public to define a UT they want to wind the clock of the Ops Tracker back to. The site will behave as if that is the current time. Can not be used to see into the future
+  - Flag markers now show additional data and the format of what is shown has been changed. See the [DB reference](https://github.com/KSAMissionCtrl/OpsTracker/wiki/Database-Documentation#fields)
+  - When a [Surface Track](https://github.com/KSAMissionCtrl/OpsTracker/wiki/Surface-Map#surface-tracks) is loaded and the current UT falls somewhere between the start and end times of the track, a popup appears at the location of the track that is the closest match to the current UT
+  - When a Surface Track is loaded (not added) the map will resize to fit the track. If more than one track is loaded at once the map will resize to fit all tracks
+  - When a vessel updates to no longer include orbital data (it was destroyed in some way) those fields can now detect this and hide with the update
+  - MET/TBD tooltip is now constrained to the data fields box
+  - Clicking on the crew icon for a vessel will switch to that crew members information page. They will have a current mission field that will let you switch back to the vessel you came from
+  - When an empty record for Comms and Resources is found for the current update, these fields are now hidden with the update
+  - The icons for omni/dish vessel comms now visually show when these links are connected to KSC or not. The tooltip always had this information but not on an individual basis nor was it constantly visible
+  - Additional Resources is now labled Additional Information so that it is not confused with any extra resources that could be on the vessel
+  - The vessel [Info Box](https://github.com/KSAMissionCtrl/OpsTracker/wiki/Vessel-Details#the-info-box) now closes automatically when starting playback of ascent telemetry
+  - The page is no longer cached to help ensure that any updates are received by the viewer
+  - Crew assignment/status tooltips are now constrained to the data fields box
+  
+Additions:
+  - Crew that are deceased or retired are now recognized as such in that their Service Years is calculated up to the point of their death/retirement rather than up to the current time
+  - The trajectory for vessels can now show when and where the vessel is expected to exit the SOI or come into contact with the atmosphere of Kerbin
+  - During the display of ascent telemetry all fields can now be configured to show warning (yellow flashes) or error (red flashes) notifications to better help the viewer understand when the rocket performance is not in line with expectactions and what aspect(s) of the ascent is not going well
 
 **v10.1.0** (6/3/19)
 
