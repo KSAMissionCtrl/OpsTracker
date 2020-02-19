@@ -1,4 +1,8 @@
+// refactor complete (for launch events only)
+
 function loadEventsAJAX(xhttp) {
+  strCurrentLaunchVessel = "";
+  strCurrentManeuverVessel = "";
 
   // stop both spinners
   $("#launch").spin(false);
@@ -7,115 +11,97 @@ function loadEventsAJAX(xhttp) {
   // separate the launch & maneuver event returns
   var events = xhttp.responseText.split("^");
 
-  // by default, there are no future events
-  writeLaunchInfo();
-  writeManeuverinfo();
-
-  // reset the cooldown so we can write any new data
-  isLaunchEventCoolingDown = false;
-  isManeuverEventCoolingDown = false;
-
   // is there an upcoming launch?
   var launches = events[0].split("|");
   if (launches[0] != "null") {
 
-    // load the launches into a list and sort it smallest to largest visible UT
+    // load the launches into a list, already sorted by name and UT
     var launchEventList = [];
+    var firstLaunchTime = 9999999999;
     launches.forEach(function(launchEvent) {
       var launchDetails = launchEvent.split(";");
       launchEventList.push({UT: parseFloat(launchDetails[0]),
                             LaunchTime: parseFloat(launchDetails[1]),
-                            DB: launchDetails[2],
+                            db: launchDetails[2],
                             Title: launchDetails[3],
                             Desc: launchDetails[4]
                           });
+
+      // decide if this vessel still has yet to launch and is launching first
+      if (strCurrentLaunchVessel != launchDetails[2] && launchDetails[1] < firstLaunchTime && launchDetails[1] > currUT()) {
+        strCurrentLaunchVessel = launchDetails[2];
+        firstLaunchTime = launchDetails[1];
+      }
     });
-    launchEventList.sort(function(a,b) {return (a.UT > b.UT) ? 1 : ((b.UT > a.UT) ? -1 : 0);} );
-    console.log(launchEventList)
 
-    // start with the closest launch time and work forwards
-    var launchEvent;
-    for (launchEvent=0; launchEvent<launchEventList.length; launchEvent++) {
-
-      // holds are only for current launches, so jump straight through to the display
-      if (launchEventList[launchEvent].LaunchTime == 0) {
-        writeLaunchInfo(launchEventList[launchEvent]);
-        break;
-      }
-      else {
-
-        // if this launch date announcement is still forthcoming, stash the update info
-        if (launchEventList[launchEvent].UT > currUT()) {
-          updatesList.push({ Type: "event", UT: launchEventList[launchEvent].UT });
-          break;
-        } 
-        
-        // if the launch date announcement is already visible...
-        else if (launchEventList[launchEvent].UT < currUT()) {
-
-          // if the launch is still to come, display it
-          if (launchEventList[launchEvent].LaunchTime > currUT()) {
-            writeLaunchInfo(launchEventList[launchEvent]);
-            break;
-          }
-        }
-      }
+    // find the current launch event attributed to the launch vessel, if there is one that still hasn't launched
+    var launchData = null;
+    if (strCurrentLaunchVessel.length) {
+      launchEventList.forEach(function(vessel) {
+        if (vessel.UT <= currUT() && vessel.db == strCurrentLaunchVessel && 
+        (vessel.LaunchTime > currUT() || vessel.LaunchTime == vessel.UT))   // also check that this is a hold
+        launchData = vessel;
+      });
     }
+    writeLaunchInfo(launchData);
 
-    // if we didn't work through the whole list or already added a future update, find the next one
-    if (launchEvent < launchEventList.length-1 && updatesList.length == updatesListSize) {
-      for (launchEvent++; launchEvent<launchEventList.length; launchEvent++){
-        if (launchEventList[launchEvent].UT > currUT()) {
-          updatesList.push({ Type: "event", UT: launchEventList[launchEvent].UT });
-          break;
-        }
+    // find the next update attributed to the launch vessel
+    launchEventList.forEach(function(vessel) {
+      if (vessel.UT > currUT() && vessel.db == strCurrentLaunchVessel && ops.updatesList.length == ops.updatesListSize) {
+        ops.updatesList.push({ type: "event", UT: vessel.UT });
       }
+    });
+
+    // if we didn't find a future update for the current launch vehicle, try to find any future update
+    if (ops.updatesList.length == ops.updatesListSize) {
+      launchEventList.forEach(function(vessel) {
+        if (vessel.UT > currUT() && ops.updatesList.length == ops.updatesListSize) {
+          ops.updatesList.push({ type: "event", UT: vessel.UT });
+        }
+      }); 
     }
-  }
+  } else writeLaunchInfo();
 
   // is there an upcoming maneuver?
   var maneuvers = events[1].split("|");
   if (maneuvers[0] != "null") {
-  
-    // is this maneuver scheduled to appear already?
-    fields = maneuvers[0].split(";");
-    if (fields[0] <= currUT()) {
-      writeManeuverinfo(maneuvers[0]);
-      
-      // if there is another maneuver scheduled after this one, schedule the update
-      if (maneuvers[1] != "null") updatesList.push({ Type: "event", ID: "maneuver", UT: parseFloat(maneuvers[1].split(";")[0]), Data: maneuvers[1] });
-    
-    // otherwise this is an update that will happen in the future
-    } else {
-      updatesList.push({ Type: "event", ID: "maneuver", UT: parseFloat(fields[0]), Data: maneuvers[0] });
-      writeManeuverinfo();
-    }
+
+    // to be completed once the launch selection works as intended
+
   } else writeManeuverinfo();
   
-  // do the menu load after event load so the event box is always sized before the menu
-  isEventDataLoaded = true;
-  if (!isMenuDataLoaded) loadDB("loadMenuData.asp?UT=" + (currUT()), loadMenuAJAX);
+  // do the menu load after events load so the event box is always sized before the menu
+  if (!isMenuDataLoaded) loadDB("loadMenuData.asp?UT=" + currUT(), loadMenuAJAX);
+
+  // if this is a crew page, no need to wait for GGB to load
+  if (ops.pageType.includes("crew")) activateEventLinks();
 }
 
 function writeLaunchInfo(data) {
-  console.log(data)
-  if (isLaunchEventCoolingDown) return;
   var size = w2utils.getSize("#launch", 'height');
   var currHTML = $("#launch").html();
   if (data) {
     var strHTML = "<strong>Next Launch</strong><br>";
-
-    strHTML += "<span id='launchLink' db='" + data.DB + "'>" + wrapText(150, data.Title, 16) + "</span><br>";
-    strCurrentLaunchVessel = data.DB;
+    strHTML += "<span id='launchLink' db='" + data.db + "'>" + wrapText(100, data.Title, 16) + "</span><br>";
     
     // regular launch, or hold event?
-    if (data.LaunchTime > 0) {
+    if (data.LaunchTime != data.UT) {
       strHTML += "<span id='launchTime'>" + UTtoDateTime(data.LaunchTime, true, false) + "</span><br>"
       strHTML += "<span id='launchCountdown'>" + formatTime(data.LaunchTime - currUT()) + "</span>";
       launchCountdown = data.LaunchTime;
     } else {
       strHTML += "<span id='launchTime'>COUNTDOWN HOLD</span><br><span id='launchCountdown'>Awaiting new L-0 time</span>";
       launchCountdown = "null";
+
+      // if we are actively viewing the vessel, update the launch text
+      if (ops.currentVessel && ops.currentVessel.Catalog.DB == strCurrentLaunchVessel && ops.pageType == "vessel") {
+        flashUpdate("#dataField0", "#77C6FF", "#FFF");
+        $("#dataField0").html("<b>" + ops.currentVessel.CraftData.MissionStartTerm + ":</b><span style='cursor:help' class='tip-update' data-tipped-options=\"inline: 'metTip', maxWidth: 300\"> <u>To Be Determined</u>");
+        $("#metTip").html("launch time currently being assessed");
+        if (is_touch_device()) { showOpt = 'click'; }
+        else { showOpt = 'mouseenter'; }
+        Tipped.create('.tip-update', { showOn: showOpt, hideOnClickOutside: is_touch_device(), detach: false, hideOn: {element: 'mouseleave'} });
+      }
     }
     $("#launch").html(strHTML);
     
@@ -129,7 +115,7 @@ function writeLaunchInfo(data) {
     size = w2utils.getSize("#launch", 'height');
     if (size < w2utils.getSize("#maneuver", 'height')) size = w2utils.getSize("#maneuver", 'height');
     $("#eventBox").css("height", (37 + size) + "px");
-    $('#menuBox').css("height", (maxMenuHeight - w2utils.getSize("#eventBox", 'height')) + "px"); 
+    $('#menuBox').css("height", (ops.maxMenuHeight - w2utils.getSize("#eventBox", 'height')) + "px"); 
     setTimeout(function() { 
       if (isMenuDataLoaded) {
         w2ui['menu'].refresh();
@@ -144,14 +130,9 @@ function writeLaunchInfo(data) {
     flashUpdate("#launch", "#FF0000", "#77C6FF");
     activateEventLinks();
   }
-
-  // don't let another update happen for 2 seconds in case there are some rapid-fire events of the same vessel
-  isLaunchEventCoolingDown = true;
-  setTimeout(function() { isLaunchEventCoolingDown = false; }, 2000);
 }
 
 function writeManeuverinfo(data) {
-  if (isManeuverEventCoolingDown) return;
   var size = w2utils.getSize("#maneuver", 'height');
   var currHTML = $("#maneuver").html();
   if (data) {
@@ -171,7 +152,7 @@ function writeManeuverinfo(data) {
     size = w2utils.getSize("#maneuver", 'height');
     if (size < w2utils.getSize("#launch", 'height')) size = w2utils.getSize("#launch", 'height');
     $("#eventBox").css("height", (37 + size) + "px");
-    $('#menuBox').css("height", (maxMenuHeight - w2utils.getSize("#eventBox", 'height')) + "px"); 
+    $('#menuBox').css("height", (ops.maxMenuHeight - w2utils.getSize("#eventBox", 'height')) + "px"); 
     setTimeout(function() { 
       if (isMenuDataLoaded) {
         w2ui['menu'].refresh();
@@ -186,13 +167,6 @@ function writeManeuverinfo(data) {
     flashUpdate("#maneuver", "#FF0000", "#77C6FF");
     activateEventLinks();
   }
-
-  // don't let another update happen for 2 seconds in case there are some rapid-fire events of the same vessel
-  isManeuverEventCoolingDown = true;
-  setTimeout(function() { isManeuverEventCoolingDown = false; }, 2000);
-
-  // if this is a crew page, no need to wait for GGB to load
-  if (pageType == "crew") activateEventLinks();
 }
 
 // called once the GGB figure is done loading so switching to a vessel doesn't cut off the load

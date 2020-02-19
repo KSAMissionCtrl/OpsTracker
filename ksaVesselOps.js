@@ -1,60 +1,56 @@
-// available content height: 480px (initially) / 885px (Max)
-function loadVessel(vessel, givenUT) {
-  if (!givenUT) givenUT = "NaN";
+// refactor complete
 
-  // can't continue if menu data hasn't loaded. Try again in 250ms
-  if (!isMenuDataLoaded) {
-    setTimeout(function() {
-      loadVessel(vessel, givenUT);
-    }, 250)
-    return;
-  }
+function loadVessel(vessel, givenUT) {
+  if (!givenUT) givenUT = currUT();
+
+  // can't continue if menu data hasn't loaded
+  if (!isMenuDataLoaded) return setTimeout(loadVessel, 50, vessel, givenUT);
   
   // we can't let anyone jump to a UT later than the current UT
-  if (!isNaN(givenUT) && givenUT > currUT() && !getCookie("missionctrl")) { givenUT = "NaN"; }
-  vesselPastUT = givenUT;
+  if (givenUT > currUT() && !getCookie("missionctrl")) givenUT = currUT();
   
+  // compose the the URL that will appear in the address bar when the history state is updated
+  var strURL = "http://www.kerbalspace.agency/TrackerDev1/tracker.asp?vessel=" + vessel;
+
+  // if the UTs don't match then we are being sent to another time and should add it to the URL
+  if (givenUT != currUT()) strURL += "&ut=" + givenUT;
+
+  // if this is the first page to load, replace the current history, otherwise update it
+  if (!history.state) history.replaceState({type: "vessel", id: vessel, UT: givenUT}, document.title, strURL);
+  else history.pushState({type: "vessel", id: vessel, UT: givenUT}, document.title, strURL);
+
   // we changed the DB name for these vessels. Allow old links to still work
   if (vessel.includes("ascensionmk1b1")) vessel = vessel.replace("mk1b1", "mk1");
-  
-  // if this is the first page to load, replace the current history
-  var strURL;
-  if (!history.state) {
-    if (window.location.href.includes("&ut")) {
-      var strURL = window.location.href;
-      givenUT = parseInt(getParameterByName("ut"));
-    }
-    else var strURL = "http://www.kerbalspace.agency/Tracker/tracker.asp?vessel=" + vessel;
-    history.replaceState({Type: "vessel", ID: vessel, UT: parseInt(givenUT)}, document.title, strURL);
-    
-  // don't create a new entry if this is the same page being reloaded
-  // however if its the same page but a different time, then that's different
-  } else if (history.state.ID != vessel || (history.state.ID == vessel && givenUT != "NaN")) {
-    if (givenUT != "NaN") var strURL = "http://www.kerbalspace.agency/Tracker/tracker.asp?vessel=" + vessel + "&ut=" + givenUT;
-    else var strURL = "http://www.kerbalspace.agency/Tracker/tracker.asp?vessel=" + vessel;
-    history.pushState({Type: "vessel", ID: vessel, UT: parseInt(givenUT)}, document.title, strURL);
-  } 
 
-  // if this vessel is not in the current system, we need to load a new system
-  // unless the system that is the current system is not yet loaded
-  // we can't call this function until the menu is loaded
-  if (getParentSystem(vessel) != strCurrentBody || (getParentSystem(vessel) == strCurrentBody && !isGGBAppletLoaded)) loadBody(getParentSystem(vessel));
-  
-  strCurrentVessel = vessel;
-  
+  // we need to make sure the current surface map is proper for this vessel
+  var strParentBody = getParentSystem(vessel);
+  if (strParentBody == "inactive") {
+    var soiList = ops.craftsMenu.find(o => o.db === vessel).soi.split("|");
+    
+    // last element is always the inactive body ID so pop & check the next one
+    soiList.pop();
+    var lastSOI = soiList.pop();
+    strParentBody = ops.bodyCatalog.find(o => o.ID === parseInt(lastSOI.split(";")[1])).Body;
+  }
+  if (!ops.surface.Data || (ops.surface.Data && ops.surface.Data.Name != strParentBody.replace("-System", ""))) loadBody(strParentBody);
+
   // select and show it in the menu
-  w2ui['menu'].select(strCurrentVessel);
-  w2ui['menu'].expandParents(strCurrentVessel);
-  w2ui['menu'].scrollIntoView(strCurrentVessel);
+  selectMenuItem(vessel);
 
   // loading spinners - activate!
   $("#infoBox").spin({ position: 'relative', top: '50%', left: '50%' });
   $("#contentBox").spin({ position: 'relative', top: '50%', left: '50%' });
   $("#dataLabel").html("Loading Data...");
   
-  // put out the call for the vessel data
-  currentVesselData = null;
-  loadVesselAJAX(null, givenUT);
+  // delete the current vessel data and put out the call for new vessel data
+  if (ops.currentVessel) {
+    ops.currentVessel.AscentData.length = 0;
+    ops.currentVessel.History.length = 0;
+    ops.currentVessel.LaunchTimes.length = 0;
+    ops.currentVessel.OrbitalHistory.length = 0;
+    ops.currentVessel = null;
+  }
+  loadDB("loadVesselData.asp?db=" + vessel + "&ut=" + givenUT, loadVesselAJAX);
   
   // add vessel-specific buttons to the map
   addMapResizeButton();
@@ -64,187 +60,138 @@ function loadVessel(vessel, givenUT) {
   lowerContent();
   
   // close any popups
-  if (vesselPositionPopup && surfaceMap) surfaceMap.closePopup(vesselPositionPopup); 
+  if (vesselPositionPopup && ops.surface.map) ops.surface.map.closePopup(vesselPositionPopup); 
 
   // we can't be switching vessels while loading any plot data so if it's in progress, kill it
-  if (layerControl && !layerControl.options.collapsed) { 
+  if (ops.surface.layerControl && !ops.surface.layerControl.options.collapsed) { 
     isOrbitRenderTerminated = true;
-    layerControl._collapse();
-    layerControl.options.collapsed = true;
-    if (surfaceTracksDataLoad.obtTrackDataLoad) layerControl.removeLayer(surfaceTracksDataLoad.obtTrackDataLoad);
+    ops.surface.layerControl._collapse();
+    ops.surface.layerControl.options.collapsed = true;
+    if (surfaceTracksDataLoad.obtTrackDataLoad) ops.surface.layerControl.removeLayer(surfaceTracksDataLoad.obtTrackDataLoad);
     surfaceTracksDataLoad.obtTrackDataLoad = null;
     clearSurfacePlots();
-    currentVesselPlot = null;
-    vesselMarker = null;
   }
 }
 
 // parses data used to display information on parts for vessels
 function loadPartsAJAX(xhttp) {
   xhttp.responseText.split("^").forEach(function(item) { partsCatalog.push(rsToObj(item)); });
-  console.log(partsCatalog);
+}
+
+// parses data used to drive the live/replay ascent telemetry
+function loadAscentAJAX(xhttp) {
+  ops.ascentData.telemetry.length = 0;
+  xhttp.responseText.split("|").forEach(function(item) { ops.ascentData.telemetry.push(rsToObj(item)); });
+  setupStreamingAscent();
 }
 
 // parses data that shows up for the vessel currently selected in the menu
-function loadVesselAJAX(xhttp, time) {
+function loadVesselAJAX(xhttp) {
 
-  // if the call was made to get data, we should have data
-  if (xhttp) {
-
-    // separate the main data segments
-    var data = xhttp.responseText.split("Typ3vessel")[1].split("*");
-    
-    // the vessel catalog data is first
-    var catalog = rsToObj(data[0]);
-
-    // any ascent data is always accessible
-    var ascentData = [];
-    if (data[1] != "null") {
-      data[1].split("|").forEach(function(item) { 
-        var dataObj = rsToObj(item);
-        ascentData.push(dataObj);
-      });
-    }
-    
-    // the various tables of the current record are next
-    var dataTables = data[2].split("^");
-    var craft = rsToObj(dataTables[0]);
-    var resources = rsToObj(dataTables[1]);
-    var crew = rsToObj(dataTables[2]);
-    var comms = rsToObj(dataTables[3]);
-    var obt = rsToObj(dataTables[4]);
-    var ports = rsToObj(dataTables[5]);
-
-    // skip the future data, we only care about the curent data
-
-    // parse and sort the histories and launch times
-    var history = [];
-    var launches = [];
-    var obtHist = [];
-    data[4].split("|").forEach(function(item) { history.push({UT: parseFloat(item.split("~")[0]), Title: item.split("~")[1]}); });
-    if (data[5].split("|") != "null") {
-      data[5].split("|").forEach(function(item) { launches.push({UT: parseFloat(item.split("~")[0]), LaunchTime: parseFloat(item.split("~")[1])}); });
-    }
-    if (data[6].split("|") != "null") {
-      data[6].split("|").forEach(function(item) { obtHist.push({UT: parseFloat(item.split("~")[0]), Period: parseFloat(item.split("~")[1])}); });
-    }
-    
-    // store all the data
-    currentVesselData = { CatalogData: catalog,
-                          CraftData: craft,
-                          Resources: resources,
-                          Manifest: crew,
-                          Comms: comms,
-                          Ports: ports,
-                          Orbit: obt,
-                          History: history,
-                          LaunchTimes: launches,
-                          OrbitalHistory: obtHist,
-                          ascentData: ascentData };
+  // separate the main data segments
+  var data = xhttp.responseText.split("Typ3")[1].split("*");
   
-  // try to fetch the data from the catalog
-  } else {
+  // the vessel catalog data is first
+  var catalog = rsToObj(data[0]);
 
-    // if we are not looking for a past date, we may be able to just pull from catalog data
-    if (time == "NaN") {
-      var vessel = opsCatalog.find(o => o.ID === strCurrentVessel);
-      
-      // copy over the data if it is available
-      // was originally just doing currentVesselData = vessel.CurrentData but this created a reference link!!
-      if (vessel && vessel.CurrentData) {
-        currentVesselData = {};
-        for (var prop in vessel.CurrentData) {
-          currentVesselData[prop] = vessel.CurrentData[prop];
-        }
-        currentVesselData.ascentData = vessel.ascentData;
+  // any ascent data available?
+  var ascentData = [];
+  if (data[1] != "false") {
 
-      // get the data if it hasn't been loaded yet, then callback to wait for it to load
-      } else if (vessel && !vessel.CurrentData && !vessel.isLoading) {
-        vessel.isLoading = true;
-        loadDB("loadOpsData.asp?db=" + strCurrentVessel + "&ut=" + currUT() + "&type=vessel" + "&pastUT=NaN", loadOpsDataAJAX);
-        return setTimeout(loadVesselAJAX, 100, xhttp, time);
-      
-      // callback to check the catalog again if it's loading right now
-      } else if (vessel && !vessel.CurrentData && vessel.isLoading) {
-        return setTimeout(loadVesselAJAX, 100, xhttp, time);
-      
-      // if it's not in the catalog we need to do a data call for an inactive vessel
-      } else if (!vessel) {
-        return loadDB("loadOpsData.asp?db=" + strCurrentVessel + "&ut=" + currUT() + "&type=vessel" + "&pastUT=NaN", loadVesselAJAX);
-      }
-    
-    // we are getting a past event that we will need to fetch new data for
-    } else {
-      return loadDB("loadOpsData.asp?db=" + strCurrentVessel + "&ut=" + currUT() + "&type=vessel" + "&pastUT=" + time, loadVesselAJAX);
-    }
+    // only the start and end times of the ascent data are loaded initially
+    data[1].split("~").forEach(function(item) { ascentData.push(parseFloat(item)); });
   }
-  launchTime = null;
-
-  // kill all spinners
-  $("#infoBox").spin(false);
-  $("#contentBox").spin(false);
   
+  // the various tables of the current record are next
+  var dataTables = data[2].split("^");
+  var craft = rsToObj(dataTables[0]);
+  var resources = rsToObj(dataTables[1]);
+  var crew = rsToObj(dataTables[2]);
+  var comms = rsToObj(dataTables[3]);
+  var obt = rsToObj(dataTables[4]);
+  var ports = rsToObj(dataTables[5]);
+
+  // parse and sort the histories and launch times
+  var history = [];
+  var launches = [];
+  var obtHist = [];
+  data[3].split("|").forEach(function(item) { history.push({UT: parseFloat(item.split("~")[0]), Title: item.split("~")[1]}); });
+  if (data[4].split("|") != "null") {
+    data[4].split("|").forEach(function(item) { launches.push({UT: parseFloat(item.split("~")[0]), LaunchTime: parseFloat(item.split("~")[1])}); });
+  }
+  if (data[5].split("|") != "null") {
+    data[5].split("|").forEach(function(item) { obtHist.push({UT: parseFloat(item.split("~")[0]), Period: parseFloat(item.split("~")[1])}); });
+  }
+
+  // store all the data
+  ops.currentVessel = { Catalog: catalog,
+                        CraftData: craft,
+                        Resources: resources,
+                        Manifest: crew,
+                        Comms: comms,
+                        Ports: ports,
+                        Orbit: obt,
+                        History: history,
+                        LaunchTimes: launches,
+                        OrbitalHistory: obtHist,
+                        AscentData: ascentData };
+  if (ops.currentVessel.Resources) ops.currentVessel.Resources.resIndex = 0;
+  
+  // look for the closest recent event to this UT and see if it matches the current craft data to check if it is a past event
+  var histIndex;
+  for (histIndex = ops.currentVessel.History.length-1; histIndex >= 0; histIndex--) {
+    if (ops.currentVessel.History[histIndex].UT <= currUT()) break;
+  }
+  if (ops.currentVessel.CraftData.UT < ops.currentVessel.History[histIndex].UT) ops.currentVessel.CraftData.pastEvent = true;
+
   // setup the content header sections
   $("#contentHeader").html("<span id='patches'></span>&nbsp;<span id='title'></span>&nbsp;<span id='tags'></span>");
 
   // update with the vessel name for this record
   vesselTitleUpdate();
-  
+
   // tag loading
   //$("#tags").spin({ scale: 0.35, position: 'relative', top: '10px', left: (((955/2) + (strVesselName.width('bold 32px arial')/2)) + 10) +'px' });
   
   // update the twitter timeline only if the current one loaded isn't already the one we want to load
   var thisTimeline = '';
-  if (currentVesselData.CatalogData.Timeline) {
-    thisTimeline = currentVesselData.CatalogData.Timeline.split(";")[1];
-    if (!thisTimeline) thisTimeline = currentVesselData.CatalogData.Timeline;
+  if (ops.currentVessel.Catalog.Timeline) {
+    thisTimeline = ops.currentVessel.Catalog.Timeline.split(";")[1];
+    if (!thisTimeline) thisTimeline = ops.currentVessel.Catalog.Timeline;
   }
-  if (thisTimeline != twitterSource) vesselTimelineUpdate();
+  if (thisTimeline != ops.twitterSource) vesselTimelineUpdate();
   
-  $("#patches").empty();
-  if (currentVesselData.CatalogData.Patches) {
-    
+  if (ops.currentVessel.Catalog.Patches) {
+
     // program patch
-    $("#patches").append("<a target='_blank' href='" + currentVesselData.CatalogData.Patches.split("|")[0].split(";")[2] + "'><img id='programPatch' class='tipped' data-tipped-options=\"position: 'bottom'\" style='height: 35px;' title=\"<center>Click to view the " + currentVesselData.CatalogData.Patches.split("|")[0].split(";")[0] + " Program page</center><br /><img src='" + currentVesselData.CatalogData.Patches.split("|")[0].split(";")[1] + "'>\" src='" + currentVesselData.CatalogData.Patches.split("|")[0].split(";")[1] + "'></a>&nbsp;");
+    $("#patches").append("<a target='_blank' href='" + ops.currentVessel.Catalog.Patches.split("|")[0].split(";")[2] + "'><img id='programPatch' class='tipped' data-tipped-options=\"position: 'bottom'\" style='height: 35px;' title=\"<center>Click to view the " + ops.currentVessel.Catalog.Patches.split("|")[0].split(";")[0] + " Program page</center><br /><img style='height: 500px;' src='" + ops.currentVessel.Catalog.Patches.split("|")[0].split(";")[1] + "'>\" src='" + ops.currentVessel.Catalog.Patches.split("|")[0].split(";")[1] + "'></a>&nbsp;");
     
-    // vessel patch?
-    if (currentVesselData.CatalogData.Patches.split("|").length > 1) {
-      $("#patches").append("<a target='_blank' href='" + currentVesselData.CatalogData.Patches.split("|")[1].split(";")[2] + "'><img id='vesselPatch' class='tipped' data-tipped-options=\"position: 'bottom'\" style='height: 35px; cursor: pointer;' title=\"<center>Click to view the " + currentVesselData.CatalogData.Patches.split("|")[1].split(";")[0] + " vessel page</center><br /><img src='" + currentVesselData.CatalogData.Patches.split("|")[1].split(";")[1] + "'>\" src='" + currentVesselData.CatalogData.Patches.split("|")[1].split(";")[1] + "'></a>&nbsp;");
+    // vessel patch has a URL?
+    if (ops.currentVessel.Catalog.Patches.split("|")[1].split(";").length > 2) {
+      $("#patches").append("<a target='_blank' href='" + ops.currentVessel.Catalog.Patches.split("|")[1].split(";")[2] + "'><img id='vesselPatch' class='tipped' data-tipped-options=\"position: 'bottom'\" style='height: 35px; cursor: pointer;' title=\"<center>Click to view the " + ops.currentVessel.Catalog.Patches.split("|")[1].split(";")[0] + " vessel page</center><br /><img style='height: 500px;' src='" + ops.currentVessel.Catalog.Patches.split("|")[1].split(";")[1] + "'>\" src='" + ops.currentVessel.Catalog.Patches.split("|")[1].split(";")[1] + "'></a>&nbsp;");
+    } else {
+      $("#patches").append("<img id='vesselPatch' class='tipped' data-tipped-options=\"position: 'bottom'\" style='height: 35px; cursor: help;' title=\"<img style='height: 500px;' src='" + ops.currentVessel.Catalog.Patches.split("|")[1].split(";")[1] + "'>\" src='" + ops.currentVessel.Catalog.Patches.split("|")[1].split(";")[1] + "'>&nbsp;");
     }
 
     // mission patch?
-    if (currentVesselData.CatalogData.Patches.split("|").length > 2) {
-      $("#patches").append("<img id='missionPatch' class='tipped' data-tipped-options=\"position: 'bottom'\" style='height: 35px; cursor: help;' title=\"<img src='" + currentVesselData.CatalogData.Patches.split("|")[2].split(";")[1] + "<br /><center>" + currentVesselData.CatalogData.Patches.split("|")[2].split(";")[0] + "</center>' src='" + currentVesselData.CatalogData.Patches.split("|")[2].split(";")[1] + "'>&nbsp;");
+    if (ops.currentVessel.Catalog.Patches.split("|").length > 2) {
+      $("#patches").append("<img id='missionPatch' class='tipped' data-tipped-options=\"position: 'bottom'\" style='height: 35px; cursor: help;' title=\"<img style='height: 500px;' src='" + ops.currentVessel.Catalog.Patches.split("|")[2].split(";")[1] + "'><br /><center>Mission Payload</center>\" src='" + ops.currentVessel.Catalog.Patches.split("|")[2].split(";")[1] + "'>&nbsp;");  
     }
   }
 
   // no orbit data or mission ended? Close the dialog in case it is open
-  if (!currentVesselData.Orbit || isMissionEnded()) $("#mapDialog").dialog("close");
+  if (!ops.currentVessel.Orbit || isMissionEnded()) $("#mapDialog").dialog("close");
   
-  // if this is an inactive vessel, load the body the vessel was last in
-  if (getParentSystem(currentVesselData.CatalogData.DB) == "inactive") { 
-    var soiList = currentVesselData.CatalogData.SOI.split("|");
-    
-    // last element is always the inactive body ID
-    soiList.pop();
-    var lastBody = soiList.pop();
-    if (strCurrentBody != bodyCatalog.find(o => o.ID === parseInt(lastBody.split(";")[1])).Body + "-System") {
-      strCurrentBody = bodyCatalog.find(o => o.ID === parseInt(lastBody.split(";")[1])).Body + "-System";
-      loadMap();
-    }
-  }
-
-  // always update the vessel history because we need to be able to page back & forth even during an ascent
-  vesselHistoryUpdate();
-
   // is there ascent data available right now?
-  if (currentVesselData.ascentData.length 
-  && !currentVesselData.CraftData.PastEvent                                             // does not apply to past events
-  && (currentVesselData.ascentData[0].UT-30 <= currUT()                                 // time is 30s prior to start of ascent data
-  && currentVesselData.ascentData[currentVesselData.ascentData.length-1].UT > currUT()  // and time still remains in the ascent data
+  if (ops.currentVessel.AscentData.length 
+  && !ops.currentVessel.CraftData.pastEvent                                           // does not apply to past events
+  && (ops.currentVessel.AscentData[0]-randomIntFromInterval(20,26) <= currUT()        // time is 20-26s prior to start of ascent data
+  && ops.currentVessel.AscentData[ops.currentVessel.AscentData.length-1] > currUT()   // and time still remains in the ascent data
   )) {
-    setupStreamingAscent();
-    vesselInfoUpdate();
+    loadAscentData();
+
+    // dunno why this was called
+    // vesselInfoUpdate();
   }
 
   // just a normal update then
@@ -254,6 +201,7 @@ function loadVesselAJAX(xhttp, time) {
     ascentEnd();
 
     // display all the updateable data
+    vesselHistoryUpdate();
     vesselInfoUpdate();
     vesselMETUpdate();
     vesselVelocityUpdate();
@@ -265,22 +213,21 @@ function loadVesselAJAX(xhttp, time) {
     vesselCrewUpdate();
     vesselResourcesUpdate();
     vesselCommsUpdate();
-    vesselAddlResUpdate();
+    vesselAddlInfoUpdate();
+    vesselRelatedUpdate();
     vesselLastUpdate();
     vesselContentUpdate();
     
     // check if this is a launch event
-    if (currentVesselData.CraftData.CraftDescTitle.toLowerCase().includes("+0:00")
-    && currentVesselData.CraftData.PastEvent                                              // make sure it happened in the past
-    && currentVesselData.ascentData.length                                                // make sure there is ascent data
-    && currentVesselData.ascentData[currentVesselData.ascentData.length-1].UT <= currUT() // make sure the ascent isn't going on right now
+    if (ops.currentVessel.CraftData.CraftDescTitle.toLowerCase().includes("+0:00")
+    && ops.currentVessel.CraftData.pastEvent                                            // make sure it happened in the past
+    && ops.currentVessel.AscentData.length                                              // make sure there is ascent data
     ){
-      $("#dataField12").html("<center><span class='fauxLink' onclick='setupStreamingAscent()'>Ascent Data Available - Click to View</span></center>");
-      $("#dataField12").fadeIn();
-    } else $("#dataField12").fadeOut();
+      $("#dataField13").html("<center><span class='fauxLink' onclick='loadAscentData()'>Ascent Data Available - Click to View</span></center>");
+      $("#dataField13").fadeIn();
+    } else $("#dataField13").fadeOut();
 
     // hide the rest of the fields that are unused for now
-    $("#dataField13").fadeOut();
     $("#dataField14").fadeOut();
     $("#dataField15").fadeOut();
     $("#dataField16").fadeOut();
@@ -288,10 +235,10 @@ function loadVesselAJAX(xhttp, time) {
 
   // create the tooltips
   // behavior of tooltips depends on the device
-  if (is_touch_device()) { showOpt = 'click'; }
-  else { showOpt = 'mouseenter'; }
-  Tipped.create('.tipped', { showOn: showOpt, hideOnClickOutside: is_touch_device(), detach: false, hideOn: {element: 'mouseleave'} });
-  Tipped.create('.tip-update', { showOn: showOpt, hideOnClickOutside: is_touch_device(), detach: false, hideOn: {element: 'mouseleave'} });
+  if (is_touch_device()) showOpt = 'click';
+  else showOpt = 'mouseenter';
+  Tipped.create('.tipped', { showOn: showOpt, hideOnClickOutside: is_touch_device(), detach: false, hideOn: { element: 'mouseleave'} });
+  Tipped.create('.tip-update', { showOn: showOpt, hideOnClickOutside: is_touch_device(), detach: false, hideOn: { element: 'mouseleave'} });
 }
 
 function vesselTimelineUpdate(update) {
@@ -300,46 +247,49 @@ function vesselTimelineUpdate(update) {
   if ($("#twitterTimelineSelection").html().includes("|") && !update) swapTwitterSource();
   
   // only check for an existing mission feed if this is an update call, otherwise it could alredy exist from another craft when only switching vessels
-  if (currentVesselData.CatalogData.Timeline) { 
+  if (ops.currentVessel.Catalog.Timeline) { 
     
     // if this timeline is date stamped, don't show it unless we are past the date
-    if (currentVesselData.CatalogData.Timeline.split(";").length > 1) {
-      if (currUT() > parseFloat(currentVesselData.CatalogData.Timeline.split(";")[0])) { 
+    if (ops.currentVessel.Catalog.Timeline.split(";").length > 1) {
+      if (currUT() > parseFloat(ops.currentVessel.Catalog.Timeline.split(";")[0])) { 
         if (!update || (update && !$("#twitterTimelineSelection").html().includes("Mission Feed"))) {
-          swapTwitterSource("Mission Feed", currentVesselData.CatalogData.Timeline.split(";")[1]);
+          swapTwitterSource("Mission Feed", ops.currentVessel.Catalog.Timeline.split(";")[1]);
           if (update) flashUpdate("#twitterTimelineSelection", "#77C6FF", "#FFF");
         }
       
       // not yet to the time, so setup an update call, but don't bother if this mission is over
       } else if (!isMissionEnded()) {
-        updatesList.push({ Type: "object", ID: currentVesselData.CatalogData.DB, UT: parseFloat(currentVesselData.CatalogData.Timeline.split(";")[0]) });
+        ops.updatesList.push({ type: "object", id: ops.currentVessel.Catalog.DB, UT: parseFloat(ops.currentVessel.Catalog.Timeline.split(";")[0]) });
       }
-    } else if (!update) swapTwitterSource("Mission Feed", currentVesselData.CatalogData.Timeline);
+    } else if (!update) swapTwitterSource("Mission Feed", ops.currentVessel.Catalog.Timeline);
   }
 }
 
 function vesselTitleUpdate(update) {
-  if (update && $("#title").html() != currentVesselData.CraftData.CraftName) {
+  if (update && $("#title").html() != ops.currentVessel.CraftData.CraftName) {
     flashUpdate("#title", "#77C6FF", "#FFF");
-    $("#title").html(currentVesselData.CraftData.CraftName);
-    document.title = "KSA Operations Tracker" + " - " + currentVesselData.CraftData.CraftName + ": " + currentVesselData.CraftData.CraftDescTitle;
+    $("#title").html(ops.currentVessel.CraftData.CraftName);
+    document.title = "KSA Operations Tracker" + " - " + ops.currentVessel.CraftData.CraftName + ": " + ops.currentVessel.CraftData.CraftDescTitle;
   } else {
-    $("#title").html(currentVesselData.CraftData.CraftName);
-    document.title = "KSA Operations Tracker" + " - " + currentVesselData.CraftData.CraftName + ": " + currentVesselData.CraftData.CraftDescTitle;
+    $("#title").html(ops.currentVessel.CraftData.CraftName);
+    document.title = "KSA Operations Tracker" + " - " + ops.currentVessel.CraftData.CraftName + ": " + ops.currentVessel.CraftData.CraftDescTitle;
   }
 }
 
 // updates all the data in the Info Box
 function vesselInfoUpdate(update) {
-  if (update && (!$("#infoImg").html().includes(getVesselImage()) || $("#infoTitle").html() != currentVesselData.CraftData.CraftDescTitle)) flashUpdate("#infoTitle", "#77C6FF", "#000");
-  
+  $("#infoBox").spin(false);
+  if (update && (!$("#infoImg").html().includes(getVesselImage()) || $("#infoTitle").html() != ops.currentVessel.CraftData.CraftDescTitle)) {
+    flashUpdate("#infoTitle", "#77C6FF", "#000");
+  }
+
   // setup the basics
   $("#infoImg").html("<img src='" + getVesselImage() + "'>");
-  $("#infoTitle").html(currentVesselData.CraftData.CraftDescTitle);
+  $("#infoTitle").html(ops.currentVessel.CraftData.CraftDescTitle);
   $("#infoTitle").attr("class", "infoTitle vessel");
-  $("#infoDialog").html(currentVesselData.CraftData.CraftDescContent.replace("thrid", "third"));
-  $("#infoDialog").html(currentVesselData.CraftData.CraftDescContent.replace("fist stage", "first stage"));
-  $("#infoDialog").dialog("option", "title", "Additional Information - " + currentVesselData.CraftData.CraftDescTitle);
+  $("#infoDialog").html(ops.currentVessel.CraftData.CraftDescContent.replace("thrid", "third"));
+  $("#infoDialog").html(ops.currentVessel.CraftData.CraftDescContent.replace("fist stage", "first stage"));
+  $("#infoDialog").dialog("option", "title", "Additional Information - " + ops.currentVessel.CraftData.CraftDescTitle);
   $("#infoDialog").dialog("option", {width: 643, height: 400});
   
   // is there a parts overlay?
@@ -363,7 +313,7 @@ function vesselInfoUpdate(update) {
     partsImgHTML += "<img src='https://i.imgur.com/" + imgMapData.split("/")[3].split(".")[0] + ".png'/>";
 
     $("#partsImg").html(partsImgHTML);
-    setTimeout(function(){ if (!$('#infoBox').is(":hover")) $("#partsImg").fadeOut(1000); }, 1000);
+    setTimeout(function() { if (!$('#infoBox').is(":hover")) $("#partsImg").fadeOut(1000); }, 1000);
     assignPartInfo();
   } else $("#partsImg").empty();
 }
@@ -371,30 +321,21 @@ function vesselInfoUpdate(update) {
 function vesselMETUpdate(update) {
   
   // get the current launch time - defer to mission start time if it's available
-  var launchTime = currentVesselData.CatalogData.MissionStartTime;
-  for (i=currentVesselData.LaunchTimes.length-1; i>=0; i--) {
+  var launchTime = checkLaunchTime();
+  if (ops.currentVessel.Catalog.MissionStartTime) launchTime = ops.currentVessel.Catalog.MissionStartTime;
 
-    // the first record is always the original launch time, regardless of its UT
-    // this assumption prevents the event calendar from getting confused if multiple launch times are posted
-    if (currentVesselData.LaunchTimes[i].UT <= getLaunchUT() || i == 0) {
-      launchTime = currentVesselData.LaunchTimes[i].LaunchTime;
-      break;
-    }
-  }
-
-  if (update && (!$("#dataField0").html().includes(currentVesselData.CraftData.MissionStartTerm) || !$("#dataField0").html().includes(UTtoDateTime(launchTime)))) {
+  if (update && (!$("#dataField0").html().includes(ops.currentVessel.CraftData.MissionStartTerm) || !$("#dataField0").html().includes(UTtoDateTime(launchTime)))) {
     flashUpdate("#dataField0", "#77C6FF", "#FFF");
   }
 
-  // show the data field
   // we don't know the start time right now
   var strHTML;
   if (!launchTime) {
-    strHTML = "<b>" + currentVesselData.CraftData.MissionStartTerm + ":</b><span style='cursor:help' class='tip-update' data-tipped-options=\"inline: 'metTip', maxWidth: 300\"> <u>To Be Determined</u>";
+    strHTML = "<b>" + ops.currentVessel.CraftData.MissionStartTerm + ":</b><span style='cursor:help' class='tip-update' data-tipped-options=\"inline: 'metTip', maxWidth: 300\"> <u>To Be Determined</u>";
     
   // post the current launch time
   } else {
-    strHTML = "<b>" + currentVesselData.CraftData.MissionStartTerm + ":</b><span style='cursor:help' class='tip-update' data-tipped-options=\"inline: 'metTip', maxWidth: 300\"> <u>" + UTtoDateTime(launchTime) + " UTC</u>";
+    strHTML = "<b>" + ops.currentVessel.CraftData.MissionStartTerm + ":</b><span style='cursor:help' class='tip-update' data-tipped-options=\"inline: 'metTip', maxWidth: 300\"> <u>" + UTtoDateTime(launchTime) + " UTC</u>";
   }
   $("#dataField0").fadeIn();
   
@@ -402,20 +343,20 @@ function vesselMETUpdate(update) {
   var strTip = "";
   
   // we don't know yet
-  if (!launchTime && !currentVesselData.CraftData.PastEvent) { strTip = "launch time currently being assessed<br>"; }
+  if (!launchTime && !ops.currentVessel.CraftData.pastEvent) strTip = "launch time currently being assessed<br>";
   else {
 
     // if this is a past event and there was more than one launch time, find what time equals the current UT
     // if it is in a state greater than the current one, that's the actual current launch time
-    if (currentVesselData.CraftData.PastEvent && currentVesselData.LaunchTimes.length > 1) {
-      for (i=currentVesselData.LaunchTimes.length-1; i>=0; i--) {
-        if (currentVesselData.LaunchTimes[i].UT <= currUT() && currentVesselData.LaunchTimes[i].UT > currentVesselData.CraftData.UT) {
-          if (!currentVesselData.LaunchTimes[i].LaunchTime) {
-            strTip += "Launch has been scrubbed or put on hold<br>Actual Launch Time: To Be Determined";
+    if (ops.currentVessel.CraftData.pastEvent && ops.currentVessel.LaunchTimes.length > 1) {
+      for (i=ops.currentVessel.LaunchTimes.length-1; i>=0; i--) {
+        if (ops.currentVessel.LaunchTimes[i].UT <= currUT() && ops.currentVessel.LaunchTimes[i].UT > ops.currentVessel.CraftData.UT) {
+          if (ops.currentVessel.LaunchTimes[i].LaunchTime == ops.currentVessel.LaunchTimes[i].UT) {
+            strTip += "Launch has been scrubbed or put on hold<br>Actual Launch Time: To Be Determined<br>";
           } else {
-            strTip += "Actual Launch Time: " + UTtoDateTime(currentVesselData.LaunchTimes[i].LaunchTime) + " UTC<br>";
+            strTip += "Actual Launch Time: " + UTtoDateTime(ops.currentVessel.LaunchTimes[i].LaunchTime) + " UTC<br>";
           }
-          launchTime = currentVesselData.LaunchTimes[i].LaunchTime
+          launchTime = ops.currentVessel.LaunchTimes[i].LaunchTime
           break;
         }
       }
@@ -440,79 +381,72 @@ function vesselMETUpdate(update) {
 }
 
 function vesselVelocityUpdate(update) {
-  if (currentVesselData.Orbit && currentVesselData.Orbit.AvgVelocity) {
-    var strTip = "<span id='avgVelUpdate'>Periapsis: " + numeral(currentVesselData.Orbit.VelocityPe).format('0.000') + "km/s<br>Apoapsis: " + numeral(currentVesselData.Orbit.VelocityAp).format('0.000') + "km/s</span>";
-    var strHTML = "<b><u><span style='cursor:help' class='tip-update' data-tipped-options=\"inline: 'avgVelTip'\">Average Velocity:</u></b> " + numeral((currentVesselData.Orbit.VelocityPe+currentVesselData.Orbit.VelocityAp)/2).format('0.000') + "km/s";
+  if (ops.currentVessel.Orbit && ops.currentVessel.Orbit.AvgVelocity) {
+    var strTip = "<span id='avgVelUpdate'>Periapsis: " + numeral(ops.currentVessel.Orbit.VelocityPe).format('0.000') + "km/s<br>Apoapsis: " + numeral(ops.currentVessel.Orbit.VelocityAp).format('0.000') + "km/s</span>";
+    var strHTML = "<b><u><span style='cursor:help' class='tip-update' data-tipped-options=\"inline: 'avgVelTip'\">Average Velocity:</u></b> " + numeral((ops.currentVessel.Orbit.VelocityPe+ops.currentVessel.Orbit.VelocityAp)/2).format('0.000') + "km/s";
     $("#dataField1").fadeIn();
-    if (update && (!currentVesselData.Orbit.VelocityHTML || (currentVesselData.Orbit.VelocityHTML && strHTML + strTip != currentVesselData.Orbit.VelocityHTML))) {
+    if (update && (!ops.currentVessel.Orbit.velocityHTML || (ops.currentVessel.Orbit.velocityHTML && strHTML + strTip != ops.currentVessel.Orbit.velocityHTML))) {
       flashUpdate("#dataField1", "#77C6FF", "#FFF");
-      $("#avgVelTip").html(strTip);
-      $("#dataField1").html(strHTML);
-    } else {
-      $("#avgVelTip").html(strTip);
-      $("#dataField1").html(strHTML);
     }
-    currentVesselData.Orbit.VelocityHTML = strHTML + strTip;
+    $("#avgVelTip").html(strTip);
+    $("#dataField1").html(strHTML);
+    ops.currentVessel.Orbit.velocityHTML = strHTML + strTip;
   } else $("#dataField1").fadeOut();
 }
 
 function vesselPeUpdate(update) {
-  if (currentVesselData.Orbit && currentVesselData.Orbit.Periapsis) {
-    var strHTML = "<b>Periapsis:</b> " + numeral(currentVesselData.Orbit.Periapsis).format('0,0.000') + "km";
+  if (ops.currentVessel.Orbit && ops.currentVessel.Orbit.Periapsis) {
+    var strHTML = "<b>Periapsis:</b> " + numeral(ops.currentVessel.Orbit.Periapsis).format('0,0.000') + "km";
     $("#dataField2").fadeIn();
-    if (update && strHTML != $("#dataField2").html()) {
-      flashUpdate("#dataField2", "#77C6FF", "#FFF");
-      $("#dataField2").html(strHTML);
-    } else $("#dataField2").html(strHTML);
+    if (update && strHTML != $("#dataField2").html()) flashUpdate("#dataField2", "#77C6FF", "#FFF");
+    $("#dataField2").html(strHTML);
   } else $("#dataField2").fadeOut();
 }
 
 function vesselApUpdate(update) {
-  if (currentVesselData.Orbit && currentVesselData.Orbit.Apoapsis) {
-    var strHTML = "<b>Apoapsis:</b> " + numeral(currentVesselData.Orbit.Apoapsis).format('0,0.000') + "km";
+  if (ops.currentVessel.Orbit && ops.currentVessel.Orbit.Apoapsis) {
+    var strHTML = "<b>Apoapsis:</b> " + numeral(ops.currentVessel.Orbit.Apoapsis).format('0,0.000') + "km";
     $("#dataField3").fadeIn();
-    if (update && strHTML != $("#dataField3").html()) {
-      flashUpdate("#dataField3", "#77C6FF", "#FFF");
-      $("#dataField3").html(strHTML);
-    } else $("#dataField3").html(strHTML);
+    if (update && strHTML != $("#dataField3").html()) flashUpdate("#dataField3", "#77C6FF", "#FFF");
+    $("#dataField3").html(strHTML);
   } else $("#dataField3").fadeOut();
 }
 
 function vesselEccUpdate(update) {
-  if (currentVesselData.Orbit && currentVesselData.Orbit.Eccentricity) {
-    var strHTML = "<b>Eccentricity:</b> " + numeral(currentVesselData.Orbit.Eccentricity).format('0.000');
+  if (ops.currentVessel.Orbit && ops.currentVessel.Orbit.Eccentricity) {
+    var strHTML = "<b>Eccentricity:</b> " + numeral(ops.currentVessel.Orbit.Eccentricity).format('0.000');
     $("#dataField4").fadeIn();
-    if (update && strHTML != $("#dataField4").html()) {
-      flashUpdate("#dataField4", "#77C6FF", "#FFF");
-      $("#dataField4").html(strHTML);
-    } else $("#dataField4").html(strHTML);
+    if (update && strHTML != $("#dataField4").html()) flashUpdate("#dataField4", "#77C6FF", "#FFF");
+    $("#dataField4").html(strHTML);
   } else $("#dataField4").fadeOut();
 }
 
 function vesselIncUpdate(update) {
-  if (currentVesselData.Orbit && currentVesselData.Orbit.Inclination) {
-    var strHTML = "<b>Inclination:</b> " + numeral(currentVesselData.Orbit.Inclination).format('0.000') + "&deg;";
+  if (ops.currentVessel.Orbit && ops.currentVessel.Orbit.Inclination) {
+    var strHTML = "<b>Inclination:</b> " + numeral(ops.currentVessel.Orbit.Inclination).format('0.000') + "&deg;";
     $("#dataField5").fadeIn();
-    if (update && strHTML != $("#dataField5").html()) {
+    $("#dataField5").html(strHTML);
+
+    // check the inclination against just the number in the HTML field
+    // <b>Inclination:</b> ###.###°
+    if (update && ops.currentVessel.Orbit.Inclination.toFixed(3) != parseFloat($("#dataField5").html().split(" ")[1].split("°")[0])) {
       flashUpdate("#dataField5", "#77C6FF", "#FFF");
-      $("#dataField5").html(strHTML);
-    } else $("#dataField5").html(strHTML);
+    }
   } else $("#dataField5").fadeOut();
 }
 
 function vesselPeriodUpdate(update) {
-  if (currentVesselData.Orbit && currentVesselData.Orbit.OrbitalPeriod) {
-    var strTip = formatTime(currentVesselData.Orbit.OrbitalPeriod);
-    var strHTML = "<b>Orbital Period:</b> <u><span style='cursor:help' class='tip-update' data-tipped-options=\"inline: 'periodTip'\">" + numeral(currentVesselData.Orbit.OrbitalPeriod).format('0,0.000') + "s</span></u>";
+  if (ops.currentVessel.Orbit && ops.currentVessel.Orbit.OrbitalPeriod) {
+    var strTip = formatTime(ops.currentVessel.Orbit.OrbitalPeriod);
+    var strHTML = "<b>Orbital Period:</b> <u><span style='cursor:help' class='tip-update' data-tipped-options=\"inline: 'periodTip'\">" + numeral(ops.currentVessel.Orbit.OrbitalPeriod).format('0,0.000') + "s</span></u>";
     $("#dataField6").fadeIn();
 
     // calculate the  number of orbits
     var numOrbits = 0;
-    console.log(currentVesselData.OrbitalHistory)
-    for (obt=0; obt<currentVesselData.OrbitalHistory.length-1; obt++) {
+    for (obt=0; obt<ops.currentVessel.OrbitalHistory.length-1; obt++) {
 
       // don't look past the current time 
-      if (currentVesselData.OrbitalHistory[obt].UT > currUT()) break;
+      if (ops.currentVessel.OrbitalHistory[obt].UT > currUT()) break;
       
       // get the amount of time spent between the two states, or this last/only state and the current time
       // if the mission has ended then use that instead of the current time
@@ -520,58 +454,61 @@ function vesselPeriodUpdate(update) {
       var timeUntil;
       if (isMissionEnded()) timeUntil = getMissionEndTime();
       else timeUntil = currUT();
-      if (currentVesselData.OrbitalHistory[obt+1].UT > currUT()) { timeDiff = timeUntil - currentVesselData.OrbitalHistory[obt].UT; }
-      else { timeDiff = currentVesselData.OrbitalHistory[obt+1].UT - currentVesselData.OrbitalHistory[obt].UT; }
+      if (ops.currentVessel.OrbitalHistory[obt+1].UT > currUT()) timeDiff = timeUntil - ops.currentVessel.OrbitalHistory[obt].UT;
+      else timeDiff = ops.currentVessel.OrbitalHistory[obt+1].UT - ops.currentVessel.OrbitalHistory[obt].UT;
       
       // add the orbits done during this time
-      numOrbits += timeDiff/currentVesselData.OrbitalHistory[obt].Period;
+      numOrbits += timeDiff/ops.currentVessel.OrbitalHistory[obt].Period;
     }
-    if (numOrbits > 0) strTip += "<br>Number of Orbits: " + numeral(numOrbits).format('0,0.00');
-    else strTip += "<br>Number of Orbits: " + numeral((currUT() - currentVesselData.Orbit.Eph)/currentVesselData.Orbit.OrbitalPeriod).format('0,0.00');
 
-    if (update && (!currentVesselData.Orbit.OrbitalPeriodHTML || (currentVesselData.Orbit.OrbitalPeriodHTML && strHTML + strTip != currentVesselData.Orbit.OrbitalPeriodHTML))) {
+    // if we haven't completed a single orbit yet, calculate based on the current time and orbital data
+    if (numOrbits > 0) strTip += "<br>Number of Orbits: " + numeral(numOrbits).format('0,0.00');
+    else strTip += "<br>Number of Orbits: " + numeral((currUT() - ops.currentVessel.Orbit.Eph)/ops.currentVessel.Orbit.OrbitalPeriod).format('0,0.00');
+
+    if (update && (!ops.currentVessel.Orbit.orbitalPeriodHTML || (ops.currentVessel.Orbit.orbitalPeriodHTML && strHTML + strTip != ops.currentVessel.Orbit.orbitalPeriodHTML))) {
       flashUpdate("#dataField6", "#77C6FF", "#FFF");
-      $("#dataField6").html(strHTML);
-      $("#periodTip").html(strTip);
-    } else {
-      $("#dataField6").html(strHTML);
-      $("#periodTip").html(strTip);
     }
-    currentVesselData.Orbit.OrbitalPeriodHTML = strHTML + strTip;
+    $("#dataField6").html(strHTML);
+    $("#periodTip").html(strTip);
+    ops.currentVessel.Orbit.orbitalPeriodHTML = strHTML + strTip;
   } else $("#dataField6").fadeOut();
 }
 
 function vesselCrewUpdate(update) {
-  if (currentVesselData.Manifest && !!currentVesselData.Manifest.Crew) {
+  if (ops.currentVessel.Manifest && !!ops.currentVessel.Manifest.Crew) {
     var strHTML = "<b>Crew:</b> ";
-    currentVesselData.Manifest.Crew.split("|").forEach(function(item, index) {
+    ops.currentVessel.Manifest.Crew.split("|").forEach(function(item) {
+
+      // older tooltip contained more data that can now be gotten at the crew page
       // strHTML += "<img class='tipped' title='" + item.split(";")[0] + "<br>Boarded on: " + UTtoDateTime(parseFloat(item.split(";")[2])).split("@")[0] + "<br>Mission Time: " + formatTime(currUT() - parseFloat(item.split(";")[2])).split(",")[0] + "' style='cursor: pointer' src='http://www.kerbalspace.agency/Tracker/favicon.ico'></a>&nbsp;";
       strHTML += "<img onclick=\"swapContent('crew', '" + item.split(';')[1] + "')\" class='tipped' title='" + item.split(";")[0] + "' style='cursor: pointer' src='http://www.kerbalspace.agency/Tracker/favicon.ico'></a>&nbsp;";
     });
     $("#dataField7").fadeIn();
-    if (update && (!currentVesselData.Manifest.CrewHTML || (currentVesselData.Manifest.CrewHTML && strHTML != currentVesselData.Manifest.CrewHTML))) {
+    if (update && (!ops.currentVessel.Manifest.crewHTML || (ops.currentVessel.Manifest.crewHTML && strHTML != ops.currentVessel.Manifest.crewHTML))) {
       flashUpdate("#dataField7", "#77C6FF", "#FFF");
-      $("#dataField7").html(strHTML);
-    } else $("#dataField7").html(strHTML);
-    currentVesselData.Manifest.CrewHTML = strHTML;
+    }
+    $("#dataField7").html(strHTML);
+    ops.currentVessel.Manifest.crewHTML = strHTML;
   } else $("#dataField7").fadeOut();
 }
   
 function vesselResourcesUpdate(update) {
-  if (currentVesselData.Resources) {
-    if (currentVesselData.Resources.notNull) {
+  if (ops.currentVessel.Resources) {
+    if (ops.currentVessel.Resources.NotNull) {
       var strHTML = "<span class='tipped' style='cursor:help' title='Total &Delta;v: ";
-      if (currentVesselData.Resources.DeltaV !== null) { strHTML += numeral(currentVesselData.Resources.DeltaV).format('0.000') + "km/s"; }
-      else { strHTML += "N/A"; }
+      if (ops.currentVessel.Resources.DeltaV !== null) strHTML += numeral(ops.currentVessel.Resources.DeltaV).format('0.000') + "km/s";
+      else strHTML += "N/A";
       strHTML += "<br>Total Mass: ";
-      if (currentVesselData.Resources.TotalMass !== null) { strHTML += numeral(currentVesselData.Resources.TotalMass).format('0,0.000') + "t"; }
-      else { strHTML += "N/A"; }
+      if (ops.currentVessel.Resources.TotalMass !== null) strHTML += numeral(ops.currentVessel.Resources.TotalMass).format('0,0.000') + "t";
+      else strHTML += "N/A";
       strHTML += "<br>Resource Mass: ";
-      if (currentVesselData.Resources.ResourceMass !== null) { strHTML += numeral(currentVesselData.Resources.ResourceMass).format('0.000') + "t"; }
-      else { strHTML += "N/A"; }
+      if (ops.currentVessel.Resources.ResourceMass !== null) strHTML += numeral(ops.currentVessel.Resources.ResourceMass).format('0.000') + "t";
+      else strHTML += "N/A";
       strHTML += "'><b><u>Resources:</u></b></span> ";
-      if (currentVesselData.Resources.Resources) {
+      if (ops.currentVessel.Resources.Resources) {
         strHTML += "<img id='prevRes' width='12' src='prevList.png' style='visibility: hidden; cursor: pointer; vertical-align: -1px' onclick='prevResource()'>";
+
+        // template the max number of visible resource icons and then actually load them 250ms later
         for (resCount=0; resCount<5; resCount++) {
           strHTML += "<div id='resTip" + resCount + "' style='display: none'>temp</div>";
           strHTML += "<span style='cursor:help' class='tip-update' data-tipped-options=\"inline: 'resTip" + resCount + "', detach: false\">";
@@ -582,41 +519,61 @@ function vesselResourcesUpdate(update) {
       } else strHTML += "None";
       $("#dataField8").fadeIn();
       $("#dataField8").html(strHTML);
-      if (currentVesselData.Resources.Resources && currentVesselData.Resources.Resources.split("|").length > 5) $("#nextRes").css("visibility", "visible");
+
+      // decide whether to display recource scroll arrows
+      if (ops.currentVessel.Resources.Resources && ops.currentVessel.Resources.Resources.split("|").length > 5) $("#nextRes").css("visibility", "visible");
       else $("#prevRes").css("display", "none");
+
+    // !NotNull means a resource record exists for this UT but is empty, so we are removing the field at this time
     } else $("#dataField8").fadeOut();
   } else $("#dataField8").fadeOut();
 }
 
 function vesselCommsUpdate(update) {
-  if (currentVesselData.Comms) {
-    if (currentVesselData.Comms.Comms) {
+  if (ops.currentVessel.Comms) {
+    if (ops.currentVessel.Comms.Comms) {
       strHTML = "<span class='tipped' style='cursor:help' title='";
-      if (currentVesselData.Comms.Connection) { strHTML += "Signal Delay: <0.003s"; }
-      else { strHTML += "No Connection"; }
+      if (ops.currentVessel.Comms.Connection) strHTML += "Signal Delay: <0.003s";
+      else strHTML += "No Connection";
       strHTML += "'><b><u>Comms:</u></b></span> ";
-      if (currentVesselData.Comms.Comms) {
-        currentVesselData.Comms.Comms.split("|").forEach(function(item, index) {
+      if (ops.currentVessel.Comms.Comms) {
+        ops.currentVessel.Comms.Comms.split("|").forEach(function(item) {
           var iconStr = "";
-          if (!currentVesselData.Comms.Connection) iconStr = "no";
+          if (!ops.currentVessel.Comms.Connection) iconStr = "no";
           strHTML += "<img class='tipped' title='" + item.split(";")[1] + "' style='cursor:help' src='" + iconStr + item.split(";")[0] + ".png'></a>&nbsp;";
         });
       } else strHTML += "None";
       $("#dataField9").fadeIn();
-      if (update && (!currentVesselData.Comms.CommsHTML || (currentVesselData.Comms.CommsHTML && strHTML != currentVesselData.Comms.CommsHTML))) {
+      if (update && (!ops.currentVessel.Comms.commsHTML || (ops.currentVessel.Comms.commsHTML && strHTML != ops.currentVessel.Comms.commsHTML))) {
         flashUpdate("#dataField9", "#77C6FF", "#FFF");
-        $("#dataField9").html(strHTML);
-      } else $("#dataField9").html(strHTML);
-      currentVesselData.Comms.CommsHTML = strHTML;
+      } 
+      $("#dataField9").html(strHTML);
+      ops.currentVessel.Comms.commsHTML = strHTML;
+
+    // no data in the Comms field means a record exists for this UT but is empty, so we are removing the field at this time
     } else $("#dataField9").fadeOut(); 
   } else $("#dataField9").fadeOut();
 }
 
-function vesselAddlResUpdate(update) {
-  if (currentVesselData.CatalogData.AddlRes) {
+function vesselRelatedUpdate(update) {
+
+  // either this has just the vessel name to show now, or it has a time that needs to be checked first
+  if ((ops.currentVessel.Catalog.Related && !ops.currentVessel.Catalog.Related.split(";").length == 3) || 
+  (ops.currentVessel.Catalog.Related && ops.currentVessel.Catalog.Related.split(";").length > 3 && parseInt(ops.currentVessel.Catalog.Related.split(";")[3]) <= currUT())) {
+    $("#dataField10").fadeIn();
+    if (update && !$("#dataField9").html().includes(ops.currentVessel.Catalog.Related.split(";")[0])) flashUpdate("#dataField10", "#77C6FF", "#FFF");
+    var strHTML = "<b>Related Vessel:</b> <span class='fauxLink tipped' style='cursor: pointer' onclick=\"swapContent('vessel', '" + ops.currentVessel.Catalog.Related.split(";")[0] + "')\" ";
+    strHTML += "title='" + ops.currentVessel.Catalog.Related.split(";")[2] + "'>";
+    strHTML += ops.currentVessel.Catalog.Related.split(";")[1] + "</span>";
+    $("#dataField10").html(strHTML);
+  } else $("#dataField10").fadeOut();
+}
+
+function vesselAddlInfoUpdate(update) {
+  if (ops.currentVessel.Catalog.AddlRes) {
     var newRes;
     var strHTML = '';
-    currentVesselData.CatalogData.AddlRes.split("|").forEach(function(item) {
+    ops.currentVessel.Catalog.AddlRes.split("|").forEach(function(item) {
       if (parseFloat(item.split(";")[0]) < currUT()) {
         strHTML += "<span class='tipped' title='" + item.split(";")[1] + "'><a target='_blank' style='color: black' href='" + item.split(";")[2] + "'><i class='" + AddlResourceItems[item.split(";")[1]] + "'></i></a></span>&nbsp;";
       
@@ -627,23 +584,25 @@ function vesselAddlResUpdate(update) {
       }
     });
     if (strHTML) {
-      if (update && (!currentVesselData.CatalogData.AddlResHTML || (currentVesselData.CatalogData.AddlResHTML && strHTML != currentVesselData.CatalogData.AddlResHTML))) {
-        flashUpdate("#dataField10", "#77C6FF", "#FFF");
-        $("#dataField10").html("<b>Additional Information:</b> " + strHTML);
-      } else $("#dataField10").html("<b>Additional Information:</b> " + strHTML);
-      $("#dataField10").fadeIn();
-      currentVesselData.CatalogData.AddlResHTML = strHTML;
-    } else $("#dataField10").fadeOut();
-    if (newRes) updatesList.push({ Type: "object", ID: currentVesselData.CatalogData.DB, UT: newRes });
-  } else $("#dataField10").fadeOut();
+      if (update && (!ops.currentVessel.Catalog.AddlResHTML || (ops.currentVessel.Catalog.AddlResHTML && strHTML != ops.currentVessel.Catalog.AddlResHTML))) {
+        flashUpdate("#dataField11", "#77C6FF", "#FFF");
+      }
+      $("#dataField11").html("<b>Additional Information:</b> " + strHTML);
+      $("#dataField11").fadeIn();
+      ops.currentVessel.Catalog.AddlResHTML = strHTML;
+
+    // there could be data but turns out we can't show it yet
+    } else $("#dataField11").fadeOut();
+    if (newRes) ops.updatesList.push({ type: "object", id: ops.currentVessel.Catalog.DB, UT: newRes });
+  } else $("#dataField11").fadeOut();
 }
 
 function vesselLastUpdate(update) {
-  if (update && !$("#dataField11").html().includes(UTtoDateTime(currentVesselData.CraftData.UT))) flashUpdate("#dataField11", "#77C6FF", "#FFF");
-  $("#distanceTip").html(UTtoDateTimeLocal(currentVesselData.CraftData.UT))
-  if (currentVesselData.CraftData.DistanceTraveled) $("#distanceTip").append("<br>Current Distance Traveled: " + currentVesselData.CraftData.DistanceTraveled + "km");
-  $("#dataField11").html("<b>Last Update:</b> <u><span class='tip-update' style='cursor:help' data-tipped-options=\"inline: 'distanceTip'\">" + UTtoDateTime(currentVesselData.CraftData.UT) + " UTC</span></u>")
-  $("#dataField11").fadeIn()
+  if (update && !$("#dataField12").html().includes(UTtoDateTime(ops.currentVessel.CraftData.UT))) flashUpdate("#dataField12", "#77C6FF", "#FFF");
+  $("#distanceTip").html(UTtoDateTimeLocal(ops.currentVessel.CraftData.UT))
+  if (ops.currentVessel.CraftData.DistanceTraveled) $("#distanceTip").append("<br>Current Distance Traveled: " + ops.currentVessel.CraftData.DistanceTraveled + "km");
+  $("#dataField12").html("<b>Last Update:</b> <u><span class='tip-update' style='cursor:help' data-tipped-options=\"inline: 'distanceTip'\">" + UTtoDateTime(ops.currentVessel.CraftData.UT) + " UTC</span></u>")
+  $("#dataField12").fadeIn()
 }
 
 function vesselHistoryUpdate() {
@@ -661,21 +620,25 @@ function vesselHistoryUpdate() {
   $("#prevEventButton").button("option", "disabled", true);
   $("#nextEventButton").button("option", "disabled", true);
   
-  // fill up the previous events, then the next events
-  currentVesselData.History.reverse().forEach(function(item, index) {
-    if (item.UT < currentVesselData.CraftData.UT && item.Title != currentVesselData.CraftData.CraftDescTitle) {
-      $("#prevEvent").append($('<option>', {
-        value: item.UT,
-        text: item.Title
-      }));
-      $("#prevEvent").prop("disabled", false);
-      $("#prevEventButton").button("option", "disabled", false);
+  // fill up the previous events
+  ops.currentVessel.History.reverse().forEach(function(item) {
+    if (item.UT < ops.currentVessel.CraftData.UT && item.Title != ops.currentVessel.CraftData.CraftDescTitle) {
+      if ((ops.ascentData.active && item.UT <= checkLaunchTime()) || !ops.ascentData.active) {
+        $("#prevEvent").append($('<option>', {
+          value: item.UT,
+          text: item.Title
+        }));
+        $("#prevEvent").prop("disabled", false);
+        $("#prevEventButton").button("option", "disabled", false);
+      }
     }
   });
-  currentVesselData.History.reverse().forEach(function(item, index) {
+
+  // fill up the next events
+  ops.currentVessel.History.reverse().forEach(function(item) {
 
     // if this isn't a past event, we don't want the current event (equal to the current UT) to show up
-    if (!currentVesselData.CraftData.PastEvent && item.UT > currentVesselData.CraftData.UT && item.Title != currentVesselData.CraftData.CraftDescTitle && item.UT < currUT()) {
+    if (!ops.currentVessel.CraftData.pastEvent && item.UT > ops.currentVessel.CraftData.UT && item.Title != ops.currentVessel.CraftData.CraftDescTitle && item.UT < currUT()) {
       $("#nextEvent").append($('<option>', {
         value: item.UT,
         text: item.Title
@@ -684,7 +647,7 @@ function vesselHistoryUpdate() {
       $("#nextEventButton").button("option", "disabled", false);
 
     // otherwise if it's a previous event we do want the most recent event in this list
-    } else if (currentVesselData.CraftData.PastEvent && item.UT > currentVesselData.CraftData.UT && item.Title != currentVesselData.CraftData.CraftDescTitle && item.UT <= currUT()) {
+    } else if (ops.currentVessel.CraftData.pastEvent && item.UT > ops.currentVessel.CraftData.UT && item.Title != ops.currentVessel.CraftData.CraftDescTitle && item.UT <= currUT()) {
       $("#nextEvent").append($('<option>', {
         value: item.UT,
         text: item.Title
@@ -693,12 +656,14 @@ function vesselHistoryUpdate() {
       $("#nextEventButton").button("option", "disabled", false);
     }
   });
+
+  // update to remove the loading text
   $("#dataLabel").html("Mission History");
   
   // check for future event
-  if (currentVesselData.CraftData.NextEventTitle && !currentVesselData.CraftData.PastEvent) {
+  if (ops.currentVessel.CraftData.NextEventTitle && !ops.currentVessel.CraftData.pastEvent) {
     $("#nextEvent").append($('<option>', {
-      value: currentVesselData.CraftData.NextEventTitle,
+      value: ops.currentVessel.CraftData.NextEventTitle,
       text: "Scheduled Event"
     }));
     $("#nextEvent").prop("disabled", false);
@@ -706,162 +671,165 @@ function vesselHistoryUpdate() {
 }
 
 function vesselContentUpdate(update) {
-  isVesselUsingMap = true;
-  $("#content").empty();
-  
-  // remove any previous markers and surface plots
-  if (launchsiteMarker) surfaceMap.removeLayer(launchsiteMarker);
-  if (vesselMarker) surfaceMap.removeLayer(vesselMarker);
-  vesselMarker = null;
-  launchsiteMarker = null;
-  clearSurfacePlots();
+
+  // we can't know whether this body has a surface map if we are still waiting for map data to load
+  // since map data is called after GGB load, make sure that's not happening either
+  // finally, ops data could still be loading as well
+  if (!isGGBAppletLoaded || ops.surface.isLoading || ops.updateData.find(o => o.isLoading === true)) {
+    return setTimeout(vesselContentUpdate, 50, update);
+  }
 
   // decide what kind of content we have to deal with
-  // pre-launch/static data event
-  if (currentVesselData.CraftData.Content.charAt(0) == "@") {
-    $("#content").fadeOut();
-    $("#map").css("visibility", "visible");
-    $("#map").fadeIn();
-  
-    // extract the data
-    var data = currentVesselData.CraftData.Content.split("@")[1].split("|");
-  
-    // set launchsite icon
-    launchsiteIcon = L.icon({popupAnchor: [0, -43], iconUrl: 'markers-spacecenter.png', iconSize: [30, 40], iconAnchor: [15, 40], shadowUrl: 'markers-shadow.png', shadowSize: [35, 16], shadowAnchor: [10, 12]});
+  // pre-launch/static data event. 
+  if (ops.currentVessel.CraftData.Content.charAt(0) == "@") {
     
-    // decide if this is still pre-launch or not
-    var strLaunchIconCaption = "<b>Launch Location</b><br>"
-    if (currentVesselData.CraftData.MissionStartTerm == "Launched") strLaunchIconCaption = "";
+    // Don't need to update unless content is not the same
+    if (!ops.currentVessel.CraftData.prevContent || (ops.currentVessel.CraftData.prevContent && ops.currentVessel.CraftData.prevContent != ops.currentVessel.CraftData.Content)) {
+      showMap();
+      
+      // remove any previous markers and surface plots
+      if (launchsiteMarker) ops.surface.map.removeLayer(launchsiteMarker);
+      if (vesselMarker) ops.surface.map.removeLayer(vesselMarker);
+      launchsiteMarker = null;
+      clearSurfacePlots();
+
+      // extract the data
+      var data = ops.currentVessel.CraftData.Content.split("@")[1].split("|");
     
-    // if launch is in progress and there's an altitude to report, include it
-    var launchAltitude = "";
-    if (data.length > 3) launchAltitude = "<br>" + data[3] + "km ASL";
-    
-    // place the marker and build the information window for it, then center the map on it and create a popup for it
-    launchsiteMarker = L.marker([data[0], data[1]], {icon: launchsiteIcon}).addTo(surfaceMap);
-    if (data[0] < 0) {
-      cardinalLat = "S";
-    } else {
-      cardinalLat = "N";
+      // these elements should only appear on general surface maps
+      if (layerPins) {
+        ops.surface.map.removeLayer(layerPins);
+        ops.surface.layerControl.removeLayer(layerPins); 
+      }
+      
+      // set launchsite icon
+      launchsiteIcon = L.icon({ popupAnchor: [0, -43], iconUrl: 'markers-spacecenter.png', iconSize: [30, 40], iconAnchor: [15, 40], shadowUrl: 'markers-shadow.png', shadowSize: [35, 16], shadowAnchor: [10, 12] });
+      
+      // decide if this is still pre-launch or not
+      var strLaunchIconCaption = "<b>Launch Location</b><br>"
+      if (ops.currentVessel.CraftData.MissionStartTerm != "Launch") strLaunchIconCaption = "";
+      
+      // if launch is in progress and there's an altitude to report, include it
+      var launchAltitude = "";
+      if (data.length > 3) launchAltitude = "<br>" + data[3] + "km ASL";
+      
+      // place the marker and build the information window for it, then center the map on it and create a popup for it
+      launchsiteMarker = L.marker([data[0], data[1]], {icon: launchsiteIcon}).addTo(ops.surface.map);
+      var latlng = { lat: parseInt(data[0]), lng: parseInt(data[1]) };
+      launchsiteMarker.bindPopup(strLaunchIconCaption + data[2] + launchAltitude + "<br>[" + numeral(data[0]).format('0.0000') + "&deg;" + getLatLngCompass(latlng).lat + ", " + numeral(data[1]).format('0.0000') + "&deg;" + getLatLngCompass(latlng).lng + "]" , { closeOnClick: false });
+      ops.surface.map.setView(launchsiteMarker.getLatLng(), 3);
+      launchsiteMarker.openPopup();
+      
+      // close the popup after 5 seconds if this is a past event or a prelaunch state
+      // make sure to reset the timeout in case the page has been loaded with new data before the 5s expire
+      clearTimeout(mapMarkerTimeout);
+      if (ops.currentVessel.CraftData.pastEvent || strLaunchIconCaption) {
+        mapMarkerTimeout = setTimeout(function () { if (launchsiteMarker) launchsiteMarker.closePopup(); }, 5000);
+      }
     }
-    if (data[1] < 0) {
-      cardinalLon = "W";
-    } else {
-      cardinalLon = "E";
-    }
-    launchsiteMarker.bindPopup(strLaunchIconCaption + data[2] + launchAltitude + "<br>[" + numeral(Math.abs(data[0])).format('0.0000') + "&deg;" + cardinalLat + ", " + numeral(Math.abs(data[1])).format('0.0000') + "&deg;" + cardinalLon + "]" , {closeOnClick: false});
-    if (!strLaunchIconCaption.length) {
-      surfaceMap.fitBounds([srfLocations.KSC, [data[0], data[1]]]);
-    } else {
-      surfaceMap.setView(launchsiteMarker.getLatLng(), 2); 
-    }
-    launchsiteMarker.openPopup(); 
-    
-    // close the popup after 5 seconds if this is a past event or a prelaunch state
-    // make sure to reset the timeout in case the page has been loaded with new data before the 5s expire
-    clearTimeout(mapMarkerTimeout);
-    if (currentVesselData.CraftData.PastEvent || strLaunchIconCaption) {
-      mapMarkerTimeout = setTimeout(function () { 
-        if (launchsiteMarker) launchsiteMarker.closePopup(); 
-      }, 5000);
-    }
-    
+
   // dynamic map with orbital information
-  } else if (currentVesselData.CraftData.Content.charAt(0) == "!" && !currentVesselData.CraftData.Content.includes("[")) {
+  } else if (ops.currentVessel.CraftData.Content.charAt(0) == "!" && !ops.currentVessel.CraftData.Content.includes("[")) {
   
     // extract the data
-    var data = currentVesselData.CraftData.Content.split("!")[1].split("|");
+    var data = ops.currentVessel.CraftData.Content.split("!")[1].split("|");
 
     // only show dynamic information if this is a current state in an ongoing mission
-    // note we can't use the PastEvent property here because a past event could still use the same orbital data
-    // so instead we will compare it to the current data that was loaded for its catalog object
-    // also do not show the map if the planet doesn't have one - for now just check for it orbiting Kerbin
-    if (!isMissionEnded() && (update || currentVesselData.Orbit.UT == opsCatalog.find(o => o.ID === strCurrentVessel).CurrentData.Orbit.UT) && getParentSystem(strCurrentVessel) == "Kerbin-System") {
-      $("#content").fadeOut();
-      $("#map").css("visibility", "visible");
-      $("#map").fadeIn();
-      
-      // check if plot data exists and is for the current vessel, because then we can just redraw it on the map (if it wasn't interrupted)
-      // otherwise just clear off the map and call up a new render
-      if (currentVesselPlot && currentVesselPlot.ID == strCurrentVessel && !strPausedVesselCalculation) { 
-        $("#mapDialog").dialog("close");
-        redrawVesselPlots(); 
-      } else {
-        renderMapData();
-      }
-      
-    // we're looking at old orbital data or a planet with no map
-    } else {
-      if ($("#map").css("visibility") != "hidden") $("#map").fadeOut();
+    // also only show if there is surface data for a map & orbital data
+    if (!isMissionEnded() && !ops.currentVessel.CraftData.pastEvent && ops.surface.Data && ops.currentVessel.Orbit.Eph) {
+
+      // remove any previous markers
+      if (launchsiteMarker) ops.surface.map.removeLayer(launchsiteMarker);
+      launchsiteMarker = null;
+      showMap();
       $("#mapDialog").dialog("close");
-      removeMapRefreshButton();
+
+      var isPlottable = false;
+      if (ops.currentVesselPlot && 
+          ops.currentVesselPlot.obtData.length &&                                                 // a plot exists
+          ops.currentVesselPlot.id == ops.currentVessel.Catalog.DB &&                             // the plot belongs to this vessel
+          ops.currentVesselPlot.eph == ops.currentVessel.Orbit.Eph &&                             // the data used for the plot is still valid
+          ops.currentVesselPlot.obtData[ops.currentVesselPlot.obtData.length-1].endUT > currUT()  // the plot itself runs longer than the current time
+          ) isPlottable = true;
+
+      // if this is not plottable or there is no previous content, we need to render new data
+      if (!update && (!isPlottable || (!isPlottable && !ops.currentVessel.CraftData.prevContent))) renderMapData();
+
+      // if this is an update with changed content, we need to render new trajectories
+      else if (update && ops.currentVessel.CraftData.prevContent != ops.currentVessel.CraftData.Content) renderMapData();
+
+      // if this is an not an update and has the same content, just redraw
+      else if (!update && isPlottable) redrawVesselPlots();
       
-      // two images
-      if (data[1].includes(".png")) {
+    // we're looking at old orbital data
+    } else {
+
+      // no need to update unless it's not the same as before or there's no orbit
+      if (!ops.currentVessel.Orbit.Eph || !ops.currentVessel.CraftData.prevContent || (ops.currentVessel.CraftData.prevContent && ops.currentVessel.CraftData.prevContent != ops.currentVessel.CraftData.Content)) {
+        $("#content").empty();
+        hideMap();
         
-        // why is the dynamic map not being displayed?
-        if (currentVesselData.CraftData.PastEvent) var strReason = "viewing old data";
-        if (getParentSystem(strCurrentVessel) != "Kerbin-System") var strReason = "no surface map available";
-        
-        $("#content").html("<div class='fullCenter'><img width='475' class='contentTip' title='Ecliptic View<br>Dynamic orbit unavailable - " + strReason + "' src='" + data[0] + "'>&nbsp;<img width='475' class='contentTip' title='Polar View<br>Dynamic orbit unavailable - " + strReason + "' src='" + data[1] + "'></div>");
-        
-      // one image
-      } else {
-        $("#content").html("<img class='fullCenter contentTip' title='" + data[1] + "' src='" + data[0] + "'>");
+        // two images?
+        if (data[1].includes(".png")) {
+          $("#content").html("<div class='fullCenter'><img width='475' class='contentTip' style='cursor: help' title='Ecliptic View<br>Dynamic orbit unavailable - viewing old data' src='" + data[0] + "'>&nbsp;<img width='475' class='tipped' data-tipped-options=\"target: 'mouse'\"  style='cursor: help' title='Polar View<br>Dynamic orbit unavailable - viewing old data' src='" + data[1] + "'></div>");
+          
+        // one image
+        } else {
+          $("#content").html("<img class='fullCenter contentTip' style='cursor: help' title='" + data[1] + "' src='" + data[0] + "'>");
+        }
+        $("#content").fadeIn();
       }
-    
-      $("#content").fadeIn();
     }
   
   // static orbits with dynamic information
-  } else if (currentVesselData.CraftData.Content.charAt(0) == "!" && currentVesselData.CraftData.Content.includes("[")) {
-    $("#map").css("visibility", "visible");
-    $("#map").fadeIn();
-  
-    $("#content").fadeOut();
+  } else if (ops.currentVessel.CraftData.Content.charAt(0) == "!" && ops.currentVessel.CraftData.Content.includes("[")) {
 
   // streaming ascent data, possibly with video
-  } else if (currentVesselData.CraftData.Content.charAt(0) == "~") {
+  } else if (ops.currentVessel.CraftData.Content.charAt(0) == "~") {
   
   // just plain HTML
   } else {
-    isVesselUsingMap = false;
-    if ($("#map").css("visibility") != "hidden") $("#map").fadeOut();
-    $("#content").html(currentVesselData.CraftData.Content);
+    hideMap();
+    $("#content").empty();
+    $("#content").html(ops.currentVessel.CraftData.Content);
     $("#content").fadeIn();
   }
-  
-  // create any tooltips
+
+  // save the content data so next load we don't update if we don't have to
+  ops.currentVessel.CraftData.prevContent = ops.currentVessel.CraftData.Content;
+  $("#contentBox").spin(false);
+
+  // create any tooltips since we will likely miss the default tip creation waiting on async data load
   // behavior of tooltips depends on the device
-  if (is_touch_device()) { showOpt = 'click'; }
-  else { showOpt = 'mouseenter'; }
+  if (is_touch_device()) showOpt = 'click';
+  else showOpt = 'mouseenter';
   Tipped.create('.contentTip', { showOn: showOpt, hideOnClickOutside: is_touch_device(), target: 'mouse', hideOn: {element: 'mouseleave'} });
 }
 
 // JQuery callbacks
 // only handle this if the page is a vessel instead of crew
 $("#infoBox").hover(function() { 
-  if (pageType == "vessel" && currentVesselData && !strActiveAscent.length) {
-    if (!$("#infoDialog").dialog("isOpen")) { $("#infoTitle").html("Click Here for Additional Information"); }
+  if (ops.pageType == "vessel" && ops.currentVessel && !ops.ascentData.active) {
+    if (!$("#infoDialog").dialog("isOpen")) $("#infoTitle").html("Click Here for Additional Information");
     $("#partsImg").fadeIn();
   }
 }, function() {
-  if (pageType == "vessel" && currentVesselData && !strActiveAscent.length) {
+  if (ops.pageType == "vessel" && ops.currentVessel && !ops.ascentData.active) {
   
     // wait to give tooltips a chance to hide on mouseover before checking to see if we're actually off the image
     setTimeout(function() {
-      if (!currentVesselData) return;
+      if (!ops.currentVessel) return;
       if (!$('#infoBox').is(":hover")) {
-        $("#infoTitle").html(currentVesselData.CraftData.CraftDescTitle);
+        $("#infoTitle").html(ops.currentVessel.CraftData.CraftDescTitle);
         $("#partsImg").fadeOut();
       }
-    }, 1000);
+    }, 500);
   }
 });
 
 // upon selection of a new list item, take the user to that event
 $("#prevEvent").change(function () {
-  if ($("#prevEvent").val()) { loadVessel(strCurrentVessel, parseFloat($("#prevEvent").val())); }
+  if ($("#prevEvent").val()) loadVessel(ops.currentVessel.Catalog.DB, parseFloat($("#prevEvent").val()));
 });
 $("#nextEvent").change(function () {
   
@@ -879,120 +847,119 @@ $("#nextEvent").change(function () {
       }]);
       $("#siteDialog").dialog("open");
       $("#nextEvent").val("Next Event(s)");
-    } else loadVessel(strCurrentVessel, parseFloat($("#nextEvent").val()));
+    } else loadVessel(ops.currentVessel.Catalog.DB, parseFloat($("#nextEvent").val()));
   }
 });
 
 // history paging via buttons
 function prevHistoryButton() {
-  if (!currentVesselData) return; // clicked too fast, in between data calls
+  if (!ops.currentVessel) return; // clicked too fast, in between data calls
   var histIndex;
-  for (histIndex = currentVesselData.History.length-1; histIndex >= 0; histIndex--) {
-    if (currentVesselData.History[histIndex].UT < currentVesselData.CraftData.UT) break;
+  for (histIndex = ops.currentVessel.History.length-1; histIndex >= 0; histIndex--) {
+    if (ops.currentVessel.History[histIndex].UT < ops.currentVessel.CraftData.UT) break;
   }
-  loadVessel(strCurrentVessel, currentVesselData.History[histIndex].UT);
+  loadVessel(ops.currentVessel.Catalog.DB, ops.currentVessel.History[histIndex].UT);
   if (histIndex == 0) $("#prevEventButton").button("option", "disabled", true);
   $("#nextEventButton").button("option", "disabled", false);
 }
 function nextHistoryButton() {
-  if (!currentVesselData) return; // clicked too fast, in between data calls
+  if (!ops.currentVessel) return; // clicked too fast, in between data calls
   var histIndex;
-  for (histIndex = 0; histIndex <= currentVesselData.History.length; histIndex++) {
-    if (currentVesselData.History[histIndex].UT > currentVesselData.CraftData.UT) break;
+  for (histIndex = 0; histIndex <= ops.currentVessel.History.length; histIndex++) {
+    if (ops.currentVessel.History[histIndex].UT > ops.currentVessel.CraftData.UT) break;
   }
-  if (histIndex == currentVesselData.History.length-1) $("#nextEventButton").button("option", "disabled", true);
-  loadVessel(strCurrentVessel, currentVesselData.History[histIndex].UT);
+  if (histIndex == ops.currentVessel.History.length-1) $("#nextEventButton").button("option", "disabled", true);
+  loadVessel(ops.currentVessel.Catalog.DB, ops.currentVessel.History[histIndex].UT);
   $("#prevEventButton").button("option", "disabled", false);
 }
 
 // opens the dialog box with more details - this is the same box that holds crew details, was just implemented here first
 function showInfoDialog() {
-  if (!$("#infoDialog").dialog("isOpen") && !strActiveAscent.length) { $("#infoDialog").dialog("open") }
+  if (!$("#infoDialog").dialog("isOpen") && !ops.ascentData.active) $("#infoDialog").dialog("open")
 }
 
 // provides full details for all vessel parts, ensures the parts catalog is loaded
 function assignPartInfo() {
-  if (!partsCatalog.length) { setTimeout(assignPartInfo, 100); }
-  else {
-    $(".imgmap").each(function(index) {
-      var part = partsCatalog.find(o => o.Part === $(this).attr("id"));
+  if (!partsCatalog.length) return setTimeout(assignPartInfo, 100);
+  $(".imgmap").each(function() {
+    var part = partsCatalog.find(o => o.Part === $(this).attr("id"));
 
-      // behavior of tooltips depends on the device
-      if (is_touch_device()) { showOpt = 'click'; }
-      else { showOpt = 'mouseenter'; }
+    // behavior of tooltips depends on the device
+    if (is_touch_device()) showOpt = 'click';
+    else showOpt = 'mouseenter';
 
-      // is there a title and are there multiples of this part to add to the title?
-      var strPartHtml = "";
-      if (part.Title) {
-        strPartHtml += "<b>" + part.Title;
-        if ($(this).attr("amount")) {
-          strPartHtml += " (x" + $(this).attr("amount") + ")";
-        }
-        strPartHtml += "</b>";
-      }
-      strPartHtml += part.HTML;
+    // is there a title and are there multiples of this part to add to the title?
+    var strPartHtml = "";
+    if (part.Title) {
+      strPartHtml += "<b>" + part.Title;
+      if ($(this).attr("amount")) strPartHtml += " (x" + $(this).attr("amount") + ")";
+      strPartHtml += "</b>";
+    }
+    strPartHtml += part.HTML;
 
-      // are there notes for this part?
-      if (part.Notes) {
-        
-        // get all the notes
-        var notes = part.Notes.split("&");
+    // are there notes for this part?
+    if (part.Notes) {
+      
+      // get all the notes
+      var notes = part.Notes.split("&");
 
-        // find out if any apply to this vessel and if so add the note to the HTML
-        notes.forEach(function(note) {
-          var regex = new RegExp(note.split("%")[0]);
-          if (strCurrentVessel.match(regex)) strPartHtml += "<b>Note:</b> " + note.split("%")[1];
-        });
-      }
-      Tipped.create("#" + part.Part, strPartHtml, { showOn: showOpt, hideOnClickOutside: is_touch_device(), target: 'mouse', offset: { y: 2 } });
-    });
-  }
+      // find out if any apply to this vessel and if so add the note to the HTML
+      notes.forEach(function(note) {
+        var regex = new RegExp(note.split("%")[0]);
+        if (ops.currentVessel.Catalog.DB.match(regex)) strPartHtml += "<b>Note:</b> " + note.split("%")[1];
+      });
+    }
+    Tipped.create("#" + part.Part, strPartHtml, { showOn: showOpt, hideOnClickOutside: is_touch_device(), target: 'mouse', offset: { y: 2 } });
+  });
 }
 
 // called only to update the vessel data after it has already been loaded initially
 function updateVesselData(vessel) {
+
+  // check if this vessel has any orbital data
+  loadDB("loadVesselOrbitData.asp?db=" + vessel.id + "&ut=" + currUT(), addGGBOrbitAJAX);
   
-  // if there is new orbital data we need to redraw the GGB orbit
-  // but there could be no more orbital data if the craft currently has any
-  if ((vessel.CurrentData.Orbit && !vessel.FutureData.Orbit) || (vessel.FutureData.Orbit && vessel.FutureData.Orbit.UT <= currUT())) {
-    addGGBOrbit(vessel.ID, vessel.FutureData.Orbit);
-  }
-
   // perform a live data update if we are looking at the vessel in question at the moment 
-  if (pageType == "vessel" && strCurrentVessel == vessel.ID) {
-
-    // always update the vessel history because we need to be able to page back & forth even during an ascent
-    vesselHistoryUpdate();
-
-    // force a re-check of the launch time in case a hold or new L-0 was posted if we are not in an active ascent
-    if (isAscentPaused) L0Time = null;
-
-    // check for an end to an ascent
-    if (!currentVesselData.CraftData.PastEvent && strActiveAscent == strCurrentVessel && currUT() >= currentVesselData.ascentData[currentVesselData.ascentData.length-1].UT) {
-      
-      // hide the fields that are now unused
-      $("#dataField12").fadeOut();
-      $("#dataField13").fadeOut();
-      $("#dataField14").fadeOut();
-      $("#dataField15").fadeOut();
-      $("#dataField16").fadeOut();
-      ascentEnd();
-    }
+  if (ops.pageType == "vessel" && ops.currentVessel.Catalog.DB == vessel.id) {
 
     // these elements should only be updated if the vessel is not undergoing an active ascent and is viewing the current record
-    if (strActiveAscent != strCurrentVessel && !currentVesselData.CraftData.PastEvent) {
+    if (!ops.ascentData.active && !ops.currentVessel.CraftData.pastEvent) {
+
+      // we need to retain this information
+      if (ops.currentVessel.Comms) var commsHTML = ops.currentVessel.Comms.commsHTML;
+      if (ops.currentVessel.Crew) var crewHTML = ops.currentVessel.Crew.crewHTML;
+      if (ops.currentVessel.Orbit) {
+        var orbitalPeriodHTML = ops.currentVessel.Orbit.orbitalPeriodHTML;
+        var velocityHTML = ops.currentVessel.Orbit.velocityHTML;
+      }
+      if (ops.currentVessel.Resources) var resHTML = ops.currentVessel.Resources.resHTML;
+      var prevContent = ops.currentVessel.CraftData.prevContent;
 
       // update the current data with the updated data and then carry out updates to individual sections
       for (var futureProp in vessel.FutureData) {
-        for (var prop in currentVesselData) {
+        for (var prop in ops.currentVessel) {
         
           // only update data that exists and is current for this time 
           if (futureProp == prop && vessel.FutureData[futureProp] && vessel.FutureData[futureProp].UT <= currUT()) {
-            currentVesselData[prop] = vessel.FutureData[futureProp];
+            ops.currentVessel[prop] = vessel.FutureData[futureProp];
           }
         }
       }
 
+      // restore the data
+      if (ops.currentVessel.Comms) ops.currentVessel.Comms.commsHTML = commsHTML;
+      if (ops.currentVessel.Crew) ops.currentVessel.Crew.crewHTML = crewHTML;
+      if (ops.currentVessel.Orbit) {
+        ops.currentVessel.Orbit.orbitalPeriodHTML = orbitalPeriodHTML;
+        ops.currentVessel.Orbit.velocityHTML = velocityHTML;
+      }
+      if (ops.currentVessel.Resources) {
+        ops.currentVessel.Resources.resHTML = resHTML;
+        ops.currentVessel.Resources.resIndex = 0;
+      }
+      ops.currentVessel.CraftData.prevContent = prevContent;
+
+      vesselHistoryUpdate();
       vesselTimelineUpdate(true);
       vesselInfoUpdate(true);
       vesselVelocityUpdate(true);
@@ -1004,213 +971,186 @@ function updateVesselData(vessel) {
       vesselCrewUpdate(true);
       vesselResourcesUpdate(true);
       vesselCommsUpdate(true);
-      vesselAddlResUpdate(true);
+      vesselAddlInfoUpdate(true);
       vesselMETUpdate(true);
+      vesselRelatedUpdate(true);
       vesselLastUpdate(true);
-      if (!vessel.FutureData || (vessel.FutureData && (vessel.FutureData.CraftData && vessel.CurrentData.CraftData.Content != vessel.FutureData.CraftData.Content))) {
-
-        // if a current orbit happens to be under calculation at this time, cancel it
-        if (!layerControl.options.collapsed) {
-          if (surfaceTracksDataLoad.obtTrackDataLoad) layerControl.removeLayer(surfaceTracksDataLoad.obtTrackDataLoad);
-          surfaceTracksDataLoad.obtTrackDataLoad = null;
-          isOrbitRenderTerminated = true;
-          layerControl.options.collapsed = true;
-        }
-
-        // close the map dialog if it is open
-        $("#mapDialog").dialog("close"); 
-
-        // remove the current plotted data if it exists and matches this vessel because we're going to need to draw a new plot
-        if (currentVesselPlot && currentVesselPlot.ID == strCurrentVessel) {
-          clearSurfacePlots();
-          currentVesselPlot = null;
-          vesselMarker = null;
-        }
-        vesselContentUpdate(true);
-      }
+      vesselContentUpdate(true);
     }
 
     // create the tooltips
     // behavior of tooltips depends on the device
-    if (is_touch_device()) { showOpt = 'click'; }
-    else { showOpt = 'mouseenter'; }
+    if (is_touch_device()) showOpt = 'click';
+    else showOpt = 'mouseenter';
     Tipped.create('.tipped', { showOn: showOpt, hideOnClickOutside: is_touch_device(), detach: false, hideOn: {element: 'mouseleave'} });
     Tipped.create('.tip-update', { showOn: showOpt, hideOnClickOutside: is_touch_device(), detach: false, hideOn: {element: 'mouseleave'} });
   } 
 
-  // check the current launch time for this UT if this vessel is listed in the event calendar
-  if (strCurrentLaunchVessel == vessel.ID) {
-    var launchTime;
-    for (i=vessel.CurrentData.LaunchTimes.length-1; i>=0; i--) {
-      launchTime = vessel.CurrentData.LaunchTimes[i].LaunchTime;
-      if (vessel.CurrentData.LaunchTimes[i].UT <= currUT()) break;
-    }
-    
-    // if we have a new launchtime for this update we need to refresh the events calendar
-    if (launchCountdown != launchTime) {
-      $("#launch").spin({ scale: 0.5, position: 'relative', top: '20px', left: '50%' });
-      loadDB("loadEventData.asp?UT=" + (currUT()+1), loadEventsAJAX);
-    }
-  }
-  
   // fetch new data. Add a second just to make sure we don't get the same current data
   vessel.isLoading = true;
-  loadDB("loadOpsData.asp?db=" + vessel.ID + "&UT=" + (currUT()+1) + "&type=" + vessel.Type + "&pastUT=NaN", loadOpsDataAJAX);
-}
-
-// depends on whether we are referenceing a UT that is the current time or not
-function getLaunchUT() {
-  if (!isNaN(vesselPastUT)) return vesselPastUT;
-  else return currUT();
+  loadDB("loadOpsData.asp?db=" + vessel.id + "&UT=" + (currUT()+1) + "&type=" + vessel.type + "&pastUT=NaN", loadOpsDataAJAX);
 }
 
 // following functions perform parsing on data strings
 function getVesselImage() {
-  if (!currentVesselData.CraftData.CraftImg) {
-    return "nadaOp.png";
-  } else {
-    return currentVesselData.CraftData.CraftImg.split("|")[vesselRotationIndex].split("~")[0];
-  }
+  if (!ops.currentVessel.CraftData.CraftImg) return "nadaOp.png";
+  else return ops.currentVessel.CraftData.CraftImg.split("|")[vesselRotationIndex].split("~")[0];
 }
 function getPartsHTML() {
-  if (!currentVesselData.CraftData.CraftImg) {
-    return null;
-  } else {
-    if (currentVesselData.CraftData.CraftImg.split("|")[vesselRotationIndex].split("~")[3] != "null") {
-      return currentVesselData.CraftData.CraftImg.split("|")[vesselRotationIndex].split("~")[3];
-    } else {
-      return null;
-    }
+  if (!ops.currentVessel.CraftData.CraftImg) return null;
+  else {
+    if (ops.currentVessel.CraftData.CraftImg.split("|")[vesselRotationIndex].split("~")[3] != "null") {
+      return ops.currentVessel.CraftData.CraftImg.split("|")[vesselRotationIndex].split("~")[3];
+    } else return null;
   }
 }
 function getMissionEndTime() {
-  if (!currentVesselData.CatalogData.MissionEnd) {
-    return null;
-  } else {
-    return parseInt(currentVesselData.CatalogData.MissionEnd.split(";")[1]);
-  }
+  if (!ops.currentVessel.Catalog.MissionEnd) return null;
+  else return parseInt(ops.currentVessel.Catalog.MissionEnd.split(";")[1]);
 }
 function getMissionEndMsg() {
-  if (!currentVesselData.CatalogData.MissionEnd) {
-    return null;
-  } else {
-    return currentVesselData.CatalogData.MissionEnd.split(";")[2];
-  }
+  if (!ops.currentVessel.Catalog.MissionEnd) return null;
+  else return ops.currentVessel.Catalog.MissionEnd.split(";")[2];
 }
 function isMissionEnded() {
-  if (!currentVesselData.CatalogData.MissionEnd) {
-    return false;
-  } else {
-    return parseInt(currentVesselData.CatalogData.MissionEnd.split(";")[0]) <= currUT();
-  }
+  if (!ops.currentVessel.Catalog.MissionEnd) return false;
+  else return parseInt(ops.currentVessel.Catalog.MissionEnd.split(";")[0]) <= currUT();
 }
 
 // updates the 5 resource icons in the event of a scroll
 function updateResourceIcons(update) {
-  if (!currentVesselData) return; // too fast of a page through the history due to call delay of the function
-  var resourceList = currentVesselData.Resources.Resources.split("|");
-  for (resCount=0; resCount<5; resCount++) {  
-    if (resCount+resIndex == resourceList.length) break;
-    $("#resImg" + resCount).attr("src", resourceList[resCount+resIndex].split(";")[0] + ".png");
+  if (!ops.currentVessel) return; // too fast of a page through the history due to call delay of the function
+  var resourceList = ops.currentVessel.Resources.Resources.split("|");
+  for (resCount=0; resCount<5; resCount++) {
+    if (resCount+ops.currentVessel.Resources.resIndex == resourceList.length) break;
+    $("#resImg" + resCount).attr("src", resourceList[resCount+ops.currentVessel.Resources.resIndex].split(";")[0] + ".png");
     $("#resImg" + resCount).fadeIn();
-    $("#resTip" + resCount).html(resourceList[resCount+resIndex].split(";")[1]);
+    $("#resTip" + resCount).html(resourceList[resCount+ops.currentVessel.Resources.resIndex].split(";")[1]);
   }
-  if (update && (!currentVesselData.Resources.HTML || (currentVesselData.Resources.HTML && currentVesselData.Resources.HTML !=  $("#dataField8").html()))) {
+  if (update && (!ops.currentVessel.Resources.resHTML || (ops.currentVessel.Resources.resHTML && ops.currentVessel.Resources.resHTML !=  $("#dataField8").html()))) {
     flashUpdate("#dataField8", "#77C6FF", "#FFF");
   }
-  currentVesselData.Resources.HTML = $("#dataField8").html();
+  ops.currentVessel.Resources.resHTML = $("#dataField8").html();
 }
 
 // scrolls resource icons left and right, re-assigning their images and captions
 function prevResource() {
   $("#nextRes").css("visibility", "visible");
-  resIndex--;
-  if (resIndex == 0) $("#prevRes").css("visibility", "hidden");
+  ops.currentVessel.Resources.resIndex--;
+  if (ops.currentVessel.Resources.resIndex == 0) $("#prevRes").css("visibility", "hidden");
   updateResourceIcons();
 }
 function nextResource() {
   $("#prevRes").css("visibility", "visible");
-  resIndex++;
-  if (resIndex == currentVesselData.Resources.Resources.split("|").length-5) $("#nextRes").css("visibility", "hidden");
+  ops.currentVessel.Resources.resIndex++;
+  if (ops.currentVessel.Resources.resIndex == ops.currentVessel.Resources.Resources.split("|").length-5) $("#nextRes").css("visibility", "hidden");
   updateResourceIcons();
+}
+
+// decides if the ascent data for this vessel needs to be loaded
+// initial load of ascent data only contains two entries, the start and end times
+function loadAscentData() {
+  if (ops.ascentData.vessel != ops.currentVessel.Catalog.DB) {
+    ops.ascentData.vessel = ops.currentVessel.Catalog.DB;
+    loadDB("loadAscentData.asp?db=" + ops.ascentData.vessel, loadAscentAJAX);
+    $("#dataLabel").html("Loading Tlm...");
+  } else setupStreamingAscent();
 }
 
 // prepares the data fields for displaying real-time ascent data
 function setupStreamingAscent() {
-  strActiveAscent = strCurrentVessel;
-  currentAscentData = {};
-  currentAscentData.ascentIndex = 0;
-  currentAscentData.interpCount = null;
-  isAscentPaused = currentVesselData.CraftData.PastEvent;
+  ops.ascentData.active = true;
+  ops.activeAscentFrame = {};
+  ops.activeAscentFrame.ascentIndex = 0;
+  ops.activeAscentFrame.interpCount = null;
+  ops.ascentData.isPaused = ops.currentVessel.CraftData.pastEvent;
+
+  // make sure the map is small and don't let it go large
+  if (ops.pageType == "vessel") {
+    lowerContent();
+    mapResizeButton.disable();
+  }
+
+  // kill all spinners
+  $("#infoBox").spin(false);
+  $("#contentBox").spin(false);
+
+  // do not allow history paging during a live event
+  if (!ops.currentVessel.CraftData.pastEvent) {
+    $("#prevEvent").prop("disabled", true);
+    $("#nextEvent").prop("disabled", true);
+    $("#prevEventButton").button("option", "disabled", true);
+    $("#nextEventButton").button("option", "disabled", true);
+    $("#dataLabel").html("Live Telemetry");
+  } else $("#dataLabel").html("Mission History");
 
   // grab default ascent FPS from cookie or null if cookies not available
-  currentAscentData.FPS = null;
-  if (checkCookies() && getCookie("ascentFPS")) currentAscentData.FPS = parseInt(getCookie("ascentFPS"));
+  ops.activeAscentFrame.FPS = null;
+  if (checkCookies() && getCookie("ascentFPS")) ops.activeAscentFrame.FPS = parseInt(getCookie("ascentFPS"));
 
   // MET/countdown display
   // we do things differently if this is a past event
-  checkLaunchTime();
-  if (currentVesselData.CraftData.PastEvent) {
-    $("#dataField0").html("<b id='metCaption'>Launch in:</b> <span id='met'>" + formatTime(L0Time-currentVesselData.ascentData[0].UT) + "</span>");
+  if (ops.currentVessel.CraftData.pastEvent) {
+    $("#dataField0").html("<b id='metCaption'>Launch in:</b> <span id='met'>" + formatTime(checkLaunchTime()-ops.ascentData.telemetry[0].UT) + "</span>");
     $("#dataField0").fadeIn();
   }
 
   // things are happening NOW
   else {
     var strHTML = "<b id='metCaption'>";
-    if (L0Time >= currUT()) strHTML += "Launch in:</b> <span id='met'>" + formatTime(L0Time-currUT(true));
-    else strHTML += "Mission Elapsed Time:</b> <span id='met'>" + formatTime(currUT(true)-L0Time);
+    if (checkLaunchTime() >= currUT()) strHTML += "Launch in:</b> <span id='met'>" + formatTime(checkLaunchTime()-currUT());
+    else strHTML += "Mission Elapsed Time:</b> <span id='met'>" + formatTime(currUT()-checkLaunchTime());
     $("#dataField0").html(strHTML + "</span>");
     $("#dataField0").fadeIn();
 
     // update the current ascent index if needed
-    if (currUT() > currentVesselData.ascentData[0].UT) currentAscentData.ascentIndex = currUT(true) - currentVesselData.ascentData[0].UT;
+    if (currUT() > ops.ascentData.telemetry[0].UT) ops.activeAscentFrame.ascentIndex = currUT() - ops.ascentData.telemetry[0].UT;
   }
 
   // update the info box only if this is a realtime ascent and we have already started into the telemetry
   // or if it is being loaded as a past event
-  if ((!currentVesselData.CraftData.PastEvent && currUT() >= currentVesselData.ascentData[0].UT) || currentVesselData.CraftData.PastEvent) {
+  if ((!ops.currentVessel.CraftData.pastEvent && currUT() >= ops.ascentData.telemetry[0].UT) || ops.currentVessel.CraftData.pastEvent) {
 
     // get the craft title for this point in the telemetry
-    currentAscentData.event = currentVesselData.ascentData[currentAscentData.ascentIndex].Event;
+    ops.activeAscentFrame.event = ops.ascentData.telemetry[ops.activeAscentFrame.ascentIndex].Event;
 
     // if there isn't one, we need to seek back and find the last update
-    if (!currentAscentData.event) {
-      for (checkIndex=currentAscentData.ascentIndex-1; checkIndex>=0; checkIndex--) {
-        if (currentVesselData.ascentData[checkIndex].Event) {
-          currentAscentData.event = currentVesselData.ascentData[checkIndex].Event;
+    if (!ops.activeAscentFrame.event) {
+      for (checkIndex=ops.activeAscentFrame.ascentIndex-1; checkIndex>=0; checkIndex--) {
+        if (ops.ascentData.telemetry[checkIndex].Event) {
+          ops.activeAscentFrame.event = ops.ascentData.telemetry[checkIndex].Event;
           break;
         }
       }
     }
 
     // get the craft img for this point in the telemetry
-    currentAscentData.img = currentVesselData.ascentData[currentAscentData.ascentIndex].Image;
+    ops.activeAscentFrame.img = ops.ascentData.telemetry[ops.activeAscentFrame.ascentIndex].Image;
 
     // if there isn't one, we need to seek back and find the last update
-    if (!currentAscentData.img) {
-      for (checkIndex=currentAscentData.ascentIndex-1; checkIndex>=0; checkIndex--) {
-        if (currentVesselData.ascentData[checkIndex].Image) {
-          currentAscentData.img = currentVesselData.ascentData[checkIndex].Image;
+    if (!ops.activeAscentFrame.img) {
+      for (checkIndex=ops.activeAscentFrame.ascentIndex-1; checkIndex>=0; checkIndex--) {
+        if (ops.ascentData.telemetry[checkIndex].Image) {
+          ops.activeAscentFrame.img = ops.ascentData.telemetry[checkIndex].Image;
           break;
         }
       }
     }
 
     // update info box img and title
-    $("#infoImg").html("<img src='" + currentAscentData.img + "'>");
-    $("#infoTitle").html(currentAscentData.event);
+    $("#infoImg").html("<img src='" + ops.activeAscentFrame.img + "'>");
     $("#infoTitle").attr("class", "infoTitle vessel");
     $("#infoTitle").css("cursor", "auto");
+    $("#infoTitle").html(ops.activeAscentFrame.event);
   }
 
   // update the info box to let user know ascent data is available
   // if this is a past event, just close the box
   if ($("#infoDialog").dialog("isOpen")) {
-    if (currentVesselData.CraftData.PastEvent) $("#infoDialog").dialog("close")
+    if (ops.currentVessel.CraftData.pastEvent) $("#infoDialog").dialog("close")
     else {
       $("#infoDialog").html("<p>Please close the info box when you are finished reading - it will not update during ascent</p>" + $("#infoDialog").html() + "<p>Please close the info box when you are finished reading - it will not update during ascent</p>");
-      $("#infoDialog").dialog("option", "title", "Launch in T-" + (launchTime-currUT(true)) + "s!");
+      $("#infoDialog").dialog("option", "title", "Launch in T-" + (checkLaunchTime()-currUT()) + "s!");
     }
   }
 
@@ -1219,79 +1159,79 @@ function setupStreamingAscent() {
 
   // velocity readout
   strHTML = "<b>Velocity:</b> <span id='velocity'>";
-  if (currentVesselData.ascentData[currentAscentData.ascentIndex].Velocity > 1000) {
-    strHTML += numeral(currentVesselData.ascentData[currentAscentData.ascentIndex].Velocity/1000).format('0.000') + "km/s";
+  if (ops.ascentData.telemetry[ops.activeAscentFrame.ascentIndex].Velocity > 1000) {
+    strHTML += numeral(ops.ascentData.telemetry[ops.activeAscentFrame.ascentIndex].Velocity/1000).format('0.000') + "km/s";
   } else {
-    strHTML += numeral(currentVesselData.ascentData[currentAscentData.ascentIndex].Velocity).format('0.000') + "m/s";
+    strHTML += numeral(ops.ascentData.telemetry[ops.activeAscentFrame.ascentIndex].Velocity).format('0.000') + "m/s";
   }
-  strHTML += "</span> (Throttle @ <span id='throttle'>" + numeral(currentVesselData.ascentData[currentAscentData.ascentIndex].Throttle).format('0.00') + "</span>%)";
+  strHTML += "</span> (Throttle @ <span id='throttle'>" + numeral(ops.ascentData.telemetry[ops.activeAscentFrame.ascentIndex].Throttle).format('0.00') + "</span>%)";
   $("#dataField1").html(strHTML);
   $("#dataField1").fadeIn();
 
   // thrust readout
-  strHTML = "<b>Total Thrust:</b> <span id='thrust'>" + numeral(currentVesselData.ascentData[currentAscentData.ascentIndex].Thrust).format('0.000') + "</span>kN @ <span id='twr'>";
-  strHTML += numeral(currentVesselData.ascentData[currentAscentData.ascentIndex].Thrust/(currentVesselData.ascentData[currentAscentData.ascentIndex].Mass * currentVesselData.ascentData[currentAscentData.ascentIndex].Gravity)).format('0.000');
+  strHTML = "<b>Total Thrust:</b> <span id='thrust'>" + numeral(ops.ascentData.telemetry[ops.activeAscentFrame.ascentIndex].Thrust).format('0.000') + "</span>kN @ <span id='twr'>";
+  strHTML += numeral(ops.ascentData.telemetry[ops.activeAscentFrame.ascentIndex].Thrust/(ops.ascentData.telemetry[ops.activeAscentFrame.ascentIndex].Mass * ops.ascentData.telemetry[ops.activeAscentFrame.ascentIndex].Gravity)).format('0.000');
   $("#dataField2").html(strHTML + "</span> TWR");
   $("#dataField2").fadeIn();
 
   // altitude
   strHTML = "<b>Altitude:</b> <span id='altitude'>";
-  if (currentVesselData.ascentData[currentAscentData.ascentIndex].Altitude > 1000) {
-    strHTML += numeral(currentVesselData.ascentData[currentAscentData.ascentIndex].Altitude/1000).format('0.000') + "km";
+  if (ops.ascentData.telemetry[ops.activeAscentFrame.ascentIndex].Altitude > 1000) {
+    strHTML += numeral(ops.ascentData.telemetry[ops.activeAscentFrame.ascentIndex].Altitude/1000).format('0.000') + "km";
   } else {
-    strHTML += numeral(currentVesselData.ascentData[currentAscentData.ascentIndex].Altitude).format('0.000') + "m";
+    strHTML += numeral(ops.ascentData.telemetry[ops.activeAscentFrame.ascentIndex].Altitude).format('0.000') + "m";
   }
   $("#dataField3").html(strHTML + "</span>");
   $("#dataField3").fadeIn();
 
   // apoapsis
   strHTML = "<b>Apoapsis:</b> <span id='ap'>";
-  if (currentVesselData.ascentData[currentAscentData.ascentIndex].Apoapsis > 1000) {
-    strHTML += numeral(currentVesselData.ascentData[currentAscentData.ascentIndex].Apoapsis/1000).format('0.000') + "km";
+  if (ops.ascentData.telemetry[ops.activeAscentFrame.ascentIndex].Apoapsis > 1000) {
+    strHTML += numeral(ops.ascentData.telemetry[ops.activeAscentFrame.ascentIndex].Apoapsis/1000).format('0.000') + "km";
   } else {
-    strHTML += numeral(currentVesselData.ascentData[currentAscentData.ascentIndex].Apoapsis).format('0.000') + "m";
+    strHTML += numeral(ops.ascentData.telemetry[ops.activeAscentFrame.ascentIndex].Apoapsis).format('0.000') + "m";
   }
   $("#dataField4").html(strHTML + "</span>");
   $("#dataField4").fadeIn();
 
   // show periapsis if dynamic pressure is 0 and the rocket is into its ascent
-  if (currentVesselData.ascentData[currentAscentData.ascentIndex].Q <= 0 && currentVesselData.ascentData[currentAscentData.ascentIndex].UT > launchTime) {
+  if (ops.ascentData.telemetry[ops.activeAscentFrame.ascentIndex].Q <= 0 && ops.ascentData.telemetry[ops.activeAscentFrame.ascentIndex].UT > checkLaunchTime()) {
     strHTML = "<b id='peQcaption'>Periapsis:</b> <span id='peQ'>";
-    if (Math.abs(currentVesselData.ascentData[currentAscentData.ascentIndex].Periapsis) > 1000) {
-      strHTML += numeral(currentVesselData.ascentData[currentAscentData.ascentIndex].Periapsis/1000).format('0.000') + "km";
+    if (Math.abs(ops.ascentData.telemetry[ops.activeAscentFrame.ascentIndex].Periapsis) > 1000) {
+      strHTML += numeral(ops.ascentData.telemetry[ops.activeAscentFrame.ascentIndex].Periapsis/1000).format('0.000') + "km";
     } else {
-      strHTML += numeral(currentVesselData.ascentData[currentAscentData.ascentIndex].Periapsis).format('0.000') + "m";
+      strHTML += numeral(ops.ascentData.telemetry[ops.activeAscentFrame.ascentIndex].Periapsis).format('0.000') + "m";
     }
   } else {
     strHTML = "<b id='peQcaption'>Dynamic Pressure (Q):</b> <span id='peQ'>";
-    if (currentVesselData.ascentData[currentAscentData.ascentIndex].Q >= 1) {
-      strHTML += numeral(currentVesselData.ascentData[currentAscentData.ascentIndex].Q).format('0.000') + "kPa";
+    if (ops.ascentData.telemetry[ops.activeAscentFrame.ascentIndex].Q >= 1) {
+      strHTML += numeral(ops.ascentData.telemetry[ops.activeAscentFrame.ascentIndex].Q).format('0.000') + "kPa";
     } else {
-      strHTML += numeral(currentVesselData.ascentData[currentAscentData.ascentIndex].Q*1000).format('0.000') + "Pa";
+      strHTML += numeral(ops.ascentData.telemetry[ops.activeAscentFrame.ascentIndex].Q*1000).format('0.000') + "Pa";
     }
   }
   $("#dataField5").html(strHTML + "</span>");
   $("#dataField5").fadeIn();
 
   // inclination
-  strHTML = "<b>Inclination:</b> <span id='inc'>" + numeral(currentVesselData.ascentData[currentAscentData.ascentIndex].Inclination).format('0.000');
+  strHTML = "<b>Inclination:</b> <span id='inc'>" + numeral(ops.ascentData.telemetry[ops.activeAscentFrame.ascentIndex].Inclination).format('0.000');
   $("#dataField6").html(strHTML + "</span>&deg;");
   $("#dataField6").fadeIn();
 
   // total mass
   strHTML = "<b>Total Mass:</b> <span id='mass'>";
-  if (currentVesselData.ascentData[currentAscentData.ascentIndex].Mass >= 1) {
-    strHTML += numeral(currentVesselData.ascentData[currentAscentData.ascentIndex].Mass).format('0.000') + "t";
+  if (ops.ascentData.telemetry[ops.activeAscentFrame.ascentIndex].Mass >= 1) {
+    strHTML += numeral(ops.ascentData.telemetry[ops.activeAscentFrame.ascentIndex].Mass).format('0.000') + "t";
   } else {
-    strHTML += numeral(currentVesselData.ascentData[currentAscentData.ascentIndex].Mass*1000).format('0.000') + "kg";
+    strHTML += numeral(ops.ascentData.telemetry[ops.activeAscentFrame.ascentIndex].Mass*1000).format('0.000') + "kg";
   }
   $("#dataField7").html(strHTML + "</span>");
   $("#dataField7").fadeIn();
   
   // stage fuel
-  if (currentVesselData.ascentData[currentAscentData.ascentIndex].StageFuel) {
-    var percent = currentVesselData.ascentData[currentAscentData.ascentIndex].StageFuel*100;
-    var Gwidth = 202 * currentVesselData.ascentData[currentAscentData.ascentIndex].StageFuel;
+  if (ops.ascentData.telemetry[ops.activeAscentFrame.ascentIndex].StageFuel) {
+    var percent = ops.ascentData.telemetry[ops.activeAscentFrame.ascentIndex].StageFuel*100;
+    var Gwidth = 202 * ops.ascentData.telemetry[ops.activeAscentFrame.ascentIndex].StageFuel;
     var Rwidth = 202 - Gwidth;
     strHTML = "<b>Stage Fuel: </b>";
     strHTML += "<span id='stageFuel' style='position: absolute; z-index: 120; margin-left: 80px;'>" + numeral(percent).format('0.00') + "%</span>";
@@ -1302,8 +1242,8 @@ function setupStreamingAscent() {
   } else $("#dataField8").fadeOut();
 
   // total fuel
-  var percent = currentVesselData.ascentData[currentAscentData.ascentIndex].TotalFuel*100;
-  var Gwidth = 210 * currentVesselData.ascentData[currentAscentData.ascentIndex].TotalFuel;
+  var percent = ops.ascentData.telemetry[ops.activeAscentFrame.ascentIndex].TotalFuel*100;
+  var Gwidth = 210 * ops.ascentData.telemetry[ops.activeAscentFrame.ascentIndex].TotalFuel;
   var Rwidth = 210 - Gwidth;
   strHTML = "<b>Total Fuel: </b>";
   strHTML += "<span id='totalFuel' style='position: absolute; z-index: 120; margin-left: 80px;'>" + numeral(percent).format('0.00') + "%</span>";
@@ -1314,46 +1254,46 @@ function setupStreamingAscent() {
 
   // distance downrange
   strHTML = "<b>Distance Downrange:</b> <span id='dstDownrange'>";
-  if (currentVesselData.ascentData[currentAscentData.ascentIndex].DstDownrange > 1000) {
-    strHTML += numeral(currentVesselData.ascentData[currentAscentData.ascentIndex].DstDownrange/1000).format('0.000') + "km";
+  if (ops.ascentData.telemetry[ops.activeAscentFrame.ascentIndex].DstDownrange > 1000) {
+    strHTML += numeral(ops.ascentData.telemetry[ops.activeAscentFrame.ascentIndex].DstDownrange/1000).format('0.000') + "km";
   } else {
-    strHTML += numeral(currentVesselData.ascentData[currentAscentData.ascentIndex].DstDownrange).format('0.000') + "m";
+    strHTML += numeral(ops.ascentData.telemetry[ops.activeAscentFrame.ascentIndex].DstDownrange).format('0.000') + "m";
   }
   $("#dataField10").html(strHTML + "</span>");
   $("#dataField10").fadeIn();
 
   // distance traveled
-  if (currentVesselData.ascentData[currentAscentData.ascentIndex].DstTraveled) {
+  if (ops.ascentData.telemetry[ops.activeAscentFrame.ascentIndex].DstTraveled) {
     strHTML = "<b>Distance Traveled:</b> <span id='dstTraveled'>";
-    if (currentVesselData.ascentData[currentAscentData.ascentIndex].DstTraveled > 1000) {
-      strHTML += numeral(currentVesselData.ascentData[currentAscentData.ascentIndex].DstTraveled/1000).format('0.000') + "km";
+    if (ops.ascentData.telemetry[ops.activeAscentFrame.ascentIndex].DstTraveled > 1000) {
+      strHTML += numeral(ops.ascentData.telemetry[ops.activeAscentFrame.ascentIndex].DstTraveled/1000).format('0.000') + "km";
     } else {
-      strHTML += numeral(currentVesselData.ascentData[currentAscentData.ascentIndex].DstTraveled).format('0.000') + "m";
+      strHTML += numeral(ops.ascentData.telemetry[ops.activeAscentFrame.ascentIndex].DstTraveled).format('0.000') + "m";
     }
     $("#dataField11").html(strHTML + "</span>");
     $("#dataField11").fadeIn();
   } else $("#dataField11").fadeOut();
 
   // AoA
-  strHTML = "<b>Angle of Attack:</b> <span id='aoa'>" + numeral(currentVesselData.ascentData[currentAscentData.ascentIndex].AoA).format('0.00') + "</span>&deg; [";
-  if (!currentVesselData.ascentData[currentAscentData.ascentIndex].AoAWarn) {
+  strHTML = "<b>Angle of Attack:</b> <span id='aoa'>" + numeral(ops.ascentData.telemetry[ops.activeAscentFrame.ascentIndex].AoA).format('0.00') + "</span>&deg; [";
+  if (!ops.ascentData.telemetry[ops.activeAscentFrame.ascentIndex].AoAWarn) {
     strHTML += "<span id='aoawarn' style='color: green'>Nominal</span>]";
   } else {
-    var data = currentVesselData.ascentData[currentAscentData.ascentIndex].AoAWarn.split(":");
+    var data = ops.ascentData.telemetry[ops.activeAscentFrame.ascentIndex].AoAWarn.split(":");
     strHTML += "<span id='aoawarn' style='color: " + data[1] + "'>" + data[0] + "</span>]";
   }
   $("#dataField12").html(strHTML);
   $("#dataField12").fadeIn();
 
   // Pitch/Roll/Heading
-  strHTML = "<b>Pitch:</b> <span id='pitch'>" + numeral(currentVesselData.ascentData[currentAscentData.ascentIndex].Pitch).format('0.00') + "</span>&deg; | ";
-  strHTML += "<b>Roll:</b> <span id='roll'>" + numeral(currentVesselData.ascentData[currentAscentData.ascentIndex].Roll).format('0.00') + "</span>&deg; | ";
-  strHTML += "<b>Hdg:</b> <span id='hdg'>" + numeral(currentVesselData.ascentData[currentAscentData.ascentIndex].Heading).format('0.00') + "</span>&deg;";
+  strHTML = "<b>Pitch:</b> <span id='pitch'>" + numeral(ops.ascentData.telemetry[ops.activeAscentFrame.ascentIndex].Pitch).format('0.00') + "</span>&deg; | ";
+  strHTML += "<b>Roll:</b> <span id='roll'>" + numeral(ops.ascentData.telemetry[ops.activeAscentFrame.ascentIndex].Roll).format('0.00') + "</span>&deg; | ";
+  strHTML += "<b>Hdg:</b> <span id='hdg'>" + numeral(ops.ascentData.telemetry[ops.activeAscentFrame.ascentIndex].Heading).format('0.00') + "</span>&deg;";
   $("#dataField13").html(strHTML);
   $("#dataField13").fadeIn();
 
   // if this is a past event, show playback controls
-  if (currentVesselData.CraftData.PastEvent) {
+  if (ops.currentVessel.CraftData.pastEvent) {
     strHTML = "<center><img class='tipped' id='prev10s' title='Back 10s' src='seekBackward1.png' style='visibility: hidden; cursor: pointer;' onclick='seekBack(10)'>&nbsp;&nbsp;";
     strHTML += "<img id='prev30s' src='seekBack.png' style='visibility: hidden; cursor:pointer' class='tipped' title='Back 30s' onclick='seekBack(30)'>&nbsp;&nbsp;";
     strHTML += "<span id='playbackCtrl' class='fauxLink' onclick='ascentPlaybackCtrl()'>Begin Playback</span>&nbsp;&nbsp;";
@@ -1365,25 +1305,23 @@ function setupStreamingAscent() {
 
   // create the tooltips
   // behavior of tooltips depends on the device
-  if (is_touch_device()) { showOpt = 'click'; }
-  else { showOpt = 'mouseenter'; }
+  if (is_touch_device()) showOpt = 'click';
+  else showOpt = 'mouseenter';
   Tipped.create('.tipped', { showOn: showOpt, hideOnClickOutside: is_touch_device(), detach: false, hideOn: {element: 'mouseleave'} });
 
   // content area
-  $("#content").fadeOut();
-  $("#map").css("visibility", "visible");
-  $("#map").fadeIn();
+  showMap();
 
   // remove any markers that might already be placed
-  if (launchsiteMarker) surfaceMap.removeLayer(launchsiteMarker);
-  if (vesselMarker) surfaceMap.removeLayer(vesselMarker);
+  if (launchsiteMarker) ops.surface.map.removeLayer(launchsiteMarker);
+  if (vesselMarker) ops.surface.map.removeLayer(vesselMarker);
 
   // place the craft marker 
-  vesselIcon = L.icon({iconUrl: 'button_vessel_' + currentVesselData.CatalogData.Type + '.png', iconSize: [16, 16]});
-  vesselMarker = L.marker([currentVesselData.ascentData[currentAscentData.ascentIndex].Lat, currentVesselData.ascentData[currentAscentData.ascentIndex].Lon], {icon: vesselIcon, zIndexOffset: 100, interactive: false}).addTo(surfaceMap);
+  vesselIcon = L.icon({iconUrl: 'button_vessel_' + ops.currentVessel.Catalog.Type + '.png', iconSize: [16, 16]});
+  vesselMarker = L.marker([ops.ascentData.telemetry[ops.activeAscentFrame.ascentIndex].Lat, ops.ascentData.telemetry[ops.activeAscentFrame.ascentIndex].Lon], {icon: vesselIcon, zIndexOffset: 100, interactive: false}).addTo(ops.surface.map);
   
   // focus in on the vessel position
-  surfaceMap.setView(vesselMarker.getLatLng(), 5);
+  ops.surface.map.setView(vesselMarker.getLatLng(), 5);
 
   // build surface plot up to where things are if needed
   rebuildAscentTrack();
@@ -1392,14 +1330,14 @@ function setupStreamingAscent() {
 // have a bit of housecleaning to do
 function ascentEnd() {
 
-  // null the string so it can be checked for non-ascent
-  strActiveAscent = "";
-
   // reset cursor for info window
   $("#infoTitle").css("cursor", "pointer");
 
+  // re-enable map controls
+  if (mapResizeButton) mapResizeButton.enable();
+
   // save ascent FPS cookie
-  if (checkCookies() && currentAscentData.FPS) setCookie("ascentFPS", currentAscentData.FPS, true);
+  if (checkCookies() && ops.activeAscentFrame.FPS) setCookie("ascentFPS", ops.activeAscentFrame.FPS, true);
 
   // interpolation function timeout handle nulled
   if (ascentInterpTimeout) {
@@ -1408,54 +1346,70 @@ function ascentEnd() {
   }
 
   // pause ascent so a return to the data has it static
-  isAscentPaused = true;
+  ops.ascentData.isPaused = true;
 
-  // clear out the ascent track, won't take long to build it again
+  // clear out the ascent track and vessel marker
   clearAscentTracks();
+  if (vesselMarker) ops.surface.map.removeLayer(vesselMarker);
+
+  // live event? reload the vessel to get all the history from the launch in addition to the current state
+  if (!ops.currentVessel.CraftData.pastEvent && ops.ascentData.active) {
+
+    // hide the fields that are now unused
+    $("#dataField13").fadeOut();
+    $("#dataField14").fadeOut();
+    $("#dataField15").fadeOut();
+    $("#dataField16").fadeOut();
+
+    // check the vessel so switching vessels during ascent doesn't trigger a double load or reload while looking elsewhere
+    // check page type so vessel load isn't triggered if not looking at the vessel page
+    if (ops.ascentData.vessel == ops.currentVessel.Catalog.DB && ops.pageType == "vessel") loadVessel(ops.currentVessel.Catalog.DB, currUT())
+  }
+  ops.ascentData.active = false;
 }
 
 // interpolate or set the data fields during an active ascent
 function updateAscentData(clamp) {
 
   // can maybe get caught between switching to a past event
-  if (!currentVesselData) return;
+  if (!ops.currentVessel) return;
 
   // if we are clamping, just set the fields to the current ascent index
   if (clamp) {
-    currentAscentData.velocity = currentVesselData.ascentData[currentAscentData.ascentIndex].Velocity;
-    currentAscentData.throttle = currentVesselData.ascentData[currentAscentData.ascentIndex].Throttle;
-    currentAscentData.thrust = currentVesselData.ascentData[currentAscentData.ascentIndex].Thrust;
-    currentAscentData.gravity = currentVesselData.ascentData[currentAscentData.ascentIndex].Gravity;
-    currentAscentData.altitude = currentVesselData.ascentData[currentAscentData.ascentIndex].Altitude;
-    currentAscentData.ap = currentVesselData.ascentData[currentAscentData.ascentIndex].Apoapsis;
-    currentAscentData.q = currentVesselData.ascentData[currentAscentData.ascentIndex].Q;
-    currentAscentData.pe = currentVesselData.ascentData[currentAscentData.ascentIndex].Periapsis;
-    currentAscentData.inc = currentVesselData.ascentData[currentAscentData.ascentIndex].Inclination;
-    currentAscentData.mass = currentVesselData.ascentData[currentAscentData.ascentIndex].Mass;
-    currentAscentData.fuel = currentVesselData.ascentData[currentAscentData.ascentIndex].TotalFuel;
-    currentAscentData.dst = currentVesselData.ascentData[currentAscentData.ascentIndex].DstDownrange;
-    currentAscentData.aoa = currentVesselData.ascentData[currentAscentData.ascentIndex].AoA;
-    currentAscentData.pitch = currentVesselData.ascentData[currentAscentData.ascentIndex].Pitch;
-    currentAscentData.roll = currentVesselData.ascentData[currentAscentData.ascentIndex].Roll;
-    currentAscentData.hdg = currentVesselData.ascentData[currentAscentData.ascentIndex].Heading;
-    currentAscentData.lat = currentVesselData.ascentData[currentAscentData.ascentIndex].Lat;
-    currentAscentData.lon = currentVesselData.ascentData[currentAscentData.ascentIndex].Lon;
-    if (currentVesselData.ascentData[currentAscentData.ascentIndex].StageFuel) currentAscentData.stage = currentVesselData.ascentData[currentAscentData.ascentIndex].StageFuel;
-    if (currentVesselData.ascentData[currentAscentData.ascentIndex].DstTraveled) currentAscentData.traveled = currentVesselData.ascentData[currentAscentData.ascentIndex].DstTraveled;
+    ops.activeAscentFrame.velocity = ops.ascentData.telemetry[ops.activeAscentFrame.ascentIndex].Velocity;
+    ops.activeAscentFrame.throttle = ops.ascentData.telemetry[ops.activeAscentFrame.ascentIndex].Throttle;
+    ops.activeAscentFrame.thrust = ops.ascentData.telemetry[ops.activeAscentFrame.ascentIndex].Thrust;
+    ops.activeAscentFrame.gravity = ops.ascentData.telemetry[ops.activeAscentFrame.ascentIndex].Gravity;
+    ops.activeAscentFrame.altitude = ops.ascentData.telemetry[ops.activeAscentFrame.ascentIndex].Altitude;
+    ops.activeAscentFrame.ap = ops.ascentData.telemetry[ops.activeAscentFrame.ascentIndex].Apoapsis;
+    ops.activeAscentFrame.q = ops.ascentData.telemetry[ops.activeAscentFrame.ascentIndex].Q;
+    ops.activeAscentFrame.pe = ops.ascentData.telemetry[ops.activeAscentFrame.ascentIndex].Periapsis;
+    ops.activeAscentFrame.inc = ops.ascentData.telemetry[ops.activeAscentFrame.ascentIndex].Inclination;
+    ops.activeAscentFrame.mass = ops.ascentData.telemetry[ops.activeAscentFrame.ascentIndex].Mass;
+    ops.activeAscentFrame.fuel = ops.ascentData.telemetry[ops.activeAscentFrame.ascentIndex].TotalFuel;
+    ops.activeAscentFrame.dst = ops.ascentData.telemetry[ops.activeAscentFrame.ascentIndex].DstDownrange;
+    ops.activeAscentFrame.aoa = ops.ascentData.telemetry[ops.activeAscentFrame.ascentIndex].AoA;
+    ops.activeAscentFrame.pitch = ops.ascentData.telemetry[ops.activeAscentFrame.ascentIndex].Pitch;
+    ops.activeAscentFrame.roll = ops.ascentData.telemetry[ops.activeAscentFrame.ascentIndex].Roll;
+    ops.activeAscentFrame.hdg = ops.ascentData.telemetry[ops.activeAscentFrame.ascentIndex].Heading;
+    ops.activeAscentFrame.lat = ops.ascentData.telemetry[ops.activeAscentFrame.ascentIndex].Lat;
+    ops.activeAscentFrame.lon = ops.ascentData.telemetry[ops.activeAscentFrame.ascentIndex].Lon;
+    if (ops.ascentData.telemetry[ops.activeAscentFrame.ascentIndex].StageFuel) ops.activeAscentFrame.stage = ops.ascentData.telemetry[ops.activeAscentFrame.ascentIndex].StageFuel;
+    if (ops.ascentData.telemetry[ops.activeAscentFrame.ascentIndex].DstTraveled) ops.activeAscentFrame.traveled = ops.ascentData.telemetry[ops.activeAscentFrame.ascentIndex].DstTraveled;
 
     // check if we have a new AoA status
-    if (!currentVesselData.ascentData[currentAscentData.ascentIndex].AoAWarn && $('#aoawarn').html() != "Nominal") {
+    if (!ops.ascentData.telemetry[ops.activeAscentFrame.ascentIndex].AoAWarn && $('#aoawarn').html() != "Nominal") {
       $('#aoawarn').html("Nominal");
       $('#aoawarn').css("color", "green");
-    } else if (currentVesselData.ascentData[currentAscentData.ascentIndex].AoAWarn) {
-      var data = currentVesselData.ascentData[currentAscentData.ascentIndex].AoAWarn.split(":");
+    } else if (ops.ascentData.telemetry[ops.activeAscentFrame.ascentIndex].AoAWarn) {
+      var data = ops.ascentData.telemetry[ops.activeAscentFrame.ascentIndex].AoAWarn.split(":");
       $('#aoawarn').html(data[0]);
       $('#aoawarn').css("color", data[1]);
     }
 
     // check for warning/errors
-    if (currentVesselData.ascentData[currentAscentData.ascentIndex].FieldStatus) {
-      currentVesselData.ascentData[currentAscentData.ascentIndex].FieldStatus.split("_").forEach(function(status) {
+    if (ops.ascentData.telemetry[ops.activeAscentFrame.ascentIndex].FieldStatus) {
+      ops.ascentData.telemetry[ops.activeAscentFrame.ascentIndex].FieldStatus.split("_").forEach(function(status) {
         var fieldName = status.split(":")[0];
         var fieldStatus = status.split(":")[1];
         if (fieldStatus == "wrn") flashUpdate("#" + fieldName, "#FFD800", "#FFF");
@@ -1464,32 +1418,32 @@ function updateAscentData(clamp) {
     }
 
     // check if we have a new image or event
-    if (currentVesselData.ascentData[currentAscentData.ascentIndex].Image) {
-      currentAscentData.img = currentVesselData.ascentData[currentAscentData.ascentIndex].Image;
+    if (ops.ascentData.telemetry[ops.activeAscentFrame.ascentIndex].Image) {
+      ops.activeAscentFrame.img = ops.ascentData.telemetry[ops.activeAscentFrame.ascentIndex].Image;
     }
 
     // if there isn't one and playback is paused, we need to seek back and find the last update
-    else if (!currentVesselData.ascentData[currentAscentData.ascentIndex].Image && isAscentPaused) {
-      for (checkIndex=currentAscentData.ascentIndex-1; checkIndex>=0; checkIndex--) {
-        if (currentVesselData.ascentData[checkIndex].Image) {
-          currentAscentData.img = currentVesselData.ascentData[checkIndex].Image;
+    else if (!ops.ascentData.telemetry[ops.activeAscentFrame.ascentIndex].Image && ops.ascentData.isPaused) {
+      for (checkIndex=ops.activeAscentFrame.ascentIndex-1; checkIndex>=0; checkIndex--) {
+        if (ops.ascentData.telemetry[checkIndex].Image) {
+          ops.activeAscentFrame.img = ops.ascentData.telemetry[checkIndex].Image;
           break;
         }
       }
     }
-    $("#infoImg").html("<img src='" + currentAscentData.img + "'>");
-    if (currentVesselData.ascentData[currentAscentData.ascentIndex].Event) {
-      currentAscentData.event = currentVesselData.ascentData[currentAscentData.ascentIndex].Event;
+    $("#infoImg").html("<img src='" + ops.activeAscentFrame.img + "'>");
+    if (ops.ascentData.telemetry[ops.activeAscentFrame.ascentIndex].Event) {
+      ops.activeAscentFrame.event = ops.ascentData.telemetry[ops.activeAscentFrame.ascentIndex].Event;
       flashUpdate("#infoTitle", "#77C6FF", "#000000");
-    } else if (!currentVesselData.ascentData[currentAscentData.ascentIndex].Event && isAscentPaused) {
-      for (checkIndex=currentAscentData.ascentIndex-1; checkIndex>=0; checkIndex--) {
-        if (currentVesselData.ascentData[checkIndex].Event) {
-          currentAscentData.event = currentVesselData.ascentData[checkIndex].Event;
+    } else if (!ops.ascentData.telemetry[ops.activeAscentFrame.ascentIndex].Event && ops.ascentData.isPaused) {
+      for (checkIndex=ops.activeAscentFrame.ascentIndex-1; checkIndex>=0; checkIndex--) {
+        if (ops.ascentData.telemetry[checkIndex].Event) {
+          ops.activeAscentFrame.event = ops.ascentData.telemetry[checkIndex].Event;
           break;
         }
       }
     }
-    $("#infoTitle").html(currentAscentData.event);
+    $("#infoTitle").html(ops.activeAscentFrame.event);
     $("#infoTitle").attr("class", "infoTitle vessel");
     $("#infoTitle").css("cursor", "auto");
 
@@ -1501,183 +1455,200 @@ function updateAscentData(clamp) {
   // otherwise, use the delta values to update towards the next clamp
   } else {
     interpStart = new Date().getTime();
-    currentAscentData.velocity += currentAscentData.velocityDelta;
-    currentAscentData.throttle += currentAscentData.throttleDelta;
-    currentAscentData.thrust += currentAscentData.thrustDelta;
-    currentAscentData.gravity += currentAscentData.gravityDelta;
-    currentAscentData.altitude += currentAscentData.altitudeDelta;
-    currentAscentData.ap += currentAscentData.apDelta;
-    currentAscentData.q += currentAscentData.qDelta;
-    currentAscentData.pe += currentAscentData.peDelta;
-    currentAscentData.inc += currentAscentData.incDelta;
-    currentAscentData.mass += currentAscentData.massDelta;
-    currentAscentData.fuel += currentAscentData.fuelDelta;
-    currentAscentData.dst += currentAscentData.dstDelta;
-    currentAscentData.aoa += currentAscentData.aoaDelta;
-    currentAscentData.pitch += currentAscentData.pitchDelta;
-    currentAscentData.roll += currentAscentData.rollDelta;
-    currentAscentData.hdg += currentAscentData.hdgDelta;
-    currentAscentData.lat += currentAscentData.latDelta;
-    currentAscentData.lon += currentAscentData.lonDelta;
-    if (currentVesselData.ascentData[currentAscentData.ascentIndex].DstTraveled) currentAscentData.traveled += currentAscentData.traveledDelta;
-    if (currentVesselData.ascentData[currentAscentData.ascentIndex].StageFuel) {
+    ops.activeAscentFrame.velocity += ops.activeAscentFrame.velocityDelta;
+    ops.activeAscentFrame.throttle += ops.activeAscentFrame.throttleDelta;
+    ops.activeAscentFrame.thrust += ops.activeAscentFrame.thrustDelta;
+    ops.activeAscentFrame.gravity += ops.activeAscentFrame.gravityDelta;
+    ops.activeAscentFrame.altitude += ops.activeAscentFrame.altitudeDelta;
+    ops.activeAscentFrame.ap += ops.activeAscentFrame.apDelta;
+    ops.activeAscentFrame.q += ops.activeAscentFrame.qDelta;
+    ops.activeAscentFrame.pe += ops.activeAscentFrame.peDelta;
+    ops.activeAscentFrame.inc += ops.activeAscentFrame.incDelta;
+    ops.activeAscentFrame.mass += ops.activeAscentFrame.massDelta;
+    ops.activeAscentFrame.fuel += ops.activeAscentFrame.fuelDelta;
+    ops.activeAscentFrame.dst += ops.activeAscentFrame.dstDelta;
+    ops.activeAscentFrame.aoa += ops.activeAscentFrame.aoaDelta;
+    ops.activeAscentFrame.pitch += ops.activeAscentFrame.pitchDelta;
+    ops.activeAscentFrame.roll += ops.activeAscentFrame.rollDelta;
+    ops.activeAscentFrame.hdg += ops.activeAscentFrame.hdgDelta;
+    ops.activeAscentFrame.lat += ops.activeAscentFrame.latDelta;
+    ops.activeAscentFrame.lon += ops.activeAscentFrame.lonDelta;
+    if (ops.ascentData.telemetry[ops.activeAscentFrame.ascentIndex].DstTraveled) ops.activeAscentFrame.traveled += ops.activeAscentFrame.traveledDelta;
+    if (ops.ascentData.telemetry[ops.activeAscentFrame.ascentIndex].StageFuel) {
 
       // if the current clamp is 1 and we are supposed to increase to it, just jump there instead
-      if (currentVesselData.ascentData[currentAscentData.ascentIndex].StageFuel == 1 && currentAscentData.stageDelta > 0) {
-        currentAscentData.stage = 1;
+      if (ops.ascentData.telemetry[ops.activeAscentFrame.ascentIndex].StageFuel == 1 && ops.activeAscentFrame.stageDelta > 0) {
+        ops.activeAscentFrame.stage = 1;
 
       // if the current clamp is 1 and we are supposed to decrease from it, then interpolate
-      } else if (currentVesselData.ascentData[currentAscentData.ascentIndex].StageFuel == 1 && currentAscentData.stageDelta < 0) {
-        currentAscentData.stage += currentAscentData.stageDelta;
-      } else currentAscentData.stage += currentAscentData.stageDelta;
+      } else if (ops.ascentData.telemetry[ops.activeAscentFrame.ascentIndex].StageFuel == 1 && ops.activeAscentFrame.stageDelta < 0) {
+        ops.activeAscentFrame.stage += ops.activeAscentFrame.stageDelta;
+      } else ops.activeAscentFrame.stage += ops.activeAscentFrame.stageDelta;
     }
   }
 
   // update all the data fields
   // velocity readout
-  if (currentAscentData.velocity > 1000) {
-    $("#velocity").html((numeral(currentAscentData.velocity/1000).format('0.000')) + "km/s");
+  if (ops.activeAscentFrame.velocity > 1000) {
+    $("#velocity").html((numeral(ops.activeAscentFrame.velocity/1000).format('0.000')) + "km/s");
   } else {
-    $("#velocity").html((numeral(currentAscentData.velocity).format('0.000')) + "m/s");
+    $("#velocity").html((numeral(ops.activeAscentFrame.velocity).format('0.000')) + "m/s");
   }
-  $("#throttle").html(numeral(currentAscentData.throttle).format('0.00'));
+  $("#throttle").html(numeral(ops.activeAscentFrame.throttle).format('0.00'));
 
   // thrust readout
-  $("#thrust").html(numeral(currentAscentData.thrust).format('0.000'));
-  $("#twr").html(numeral(currentAscentData.thrust/(currentAscentData.mass * currentAscentData.gravity)).format('0.000'));
+  if (ops.activeAscentFrame.thrust < 0 ) ops.activeAscentFrame.thrust = 0;
+  $("#thrust").html(numeral(ops.activeAscentFrame.thrust).format('0.000'));
+  $("#twr").html(numeral(ops.activeAscentFrame.thrust/(ops.activeAscentFrame.mass * ops.activeAscentFrame.gravity)).format('0.000'));
 
   // altitude
-  if (currentAscentData.altitude > 1000) {
-    $("#altitude").html((numeral(currentAscentData.altitude/1000).format('0.000') + "km"));
+  if (ops.activeAscentFrame.altitude > 1000) {
+    $("#altitude").html((numeral(ops.activeAscentFrame.altitude/1000).format('0.000') + "km"));
   } else {
-    $("#altitude").html((numeral(currentAscentData.altitude).format('0.000') + "m"));
+    $("#altitude").html((numeral(ops.activeAscentFrame.altitude).format('0.000') + "m"));
   }
 
   // apoapsis
-  if (currentAscentData.ap > 1000) {
-    $("#ap").html((numeral(currentAscentData.ap/1000).format('0.000') + "km"));
+  if (ops.activeAscentFrame.ap > 1000) {
+    $("#ap").html((numeral(ops.activeAscentFrame.ap/1000).format('0.000') + "km"));
   } else {
-    $("#ap").html((numeral(currentAscentData.ap).format('0.000') + "m"));
+    $("#ap").html((numeral(ops.activeAscentFrame.ap).format('0.000') + "m"));
   }
 
   // show periapsis if dynamic pressure is 0 and the rocket is into its ascent
-  if (currentAscentData.q <= 0 && currentVesselData.ascentData[currentAscentData.ascentIndex].UT > launchTime) {
+  if (ops.activeAscentFrame.q <= 0 && ops.ascentData.telemetry[ops.activeAscentFrame.ascentIndex].UT > checkLaunchTime()) {
     $("#peQcaption").html("Periapsis:");
-    if (Math.abs(currentAscentData.pe) > 1000) {
-      $("#peQ").html((numeral(currentAscentData.pe/1000).format('0.000')) + "km");
+    if (Math.abs(ops.activeAscentFrame.pe) > 1000) {
+      $("#peQ").html((numeral(ops.activeAscentFrame.pe/1000).format('0.000')) + "km");
     } else {
-      $("#peQ").html((numeral(currentAscentData.pe).format('0.000')) + "m");
+      $("#peQ").html((numeral(ops.activeAscentFrame.pe).format('0.000')) + "m");
     }
   } else {
     $("#peQcaption").html("Dynamic Pressure (Q):");
-    if (currentAscentData.q >= 1) {
-      $("#peQ").html((numeral(currentAscentData.q).format('0.000')) + "kPa");
+    if (ops.activeAscentFrame.q >= 1) {
+      $("#peQ").html((numeral(ops.activeAscentFrame.q).format('0.000')) + "kPa");
     } else {
-      $("#peQ").html((numeral(currentAscentData.q*1000).format('0.000')) + "Pa");
+      $("#peQ").html((numeral(ops.activeAscentFrame.q*1000).format('0.000')) + "Pa");
     }
   }
 
   // inclination
-  $("#inc").html(numeral(currentAscentData.inc).format('0.000'));
+  $("#inc").html(numeral(ops.activeAscentFrame.inc).format('0.000'));
 
   // total mass
-  if (currentAscentData.mass >= 1) {
-    $("#mass").html((numeral(currentAscentData.mass).format('0.000')) + "t");
+  if (ops.activeAscentFrame.mass >= 1) {
+    $("#mass").html((numeral(ops.activeAscentFrame.mass).format('0.000')) + "t");
   } else {
-    $("#mass").html((numeral(currentAscentData.mass*1000).format('0.000')) + "kg");
+    $("#mass").html((numeral(ops.activeAscentFrame.mass*1000).format('0.000')) + "kg");
   }
   
   // stage fuel
-  if (currentAscentData.stage) {
-    var Gwidth = 204 * currentAscentData.stage;
+  if (ops.activeAscentFrame.stage) {
+    var Gwidth = 204 * ops.activeAscentFrame.stage;
     var Rwidth = 204 - Gwidth;
-    $("#stageFuel").html((numeral(currentAscentData.stage*100).format('0.00')) + "%");
+    $("#stageFuel").html((numeral(ops.activeAscentFrame.stage*100).format('0.00')) + "%");
     $("#stageGreen").css("width", Gwidth);
     $("#stageRed").css("width", Rwidth);
   } 
 
   // total fuel
-  var Gwidth = 210 * currentAscentData.fuel;
+  var Gwidth = 210 * ops.activeAscentFrame.fuel;
   var Rwidth = 210 - Gwidth;
-  $("#totalFuel").html((numeral(currentAscentData.fuel*100).format('0.00')) + "%");
+  $("#totalFuel").html((numeral(ops.activeAscentFrame.fuel*100).format('0.00')) + "%");
   $("#totalGreen").css("width", Gwidth);
   $("#totalRed").css("width", Rwidth);
 
   // distance downrange
-  if (currentAscentData.dst > 1000) {
-    $("#dstDownrange").html((numeral(currentAscentData.dst/1000).format('0.000')) + "km");
+  if (ops.activeAscentFrame.dst > 1000) {
+    $("#dstDownrange").html((numeral(ops.activeAscentFrame.dst/1000).format('0.000')) + "km");
   } else {
-    $("#dstDownrange").html((numeral(currentAscentData.dst).format('0.000')) + "m");
+    $("#dstDownrange").html((numeral(ops.activeAscentFrame.dst).format('0.000')) + "m");
   }
 
   // distance traveled
-  if (currentAscentData.traveled) {
-    if (currentAscentData.traveled > 1000) {
-      $("#dstTraveled").html((numeral(currentAscentData.traveled/1000).format('0.000')) + "km");
+  if (ops.activeAscentFrame.traveled) {
+    if (ops.activeAscentFrame.traveled > 1000) {
+      $("#dstTraveled").html((numeral(ops.activeAscentFrame.traveled/1000).format('0.000')) + "km");
     } else {
-      $("#dstTraveled").html((numeral(currentAscentData.traveled).format('0.000')) + "m");
+      $("#dstTraveled").html((numeral(ops.activeAscentFrame.traveled).format('0.000')) + "m");
     }
   }
 
   // AoA
-  $("#aoa").html(numeral(currentAscentData.aoa).format('0.00'));
+  $("#aoa").html(numeral(ops.activeAscentFrame.aoa).format('0.00'));
 
   // Pitch/Roll/Heading
-  $("#pitch").html(numeral(currentAscentData.pitch).format('0.00'));
-  $("#roll").html(numeral(currentAscentData.roll).format('0.00'));
-  $("#hdg").html(numeral(currentAscentData.hdg).format('0.00'));
+  $("#pitch").html(numeral(ops.activeAscentFrame.pitch).format('0.00'));
+  $("#roll").html(numeral(ops.activeAscentFrame.roll).format('0.00'));
+  $("#hdg").html(numeral(ops.activeAscentFrame.hdg).format('0.00'));
 
   // move the vessel icon
-  vesselMarker.setLatLng([currentAscentData.lat, currentAscentData.lon]);
+  vesselMarker.setLatLng([ops.activeAscentFrame.lat, ops.activeAscentFrame.lon]);
+
+  // if the vessel is outside the view but not KSC, shimmy the map over
+  if (!ops.surface.map.getBounds().contains(vesselMarker.getLatLng()) && ops.surface.map.getBounds().contains(srfLocations["KSC"])) {
+    ops.surface.map.panInside(vesselMarker.getLatLng()); 
+  }
+
+  // if the map moves off KSC, widen the view
+  if (!ops.surface.map.getBounds().contains(srfLocations["KSC"])) {
+    ops.surface.map.fitBounds(L.latLngBounds(srfLocations["KSC"], vesselMarker.getLatLng())); 
+  }
 
   // if we are not paused then we need to call ourselves again to keep things going
-  if (!isAscentPaused) {
+  if (!ops.ascentData.isPaused && ops.ascentData.active) {
     
     // get the time it took us to perform this function
     var diff = new Date().getTime() - interpStart;
 
     // call ourselves again at the proper FPS interval, taking into account the time we just used up
-    ascentInterpTimeout = setTimeout(updateAscentData, (1000/currentAscentData.FPS) - diff);
-    currentAscentData.interpCount++;
+    ascentInterpTimeout = setTimeout(updateAscentData, (1000/ops.activeAscentFrame.FPS) - diff);
+    ops.activeAscentFrame.interpCount++;
   }
 
-  // if we are paused we're going to need to update the MET 
+  // if we are paused we're atill going to need to update the MET 
   // as well as the surface track
-  else {
-    if (L0Time > currentVesselData.ascentData[currentAscentData.ascentIndex].UT) {
+  else if (ops.ascentData.isPaused && ops.ascentData.active) {
+    if (checkLaunchTime() > ops.ascentData.telemetry[ops.activeAscentFrame.ascentIndex].UT) {
       $("#metCaption").html("Launch in:");
-      $("#met").html(formatTime(L0Time-currentVesselData.ascentData[currentAscentData.ascentIndex].UT));
+      $("#met").html(formatTime(checkLaunchTime()-ops.ascentData.telemetry[ops.activeAscentFrame.ascentIndex].UT));
     } else {
       $("#metCaption").html("Mission Elapsed Time:");
-      $("#met").html(formatTime(currentVesselData.ascentData[currentAscentData.ascentIndex].UT-L0Time));
+      $("#met").html(formatTime(ops.ascentData.telemetry[ops.activeAscentFrame.ascentIndex].UT-checkLaunchTime()));
     }
     rebuildAscentTrack();
   }
 }
 
 function checkLaunchTime() {
-  if (!L0Time) {
 
-    // get the current launch time
-    for (i=currentVesselData.LaunchTimes.length-1; i>=0; i--) {
+  // if we are dealing with a past event, do not use the current time
+  var timeCheck = currUT();
+  if (ops.currentVessel.CraftData.pastEvent) timeCheck = ops.currentVessel.CraftData.UT;
 
-      // the first record is always the original launch time, regardless of its UT
-      // this assumption prevents the event calendar from getting confused if multiple launch times are posted
-      if (currentVesselData.LaunchTimes[i].UT <= getLaunchUT() || i == 0) {
-        L0Time = currentVesselData.LaunchTimes[i].LaunchTime;
-        break;
-      }
+  for (i=ops.currentVessel.LaunchTimes.length-1; i>=0; i--) {
+
+    // the first record is always the original launch time, regardless of its UT
+    // this assumption prevents the event calendar from getting confused if multiple launch times are posted
+    if (ops.currentVessel.LaunchTimes[i].UT <= timeCheck || i == 0) {
+
+      // make sure this is not a hold
+      if (ops.currentVessel.LaunchTimes[i].LaunchTime != ops.currentVessel.LaunchTimes[i].UT) {
+        return ops.currentVessel.LaunchTimes[i].LaunchTime;
+
+      // this is a hold
+      } else return null;
     }
   }
 }
 
 // buttons to seek through ascent playback
 function seekFore(amount) {
-  currentAscentData.ascentIndex += amount;
+  ops.activeAscentFrame.ascentIndex += amount;
 
   // make sure we aren't out of range
-  if (currentAscentData.ascentIndex >= currentVesselData.ascentData.length-1) {
-    currentAscentData.ascentIndex = currentVesselData.ascentData.length-1;
+  if (ops.activeAscentFrame.ascentIndex >= ops.ascentData.telemetry.length-1) {
+    ops.activeAscentFrame.ascentIndex = ops.ascentData.telemetry.length-1;
 
     // null the interpolation timer
     if (ascentInterpTimeout) {
@@ -1686,7 +1657,7 @@ function seekFore(amount) {
     }
 
     // one last surface track update
-    updateSurfacePlot(currentVesselData.ascentData.length-1);
+    updateSurfacePlot(ops.ascentData.telemetry.length-1);
 
     // hide the forward seek buttons & update control link
     $("#next10s").css("visibility", "hidden");
@@ -1697,8 +1668,8 @@ function seekFore(amount) {
   // if we're paused, push the update 
   // unless it's the final entry then playback is practically paused
   // wait a few millisecs for the interpolation function to cease
-  if (isAscentPaused || currentAscentData.ascentIndex == currentVesselData.ascentData.length-1) {
-    isAscentPaused = true;
+  if (ops.ascentData.isPaused || ops.activeAscentFrame.ascentIndex == ops.ascentData.telemetry.length-1) {
+    ops.ascentData.isPaused = true;
     setTimeout(updateAscentData, 150, true);
   }
 
@@ -1707,11 +1678,11 @@ function seekFore(amount) {
   $("#prev30s").css("visibility", "visible");
 }
 function seekBack(amount) {
-  currentAscentData.ascentIndex -= amount;
+  ops.activeAscentFrame.ascentIndex -= amount;
 
   // make sure we aren't out of range
-  if (currentAscentData.ascentIndex <= 0) {
-    currentAscentData.ascentIndex = 0;
+  if (ops.activeAscentFrame.ascentIndex <= 0) {
+    ops.activeAscentFrame.ascentIndex = 0;
 
     // hide the backward seek buttons
     $("#prev10s").css("visibility", "hidden");
@@ -1720,7 +1691,7 @@ function seekBack(amount) {
 
   // if we're paused, push the update 
   // don't change the control text if things are already playing
-  if (isAscentPaused) {
+  if (ops.ascentData.isPaused) {
     updateAscentData(true);
     $("#playbackCtrl").html("Begin Playback");
   }
@@ -1733,21 +1704,21 @@ function seekBack(amount) {
 // action is defined by what is currently displayed in the playback control text area
 function ascentPlaybackCtrl() {
   if ($("#playbackCtrl").html() == "Begin Playback") {
-    isAscentPaused = false;
+    ops.ascentData.isPaused = false;
     $("#playbackCtrl").html("Pause Playback");
     $("#next10s").css("visibility", "hidden");
     $("#next30s").css("visibility", "hidden");
     $("#prev10s").css("visibility", "hidden");
     $("#prev30s").css("visibility", "hidden");
   } else if ($("#playbackCtrl").html() == "Pause Playback") { 
-    isAscentPaused = true;
+    ops.ascentData.isPaused = true;
     $("#playbackCtrl").html("Begin Playback");
     $("#next10s").css("visibility", "visible");
     $("#next30s").css("visibility", "visible");
     $("#prev10s").css("visibility", "visible");
     $("#prev30s").css("visibility", "visible");
   } else if ($("#playbackCtrl").html() == "Reset Playback") { 
-    currentAscentData.ascentIndex = 0;
+    ops.activeAscentFrame.ascentIndex = 0;
     $("#next10s").css("visibility", "visible");
     $("#next30s").css("visibility", "visible");
     $("#prev10s").css("visibility", "hidden");
@@ -1763,7 +1734,7 @@ function ascentPlaybackCtrl() {
 function rebuildAscentTrack() {
   clearAscentTracks();
   if (!noMarkBox.contains(vesselMarker.getLatLng())) {
-    for (trackIndex = 0; trackIndex < currentAscentData.ascentIndex; trackIndex++) {
+    for (trackIndex = 0; trackIndex < ops.activeAscentFrame.ascentIndex; trackIndex++) {
       updateSurfacePlot(trackIndex);
     }
   }
@@ -1771,40 +1742,40 @@ function rebuildAscentTrack() {
 
 // add to the surface track and place markers as needed
 function updateSurfacePlot(index) {
-  if (index == null) index = currentAscentData.ascentIndex-1;
-  if (currentVesselData.ascentData[index].Phase) {  
+  if (index == null) index = ops.activeAscentFrame.ascentIndex-1;
+  if (ops.ascentData.telemetry[index].Phase) {
     ascentColorsIndex++;
-    if (ascentColorsIndex == surfacePathColors.length) { ascentColorsIndex = 0; }
-    ascentTracks.push(L.polyline([], {smoothFactor: .25, clickable: true, color: surfacePathColors[ascentColorsIndex], weight: 2, opacity: 1}).addTo(surfaceMap));
-    ascentTracks[ascentTracks.length-1].addLatLng([currentVesselData.ascentData[index].Lat, currentVesselData.ascentData[index].Lon]);
-    ascentTracks[ascentTracks.length-1]._myId = "<center>" + currentVesselData.ascentData[index].Phase + "</center>";
+    if (ascentColorsIndex == surfacePathColors.length) ascentColorsIndex = 0;
+    ascentTracks.push(L.polyline([], {smoothFactor: .25, clickable: true, color: surfacePathColors[ascentColorsIndex], weight: 2, opacity: 1}).addTo(ops.surface.map));
+    ascentTracks[ascentTracks.length-1].addLatLng([ops.ascentData.telemetry[index].Lat, ops.ascentData.telemetry[index].Lon]);
+    ascentTracks[ascentTracks.length-1]._myId = "<center>" + ops.ascentData.telemetry[index].Phase + "</center>";
     ascentTracks[ascentTracks.length-1].on('mouseover mousemove', function(e) {
       ascentPopup = new L.Rrose({ offset: new L.Point(0,-1), closeButton: false, autoPan: false });
       ascentPopup.setLatLng(e.latlng);
       ascentPopup.setContent(e.target._myId);
-      ascentPopup.openOn(surfaceMap);
+      ascentPopup.openOn(ops.surface.map);
     });
     ascentTracks[ascentTracks.length-1].on('mouseout', function(e) {
-      if (ascentPopup) { surfaceMap.closePopup(ascentPopup); }
+      if (ascentPopup) { ops.surface.map.closePopup(ascentPopup); }
       ascentPopup = null;
     });
-  } else if (ascentTracks.length) ascentTracks[ascentTracks.length-1].addLatLng([currentVesselData.ascentData[index].Lat, currentVesselData.ascentData[index].Lon]);
-  if (currentVesselData.ascentData[index].EventMark) {
+  } else if (ascentTracks.length) ascentTracks[ascentTracks.length-1].addLatLng([ops.ascentData.telemetry[index].Lat, ops.ascentData.telemetry[index].Lon]);
+  if (ops.ascentData.telemetry[index].EventMark) {
     var labelIcon = L.icon({
       iconUrl: 'label.png',
       iconSize: [5, 5],
     });
-    ascentMarks.push(L.marker([currentVesselData.ascentData[index].Lat, currentVesselData.ascentData[index].Lon], {icon: labelIcon}).addTo(surfaceMap));
-    ascentMarks[ascentMarks.length-1]._myId = currentVesselData.ascentData[index].EventMark + ";" + currentVesselData.ascentData[index].Lat + ";" + currentVesselData.ascentData[index].Lon;
+    ascentMarks.push(L.marker([ops.ascentData.telemetry[index].Lat, ops.ascentData.telemetry[index].Lon], {icon: labelIcon}).addTo(ops.surface.map));
+    ascentMarks[ascentMarks.length-1]._myId = ops.ascentData.telemetry[index].EventMark + ";" + ops.ascentData.telemetry[index].Lat + ";" + ops.ascentData.telemetry[index].Lon;
     ascentMarks[ascentMarks.length-1].on('mouseover mousemove', function(e) {
       data = e.target._myId.split(";")
       ascentPopup = new L.Rrose({ offset: new L.Point(0,-1), closeButton: false, autoPan: false });
       ascentPopup.setLatLng([data[1], data[2]]);
       ascentPopup.setContent("<center>" + data[0] + "</center>");
-      ascentPopup.openOn(surfaceMap);
+      ascentPopup.openOn(ops.surface.map);
     });
     ascentMarks[ascentMarks.length-1].on('mouseout', function(e) {
-      if (ascentPopup) { surfaceMap.closePopup(ascentPopup); }
+      if (ascentPopup) { ops.surface.map.closePopup(ascentPopup); }
       ascentPopup = null;
     });
   }
@@ -1813,15 +1784,15 @@ function updateSurfacePlot(index) {
 function clearAscentTracks() {
   if (ascentTracks.length) {
     ascentTracks.forEach(function(track) {
-      surfaceMap.removeLayer(track);
+      ops.surface.map.removeLayer(track);
     });
   }
   if (ascentMarks.length) {
     ascentMarks.forEach(function(mark) {
-      surfaceMap.removeLayer(mark);
+      ops.surface.map.removeLayer(mark);
     });
   }
-  ascentTracks = [];
-  ascentMarks = [];
+  ascentTracks.length = 0;
+  ascentMarks.length = 0;
   ascentColorsIndex = -1;
 }

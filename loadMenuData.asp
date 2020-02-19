@@ -97,7 +97,10 @@ do
                  rsKerbal.fields.item("Assignment") & "~" &_
                  rsCrew.fields.item("Kerbal") & "~" &_
                  rsKerbal.fields.item("UT") & "~")
-  
+
+  if not isNull(rsCrew.fields.item("Deactivation")) then
+    response.write(rsCrew.fields.item("Deactivation"))
+  end if
   conn2.Close
   Set conn2 = nothing
   rsCrew.movenext

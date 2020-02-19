@@ -1,6 +1,19 @@
-// number of ms from 1970/01/01 to 2016/09/13
-// used as a base when calculating time since KSA began
-var foundingMoment = 1473739200000;
+// refactor complete
+
+// https://stackoverflow.com/questions/11887934/how-to-check-if-the-dst-daylight-saving-time-is-in-effect-and-if-it-is-whats
+Date.prototype.stdTimezoneOffset = function () {
+  var jan = new Date(this.getFullYear(), 0, 1);
+  var jul = new Date(this.getFullYear(), 6, 1);
+  return Math.max(jan.getTimezoneOffset(), jul.getTimezoneOffset());
+}
+Date.prototype.isDstObserved = function () {
+  return this.getTimezoneOffset() < this.stdTimezoneOffset();
+}
+
+//https://stackoverflow.com/questions/4959975/generate-random-number-between-two-numbers-in-javascript
+function randomIntFromInterval(min, max) { 
+  return Math.floor(Math.random() * (max - min + 1) + min);
+}
 
 // for retrieving URL query strings
 // http://stackoverflow.com/questions/901115/how-can-i-get-query-string-values-in-javascript
@@ -29,18 +42,14 @@ function loadDB(url, cFunction) {
   console.log(url);
   var xhttp;
   xhttp=new XMLHttpRequest();
-  xhttp.onreadystatechange = function() {
-    if (this.readyState == 4 && this.status == 200) {
-      cFunction(this);
-    }
-  };
+  xhttp.onreadystatechange = function() { if (this.readyState == 4 && this.status == 200) cFunction(this); };
   xhttp.open("GET", url, true);
   xhttp.send();
 }
 
 // take an amount of time in seconds and convert it to years, days, hours, minutes and seconds
 // leave out any values that are not necessary (0y, 0d won't show, for example)
-// give seconds to 5 significant digits if precision is true
+// give seconds to 3 significant digits if precision is true
 function formatTime(time, precision = false) {
   var years = 0;
   var days = 0;
@@ -92,12 +101,12 @@ function formatTime(time, precision = false) {
 function formatDateTime(time) {
   var hours = time.getUTCHours(); 
   var day = time.getUTCDate();
-  if (hours < 0) { hours += 24; }
-  if (hours < 10) { hours = "0" + hours; }
+  if (hours < 0) hours += 24;
+  if (hours < 10) hours = "0" + hours;
   var minutes = time.getUTCMinutes();
-  if (minutes < 10) { minutes = "0" + minutes; }
+  if (minutes < 10) minutes = "0" + minutes;
   var seconds = time.getUTCSeconds();
-  if (seconds < 10) { seconds = "0" + seconds; }
+  if (seconds < 10) seconds = "0" + seconds;
   return ((time.getUTCMonth()+1) + '/' + day + '/' + time.getUTCFullYear() + ' @ ' + hours + ':' + minutes + ':' + seconds);
 }
 
@@ -105,10 +114,10 @@ function formatDateTime(time) {
 function UTtoDateTime(setUT, local = false, fullYear = true) {
   var d = new Date();
   d.setTime(foundingMoment + (setUT * 1000));
-  if (d.toString().search("Standard") >= 0) { d.setTime(foundingMoment + ((setUT + 3600) * 1000)); }
+  if (d.toString().includes("Standard")) d.setTime(foundingMoment + ((setUT + 3600) * 1000));
 
   // if we ask for local time, apply the proper UTC offset
-  if (local) d.setUTCHours(d.getUTCHours() - UTC);
+  if (local) d.setUTCHours(d.getUTCHours() - ops.UTC);
   
   // take off the first two digits of the year?
   if (!fullYear) {
@@ -125,48 +134,43 @@ function UTtoDateTime(setUT, local = false, fullYear = true) {
 function UTtoDateTimeLocal(setUT) {
   var d = new Date();
   d.setTime(foundingMoment + (setUT * 1000));
-  if (d.toString().search("Standard") >= 0) { d.setTime(foundingMoment + ((setUT + 3600) * 1000)); }
+  if (d.toString().includes("Standard")) d.setTime(foundingMoment + ((setUT + 3600) * 1000));
   return d.toString();
 }
 
-function dateTimetoUT(dateTime) {
+// convert a given date object to game UT
+function dateObjtoUT(dateTime) {
   var setUT = ((dateTime.getTime() - foundingMoment) / 1000);
-  if (dateTime.toString().search("Standard") >= 0) { setUT += 3600; }
+  if (dateTime.toString().includes("Standard")) setUT += 3600;
   return setUT;
 }
 
 // https://stackoverflow.com/questions/1026069/how-do-i-make-the-first-letter-of-a-string-uppercase-in-javascript
-function capitalizeFirstLetter(string) {
-  return string.charAt(0).toUpperCase() + string.slice(1);
-}
+function capitalizeFirstLetter(string) { return string.charAt(0).toUpperCase() + string.slice(1); }
 
 // makes sure the current UT returned is proper for all considerations
 // currently just convert from ms to s
-function currUT(round) { 
-  if (round) return Math.floor(UT + (tickDelta / 1000)); 
-  else return UT + (tickDelta / 1000); 
+function currUT(round = true) { 
+  if (round) return Math.floor(ops.UT + (ops.tickDelta / 1000)); 
+  else return ops.UT + (ops.tickDelta / 1000); 
 }
 
 // need to keep original date static so to get the current time we have to just update a new date object
-function currTime() { return new Date(clock.getTime() + tickDelta); }
+function currTime() { return new Date(ops.clock.getTime() + ops.tickDelta); }
 
 // conversion from true anomaly to mean anomaly in radians
-// TRUE ANOMALY PASSED IN AS DEGREES
+// TRUE ANOMALY PASSED IN AS RADIANS
 // referenced from matlab code: https://github.com/Arrowstar/ksptot/blob/master/helper_methods/astrodynamics/computeMeanFromTrueAnom.m
 function toMeanAnomaly(truA, ecc) {
-  truA *= .017453292519943295;
   if (ecc < 1.0) {
     var EA = (Math.atan2(Math.sqrt(1-(Math.pow(ecc,2)))*Math.sin(truA), ecc+Math.cos(truA)));
-    if (truA < 2*Math.PI) {
-      EA = Math.abs(EA - (2*Math.PI) * Math.floor(EA / (2*Math.PI)));
-    }
+    if (truA < 2*Math.PI) EA = Math.abs(EA - (2*Math.PI) * Math.floor(EA / (2*Math.PI)));
     var mean = EA - ecc*Math.sin(EA);
     mean = Math.abs(mean - (2*Math.PI) * Math.floor(mean / (2*Math.PI)));
   } else {
     var num = Math.tan(truA/2);
     var denom = Math.pow((ecc+1)/(ecc-1),(1/2));
     var HA = 2*Math.atanh(num/denom);
-
     var mean = ecc*Math.sinh(HA)-HA;
   }
   return mean;
@@ -189,7 +193,7 @@ function rsToObj(data) {
   var fields = data.split("`");
   if (data == "" || data == "null") return null;
   if (fields.length > 1) {
-    fields.forEach(function(item, index) {
+    fields.forEach(function(item) {
     
       // now get the name/value and assign the object
       var pair = item.split("~");
@@ -200,42 +204,39 @@ function rsToObj(data) {
         // check to make sure there are only two pairs
         // if there are more than two we need to combine everything after the first entry because they were separated using the same character
         if (pair.length > 2) {
-          for (i=2; i<pair.length; i++) { pair[1] += "~" + pair[i]; }
+          for (i=2; i<pair.length; i++) pair[1] += "~" + pair[i];
           object[pair[0]] = pair[1];
         } else {
           if ($.isNumeric(pair[1])) {
             object[pair[0]] = parseFloat(pair[1]);
           } else {
-            if (pair[1].toLowerCase() == "false") { object[pair[0]] = false; }
-            else if (pair[1].toLowerCase() == "true") { object[pair[0]] = true; }
+            if (pair[1].toLowerCase() == "false") object[pair[0]] = false;
+            else if (pair[1].toLowerCase() == "true") object[pair[0]] = true;
             else object[pair[0]] = pair[1];
           }
         }
       }
     });
-  } else { object = null; }
+  } else object = null;
   return object;
 }
 
 // determine whether this is a touchscreen device 
 // http://ctrlq.org/code/19616-detect-touch-screen-javascript
 function is_touch_device() {
-return (('ontouchstart' in window)
-        || (navigator.MaxTouchPoints > 0)
-        || (navigator.msMaxTouchPoints > 0));
+  return (('ontouchstart' in window)
+          || (navigator.MaxTouchPoints > 0)
+          || (navigator.msMaxTouchPoints > 0));
 }
 
 // gets values for URL parameters of the same name and returns them in an array
 // http://stackoverflow.com/questions/22209307/how-to-get-multiple-parameters-with-same-name-from-a-url-in-javascript
 function getQueryParams(name) {
   qs = location.search;
-
   var params = [];
   var tokens;
   var re = /[?&]?([^=]+)=([^&]*)/g;
-
-  while (tokens = re.exec(qs))
-  { 
+  while (tokens = re.exec(qs)) { 
     if (decodeURIComponent(tokens[1]) == name)
     params.push(decodeURIComponent(tokens[2]));
   }
@@ -246,9 +247,8 @@ function getQueryParams(name) {
 // http://stackoverflow.com/questions/2167310/how-to-show-a-message-only-if-cookies-are-disabled-in-browser
 function checkCookies() {
   var cookieEnabled = (navigator.cookieEnabled) ? true : false;
-  if (typeof navigator.cookieEnabled == "undefined" && !cookieEnabled)
-  { 
-    document.cookie="testcookie";
+  if (typeof navigator.cookieEnabled == "undefined" && !cookieEnabled) { 
+    document.cookie = "testcookie";
     cookieEnabled = (document.cookie.indexOf("testcookie") != -1) ? true : false;
   }
   return (cookieEnabled);
@@ -260,11 +260,11 @@ function setCookie(cname, cvalue, bset) {
   var expires;
   
   // if true, the cookie is set for 5 years. If false, the cookie is deleted
-  if (bset) { var exdays = 1825; }
-  else { var exdays = 0; }
+  if (bset) var exdays = 1825;
+  else var exdays = 0;
   d.setTime(d.getTime() + (exdays*24*60*60*1000));
-  if (exdays) { expires = "expires="+d.toUTCString(); }
-  else { expires = "expires=Thu, 18 Dec 2013 12:00:00 UTC"; }
+  if (exdays) expires = "expires="+d.toUTCString();
+  else expires = "expires=Thu, 18 Dec 2013 12:00:00 UTC";
   document.cookie = "ksaOps_" + cname + "=" + cvalue + "; " + expires +"; path=/";
 }
 function getCookie(cname) {
@@ -278,7 +278,7 @@ function getCookie(cname) {
   return "";
 }
 
-// flashes some color on the element to bring attention to it when it updates
+// flashes some color on the element to bring attention to it
 // https://stackoverflow.com/questions/38370854/making-a-div-flash-just-once
 function flashUpdate(element, startColor, endColor) {
   $(element).animate({
@@ -291,14 +291,10 @@ function flashUpdate(element, startColor, endColor) {
 }
 
 // http://cwestblog.com/2012/11/12/javascript-degree-and-radian-conversion/
-Math.radians = function(degrees) {
-  return degrees * Math.PI / 180;
-};
-Math.degrees = function(radians) {
-  return radians * 180 / Math.PI;
-};
+Math.radians = function(degrees) { return degrees * Math.PI / 180; };
+Math.degrees = function(radians) { return radians * 180 / Math.PI; };
 
-// recursive function to shorten text word by word until it all fits on two lines
+// recursive function to shorten text word by word until it all fits on two or more lines
 function wrapText(limit, strText, fontSize) {
 
   // check if the text is too long for the length limit
@@ -325,10 +321,7 @@ function wrapText(limit, strText, fontSize) {
   } else {
 
     // if there is a second line and it's only got 2-3 characters (likely a number) shorten the length to bring down one more word
-    if (strText.split("</br>").length > 1 && strText.split("</br>")[1].length <= 3) {
-      return wrapText(limit-15, strText, fontSize);
-    } else {
-      return strText;
-    }
+    if (strText.split("</br>").length > 1 && strText.split("</br>")[1].length <= 3) return wrapText(limit-15, strText, fontSize);
+    else return strText;
   }
 }

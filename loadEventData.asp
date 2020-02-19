@@ -130,8 +130,6 @@ loop until rsCrafts.eof
 'resize the arrays down to just what was stored and sort them
 ReDim preserve launches(launchIndex-1)
 ReDim preserve maneuvers(maneuverIndex-1)
-Call SortArray(launches,"Asc")
-Call SortArray(maneuvers,"Asc")
 
 'output the data
 if UBound(launches) >= 0 then

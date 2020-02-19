@@ -1,58 +1,57 @@
+// refactor complete
 
 function loadCrew(crew) {
   
-  // can't continue if menu data hasn't loaded. Try again in 250ms
-  if (!isMenuDataLoaded) {
-    setTimeout(function() {
-      loadCrew(crew);
-    }, 250)
-    return;
-  }
+  // make sure the menu data is loaded before continuing
+  if (!isMenuDataLoaded) return setTimeout(loadCrew, 100, crew);
 
   // modify the history so people can page back/forward
   // if this is the first page to load, replace the current history
   if (!history.state) {
     if (window.location.href.includes("&")) var strURL = window.location.href;
-    else var strURL = "http://www.kerbalspace.agency/Tracker/tracker.asp?crew=" + crew;
-    history.replaceState({Type: pageType, ID: crew}, document.title, strURL);
+    else var strURL = "http://www.kerbalspace.agency/TrackerDev1/tracker.asp?crew=" + crew;
+    history.replaceState({type: ops.pageType, id: crew}, document.title, strURL);
     
   // don't create a new entry if this is the same page being reloaded
-  } else if (history.state.ID != crew) {
-    history.pushState({Type: pageType, ID: crew}, document.title, "http://www.kerbalspace.agency/Tracker/tracker.asp?crew=" + crew);
+  } else if (history.state.id != crew) {
+    history.pushState({type: ops.pageType, id: crew}, document.title, "http://www.kerbalspace.agency/TrackerDev1/tracker.asp?crew=" + crew);
   }
   
+  // remove the current loaded crew
+  if (ops.currentCrew) {
+    ops.currentCrew.Ribbons.length = 0;
+    ops.currentCrew.Missions.length = 0;
+    ops.currentCrew = null;
+  }
+
   // load the data depending on our view
-  if (pageType == "crewFull") {
+  if (ops.pageType == "crewFull") {
     $("#contentHeader").html("Full Roster");
     $("#fullRoster").empty();
+    document.title = "KSA Operations Tracker - Full Roster";
     
     // get the full crew listing and start to show them all
     crewList = extractIDs(w2ui['menu'].get('crew').nodes).split(";");
-    strCurrentCrew = showFullRoster();
-    loadCrewAJAX();
-    document.title = "KSA Operations Tracker - Full Roster";
+    loadDB("loadCrewData.asp?db=" + showFullRoster() + "&ut=" + currUT(), loadCrewAJAX);
   } else {
-    strCurrentCrew = crew;
     $("#contentHeader").html("&nbsp;");
     $("#contentHeader").spin({ scale: 0.5, position: 'relative', top: '50%', left: '50%' });
     
     // select and show it in the menu
-    w2ui['menu'].select(strCurrentCrew);
-    w2ui['menu'].expandParents(strCurrentCrew);
-    w2ui['menu'].scrollIntoView(strCurrentCrew);
+    selectMenuItem(crew);
     
-    // load the data
-    loadCrewAJAX();
+    // load the data if there is no current crew loaded or the current crew loaded is not the crew that was selected
+    // otherwise just go straight to displaying the data
+    if (!ops.currentCrew || (ops.currentCrew && crew != ops.currentCrew.Background.Kerbal)) loadDB("loadCrewData.asp?db=" + crew + "&ut=" + currUT(), loadCrewAJAX);
+    else loadCrewAJAX();
   }
 }
 
 function loadCrewAJAX(xhttp) {
 
-  // if the call was made to get data, we should have data
+  // parse out the data, if any was sent. If not, the data is already loaded
   if (xhttp) {
-  
-    // parse out the data
-    var data = xhttp.responseText.split("Typ3crew")[1].split("*");
+    var data = xhttp.responseText.split("*");
     
     // the crew catalog data is first
     var catalog = rsToObj(data[0]);
@@ -65,68 +64,40 @@ function loadCrewAJAX(xhttp) {
     // parse the missions and the ribbons
     var missions = [];
     var ribbons = [];
-    if (dataTables[1] != "null") dataTables[1].split("|").forEach(function(item, index) { missions.push(rsToObj(item)); });
-    if (dataTables[2] != "null") dataTables[2].split("|").forEach(function(item, index) { ribbons.push(rsToObj(item)); });
+    if (dataTables[1] != "null") dataTables[1].split("|").forEach(function(item) { missions.push(rsToObj(item)); });
+    if (dataTables[2] != "null") dataTables[2].split("|").forEach(function(item) { ribbons.push(rsToObj(item)); });
     missions.reverse();
     
     // store all the data
-    currentCrewData = { Stats: stats,
+    ops.currentCrew = { Stats: stats,
                         History: history,
                         Background: catalog,
                         Missions: missions,
-                        Ribbons: ribbons };
-    
-  // otherwise we are looking up the data in the catalog
-  } else {
-    var crew = opsCatalog.find(o => o.ID === strCurrentCrew);
-
-    // extract the data if it is available
-    if (crew && crew.CurrentData) {
-      currentCrewData = crew.CurrentData;
-
-    // get the data if it hasn't been loaded yet, then callback to wait for it to load
-    } else if (crew && !crew.CurrentData && !crew.isLoading) {
-      crew.isLoading = true;
-      loadDB("loadOpsData.asp?db=" + strCurrentCrew + "&ut=" + currUT() + "&type=crew" + "&pastUT=NaN", loadOpsDataAJAX);
-      return setTimeout(loadCrewAJAX, 100);
-    
-    // callback to check the catalog again if it's loading right now
-    } else if (crew && !crew.CurrentData && crew.isLoading) {
-      return setTimeout(loadCrewAJAX, 100);
-    
-    // if it's not in the catalog we need to do a data call for a deceased crew member
-    } else if (!crew) {
-      return loadDB("loadOpsData.asp?db=" + strCurrentCrew + "&ut=" + currUT() + "&type=crew" + "&pastUT=NaN", loadCrewAJAX);
-    }
+                        Ribbons: ribbons }
   }
-  
+    
   // what to do with it?
   // full crew roster show data in a tooltip for each crew member
-  if (pageType == "crewFull") {
+  if (ops.pageType == "crewFull") {
     
-    // get the date for activation
-    strTip = "<b>" + currentCrewData.Stats.Rank + " " + currentCrewData.Background.FullName + " Kerman<p>Activation Date:</b> " + UTtoDateTime(currentCrewData.Background.Activation).split("@")[0] + "<br><b>Mission Count:</b> " + currentCrewData.Missions.length + "<br><b>Ribbon Count:</b> " + currentCrewData.Ribbons.length + "<br><b>Current Status:</b><br>" + currentCrewData.Stats.Status;
-    if (currentCrewData.Stats.Assignment) { 
-      strTip += "<br><b>Current Assignment:</b><br>" + currentCrewData.Stats.Assignment; 
-    } else {
-      strTip += "<br><b>Current Assignment:</b><br>None"; 
+    // compose and assign the portrait tooltip
+    strTip = "<b>" + ops.currentCrew.Stats.Rank + " " + ops.currentCrew.Background.FullName + " Kerman<p>Activation Date:</b> " + UTtoDateTime(ops.currentCrew.Background.Activation).split("@")[0] + "<br><b>Mission Count:</b> " + ops.currentCrew.Missions.length + "<br><b>Ribbon Count:</b> " + ops.currentCrew.Ribbons.length + "<br><b>Current Status:</b><br>" + ops.currentCrew.Stats.Status;
+    if (ops.currentCrew.Stats.Assignment) strTip += "<br><b>Current Assignment:</b><br>" + ops.currentCrew.Stats.Assignment;
+    $("#" + ops.currentCrew.Background.Kerbal).html("<img src='" + ops.currentCrew.Stats.Image + "' class='tip' data-tipped-options=\"position: 'bottom', target: 'mouse'\" style='width: 235px; cursor: pointer' title='" + strTip + "'>");
+    
+    // remove the current loaded crew
+    if (ops.currentCrew) {
+      ops.currentCrew.Ribbons.length = 0;
+      ops.currentCrew.Missions.length = 0;
+      ops.currentCrew = null;
     }
-    $("#" + strCurrentCrew).html("<img src='" + currentCrewData.Stats.Image + "' class='tipped' style='width: 235px; cursor: pointer' title='" + strTip + "'>");
-    
-    // create the tooltips
-    // behavior of tooltips depends on the device
-    if (is_touch_device()) { showOpt = 'click'; }
-    else { showOpt = 'mouseenter'; }
-    Tipped.create('.tipped', { showOn: showOpt, hideOnClickOutside: is_touch_device(), position: 'bottom', target: 'mouse', hideOn: {element: 'mouseleave'} });
-    Tipped.create('.tip-update', { showOn: showOpt, hideOnClickOutside: is_touch_device(), detach: false, hideOn: {element: 'mouseleave'} });
-    
+  
     // call for another?
-    strCurrentCrew = showFullRoster();
-    if (strCurrentCrew) loadCrewAJAX();
+    var strCrewID = showFullRoster();
+    if (strCrewID) loadDB("loadCrewData.asp?db=" + strCrewID + "&ut=" + currUT(), loadCrewAJAX);
   
   // individual crew page
   } else {
-    
     crewHeaderUpdate();
     crewInfoUpdate();
     CrewMissionsUpdate();
@@ -138,9 +109,9 @@ function loadCrewAJAX(xhttp) {
     // service length determined by deactivation?
     var strDeactiveTipOpen = "";
     var strDeactiveTipClose = "";
-    if (currentCrewData.Background.Deactivation) {
-      var serviceEnd = parseInt(currentCrewData.Background.Deactivation.split(";")[0]);
-      strDeactiveTipOpen = "<u><span style='cursor:help' class='tip' data-tipped-options=\"position: 'top'\" title='" + currentCrewData.Background.Deactivation.split(";")[1] + " on " + UTtoDateTime(serviceEnd).split("@")[0] + "'>";
+    if (ops.currentCrew.Background.Deactivation) {
+      var serviceEnd = parseInt(ops.currentCrew.Background.Deactivation.split(";")[0]);
+      strDeactiveTipOpen = "<u><span style='cursor:help' class='tip' data-tipped-options=\"position: 'top'\" title='" + ops.currentCrew.Background.Deactivation.split(";")[1] + " on " + UTtoDateTime(serviceEnd).split("@")[0] + "'>";
       strDeactiveTipClose = "</span></u>";
     } else var serviceEnd = currUT();
     
@@ -149,8 +120,8 @@ function loadCrewAJAX(xhttp) {
     var hours = minutes * 60;
     var days = hours * 24;
     var years = days * 365;
-    var service = (serviceEnd - currentCrewData.Background.Activation) / years;
-    $("#dataField0").html("<b>Activation Date:</b> " + UTtoDateTime(currentCrewData.Background.Activation).split("@")[0] + " (" + strDeactiveTipOpen + "Service Years: " + numeral(service).format('0.00') + strDeactiveTipClose + ")");
+    var service = (serviceEnd - ops.currentCrew.Background.Activation) / years;
+    $("#dataField0").html("<b>Activation Date:</b> " + UTtoDateTime(ops.currentCrew.Background.Activation).split("@")[0] + " (" + strDeactiveTipOpen + "Service Years: " + numeral(service).format('0.00') + strDeactiveTipClose + ")");
     $("#dataField0").fadeIn();
     
     // hide the rest of the fields
@@ -159,52 +130,63 @@ function loadCrewAJAX(xhttp) {
     $("#dataField15").fadeOut();
     $("#dataField16").fadeOut();
     
-    // create any tooltips
-    // behavior of tooltips depends on the device
-    if (is_touch_device()) { showOpt = 'click'; }
-    else { showOpt = 'mouseenter'; }
-    Tipped.create('.tip', { showOn: showOpt, hideOnClickOutside: is_touch_device(), hideOn: {element: 'mouseleave'} });
-    Tipped.create('.tip-update', { showOn: showOpt, hideOnClickOutside: is_touch_device(), detach: false, hideOn: {element: 'mouseleave'} });
-    
     // setup the twitter timeline
-    swapTwitterSource('Crew Feed', currentCrewData.Background.Timeline);
+    swapTwitterSource('Crew Feed', ops.currentCrew.Background.Timeline);
   }
+
+  // create any tooltips
+  // behavior of tooltips depends on the device
+  if (is_touch_device()) showOpt = 'click';
+  else showOpt = 'mouseenter';
+  Tipped.create('.tip', { showOn: showOpt, hideOnClickOutside: is_touch_device(), hideOn: {element: 'mouseleave'} });
+  Tipped.create('.tip-update', { showOn: showOpt, hideOnClickOutside: is_touch_device(), detach: false, hideOn: {element: 'mouseleave'} });
 }
 
-// display all current crew members
+// returns the next crew member in the full roster that needs to be loaded
 // matches the current menu sorting option for crew
 function showFullRoster() {
   var crewID = crewList.shift();
   if (crewID) {
+
+    // make a new crew card entry and start the spinner to show data is being fetched
     $("#fullRoster").append("<div id='" + crewID + "' class='crewCard' onclick=\"swapContent('crew', '" + crewID + "')\"></div>&nbsp;");
     $("#" + crewID).spin({ scale: 0.5, position: 'relative', top: '50%', left: '50%' });
   }
   return crewID;
 }
 
-function ribbonDisplayToggle() {
+function ribbonDisplayToggle(display = false) {
+  $("#dataField11").empty();
+  $("#dataField11").html("<span ribbons=" + ops.currentCrew.Ribbons.length + "></span>");
   if ($("#dataField12").html().includes("Show")) {
-      $("#dataField11").empty();
-      currentCrewData.Ribbons.forEach(function(item, index) {
-        $("#dataField11").append("<img src='http://www.blade-edge.com/Roster/Ribbons/" + item.Ribbon + ".png' width='109px' class='tip' style='cursor: help' data-tipped-options=\"maxWidth: 150, position: 'top'\" title='<center>" + item.Title + "<hr>" + item.Desc + "<hr>Earned on " + UTtoDateTime(item.UT).split("@")[0].trim() + "</center>'>");
-      });
+    $("#dataField12").empty();
+    ops.currentCrew.Ribbons.forEach(function(item) {
+      $("#dataField11").append("<img src='http://www.blade-edge.com/Roster/Ribbons/" + item.Ribbon + ".png' width='109px' class='tip' style='cursor: help' data-tipped-options=\"maxWidth: 150, position: 'top'\" title='<center>" + item.Title + "<hr>" + item.Desc + "<hr>Earned on " + UTtoDateTime(item.UT).split("@")[0].trim() + "</center>'>");
+    });
     $("#dataField12").html("<center><span class='fauxLink' onclick='ribbonDisplayToggle()'>Hide Multiple Ribbons</span></center>");
-  } else if ($("#dataField12").html().includes("Hide")) {
-      $("#dataField11").empty();
-      currentCrewData.Ribbons.forEach(function(item, index) {
-      
-        // only show this ribbon if it has not been supersceded by a later one
-        if (!item.Override || (item.Override && item.Override > currUT())) {
-          $("#dataField11").append("<img src='http://www.blade-edge.com/Roster/Ribbons/" + item.Ribbon + ".png' width='109px' class='tip' style='cursor: help' data-tipped-options=\"maxWidth: 150, position: 'top'\" title='<center>" + item.Title + "<hr>" + item.Desc + "<hr>Earned on " + UTtoDateTime(item.UT).split("@")[0].trim() + "</center>'>");
-        }
-      });
-    $("#dataField12").html("<center><span class='fauxLink' onclick='ribbonDisplayToggle()'>Show All Ribbons</span></center>");
+  
+  // use of display parameter is to force a show of ribbons upon initial crew load or crew update
+  } else if ($("#dataField12").html().includes("Hide") || display) {
+    $("#dataField12").empty();
+    ops.currentCrew.Ribbons.forEach(function(item) {
+    
+      // only show this ribbon if it has not been supersceded by a later one
+      if (!item.Override || (item.Override && item.Override > currUT())) {
+        $("#dataField11").append("<img src='http://www.blade-edge.com/Roster/Ribbons/" + item.Ribbon + ".png' width='109px' class='tip' style='cursor: help' data-tipped-options=\"maxWidth: 150, position: 'top'\" title='<center>" + item.Title + "<hr>" + item.Desc + "<hr>Earned on " + UTtoDateTime(item.UT).split("@")[0].trim() + "</center>'>");
+      } else {
+        $("#dataField12").html("<center><span class='fauxLink' onclick='ribbonDisplayToggle()'>Show All Ribbons</span></center>");
+      }
+    });
   }
+
+  // only show the option to toggle hidden ribbons if text exists to do so
+  if ($("#dataField12").html().length) $("#dataField12").fadeIn();
+  else $("#dataField12").fadeOut();
 
   // create any tooltips
   // behavior of tooltips depends on the device
-  if (is_touch_device()) { showOpt = 'click'; }
-  else { showOpt = 'mouseenter'; }
+  if (is_touch_device()) showOpt = 'click';
+  else showOpt = 'mouseenter';
   Tipped.create('.tip', { showOn: showOpt, hideOnClickOutside: is_touch_device(), hideOn: {element: 'mouseleave'} });
 }
 
@@ -213,24 +195,27 @@ function updateCrewData(crew) {
   // update the current data with the preloaded updated data
   // we do this regardless of whether the crew page is in view so that the full roster tooltips are updated
   for (var futureProp in crew.FutureData) {
-    for (var prop in currentCrewData) {
+    for (var prop in ops.currentCrew) {
     
       // only update data that exists and is current for this time 
       if (futureProp == prop && crew.FutureData[futureProp] && crew.FutureData[futureProp].UT <= currUT()) {
         
         // only history and info are classes that can be copied
         // missions and ribbons need to be pushed into the existing array
-        if (Array.isArray(currentCrewData[prop])) {
-          currentCrewData[prop].unshift(crew.FutureData[futureProp]);
-        } else {
-          currentCrewData[prop] = crew.FutureData[futureProp];
-        }
+        if (Array.isArray(ops.currentCrew[prop])) ops.currentCrew[prop].unshift(crew.FutureData[futureProp]);
+        else ops.currentCrew[prop] = crew.FutureData[futureProp];
       }
     }
   }
 
+  // update the menu data so tooltips and re-sorting are accurate
+  var crewMenuObj = ops.crewMenu.find(o => o.db === ops.currentCrew.Background.Kerbal);
+  crewMenuObj.assignment = ops.currentCrew.Stats.Assignment;
+  crewMenuObj.rank = ops.currentCrew.Stats.Rank;
+  crewMenuObj.status = ops.currentCrew.Stats.Status;
+
   // perform a live data update if we are looking at the crew in question at the moment
-  if (pageType == "crew" && strCurrentCrew == crew.ID) {
+  if (ops.pageType == "crew" && ops.currentCrew.Background.Kerbal == crew.id) {
     crewHeaderUpdate(true);
     crewInfoUpdate(true);
     CrewMissionsUpdate(true);
@@ -238,25 +223,31 @@ function updateCrewData(crew) {
     crewAssignmentUpdate(true);
     crewActiveMissionUpdate(true);
     crewRibbonsUpdate(true);
-    console.log(crew);
     
     // create the tooltips
     // behavior of tooltips depends on the device
-    if (is_touch_device()) { showOpt = 'click'; }
-    else { showOpt = 'mouseenter'; }
+    if (is_touch_device()) showOpt = 'click';
+    else showOpt = 'mouseenter';
     Tipped.create('.tip', { showOn: showOpt, hideOnClickOutside: is_touch_device(), detach: false, hideOn: {element: 'mouseleave'} });
     Tipped.create('.tip-update', { showOn: showOpt, hideOnClickOutside: is_touch_device(), detach: false, hideOn: {element: 'mouseleave'} });
   }
 
-  // fetch new data. Add a second just to make sure we don't get the same current data
+  // refresh the menu
+  filterCrewMenu($("input[name=roster]").filter(":checked").val());
+  w2ui['menu'].refresh();
+
+  // scroll selection back into view
+  selectMenuItem(ops.currentCrew.Background.Kerbal);
+
+  // fetch new future data. Add a second just to make sure we don't get the same current data
   crew.isLoading = true;
-  loadDB("loadOpsData.asp?db=" + crew.ID + "&UT=" + (currUT()+1) + "&type=" + crew.Type + "&pastUT=NaN", loadOpsDataAJAX);
+  loadDB("loadOpsData.asp?db=" + crew.id + "&UT=" + (currUT()+1) + "&type=" + crew.type + "&pastUT=NaN", loadOpsDataAJAX);
 }
 
 function crewHeaderUpdate(update) {
-  if (update && !$("#contentHeader").html().includes(currentCrewData.Stats.Rank)) flashUpdate("#contentHeader", "#77C6FF", "#FFF");
-  $("#contentHeader").html(currentCrewData.Stats.Rank + " " + currentCrewData.Background.FullName + " Kerman");
-  document.title = "KSA Operations Tracker" + " - " + currentCrewData.Stats.Rank + " " + currentCrewData.Background.FullName + " Kerman";
+  if (update && !$("#contentHeader").html().includes(ops.currentCrew.Stats.Rank)) flashUpdate("#contentHeader", "#77C6FF", "#FFF");
+  $("#contentHeader").html(ops.currentCrew.Stats.Rank + " " + ops.currentCrew.Background.FullName + " Kerman");
+  document.title = "KSA Operations Tracker" + " - " + ops.currentCrew.Stats.Rank + " " + ops.currentCrew.Background.FullName + " Kerman";
 
   // for tag loading
   // $("#contentHeader").spin({ scale: 0.35, position: 'relative', top: '10px', left: (((955/2) + (crew.width('bold 32px arial')/2)) + 10) +'px' });
@@ -265,7 +256,7 @@ function crewHeaderUpdate(update) {
 function crewInfoUpdate(update) {
 
   // basic setups
-  $("#infoImg").html("<img src='" + currentCrewData.Stats.Image + "'>");
+  $("#infoImg").html("<img src='" + ops.currentCrew.Stats.Image + "'>");
   $("#infoTitle").html("Click Here for Background Information");
   $("#infoTitle").attr("class", "infoTitle crew");
   $("#infoDialog").dialog("option", "title", "Background Information");
@@ -273,13 +264,11 @@ function crewInfoUpdate(update) {
   $("#partsImg").empty();
 
   // if there is a change in bio/service record and the dialog is not open, flash the title
-  if (update && !$("#infoDialog").dialog("isOpen") && (!$("#infoDialog").html().includes(currentCrewData.Background.Bio) || !$("#infoDialog").html().includes(currentCrewData.History.History))) {
-    flashUpdate("#infoTitle", "#77C6FF", "#000");
-  }
+  if (update && !$("#infoDialog").dialog("isOpen") && (!$("#infoDialog").html().includes(ops.currentCrew.Background.Bio) || !$("#infoDialog").html().includes(ops.currentCrew.History.History))) flashUpdate("#infoTitle", "#77C6FF", "#000");
   
   // compose the background information
   // get the date of the birthday to display in MM/DD/YYYY format and also age calculation
-  var bday = new Date(currentCrewData.Background.BirthDate);
+  var bday = new Date(ops.currentCrew.Background.BirthDate);
   var minutes = 1000 * 60;
   var hours = minutes * 60;
   var days = hours * 24;
@@ -288,94 +277,101 @@ function crewInfoUpdate(update) {
   var strBackgrnd = "<b>Birth Date:</b> " + (bday.getUTCMonth() + 1) + "/" + bday.getUTCDate() + "/" + bday.getUTCFullYear() + " (Age: " + numeral(age).format('0.00') + ")";
   
   // family name with help icon for more info
-  strBackgrnd += "<p><b>Family Name:</b> " + currentCrewData.Background.FamName + "&nbsp;<img src='qmark.png' style='margin-bottom: 10px; left: initial; cursor: help' class='tip' data-tipped-options=\"position: 'right', maxWidth: 135\" title='as a show of global unity, all adult kerbals take the surname of the first planetary leader'></p>";
+  strBackgrnd += "<p><b>Family Name:</b> " + ops.currentCrew.Background.FamName + "&nbsp;<img src='qmark.png' style='margin-bottom: 10px; left: initial; cursor: help' class='tip' data-tipped-options=\"position: 'right', maxWidth: 135\" title='as a show of global unity, all adult kerbals take the surname of the first planetary leader'></p>";
   
   // rest of the bio stuff
-  strBackgrnd += "<p><b>Specialty:</b> " + currentCrewData.Background.Speciality + "</p><p><b>Hobbies:</b> " + currentCrewData.Background.Hobbies + "</p><p><b>Biography:</b> " + currentCrewData.Background.Bio + "</p><p><b>Service History:</b> " + currentCrewData.History.History + "</p>";
+  strBackgrnd += "<p><b>Specialty:</b> " + ops.currentCrew.Background.Speciality + "</p><p><b>Hobbies:</b> " + ops.currentCrew.Background.Hobbies + "</p><p><b>Biography:</b> " + ops.currentCrew.Background.Bio + "</p><p><b>Service History:</b> " + ops.currentCrew.History.History + "</p>";
   $("#infoDialog").html(strBackgrnd);
 }
 
 function CrewMissionsUpdate(update) {
 
   // completed missions
-  if (update && !$("#dataField1").html().includes(currentCrewData.Missions.length)) {
+  if (update && !$("#dataField1").html().includes(ops.currentCrew.Missions.length)) {
     flashUpdate("#dataField1", "#77C6FF", "#FFF");
     flashUpdate("#dataField10", "#77C6FF", "#FFF");
   }
-  $("#dataField1").html("<b>Completed Missions:</b> " + currentCrewData.Missions.length);
+  $("#dataField1").html("<b>Completed Missions:</b> " + ops.currentCrew.Missions.length);
   $("#dataField1").fadeIn();
   
   // mission days
-  if (update && !$("#dataField3").html().includes(currentCrewData.Stats.TMD)) flashUpdate("#dataField3", "#77C6FF", "#FFF");
-  $("#dataField3").html("<b>Total Mission Days:</b> " + currentCrewData.Stats.TMD);
+  if (update && !$("#dataField3").html().includes(ops.currentCrew.Stats.TMD)) flashUpdate("#dataField3", "#77C6FF", "#FFF");
+  $("#dataField3").html("<b>Total Mission Days:</b> " + ops.currentCrew.Stats.TMD);
   $("#dataField3").fadeIn();
   
-  // docking operations? Only for pilots
-  if (currentCrewData.Stats.Dockings) {
-    if (update && !$("#dataField2").html().includes(currentCrewData.Stats.Dockings)) flashUpdate("#dataField2", "#77C6FF", "#FFF");
-    $("#dataField2").html("<b>Docking Operations:</b> " + currentCrewData.Stats.Dockings);
+  // docking operations?
+  if (ops.currentCrew.Stats.Dockings) {
+    if (update && !$("#dataField2").html().includes(ops.currentCrew.Stats.Dockings)) flashUpdate("#dataField2", "#77C6FF", "#FFF");
+    $("#dataField2").html("<b>Docking Operations:</b> " + ops.currentCrew.Stats.Dockings);
     $("#dataField2").fadeIn();
   } else $("#dataField2").fadeOut();
   
-  // EVA time
-  if (update && !$("#dataField4").html().includes(currentCrewData.Stats.TEVA)) flashUpdate("#dataField4", "#77C6FF", "#FFF");
-  $("#dataField4").html("<b>Total EVA Time:</b> " + currentCrewData.Stats.TEVA);
-  $("#dataField4").fadeIn();
-  
-  // science collection
-  if (update && !$("#dataField5").html().includes(currentCrewData.Stats.Science)) flashUpdate("#dataField5", "#77C6FF", "#FFF");
-  $("#dataField5").html("<b>Total Science Collected:</b> " + currentCrewData.Stats.Science);
-  $("#dataField5").fadeIn();
-  
-  // distance traveled
-  if (update && !$("#dataField6").html().includes(numeral(currentCrewData.Stats.Distance).format('0,0.000'))) flashUpdate("#dataField6", "#77C6FF", "#FFF");
-  $("#dataField6").html("<b>Total Mission Distance Traveled:</b> " + numeral(currentCrewData.Stats.Distance).format('0,0.000') + "km");
-  $("#dataField6").fadeIn();
+  // EVA time?
+  if (ops.currentCrew.Stats.TEVA) {
+    if (update && !$("#dataField4").html().includes(ops.currentCrew.Stats.TEVA)) flashUpdate("#dataField4", "#77C6FF", "#FFF");
+    $("#dataField4").html("<b>Total EVA Time:</b> " + ops.currentCrew.Stats.TEVA);
+    $("#dataField4").fadeIn();
+  } else $("#dataField4").fadeOut();
+
+  // science collection?
+  if (ops.currentCrew.Stats.Science) {
+    if (update && !$("#dataField5").html().includes(ops.currentCrew.Stats.Science)) flashUpdate("#dataField5", "#77C6FF", "#FFF");
+    $("#dataField5").html("<b>Total Science Collected:</b> " + ops.currentCrew.Stats.Science);
+    $("#dataField5").fadeIn();
+  } else $("#dataField5").fadeOut();
+
+  // distance traveled?
+  if (ops.currentCrew.Stats.Distance) {
+    if (update && !$("#dataField6").html().includes(numeral(ops.currentCrew.Stats.Distance).format('0,0.000'))) flashUpdate("#dataField6", "#77C6FF", "#FFF");
+    $("#dataField6").html("<b>Total Mission Distance Traveled:</b> " + numeral(ops.currentCrew.Stats.Distance).format('0,0.000') + "km");
+    $("#dataField6").fadeIn();
+  } else $("#dataField6").fadeOut();
 
   // mission list
   $("#dataField10").html("<b>Past Missions: </b><select id='missionSelect' style='width: 335px'><option value='' selected='selected'></option></select>");
   $("#dataField10").fadeIn();
-  if (currentCrewData.Missions.length) {
-    currentCrewData.Missions.forEach(function(item, index) {
+  if (ops.currentCrew.Missions.length) {
+    ops.currentCrew.Missions.forEach(function(item) {
       $("#missionSelect").append($('<option>', {
         value: item.Link,
         text: item.Title
       }));
     });
-  } else { $("#missionSelect").append($('<option>', { value: '', text: 'No Missions Yet Completed' })); }
+  } else $("#missionSelect").append($('<option>', { value: '', text: 'No Missions Yet Completed' }));
   $("#missionSelect").change(function () {
-    if ($("#missionSelect").val()) { window.open($("#missionSelect").val()); }
+    if ($("#missionSelect").val()) window.open($("#missionSelect").val());
   });
 }
 
 // use of saveTip attribute is so match can be made when update check runs since Tipped removes text from the title attribute
 function crewStatusUpdate(update) {
-  if (update && (!$("#dataField7").html().includes(currentCrewData.Stats.StatusHTML) || !$("#dataField7").html().includes(currentCrewData.Stats.Status))) flashUpdate("#dataField7", "#77C6FF", "#FFF");
-  $("#dataField7").html("<b>Current Status:</b> <u><span style='cursor:help' class='tip' data-tipped-options=\"maxWidth: 250, position: 'top'\" title='" + currentCrewData.Stats.StatusHTML + "' saveTip='" + currentCrewData.Stats.AssignmentHTML + "'>" + currentCrewData.Stats.Status + "</span></u>");
+  if (update && (!$("#dataField7").html().includes(ops.currentCrew.Stats.StatusHTML) || !$("#dataField7").html().includes(ops.currentCrew.Stats.Status))) flashUpdate("#dataField7", "#77C6FF", "#FFF");
+  $("#dataField7").html("<b>Current Status:</b> <u><span style='cursor:help' class='tip' data-tipped-options=\"maxWidth: 250, position: 'top'\" title='" + ops.currentCrew.Stats.StatusHTML + "' saveTip='" + ops.currentCrew.Stats.AssignmentHTML + "'>" + ops.currentCrew.Stats.Status + "</span></u>");
   $("#dataField7").fadeIn();
 }
 
 // use of saveTip attribute is so match can be made when update check runs since Tipped removes text from the title attribute
 function crewAssignmentUpdate(update) {
-  if (currentCrewData.Stats.Assignment) {
-    if (update && (!$("#dataField8").html().includes(currentCrewData.Stats.AssignmentHTML) || !$("#dataField8").html().includes(currentCrewData.Stats.Assignment))) flashUpdate("#dataField8", "#77C6FF", "#FFF");
-    $("#dataField8").html("<b>Current Assignment:</b> <u><span style='cursor:help' class='tip' data-tipped-options=\"maxWidth: 350, position: 'top'\" title='" + currentCrewData.Stats.AssignmentHTML + "' saveTip='" + currentCrewData.Stats.AssignmentHTML + "'>" + currentCrewData.Stats.Assignment + "</span></u>");
+  if (ops.currentCrew.Stats.Assignment) {
+    if (update && (!$("#dataField8").html().includes(ops.currentCrew.Stats.AssignmentHTML) || !$("#dataField8").html().includes(ops.currentCrew.Stats.Assignment))) flashUpdate("#dataField8", "#77C6FF", "#FFF");
+    $("#dataField8").html("<b>Current Assignment:</b> <u><span style='cursor:help' class='tip' data-tipped-options=\"maxWidth: 350, position: 'top'\" title='" + ops.currentCrew.Stats.AssignmentHTML + "' saveTip='" + ops.currentCrew.Stats.AssignmentHTML + "'>" + ops.currentCrew.Stats.Assignment + "</span></u>");
     $("#dataField8").fadeIn();
   } else $("#dataField8").fadeOut();
 }
 
 function crewActiveMissionUpdate(update) {
-  if (update && ((!$("#dataField9").html().includes(currentCrewData.Stats.Vessel)) || ($("#dataField9").html().includes("tip-update") && !currentCrewData.Stats.MissionStart) || (!$("#dataField9").html().includes("tip-update") && currentCrewData.Stats.MissionStart))) flashUpdate("#dataField9", "#77C6FF", "#FFF");
-  if (currentCrewData.Stats.Vessel) {
-    var crewVessel = craftsMenu.find(o => o.DB === currentCrewData.Stats.Vessel);
-    var strHTML = "<b>Future Mission Vessel:</b> ";
-    if (currentCrewData.Stats.MissionStart) {
-      strHTML += "<u><span style='cursor:help' class='tip-update' data-tipped-options=\"inline: 'crewMissionTip'\">";
-      $("#crewMissionTip").html("Time to mission: <span data='" + currentCrewData.Stats.MissionStart + "' id='crewCountdown'>" + formatTime(currentCrewData.Stats.MissionStart-currUT(true)) + "</span>");
-    } else strHTML = "<b>Current Mission Vessel:</b> ";
-    strHTML += "<span class='fauxLink' onclick=\"swapContent('vessel','" + currentCrewData.Stats.Vessel + "')\">";
-    strHTML += crewVessel.Name + "</span>";
-    if (currentCrewData.Stats.MissionStart) strHTML += "</span></u>";
+  if (ops.currentCrew.Stats.Vessel) {
+    if (update && ((!$("#dataField9").html().includes(ops.currentCrew.Stats.Vessel)) || ($("#dataField9").html().includes("tip-update") && !ops.currentCrew.Stats.MissionStart) || (!$("#dataField9").html().includes("tip-update") && ops.currentCrew.Stats.MissionStart))) flashUpdate("#dataField9", "#77C6FF", "#FFF");
+    var crewVessel = ops.craftsMenu.find(o => o.db === ops.currentCrew.Stats.Vessel);
+    if (ops.currentCrew.Stats.MissionStart > currUT()) {
+      var strHTML = "<b>Future Mission Vessel:</b> <u><span style='cursor:help' class='tip-update' data-tipped-options=\"inline: 'crewMissionTip'\">";
+      $("#crewMissionTip").html("Time to mission: <span data='" + ops.currentCrew.Stats.MissionStart + "' id='crewCountdown'>" + formatTime(ops.currentCrew.Stats.MissionStart-currUT()) + "</span>");
+    } else {
+      var strHTML = "<b>Current Mission Vessel:</b> <u><span style='cursor:help' class='tip-update' data-tipped-options=\"inline: 'crewMissionTip'\">";
+      $("#crewMissionTip").html("Mission elapsed time: <span data='" + ops.currentCrew.Stats.MissionStart + "' id='crewCountdown'>" + formatTime(currUT()-ops.currentCrew.Stats.MissionStart) + "</span>");
+    }
+    strHTML += "<span class='fauxLink' onclick=\"swapContent('vessel','" + ops.currentCrew.Stats.Vessel + "')\">";
+    strHTML += crewVessel.name + "</span></span></u>";
     $("#dataField9").html(strHTML);
     $("#dataField9").fadeIn();
   } else {
@@ -385,23 +381,9 @@ function crewActiveMissionUpdate(update) {
 }
 
 function crewRibbonsUpdate(update) {
-  if (currentCrewData.Ribbons.length) {
-    if (update && !$("#dataField11").html().includes('ribbons="' + currentCrewData.Ribbons.length)) flashUpdate("#dataField11", "#77C6FF", "#FFF");
-    $("#dataField11").empty();
-    $("#dataField11").html("<span ribbons=" + currentCrewData.Ribbons.length + "></span>");
-    currentCrewData.Ribbons.forEach(function(item) {
-      
-      // only show this ribbon if it has not been supersceded by a later one
-      if (!item.Override || (item.Override && item.Override > currUT())) {
-        $("#dataField11").append("<img src='http://www.blade-edge.com/Roster/Ribbons/" + item.Ribbon + ".png' width='109px' class='tip' style='cursor: help' data-tipped-options=\"maxWidth: 150, position: 'top'\" title='<center>" + item.Title + "<hr>" + item.Desc + "<hr>Earned on " + UTtoDateTime(item.UT).split("@")[0].trim() + "</center>'>");
-      } else {
-        $("#dataField12").html("<center><span class='fauxLink' onclick='ribbonDisplayToggle()'>Show All Ribbons</span></center>");
-      }
-    });
-
-    // only show the option to display hidden ribbons if any are hidden
-    if (currentCrewData.Ribbons.find(o => o.Override)) $("#dataField12").fadeIn();
-    else $("#dataField12").fadeOut();
+  if (ops.currentCrew.Ribbons.length) {
+    if (update && !$("#dataField11").html().includes('ribbons="' + ops.currentCrew.Ribbons.length)) flashUpdate("#dataField11", "#77C6FF", "#FFF");
+    ribbonDisplayToggle(true)
   } else { $("#dataField11").html("<center>No Ribbons Yet Awarded</center>"); }
   $("#dataField11").fadeIn();
 }

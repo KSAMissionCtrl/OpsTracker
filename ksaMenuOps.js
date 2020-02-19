@@ -1,7 +1,9 @@
+// refactor complete (except for surface ops related to aircraft selection)
+
 function loadMenuAJAX(xhttp) {
   
   // make sure the body catalog is loaded before continuing
-  if (!bodyCatalog.length) return setTimeout(loadMenuAJAX, 100, xhttp);
+  if (!ops.bodyCatalog.length) return setTimeout(loadMenuAJAX, 100, xhttp);
   
   // stop the spinner
   $("#menuBox").spin(false);
@@ -9,47 +11,46 @@ function loadMenuAJAX(xhttp) {
   // parse the data
   var crafts = xhttp.responseText.split("^")[0].split("*");
   var crew = xhttp.responseText.split("^")[1].split("|");
-  crafts.forEach(function(item, index) {
+  crafts.forEach(function(item) {
     var fields = item.split("~");
 
     // default body ref is Kerbin. If there is more than one SOI entry reset to the second to last ref num
     var bodyRef = 3;
     if (fields[2].split("|").length > 1) bodyRef = parseInt(fields[2].split("|")[fields[2].split("|").length-2].split(";")[1]);
-    craftsMenu.push({DB: fields[0],
-                     Name: fields[1],
-                     SOI: fields[2],
-                     Type: fields[3],
-                     Start: parseInt(fields[4]),
-                     End: parseInt(fields[5]),
-                     Program: fields[6],
-                     Vessel: fields[7],
-                     BodyRef: bodyRef,
-                     Badged: false});
+    ops.craftsMenu.push({ db: fields[0],
+                          name: fields[1],
+                          soi: fields[2],
+                          type: fields[3],
+                          start: parseInt(fields[4]),
+                          end: parseInt(fields[5]),
+                          program: fields[6],
+                          vessel: fields[7],
+                          bodyRef: bodyRef,
+                          badged: false });
   });
-  crew.forEach(function(item, index) {
+  crew.forEach(function(item) {
     var fields = item.split("~");
-    crewMenu.push({Name: fields[0],
-                   Status: fields[1],
-                   Rank: fields[2],
-                   Assignment: fields[3],
-                   DB: fields[4],
-                   UT: fields[5],
-                   Badged: false});
+    ops.crewMenu.push({ name: fields[0],
+                        status: fields[1],
+                        rank: fields[2],
+                        assignment: fields[3],
+                        db: fields[4],
+                        UT: parseInt(fields[5]),
+                        badged: false });
 
-    // check if crew has yet to be added
-    if (parseInt(fields[5]) > currUT()) updatesList.push({ Type: "menu;crew", ID: fields[4], UT: parseInt(fields[5]) });
+    // check if crew has an activation date that is still in the future
+    if (parseInt(fields[5]) > currUT()) ops.updatesList.push({ type: "menu;crew", id: fields[4], UT: parseInt(fields[5]) });
 
-    // setup for full data load for any active crew
-    if (fields[1] != "Deceased" || fields[1] != "Retired") {
-      opsCatalog.push({ID: fields[4],
-                       Type: "crew",
-                       isLoading: false,
-                       CurrentData: null,
-                       FutureData: null});
+    // setup for full data load for any crew that is still active (no deactivation date)
+    // or if the date exists, it is still in the future
+    if (!fields[6] || (fields[6] && parseInt(fields[6].split(";")[0]) > currUT())) {
+      ops.updateData.push({ id: fields[4],
+                            type: "crew",
+                            isLoading: false,
+                            CurrentData: null,
+                            FutureData: null });
     }
   });
-  console.log(craftsMenu);
-  console.log(crewMenu);
   
   // create the basic menu
   $('#menuBox').w2sidebar({
@@ -116,59 +117,21 @@ function loadMenuAJAX(xhttp) {
       { id: 'dsn', text: 'Deep Space Network', expanded: false, group: true, count: null,
         nodes: [ { id: 'dsnInfo', text: 'More Information', img: 'icon-dish'}]}
     ],
+
+    // the type of node image will tell us what to load
     onClick: function (event) {
-      var checkNew = false;
       
-      // the type of node image will tell us what to load
-      ////////////
-      // Load Body
-      ////////////
-      if (event.node.img.includes("body")) {
-      
-        // make sure this body isn't already loaded before refreshing the page if it is a body page
-        if ((strCurrentBody != event.node.id && pageType == "body") || (strCurrentBody == event.node.id && pageType != "body") || (strCurrentBody != event.node.id && pageType != "body")) { 
-
-          // only allow non-system ids that are under the main category to load
-          // otherwise load the parent id
-          if (!event.node.id.includes("System")) {
-            if (event.node.parent.id == "activeVessels") {
-              swapContent("body", event.node.id); 
-            } else {
-              if (strCurrentBody != event.node.parent.id.split("-")[0]) {
-                swapContent("body", event.node.parent.id);
-              }
-            }
-          } else {
-            swapContent("body", event.node.id); 
-          }
+      if (event.node.img.includes("body")) swapContent("body", event.node.id);
+      else if (event.node.img.includes("crew") && event.node.id != "crewFull") swapContent("crew", event.node.id);
+      else if (event.node.img.includes("crew") && event.node.id == "crewFull") swapContent("crewFull", event.node.id);
         
-        // if the body is already loaded, hide the map if it's visible
-        } else hideMap();
-
-      //////////////////
-      // Load Crew Page
-      //////////////////
-      } else if (event.node.img.includes("crew") && event.node.id != "crewFull") {
-      
-        // make sure this crew member isn't already loaded before refreshing the page if it is a crew page
-        if ((strCurrentCrew != event.node.id && pageType == "crew") || (strCurrentCrew == event.node.id && pageType != "crew") || (strCurrentCrew != event.node.id && pageType != "crew")) { swapContent("crew", event.node.id); }
-
-      ///////////////////
-      // Load Full Roster
-      ///////////////////
-      } else if (event.node.img.includes("crew") && event.node.id == "crewFull") {
-        checkNew = true;
-        if (pageType != event.node.id) { swapContent("crewFull", event.node.id); }
-        
-      /////////////////
-      // Load Aircraft
-      /////////////////
-      } else if (event.node.img.includes("aircraft") && event.node.parent.id != "inactiveVessels") {
-        checkNew = true;
+      // when loading aircraft, ensure that it wasn't the aircraft Type folder that was clicked  
+      else if (event.node.img.includes("aircraft") && event.node.parent.id != "inactiveVessels") {
 
         // check that we are looking at the proper map (hardcoded to Kerbin), and load it if not
         // this will append the flight name to the URL and the path will be loaded
-        if (!strCurrentBody || (strCurrentBody && !strCurrentBody.includes("Kerbin"))) {
+        var currBody = ops.bodyCatalog.find(o => o.selected === true);
+        if (!currBody || (currBody && currBody.Body != "Kerbin")) {
           swapContent("body", "Kerbin-System", event.node.id);
 
           // don't let an accidental double-click load this twice
@@ -182,58 +145,47 @@ function loadMenuAJAX(xhttp) {
           if (strFltTrackLoading != event.node.id) {
 
             // if this isn't the right page type, set it up
-            if (pageType != "body") swapContent("body", "Kerbin-System", event.node.id);
+            if (ops.pageType != "body") swapContent("body", "Kerbin-System", event.node.id);
             setTimeout(showMap, 1000);
 
             // call for the aircraft track if it doesn't already exist
-            var path = fltPaths.find(o => o.ID === event.node.id);
+            var path = fltPaths.find(o => o.id === event.node.id);
             if (!path) {
               surfaceTracksDataLoad.fltTrackDataLoad = L.layerGroup();
-              layerControl._expand();
-              layerControl.options.collapsed = false;
-              layerControl.addOverlay(surfaceTracksDataLoad.fltTrackDataLoad, "<i class='fa fa-cog fa-spin'></i> Loading Data...", "Flight Tracks");
+              ops.surface.layerControl._expand();
+              ops.surface.layerControl.options.collapsed = false;
+              ops.surface.layerControl.addOverlay(surfaceTracksDataLoad.fltTrackDataLoad, "<i class='fa fa-cog fa-spin'></i> Loading Data...", "Flight Tracks");
               loadDB("loadFltData.asp?data=" + event.node.id, loadFltDataAJAX);
 
             // if the data already exists...
             } else {
               
               // add it back to the map and the control if it has been removed
-              if (path.Deleted) {
-                layerControl.addOverlay(path.Layer, "<i class='fa fa-minus' style='color: " + path.Color + "'></i> " + path.Info.Title, "Flight Tracks");
-                path.Layer.addTo(surfaceMap);
+              if (path.deleted) {
+                ops.surface.layerControl.addOverlay(path.layer, "<i class='fa fa-minus' style='color: " + path.color + "'></i> " + path.info.Title, "Flight Tracks");
+                path.layer.addTo(ops.surface.map);
                 path.Deleted = false;
                 
               // just add it back to the map in case it was hidden
-              } else if (!surfaceMap.hasLayer(path.Layer)) path.Layer.addTo(surfaceMap);
+              } else if (!ops.surface.map.hasLayer(path.layer)) path.layer.addTo(ops.surface.map);
               showMap();
             }
           }
         }
-        
-      ////////////
-      // Load DSN
-      ///////////
-      } else if (event.node.img.includes("dish")) {
-        
-        // for now, we link to another page for the DSN
-        window.open("http://www.kerbalspace.agency/?p=3736");
+      }
+
+      // for now, we link to another page for the DSN
+      else if (event.node.img.includes("dish")) window.open("http://www.kerbalspace.agency/?p=3736");
       
-      //////////////
-      // Load Vessel
-      //////////////
       // anything else that isn't a folder is a vessel
       // except if the parent is the Inactive Vessels node as that's just a category node
-      } else if (!event.node.img.includes("folder") && event.node.parent.id != "inactiveVessels") {
-        checkNew = true;
-        
-        // make sure this vessel isn't already loaded before refreshing the page if it is a vessel page
-        if ((strCurrentVessel != event.node.id && pageType == "vessel") || (strCurrentVessel == event.node.id && pageType != "vessel") || (strCurrentVessel != event.node.id && pageType != "vessel")) { swapContent("vessel", event.node.id); }
-      }
+      else if (!event.node.img.includes("folder") && event.node.parent.id != "inactiveVessels") swapContent("vessel", event.node.id);
       
-      // should we see if this is a bolded entry, if so adjust the count and return it to normal
+      // if this is a bolded (badged) entry adjust the count and return it to normal
       if (event.node.text.includes("bold")) {
         event.node.text = event.node.text.replace(" style='font-weight: bold;'", "");
-        if (event.node.img.includes("crew")) crewMenu.find(o => o.DB === event.node.id).Badged = false;
+        if (event.node.img.includes("crew")) ops.crewMenu.find(o => o.db === event.node.id).badged = false;
+        else ops.craftsMenu.find(o => o.db === event.node.id).badged = false;
         adjustCount(event.node.parent.id, -1);
         w2ui['menu'].refresh();
         w2ui['menu'].scrollIntoView(event.node.id);
@@ -241,12 +193,12 @@ function loadMenuAJAX(xhttp) {
     },
     onExpand: function (event) {
     
-      // wait a moment to allow menu to resize itself after showing the nodes
-      if (event.target == 'crew') { setTimeout(function() { w2ui['menu'].scrollIntoView('crewFull'); }, 150); }
-      else if (event.target == 'dsn') { setTimeout(function() { w2ui['menu'].scrollIntoView('dsnInfo'); }, 150); }
-      else if (event.target == 'inactiveVessels') { setTimeout(function() { w2ui['menu'].scrollIntoView(event.object.nodes[0].id); }, 150); }
+      // wait a moment to allow menu contents to expand after showing the nodes
+      if (event.target == 'crew') setTimeout(function() { w2ui['menu'].scrollIntoView('crewFull'); }, 150);
+      else if (event.target == 'dsn') setTimeout(function() { w2ui['menu'].scrollIntoView('dsnInfo'); }, 150);
+      else if (event.target == 'inactiveVessels') setTimeout(function() { w2ui['menu'].scrollIntoView(event.object.nodes[0].id); }, 150);
     },
-    onRender: function (event) {
+    onRender: function () {
     
       // depending on the height of the event box, size the menu so the twitter widget isn't pushed off the bottom of the screen
       var maxHeight = 340;
@@ -258,13 +210,13 @@ function loadMenuAJAX(xhttp) {
   });
   
   // build the menu for active/inactive vessels
-  craftsMenu.forEach(function(item) { addMenuItem(item) });
+  ops.craftsMenu.forEach(function(item) { addMenuItem(item) });
   isMenuDataLoaded = true;
   
-  // begin loading the full data set for all active vessels and crew
+  // begin loading the future data sets for all active vessels and crew
   loadOpsDataAJAX();
   
-  // setup the crew menu & handle future changes
+  // setup the rest of the menu according to the default filter & handle future filter changes
   filterInactiveMenu();
   filterCrewMenu();
   $('input:radio[name=inactive]').change(function () { filterInactiveMenu(); });
@@ -272,15 +224,12 @@ function loadMenuAJAX(xhttp) {
   
   // show what was loaded if there are no cookies, otherwise we need to wait for a cookie check after ops data load
   if (!checkCookies()) {
-    var menuID;
-    if (getParameterByName("body")) { menuID = getParameterByName("body"); }
-    if (getParameterByName("vessel")) { menuID = getParameterByName("vessel"); }
-    if (getParameterByName("crew")) { menuID = getParameterByName("crew"); }
-    if (menuID && !window.location.href.includes("flt")) {
-      w2ui['menu'].select(menuID);
-      w2ui['menu'].expandParents(menuID);
-      w2ui['menu'].scrollIntoView(menuID);
-    }
+    if (getParameterByName("body")) var menuID = getParameterByName("body");
+    if (getParameterByName("vessel")) var menuID = getParameterByName("vessel");
+    if (getParameterByName("crew")) var menuID = getParameterByName("crew");
+
+    // don't select the body if a flight is being loaded, that flight will be selected after it loads
+    if (menuID && !window.location.href.includes("flt")) selectMenuItem(menuID);
   }
 }
 
@@ -298,8 +247,9 @@ function filterVesselMenu(id, checked) {
   hideEmptyNodes(w2ui['menu'].get('activeVessels').nodes);
 }
 
-// re-sort the inactive vessels menu based on the current selection, or choose a new one
 function filterInactiveMenu(id) {
+
+  // if a value was passed in, enable that radio option before we check to see what is selected
   if (id) $('input:radio[name=inactive]').filter('[id=' + id + ']').prop('checked', true);
   var currOption = $("input[name=inactive]").filter(":checked").val();
 
@@ -313,122 +263,113 @@ function filterInactiveMenu(id) {
   
     // create a copy of the array so we can delete things one by one
     var del = w2ui['menu'].get('inactiveVessels').nodes.slice(0);
-    for (var i=0; i<del.length; i++) {
-      w2ui['menu'].remove(del[i].id);
-    }
+    for (var i=0; i<del.length; i++) w2ui['menu'].remove(del[i].id);
+    del.length = 0;
   }
 
   // build the new menu depending on which filter was selected
   if (currOption == "type") {
 
     // sort by filter option first to create folders, then re-sort by end date to add vessels
-    craftsMenu.sort(function(a,b) {return (a.Type > b.Type) ? 1 : ((b.Type > a.Type) ? -1 : 0);} );
-    craftsMenu.forEach(function(item) {
+    ops.craftsMenu.sort(function(a,b) { return (a.type > b.type) ? 1 : ((b.type > a.type) ? -1 : 0); });
+    ops.craftsMenu.forEach(function(item) {
       if (currSOI(item)[0] == -1) {
-        if (!w2ui['menu'].find('inactiveVessels', { id: item.Type }).length) {
-          w2ui['menu'].add('inactiveVessels', { id: item.Type,
-                                                text: capitalizeFirstLetter(item.Type),
-                                                img: 'icon-' + item.Type,
+        if (!w2ui['menu'].find('inactiveVessels', { id: item.type }).length) {
+          w2ui['menu'].add('inactiveVessels', { id: item.type,
+                                                text: capitalizeFirstLetter(item.type),
+                                                img: 'icon-' + item.type,
                                                 count: null });
         }
       }
     });
-    craftsMenu.sort(function(a,b) {return (a.End > b.End) ? 1 : ((b.End > a.End) ? -1 : 0);} );
-    craftsMenu.forEach(function(item) {
-      if (currSOI(item)[0] == -1) {
-        addVesselByDate(item, item.Type)
-      }
-    });
+    ops.craftsMenu.sort(function(a,b) { return (a.end > b.end) ? 1 : ((b.end > a.end) ? -1 : 0); });
+    ops.craftsMenu.forEach(function(item) { if (currSOI(item)[0] == -1) addVesselByDate(item, item.type) });
   } else if (currOption == "vessel") {
 
     // sort by filter option first to create folders, then re-sort by end date to add vessels
-    craftsMenu.sort(function(a,b) {return (a.Vessel > b.Vessel) ? 1 : ((b.Vessel > a.Vessel) ? -1 : 0);} );
-    craftsMenu.forEach(function(item) {
+    ops.craftsMenu.sort(function(a,b) { return (a.vessel > b.vessel) ? 1 : ((b.vessel > a.vessel) ? -1 : 0); });
+    ops.craftsMenu.forEach(function(item) {
       if (currSOI(item)[0] == -1) {
-        if (item.Vessel != "null" && !w2ui['menu'].find('inactiveVessels', { id: item.Vessel }).length) {
-          w2ui['menu'].add('inactiveVessels', { id: item.Vessel,
-                                                text: item.Vessel,
+        if (item.vessel != "null" && !w2ui['menu'].find('inactiveVessels', { id: item.vessel }).length) {
+          w2ui['menu'].add('inactiveVessels', { id: item.vessel,
+                                                text: item.vessel,
                                                 img: 'icon-folder',
                                                 count: null });
         }
       }
     });
-    craftsMenu.sort(function(a,b) {return (a.End > b.End) ? 1 : ((b.End > a.End) ? -1 : 0);} );
-    craftsMenu.forEach(function(item) {
+    ops.craftsMenu.sort(function(a,b) { return (a.end > b.end) ? 1 : ((b.end > a.end) ? -1 : 0); });
+    ops.craftsMenu.forEach(function(item) {
       if (currSOI(item)[0] == -1) {
-        if (item.Vessel != "null") addVesselByDate(item, item.Vessel)
+        if (item.vessel != "null") addVesselByDate(item, item.vessel)
       }
     });
   } else if (currOption == "program") {
 
     // sort by filter option first to create folders, then re-sort by end date to add vessels
-    craftsMenu.sort(function(a,b) {return (a.Program > b.Program) ? 1 : ((b.Program > a.Program) ? -1 : 0);} );
-    craftsMenu.forEach(function(item) {
+    ops.craftsMenu.sort(function(a,b) { return (a.program > b.program) ? 1 : ((b.program > a.program) ? -1 : 0); });
+    ops.craftsMenu.forEach(function(item) {
       if (currSOI(item)[0] == -1) {
-        if (item.Program != "null" && !w2ui['menu'].find('inactiveVessels', { id: item.Program }).length) {
-          w2ui['menu'].add('inactiveVessels', { id: item.Program,
-                                                text: item.Program,
+        if (item.program != "null" && !w2ui['menu'].find('inactiveVessels', { id: item.program }).length) {
+          w2ui['menu'].add('inactiveVessels', { id: item.program,
+                                                text: item.program,
                                                 img: 'icon-folder',
                                                 count: null });
         }
       }
     });
-    craftsMenu.sort(function(a,b) {return (a.End > b.End) ? 1 : ((b.End > a.End) ? -1 : 0);} );
-    craftsMenu.forEach(function(item) {
+    ops.craftsMenu.sort(function(a,b) { return (a.end > b.end) ? 1 : ((b.end > a.end) ? -1 : 0); });
+    ops.craftsMenu.forEach(function(item) {
       if (currSOI(item)[0] == -1) {
-        if (item.Program != "null") addVesselByDate(item, item.Program)
+        if (item.program != "null") addVesselByDate(item, item.program)
       }
     });
   } else if (currOption == "start") {
 
     // sort by start date to add vessels
-    craftsMenu.sort(function(a,b) {return (a.Start > b.Start) ? 1 : ((b.Start > a.Start) ? -1 : 0);} );
-    craftsMenu.forEach(function(item) {
+    ops.craftsMenu.sort(function(a,b) { return (a.start > b.start) ? 1 : ((b.start > a.start) ? -1 : 0); });
+    ops.craftsMenu.forEach(function(item) {
       if (currSOI(item)[0] == -1) {
-        if (item.Program != "null") addVesselByDate(item)
+        if (item.program != "null") addVesselByDate(item)
       }
     });
   } else if (currOption == "end") {
 
     // sort by start date to add vessels
-    craftsMenu.sort(function(a,b) {return (a.End > b.End) ? 1 : ((b.End > a.End) ? -1 : 0);} );
-    craftsMenu.forEach(function(item) {
+    ops.craftsMenu.sort(function(a,b) { return (a.end > b.end) ? 1 : ((b.end > a.end) ? -1 : 0); });
+    ops.craftsMenu.forEach(function(item) {
       if (currSOI(item)[0] == -1) {
-        if (item.Program != "null") addVesselByDate(item)
+        if (item.program != "null") addVesselByDate(item)
       }
     });
   } else if (currOption == "body") {
 
     // sort by filter option first to create folders, then re-sort by end date to add vessels
-    craftsMenu.sort(function(a,b) {return (a.BodyRef > b.BodyRef) ? 1 : ((b.BodyRef > a.BodyRef) ? -1 : 0);} );
-    craftsMenu.forEach(function(item) {
+    ops.craftsMenu.sort(function(a,b) { return (a.bodyRef > b.bodyRef) ? 1 : ((b.bodyRef > a.bodyRef) ? -1 : 0); });
+    ops.craftsMenu.forEach(function(item) {
       if (currSOI(item)[0] == -1) {
-        if (item.BodyRef != "null" && !w2ui['menu'].find('inactiveVessels', { id: "refNum" + item.BodyRef }).length) {
-          w2ui['menu'].add('inactiveVessels', { id: "refNum" + item.BodyRef,
-                                                text: bodyCatalog.find(o => o.ID === item.BodyRef).Body,
+        if (item.bodyRef != "null" && !w2ui['menu'].find('inactiveVessels', { id: "refNum" + item.bodyRef }).length) {
+          w2ui['menu'].add('inactiveVessels', { id: "refNum" + item.bodyRef,
+                                                text: ops.bodyCatalog.find(o => o.ID === item.bodyRef).Body,
                                                 img: 'icon-body',
                                                 count: null });
         }
       }
     });
-    craftsMenu.sort(function(a,b) {return (a.End > b.End) ? 1 : ((b.End > a.End) ? -1 : 0);} );
-    craftsMenu.forEach(function(item) {
+    ops.craftsMenu.sort(function(a,b) { return (a.end > b.end) ? 1 : ((b.end > a.end) ? -1 : 0); });
+    ops.craftsMenu.forEach(function(item) {
       if (currSOI(item)[0] == -1) {
-        if (item.Program != "null") addVesselByDate(item, "refNum" + item.BodyRef)
+        if (item.program != "null") addVesselByDate(item, "refNum" + item.bodyRef)
       }
     });
   }
   w2ui['menu'].refresh();
-  
-  if (selectedNode) {
-    w2ui['menu'].select(selectedNode);
-    w2ui['menu'].expandParents(selectedNode);
-    w2ui['menu'].scrollIntoView(selectedNode);
-  }
+  if (selectedNode) selectMenuItem(selectedNode);
 }
 
-// re-sort the crew menu based on the current selection, or choose a new one
 function filterCrewMenu(id) {
+
+  // if a value was passed in, enable that radio option before we check to see what is selected
   if (id) $('input:radio[name=roster]').filter('[id=' + id + ']').prop('checked', true);
   var currOption = $("input[name=roster]").filter(":checked").val();
 
@@ -437,9 +378,8 @@ function filterCrewMenu(id) {
   
     // create a copy of the array so we can delete things one by one
     var del = w2ui['menu'].get('crew').nodes.slice(0);
-    for (var i=1; i<del.length; i++) {
-      w2ui['menu'].remove(del[i].id);
-    }
+    for (var i=1; i<del.length; i++) w2ui['menu'].remove(del[i].id);
+    del.length = 0;
   }
 
   // build the new menu depending on which filter was selected
@@ -447,124 +387,124 @@ function filterCrewMenu(id) {
   
     // sort the array as required
     // https://stackoverflow.com/questions/1129216/sort-array-of-objects-by-string-property-value-in-javascript
-    crewMenu.sort(function(a,b) {return (a.Name > b.Name) ? 1 : ((b.Name > a.Name) ? -1 : 0);} );
-    crewMenu.forEach(function(item, index) {
+    ops.crewMenu.sort(function(a,b) { return (a.name > b.name) ? 1 : ((b.name > a.name) ? -1 : 0); });
+    ops.crewMenu.forEach(function(item) {
       if (item.UT <= currUT()) {
-        if (item.Name.charAt(0) <= "F") {
+        if (item.name.charAt(0) <= "F") {
           if (!w2ui['menu'].find('crew', { id: 'a-f' }).length) {
             w2ui['menu'].add('crew', { id: 'a-f',
-                                      text: "A - F",
-                                      img: 'icon-folder'});
+                                       text: "A - F",
+                                       img: 'icon-folder' });
           }
-          w2ui['menu'].add('a-f', { id: item.DB,
-                                    text: "<span>" + item.Name + " Kerman</span>",
-                                    img: 'icon-crew'});
-          if (item.Badged) badgeMenuItem(item.DB, true, true);
-        } else if (item.Name.charAt(0) <= "L") {
+          w2ui['menu'].add('a-f', { id: item.db,
+                                    text: "<span>" + item.name + " Kerman</span>",
+                                    img: 'icon-crew' });
+          if (item.badged) badgeMenuItem(item.db, true, true);
+        } else if (item.name.charAt(0) <= "L") {
           if (!w2ui['menu'].find('crew', { id: 'g-l' }).length) {
             w2ui['menu'].add('crew', { id: 'g-l',
-                                      text: "G - L",
-                                      img: 'icon-folder'});
+                                       text: "G - L",
+                                       img: 'icon-folder' });
           }
-          w2ui['menu'].add('g-l', { id: item.DB,
-                                    text: "<span>" + item.Name + " Kerman</span>",
-                                    img: 'icon-crew'});
-          if (item.Badged) badgeMenuItem(item.DB, true, true);
-        } else if (item.Name.charAt(0) <= "R") {
+          w2ui['menu'].add('g-l', { id: item.db,
+                                    text: "<span>" + item.name + " Kerman</span>",
+                                    img: 'icon-crew' });
+          if (item.badged) badgeMenuItem(item.db, true, true);
+        } else if (item.name.charAt(0) <= "R") {
           if (!w2ui['menu'].find('crew', { id: 'm-r' }).length) {
             w2ui['menu'].add('crew', { id: 'm-r',
-                                      text: "M - R",
-                                      img: 'icon-folder'});
+                                       text: "M - R",
+                                       img: 'icon-folder' });
           }
-          w2ui['menu'].add('m-r', { id: item.DB,
-                                    text: "<span>" + item.Name + " Kerman</span>",
-                                    img: 'icon-crew'});
-          if (item.Badged) badgeMenuItem(item.DB, true, true);
+          w2ui['menu'].add('m-r', { id: item.db,
+                                    text: "<span>" + item.name + " Kerman</span>",
+                                    img: 'icon-crew' });
+          if (item.badged) badgeMenuItem(item.db, true, true);
         } else {
           if (!w2ui['menu'].find('crew', { id: 's-z' }).length) {
             w2ui['menu'].add('crew', { id: 's-z',
-                                      text: "S - Z",
-                                      img: 'icon-folder'});
+                                       text: "S - Z",
+                                       img: 'icon-folder' });
           }
-          w2ui['menu'].add('s-z', { id: item.DB,
-                                    text: "<span>" + item.Name + " Kerman</span>",
-                                    img: 'icon-crew'});
-          if (item.Badged) badgeMenuItem(item.DB, true, true);
+          w2ui['menu'].add('s-z', { id: item.db,
+                                    text: "<span>" + item.name + " Kerman</span>",
+                                    img: 'icon-crew' });
+          if (item.badged) badgeMenuItem(item.db, true, true);
         }
       }
     });
   } else if (currOption == "status") {
 
     // sort by filter option first to create folders, then re-sort by name to add kerbals
-    crewMenu.sort(function(a,b) {return (a.Status > b.Status) ? 1 : ((b.Status > a.Status) ? -1 : 0);} );
-    crewMenu.forEach(function(item, index) {
+    ops.crewMenu.sort(function(a,b) { return (a.status > b.status) ? 1 : ((b.status > a.status) ? -1 : 0); });
+    ops.crewMenu.forEach(function(item) {
       if (item.UT <= currUT()) {
-        if (!w2ui['menu'].find('crew', { id: item.Status }).length) {
-          w2ui['menu'].add('crew', { id: item.Status,
-                                     text: item.Status,
-                                     img: 'icon-folder'});
+        if (!w2ui['menu'].find('crew', { id: item.status }).length) {
+          w2ui['menu'].add('crew', { id: item.status,
+                                     text: item.status,
+                                     img: 'icon-folder' });
         }
       }
     });
-    crewMenu.sort(function(a,b) {return (a.Name > b.Name) ? 1 : ((b.Name > a.Name) ? -1 : 0);} );
-    crewMenu.forEach(function(item, index) {
+    ops.crewMenu.sort(function(a,b) { return (a.name > b.name) ? 1 : ((b.name > a.name) ? -1 : 0); });
+    ops.crewMenu.forEach(function(item) {
       if (item.UT <= currUT()) {
-        w2ui['menu'].add(item.Status, { id: item.DB,
-                                        text: "<span>" + item.Name + " Kerman</span>",
-                                        img: 'icon-crew'});
-        if (item.Badged) badgeMenuItem(item.DB, true, true);
+        w2ui['menu'].add(item.status, { id: item.db,
+                                        text: "<span>" + item.name + " Kerman</span>",
+                                        img: 'icon-crew' });
+        if (item.badged) badgeMenuItem(item.db, true, true);
       }
     });
   } else if (currOption == "rank") {
-    crewMenu.sort(function(a,b) {return (a.Rank > b.Rank) ? 1 : ((b.Rank > a.Rank) ? -1 : 0);} );
-    crewMenu.forEach(function(item, index) {
+    ops.crewMenu.sort(function(a,b) { return (a.rank > b.rank) ? 1 : ((b.rank > a.rank) ? -1 : 0); });
+    ops.crewMenu.forEach(function(item) {
       if (item.UT <= currUT()) {
-        if (!w2ui['menu'].find('crew', { id: item.Rank }).length) {
-          w2ui['menu'].add('crew', { id: item.Rank,
-                                     text: item.Rank,
-                                     img: 'icon-folder'});
+        if (!w2ui['menu'].find('crew', { id: item.rank }).length) {
+          w2ui['menu'].add('crew', { id: item.rank,
+                                     text: item.rank,
+                                     img: 'icon-folder' });
         }
       }
     });
-    crewMenu.sort(function(a,b) {return (a.Name > b.Name) ? 1 : ((b.Name > a.Name) ? -1 : 0);} );
-    crewMenu.forEach(function(item, index) {
+    ops.crewMenu.sort(function(a,b) { return (a.name > b.name) ? 1 : ((b.name > a.name) ? -1 : 0); });
+    ops.crewMenu.forEach(function(item) {
       if (item.UT <= currUT()) {
-        w2ui['menu'].add(item.Rank, { id: item.DB,
-                                      text: "<span>" + item.Name + " Kerman</span>",
-                                      img: 'icon-crew'});
-        if (item.Badged) badgeMenuItem(item.DB, true, true);
+        w2ui['menu'].add(item.rank, { id: item.db,
+                                      text: "<span>" + item.name + " Kerman</span>",
+                                      img: 'icon-crew' });
+        if (item.badged) badgeMenuItem(item.db, true, true);
       }
     });
   } else if (currOption == "assignment") {
-    crewMenu.sort(function(a,b) {return (a.Assignment > b.Assignment) ? 1 : ((b.Assignment > a.Assignment) ? -1 : 0);} );
-    crewMenu.forEach(function(item, index) {
+    ops.crewMenu.sort(function(a,b) { return (a.assignment > b.assignment) ? 1 : ((b.assignment > a.assignment) ? -1 : 0); });
+    ops.crewMenu.forEach(function(item) {
       if (item.UT <= currUT()) {
-        if (item.Assignment && !w2ui['menu'].find('crew', { id: item.Assignment }).length) {
-          w2ui['menu'].add('crew', { id: item.Assignment,
-                                     text: item.Assignment,
-                                     img: 'icon-folder'});
+        if (item.assignment && !w2ui['menu'].find('crew', { id: item.assignment }).length) {
+          w2ui['menu'].add('crew', { id: item.assignment,
+                                     text: item.assignment,
+                                     img: 'icon-folder' });
         }
       }
     });
-    crewMenu.sort(function(a,b) {return (a.Name > b.Name) ? 1 : ((b.Name > a.Name) ? -1 : 0);} );
-    crewMenu.forEach(function(item, index) {
+    ops.crewMenu.sort(function(a,b) { return (a.name > b.name) ? 1 : ((b.name > a.name) ? -1 : 0); });
+    ops.crewMenu.forEach(function(item) {
       if (item.UT <= currUT()) {
-        if (item.Assignment) {
-          w2ui['menu'].add(item.Assignment, { id: item.DB,
-                                              text: "<span>" + item.Name + " Kerman</span>",
-                                              img: 'icon-crew'});
-          if (item.Badged) badgeMenuItem(item.DB, true, true);
+        if (item.assignment) {
+          w2ui['menu'].add(item.assignment, { id: item.db,
+                                              text: "<span>" + item.name + " Kerman</span>",
+                                              img: 'icon-crew' });
+          if (item.badged) badgeMenuItem(item.db, true, true);
         }
       }
     });
   }
   
   // if we are looking at the full crew roster, refresh the view
-  if (pageType == "crewFull") {
+  // this may place an extra call to the first crew member if loading initially to full roster page but does no harm
+  if (ops.pageType == "crewFull") {
     $('#fullRoster').empty(); 
     crewList = extractIDs(w2ui['menu'].get('crew').nodes).split(";");
-    strCurrentCrew = showFullRoster();
-    loadCrewAJAX();
+    loadDB("loadCrewData.asp?db=" + showFullRoster() + "&ut=" + currUT(), loadCrewAJAX);
   }
 }
 
@@ -572,8 +512,8 @@ function filterCrewMenu(id) {
 function menuResize() {
   if ($('#menuResize').html().includes("Expand")) {
     $('#twitterBox').fadeOut(250, "swing", function () { 
-      maxMenuHeight = 882;
-      var height = (maxMenuHeight - w2utils.getSize("#eventBox", 'height')) + "px";
+      ops.maxMenuHeight = 882;
+      var height = (ops.maxMenuHeight - w2utils.getSize("#eventBox", 'height')) + "px";
       $('#menuBox').css("height", height); 
       setTimeout(function() { 
         w2ui['menu'].bottomHTML = '<div id="menuResize" onclick="menuResize()">&and;&and;Collapse Menu&and;&and;</div>';
@@ -581,8 +521,8 @@ function menuResize() {
       }, 200);
     });
   } else {
-    maxMenuHeight = 340;
-    var height = (maxMenuHeight - w2utils.getSize("#eventBox", 'height')) + "px";
+    ops.maxMenuHeight = 340;
+    var height = (ops.maxMenuHeight - w2utils.getSize("#eventBox", 'height')) + "px";
     $('#menuBox').css("height", height); 
     setTimeout(function() { 
       w2ui['menu'].bottomHTML = '<div id="menuResize" onclick="menuResize()">&or;&or;Expand Menu&or;&or;</div>';
@@ -617,13 +557,13 @@ function filterDisplay() {
 // recursive function to pull vessels/crew from nodes nested n deep
 // NOTE: returns a trailing ; that will lead to one extra empty array item!!
 function extractIDs(nodes, moon) {
-  
+
   // work through the nodes to determine what data we need to send for
   var strIDs = '';
   for (var i=0; i<nodes.length; i++) {
     
     // if this is a moon or folder dig through its nodes, if it has any
-    if (nodes[i].nodes.length) { strIDs += extractIDs(nodes[i].nodes.slice(0), moon); }
+    if (nodes[i].nodes.length) strIDs += extractIDs(nodes[i].nodes.slice(0), moon);
       
     // do not add the full crew roster to the list, but maybe add moons
     else if (nodes[i].id != "crewFull") { 
@@ -639,10 +579,10 @@ function extractIDs(nodes, moon) {
 
 // recursive function to find the parent system of a node n deep
 function getParentSystem(nodeID) {
-  if (!w2ui['menu'].get(nodeID).parent.id) {return null; }
-  else if (w2ui['menu'].get(nodeID).parent.id == "inactiveVessels") { return "inactive"; }
-  else if (w2ui['menu'].get(nodeID).parent.id.includes("System")) { return w2ui['menu'].get(nodeID).parent.id; }
-  else { return getParentSystem(w2ui['menu'].get(nodeID).parent.id); }
+  if (!w2ui['menu'].get(nodeID).parent.id) return null;
+  else if (w2ui['menu'].get(nodeID).parent.id == "inactiveVessels") return "inactive";
+  else if (w2ui['menu'].get(nodeID).parent.id.includes("System")) return w2ui['menu'].get(nodeID).parent.id;
+  else return getParentSystem(w2ui['menu'].get(nodeID).parent.id);
 }
 
 // recursive function to find all parent nodes and increase/decrease their update count
@@ -652,37 +592,33 @@ function adjustCount(nodeID, adjust) {
     node.count += adjust;
     if (node.count <= 0) node.count = null;
   } else if (!node.count && adjust > 0) node.count = 1;
-  if (node.parent.id) { 
-    return adjustCount(node.parent.id, adjust);
-  } else {
+
+  if (node.parent.id) return adjustCount(node.parent.id, adjust);
+  else {
     w2ui['menu'].expand(node.id);
     return;
   }
 }
 
-function menuUpdate(type, ID) {
+function menuUpdate(type, id) {
   if (type == "soi") {
-    w2ui['menu'].remove(ID);
-    addMenuItem(craftsMenu.find(o => o.DB === ID), true);
+    w2ui['menu'].remove(id);
+    addMenuItem(ops.craftsMenu.find(o => o.db === id), true);
    
     // are we looking at it?
-    if (pageType == "vessel" && strCurrentVessel == ID) {
-      w2ui['menu'].select(ID);
-      w2ui['menu'].expandParents(ID);
-      w2ui['menu'].scrollIntoView(ID);
-    } else {
-      adjustCount(w2ui['menu'].get(ID).parent.id, 1);
-    }
-  } else if (type == "crew") {
-    filterCrewMenu();
-  } else if (type == "name") {
-    w2ui['menu'].get(ID).text = "<span>" + currName(craftsMenu.find(o => o.DB === ID), true) + "</span>";
-  } else console.log("unknown menu update: " + type);
+    if (ops.pageType == "vessel" && ops.currentVessel.Catalog.DB == id) {
+      w2ui['menu'].select(id);
+      w2ui['menu'].expandParents(id);
+      w2ui['menu'].scrollIntoView(id);
+    } else adjustCount(w2ui['menu'].get(id).parent.id, 1);    
+  }
+  else if (type == "crew") filterCrewMenu();
+  else if (type == "name") w2ui['menu'].get(id).text = "<span>" + currName(ops.craftsMenu.find(o => o.db === id), true) + "</span>";
+  else console.log("unknown menu update: " + type);
   w2ui['menu'].refresh();
 }
 
-function addMenuItem(item, newAdd) {
-  if (!newAdd) newAdd = false;
+function addMenuItem(item, newAdd = false) {
 
   // figure out what SOI this is in, if any, and whether it's switching to another status later
   var refNumUT = currSOI(item, true);
@@ -695,21 +631,19 @@ function addMenuItem(item, newAdd) {
   var strStyle = "<span>";
   if (newAdd) strStyle = "<span style='font-weight: bold;'>";
   
-  // handle either an active or inactive vessel
+  // handle an active vessel
   if (refNumUT[0] >= 0) {
   
     // figure out which body this vessel belongs to
-    var body = bodyCatalog.find(o => o.ID === refNumUT[0]);
-    if (!body) { console.log(bodyCatalog); console.log(refNumUT[0]); }
+    var body = ops.bodyCatalog.find(o => o.ID === refNumUT[0]);
+    if (!body) console.log(refNumUT);
 
     // if this body has moons, it is defined as a system
     var strSys = "";
-    if (body.Moons.length) { strSys = "-System"; }
+    if (body.Moons.length) strSys = "-System";
 
     // if this body is not visible, make it so
-    if (w2ui['menu'].get('activeVessels', body.Body + strSys).hidden) { 
-      w2ui['menu'].set('activeVessels', body.Body + strSys, { hidden: false }); 
-    }
+    if (w2ui['menu'].get('activeVessels', body.Body + strSys).hidden) w2ui['menu'].set('activeVessels', body.Body + strSys, { hidden: false });
     
     // get the nodes for this body and insert the vessel alphabetically, after any moons
     // or add it at the end if nothing to insert before
@@ -718,48 +652,66 @@ function addMenuItem(item, newAdd) {
     for (index=0; index<menuNodes.length; index++) {
       var strMenuText = menuNodes[index].text.split(">")[1].split("<")[0];
       if (!menuNodes[index].img.includes("body") && strMenuText > strVesselName) {
-        w2ui['menu'].insert(body.Body + strSys, menuNodes[index].id, { id: item.DB,
-                                                                       text: strStyle + strVesselName + "</span>",
-                                                                       img: 'icon-' + item.Type,
+        w2ui['menu'].insert(body.Body + strSys, menuNodes[index].id, { id: item.db,
+                                                                       text: strStyle + wrapText(210, strVesselName, 14) + "</span>",
+                                                                       img: 'icon-' + item.type,
                                                                        count: null });
         break;
       }
-    }
+    }    
     if (index == menuNodes.length) {
-      w2ui['menu'].add(body.Body + strSys, { id: item.DB,
-                                             text: strStyle + strVesselName + "</span>",
-                                             img: 'icon-' + item.Type,
+      w2ui['menu'].add(body.Body + strSys, { id: item.db,
+                                             text: strStyle + wrapText(210, strVesselName, 14) + "</span>",
+                                             img: 'icon-' + item.type,
                                              count: null });
     }
 
     // enable & check the checkbox for this type of vessel
-    $("#" + item.Type + "-menu").removeAttr("disabled");
-    $("#" + item.Type + "-menu").prop('checked', true);
+    $("#" + item.type + "-menu").removeAttr("disabled");
+    $("#" + item.type + "-menu").prop('checked', true);
     
-    // as an active vessel, we will want to load all its data
-    opsCatalog.push({ID: item.DB,
-                     Type: "vessel",
-                     isLoading: false,
-                     CurrentData: null,
-                     FutureData: null});
+    // as an active vessel, we will want to check for future data
+    // also save to list so it can be checked for orbital data for body/surface views
+    // check too if it has orbital data to render if the GGB figure is already loaded
+    if (isGGBAppletLoaded && !isGGBAppletRefreshing) {
+      loadDB("loadVesselOrbitData.asp?db=" + item.db + "&ut=" + currUT(), addGGBOrbitAJAX);
+    }
+    ops.activeVessels.push(item);
+    ops.updateData.push({ id: item.db,
+                          type: "vessel",
+                          isLoading: false,
+                          CurrentData: null,
+                          FutureData: null });
 
   // don't check on inactive vessels unless this is a new menu item being added
   // this avoids repeated filter calls during the initial menu load
   } else if (refNumUT[0] == -1 && newAdd) {
     
     // make sure this is badged after the menu is re-sorted
-    item.Badged = true;
+    item.badged = true;
     filterInactiveMenu();
+
+    // remove this from the active vessels list if it's on there
+    for (vessIndex=0; vessIndex<ops.activeVessels.length; vessIndex++) {
+      if (ops.activeVessels[vessIndex].db == item.db) {
+        ops.activeVessels.splice(vessIndex, 1);
+        break;
+      }
+    }
+
+    // if this vessel type is no longer in use, disable the filter selection
+    if (!ops.activeVessels.find(o => o.type === item.type)) {
+      $("#" + item.type + "-menu").prop("disabled", true);
+      $("#" + item.type + "-menu").prop('checked', false);
+    }
   }
 }
 
 // allows the user to see that a vessel/crew member has new data since the page was originally or last loaded
-function badgeMenuItem(strID, noSelect, noRefresh) {
-  if (!noRefresh) noRefresh = false;
-  if (!noSelect) noSelect = false;
+function badgeMenuItem(strID, noSelect = false, noRefresh = false) {
   var menuItem = w2ui['menu'].get(strID);
 
-  // don't alter this item if it's already been badged, is currently selected or hasn't been found
+  // don't alter this item if it hasn't been found, is already been badged or is currently selected
   if (!menuItem) return;
   if (menuItem.text.includes("bold")) return;
   if (menuItem.selected) return;
@@ -770,7 +722,8 @@ function badgeMenuItem(strID, noSelect, noRefresh) {
   if (!noRefresh) w2ui['menu'].refresh();
 
   // crew need a special flag to handle the resorting after data load
-  if (menuItem.img == "icon-crew") crewMenu.find(o => o.DB === strID).Badged = true;
+  if (menuItem.img == "icon-crew") ops.crewMenu.find(o => o.db === strID).badged = true;
+  else ops.craftsMenu.find(o => o.db === strID).badged = true;
 
   // if selection is off, but the menu refreshed, just scroll into view the current selection
   if (noSelect && !noRefresh) w2ui['menu'].scrollIntoView();
@@ -778,18 +731,20 @@ function badgeMenuItem(strID, noSelect, noRefresh) {
 }
 
 // get the current body being orbited for the current time
-function currSOI(vessel, updateCheck, utCheck) {
-  if (!updateCheck) updateCheck = false;
+function currSOI(vessel, updateCheck = false, utCheck) {
   if (!utCheck) utCheck = currUT();
   var refNum = -2;
   var refIndex;
   var refUT;
-
+  
   // tricky but works to allow alternate string literal input rather than an object
   if (!vessel) {
     var soi = updateCheck.split("|");
     updateCheck = false;
-  } else var soi = vessel.SOI.split("|");
+  } else {
+    if (!vessel.soi) console.log(vessel)
+    var soi = vessel.soi.split("|");
+  }
 
   for (refIndex=0; refIndex<soi.length; refIndex++) {
     var pair = soi[refIndex].split(";");
@@ -799,20 +754,19 @@ function currSOI(vessel, updateCheck, utCheck) {
   }
 
   // check for a future SOI update?
-  if (updateCheck && refIndex < soi.length) { updatesList.push({ Type: "menu;soi", ID: vessel.DB, UT: parseInt(soi[refIndex].split(";")[0]) }); }
+  if (updateCheck && refIndex < soi.length) ops.updatesList.push({ type: "menu;soi", id: vessel.db, UT: parseInt(soi[refIndex].split(";")[0]) });
   return [refNum, refUT];
 }
 
 // checks if the vessel has more than one possible name, and returns the one for the given time
-function currName(vessel, updateCheck, utCheck) {
-  if (!updateCheck) updateCheck = false;
+function currName(vessel, updateCheck = false, utCheck) {
   if (!utCheck) utCheck = currUT();
 
   // tricky but works to allow alternate string literal input rather than an object
   if (!vessel) {
     var strNames = updateCheck;
     updateCheck = false;
-  } else var strNames = vessel.Name;
+  } else var strNames = vessel.name;
 
   if (strNames.includes("|")) {
     var nameIndex;
@@ -822,8 +776,8 @@ function currName(vessel, updateCheck, utCheck) {
       if (parseFloat(pair[0]) > utCheck) break;
       strVesselName = pair[1];
     }
-    if (updateCheck && nameIndex < names.length) { updatesList.push({ Type: "menu;name", ID: vessel.DB, UT: parseInt(names[nameIndex].split(";")[0]) }); }
-  } else { strVesselName = strNames; }
+    if (updateCheck && nameIndex < names.length) { ops.updatesList.push({ type: "menu;name", id: vessel.db, UT: parseInt(names[nameIndex].split(";")[0]) }); }
+  } else strVesselName = strNames;
   return strVesselName;
 }
 
@@ -848,8 +802,7 @@ function showParents(node) {
 }
 
 // takes a craftsMenu item and adds it to the appropriate parent folder depending on the sort option chosen
-function addVesselByDate(item, parentFolder) {
-  if (!parentFolder) parentFolder = "inactiveVessels";
+function addVesselByDate(item, parentFolder = "inactiveVessels") {
 
   // get the current filter type to determine the wrap width
   if ($("input[name=inactive]").filter(":checked").val() == "start" || $("input[name=inactive]").filter(":checked").val() == "end") {
@@ -859,7 +812,7 @@ function addVesselByDate(item, parentFolder) {
   }
 
   // get the date for this vessel and extract the month and year
-  var dateUT = UTtoDateTime(item.End, true).split("@")[0];
+  var dateUT = UTtoDateTime(item.end, true).split("@")[0];
   var month = dateUT.split("/")[0];
   var year = dateUT.split("/")[2];
   
@@ -912,9 +865,25 @@ function addVesselByDate(item, parentFolder) {
   
   // add the vessel to this month/year
   // and decide whether to highlight this menu item
-  w2ui['menu'].add(parentFolder + year + '-' + month, { id: item.DB,
-                                                      text: "<span>" + wrapText(wrapLimit, currName(item), 14) + "</span>",
-                                                      img: 'icon-' + item.Type,
-                                                      count: null });
-  if (item.Badged) badgeMenuItem(item.DB, true, true);
+  w2ui['menu'].add(parentFolder + year + '-' + month, { id: item.db,
+                                                        text: "<span>" + wrapText(wrapLimit, currName(item), 14) + "</span>",
+                                                        img: 'icon-' + item.type,
+                                                        count: null });
+  if (item.badged) badgeMenuItem(item.db, true, true);
+}
+
+// selects the item from the menu and also makes sure to remove any badges
+function selectMenuItem(menuID) {
+  var menuNode = w2ui['menu'].get(menuID);
+  w2ui['menu'].select(menuID);
+  w2ui['menu'].expandParents(menuID);
+  w2ui['menu'].scrollIntoView(menuID);
+  if (menuNode.text.includes("bold")) {
+    menuNode.text = menuNode.text.replace(" style='font-weight: bold;'", "");
+    if (menuNode.img.includes("crew")) ops.crewMenu.find(o => o.db === menuNode.id).badged = false;
+    else ops.craftsMenu.find(o => o.db === menuNode.id).badged = false;
+    adjustCount(menuNode.parent.id, -1);
+    w2ui['menu'].refresh();
+    w2ui['menu'].scrollIntoView(menuNode.id);
+  }
 }

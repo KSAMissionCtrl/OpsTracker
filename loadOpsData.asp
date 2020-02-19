@@ -292,12 +292,12 @@ elseif request.querystring("type") = "vessel" then
     end if
   end if
   if not rsResources.bof then
-    notNull = false
+    NotNull = false
     for each field in rsResources.fields
       output = output & replace(field.name, " ", "") & "~" & field.value & "`"
-      if field.name <> "UT" and field.value <> "" then notNull = true
+      if field.name <> "UT" and field.value <> "" then NotNull = true
     next
-    output = output & "notNull~" & notNull & "^"
+    output = output & "NotNull~" & NotNull & "^"
   else
     output = output & "null^"
   end if
@@ -351,12 +351,12 @@ elseif request.querystring("type") = "vessel" then
     end if
   end if
   if not rsComms.bof then
-    notNull = false
+    NotNull = false
     for each field in rsComms.fields
       output = output & replace(field.name, " ", "") & "~" & field.value & "`"
-      if (field.name <> "UT" or field.name <> "Connection") and field.value <> "" then notNull = true
+      if (field.name <> "UT" or field.name <> "Connection") and field.value <> "" then NotNull = true
     next
-    output = output & "notNull~" & notNull & "^"
+    output = output & "NotNull~" & NotNull & "^"
   else
     output = output & "null^"
   end if
@@ -431,12 +431,12 @@ elseif request.querystring("type") = "vessel" then
     output = output & "null^"
   end if 
   if not rsResources.eof then
-    notNull = false
+    NotNull = false
     for each field in rsResources.fields
       output = output & replace(field.name, " ", "") & "~" & field.value & "`"
-      if field.name <> "UT" and field.value <> "" then notNull = true
+      if field.name <> "UT" and field.value <> "" then NotNull = true
     next
-    output = output & "notNull~" & notNull & "^"
+    output = output & "NotNull~" & NotNull & "^"
   else
     output = output & "null^"
   end if
@@ -450,12 +450,12 @@ elseif request.querystring("type") = "vessel" then
     output = output & "null^"
   end if 
   if not rsComms.eof then
-    notNull = false
+    NotNull = false
     for each field in rsComms.fields
       output = output & replace(field.name, " ", "") & "~" & field.value & "`"
-      if field.name <> "UT" and field.value <> "" then notNull = true
+      if field.name <> "UT" and field.value <> "" then NotNull = true
     next
-    output = output & "notNull~" & notNull & "^"
+    output = output & "NotNull~" & NotNull & "^"
   else
     output = output & "null^"
   end if

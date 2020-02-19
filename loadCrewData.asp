@@ -1,10 +1,34 @@
 <%
 response.expires=-1
-UT = request.querystring("UT")*1
+output = ""
 
-'open kerbal database. "db" was prepended because without it for some reason I had trouble connecting
-'if the database fails to load, try the archive site instead
-db = "..\..\database\db" & request.querystring("crew") & ".mdb"
+'convert the text strings into numbers
+UT = int(request.querystring("ut") * 1)
+
+'open the catalog 
+db = "..\..\database\dbCatalog.mdb"
+Dim conn
+Set conn = Server.CreateObject("ADODB.Connection")
+sConnection = "Provider=Microsoft.Jet.OLEDB.4.0;" & _
+
+              "Data Source=" & server.mappath(db) &";" & _
+
+              "Persist Security Info=False"
+conn.Open(sConnection)
+
+'create and open the tables
+set rsCrew = Server.CreateObject("ADODB.recordset")
+
+'who are we loading
+rsCrew.open "select * from Crew where Kerbal='" & request.querystring("db") & "'", conn, 1, 1
+for each field in rsCrew.fields
+  output = output & replace(field.name, " ", "") & "~" & field.value & "`"
+next
+output = left(output, len(output)-1)
+output = output & "*"
+
+'get additional data from the individual database
+db = "..\..\database\db" & request.querystring("db") & ".mdb"
 Set conn = Server.CreateObject("ADODB.Connection")
 sConnection = "Provider=Microsoft.Jet.OLEDB.4.0;" & _
 
@@ -18,8 +42,6 @@ set rsKerbal = Server.CreateObject("ADODB.recordset")
 set rsMissions = Server.CreateObject("ADODB.recordset")
 set rsRibbons = Server.CreateObject("ADODB.recordset")
 set rsBackground = Server.CreateObject("ADODB.recordset")
-
-'for some recordsets, we can just grab the specific one or few records we need right from the start
 rsKerbal.open "select * from [kerbal stats]", conn, 1, 1
 rsMissions.open "select * from missions", conn, 1, 1
 rsRibbons.open "select * from ribbons", conn, 1, 1
@@ -29,6 +51,10 @@ rsBackground.open "select * from [background]", conn, 1, 1
 rsKerbal.MoveLast
 do until rsKerbal.fields.item("UT") <= UT
   rsKerbal.MovePrevious
+  if rsKerbal.bof then
+    rsKerbal.MoveNext
+    exit do
+  end if
 Loop
 
 'output the record in name/value pairs for each field
@@ -41,107 +67,106 @@ output = left(output, len(output)-1)
 output = output & "^"
 
 'output the mission records up to the current UT
-rsMissions.movefirst
-do until rsMissions.fields.item("UT") > UT
-  for each field in rsMissions.fields
-    output = output & replace(field.name, " ", "") & "~" & field.value & "`"
-  next
-  output = left(output, len(output)-1)
-  output = output & "|"
-  rsMissions.movenext
-  if rsMissions.eof then exit do
-loop
-
-'get rid of the last semicolon and ouput
+if not rsMissions.eof then
+  rsMissions.movefirst
+  if rsMissions.fields.item("UT") > UT then
+    output = output & "null|"
+  else
+    do until rsMissions.fields.item("UT") > UT
+      for each field in rsMissions.fields
+        output = output & replace(field.name, " ", "") & "~" & field.value & "`"
+      next
+      output = left(output, len(output)-1)
+      output = output & "|"
+      rsMissions.movenext
+      if rsMissions.eof then exit do
+    loop
+  end if
+else
+  output = output & "null|"
+end if
 output = left(output, len(output)-1)
 output = output & "^"
 
 'output the ribbon records up to the current UT
-rsRibbons.movefirst
-do until rsRibbons.fields.item("UT") > UT
-  for each field in rsRibbons.fields
-    output = output & replace(field.name, " ", "") & "~" & field.value & "`"
-  next
-  output = left(output, len(output)-1)
-  output = output & "|"
-  rsRibbons.movenext
-  if rsRibbons.eof then exit do
-loop
-
-'get rid of the last semicolon and ouput
+if not rsRibbons.eof then
+  rsRibbons.movefirst
+  if rsRibbons.fields.item("UT") > UT then
+    output = output & "null|"
+  else
+    do until rsRibbons.fields.item("UT") > UT
+      for each field in rsRibbons.fields
+        output = output & replace(field.name, " ", "") & "~" & field.value & "`"
+      next
+      output = left(output, len(output)-1)
+      output = output & "|"
+      rsRibbons.movenext
+      if rsRibbons.eof then exit do
+    loop
+  end if
+else
+  output = output & "null|"
+end if
 output = left(output, len(output)-1)
 output = output & "^"
 
-'select the data closest to this UT
+'select the background data closest to this UT
 rsBackground.MoveLast
 do until rsBackground.fields.item("UT") <= UT
   rsBackground.MovePrevious
+  if rsBackground.bof then
+  rsBackground.MoveNext
+  exit do
+end if
 Loop
-
-'output the record in name/value pairs for each field
 for each field in rsBackground.fields
   output = output & replace(field.name, " ", "") & "~" & field.value & "`"
 next
-
-'get rid of the last semicolon and ouput
 output = left(output, len(output)-1)
-output = output & "^"
+output = output & "*"
 
 'check for future events
 if not rsKerbal.eof then rsKerbal.MoveNext
 if not rsKerbal.eof then 
-  output = output & rsKerbal.fields.item("UT") & "~"
+  for each field in rsKerbal.fields
+    output = output & replace(field.name, " ", "") & "~" & field.value & "`"
+  next
+  output = left(output, len(output)-1)
+  output = output & "^"
 else
-  output = output & "null~"
+  output = output & "null^"
 end if 
-if not rsMissions.eof then rsMissions.MoveNext
 if not rsMissions.eof then 
-  output = output & rsMissions.fields.item("UT") & "~"
+  for each field in rsMissions.fields
+    output = output & replace(field.name, " ", "") & "~" & field.value & "`"
+  next
+  output = left(output, len(output)-1)
+  output = output & "^"
 else
-  output = output & "null~"
+  output = output & "null^"
 end if 
-if not rsRibbons.eof then rsRibbons.MoveNext
 if not rsRibbons.eof then 
-  output = output & rsRibbons.fields.item("UT") & "~"
+  for each field in rsRibbons.fields
+    output = output & replace(field.name, " ", "") & "~" & field.value & "`"
+  next
+  output = left(output, len(output)-1)
+  output = output & "^"
 else
-  output = output & "null~"
+  output = output & "null^"
 end if 
 if not rsBackground.eof then rsBackground.MoveNext
 if not rsBackground.eof then 
-  output = output & rsBackground.fields.item("UT") & "~"
+  for each field in rsBackground.fields
+    output = output & replace(field.name, " ", "") & "~" & field.value & "`"
+  next
+  output = left(output, len(output)-1)
+  output = output & "^"
 else
-  output = output & "null~"
+  output = output & "null^"
 end if 
 
-'get rid of the last semicolon and ouput
-output = left(output, len(output)-1)
-output = output & "^"
-
-'open catalog database. "db" was prepended because without it for some reason I had trouble connecting
-conn.Close
-Set conn = nothing
-db = "..\..\database\dbCatalog.mdb"
-Dim conn
-Set conn = Server.CreateObject("ADODB.Connection")
-sConnection = "Provider=Microsoft.Jet.OLEDB.4.0;" & _
-
-              "Data Source=" & server.mappath(db) &";" & _
-
-              "Persist Security Info=False"
-conn.Open(sConnection)
-
-'create and open the tables
-set rsCrew = Server.CreateObject("ADODB.recordset")
-rsCrew.open "select * from Crew where Kerbal ='" & request.querystring("crew") & "'", conn, 1, 1
-
-'output the record in name/value pairs for each field
-for each field in rsCrew.fields
-  output = output & replace(field.name, " ", "") & "~" & field.value & "`"
-next
-
-'post the final results
+'post the final results and cleanup
 response.write(left(output, len(output)-1))
-
 conn.Close
 Set conn = nothing
 %>
