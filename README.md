@@ -3,11 +3,11 @@ A means of dynamically displaying information online for vessels, bodies and cre
 
 The following KSP mods/apps are used to provide the data the Operations Tracker requires:
 
-* [KSPTOT](http://forum.kerbalspaceprogram.com/threads/36476-WIN-KSP-Trajectory-Optimization-Tool-v0-12-2-Mission-Architect-Update!)
-* [Final Frontier](http://forum.kerbalspaceprogram.com/threads/67246)
-* [VOID](http://forum.kerbalspaceprogram.com/threads/54533-0-23-VOID-Vessel-Orbital-Informational-Display)
-* [FAR](http://forum.kerbalspaceprogram.com/threads/20451-0-23-Ferram-Aerospace-Research-v0-12-5-2-Aero-Fixes-For-Planes-Rockets-1-7-14)
-* [kOS](https://github.com/KSP-KOS/KOS)
+* [KSPTOT](https://forum.kerbalspaceprogram.com/index.php?/topic/33568-winmaclinux-ksp-trajectory-optimization-tool-v164-new-vehicle-sizing-tool/)
+* [Final Frontier](https://forum.kerbalspaceprogram.com/index.php?/topic/61065-181-final-frontier-kerbal-individual-merits-181-3479/)
+* [VOID](https://forum.kerbalspaceprogram.com/index.php?/topic/150280-18x-void-unvoided-vessel-orbital-informational-display/)
+* [FAR](https://forum.kerbalspaceprogram.com/index.php?/topic/179445-18-ferram-aerospace-research-continued-v015113-mach-271019/)
+* [kOS](https://forum.kerbalspaceprogram.com/index.php?/topic/165628-181-kos-v1210-kos-scriptable-autopilot-system/)
 
 The following JavaScript libraries are used:
 
@@ -17,7 +17,6 @@ The following JavaScript libraries are used:
 * [Sylvester](http://sylvester.jcoglan.com/)
 * [Numeral](http://numeraljs.com/)
 * [Tipped](http://www.tippedjs.com/)
-* [Codebird](https://github.com/jublonet/codebird-js)
 * [Spin.js](http://fgnass.github.io/spin.js/)
 * [Rrose](http://erictheise.github.io/rrose/)
 * [Leaflet.Fullscreen](https://github.com/brunob/leaflet.fullscreen)
@@ -35,8 +34,6 @@ The following JavaScript libraries are used:
 ### Important Known Issues
 
 - **Operations Tracker is currently in active development with work being done on the live page, so visiting at times may cause browser errors, failures to load, etc. However after it has been worked on it is left in a usable state, so try again later**
-- Leaflet map can be finicky in a number of ways - most notably it can sometimes load showing off the edge of the map or refuse to load tiles. It can also fail to render paths and markers or not allow you to properly hover for information over paths. Generally these issues can all be fixed by upsizing/downsizing or going fullscreen
-- The downsized default map view for vessel pages is not able to show position info for orbital plots when hovering over the lines. Sizing up the map or going fullscreen will enable this feature
 - Collapsing/Expanding the [Operations Menu](https://github.com/KSAMissionCtrl/OpsTracker/wiki/Navigation) can sometimes cause the entire area to go blank the next time something in it is clicked on
 - Ground tracks for aircraft can sometimes not be hovered over to display additional information for that point in the flight. Try zooming in closer or panning the map view around a bit
 
@@ -49,6 +46,59 @@ See all current bugs and future enhancements over in our [Issues Tracker](https:
 ### Change Log
 
 Versioning Key (v#1.#2.#3): #1=New features #2=Changes to existing features #3=Fixes to existing features
+
+**v12.0.0** (2/18/20)
+
+Fixes:
+  - [Flight Paths](https://github.com/KSAMissionCtrl/OpsTracker/wiki/Surface-Map#flight-plotting) that are removed from the [Surface Map](https://github.com/KSAMissionCtrl/OpsTracker/wiki/Surface-Map) are by default actually just hidden in case they are requested again from the menu. However now they do not re-appear when the Surface Map is closed and re-opened
+  - The Inclination field in the [Data Box](https://github.com/KSAMissionCtrl/OpsTracker/wiki/Vessel-Details#the-data-box) now properly matches prev/new data and no longer flashes and update notice when there really hasn't been any change
+  - Long-standing issue with the Surface Map glitching out and not properly displaying when its size is changed has been resolved
+  - Launch site/position markers are now properly removed when switching vessels to one with an orbital trajectory to calculate
+  - Selecting the button to switch to the general Surface Map view from a vessel page now also selects the body in the menu
+  - Source images for patches are no longer displayed at original sizes that could spill out of the page view
+  - Vertical scrolling is disabled so scrollbars don't pop in and out briefly when the main content area is resizing
+  - Mission patches now show when they are included
+  - Names in the Active Vessels menu now wrap onto multiple lines if they are too long, just like Inactive Vessels
+  - Vessel icon for orbital trajectories that have already been plotted are now re-displayed when the user switches back to that vessel
+  - Updates that have nothing to do with new trajectory data no longer affect the [Orbital View](https://github.com/KSAMissionCtrl/OpsTracker/wiki/Orbital-View) and remove orbit lines
+  - Flight tracks now wrap properly across the Surface Map when traveling from east to west
+  - New method is used to determine if the KSC is operating under Daylight Savings Time so the [Clock](https://github.com/KSAMissionCtrl/OpsTracker/wiki/Clock-&-Event-Calendar) shows the proper UTC offset and displays the proper KSC local time for users living in countries that do not experience DST
+  - After lift off of the final scheduled launch, the [Event Calendar](https://github.com/KSAMissionCtrl/OpsTracker/wiki/Clock-&-Event-Calendar) now properly updates even if no future launch is scheduled
+  - When a vessel is removed from the Active Vessels menu, the [vessel filter](https://github.com/KSAMissionCtrl/OpsTracker/wiki/Navigation#filters) options are properly updated to disable that craft type if it is no longer available
+  - Loading up a crew or vessel by a means other than directly clicking on them in the menu now clears update badges
+  - Several instances where numerical strings were being compared to integers have been fixed to convert the strings to integers
+  - Toggling hidden [crew ribbons](https://github.com/KSAMissionCtrl/OpsTracker/wiki/Crew-Roster#crew-details) on/off no longer prevents the field from flashing if an update comes afterwards
+  - Switching vessels too quickly no longer causes the trajectory render dialog box to still show up on a vessel that doesn't require it to be displayed
+  - Vessels that update with orbital data which previously had none now have their orbits also added to the Orbial View
+  - Clicking on the button to refresh the vessel's orbital plot now works
+  - Detecting and updating upcoming launches for the Event Calendar has been completely rewritten. Again. Hopefully I got it right for all possible scenarios this time
+  - Event Calendar is no longer called with double updates
+  - Orbital View now properly updates to the body of a vessel even if it is inactive
+  - Scheduled future events for vessels now updates properly when the craft data is updated
+  
+Changes:
+  - Now that the map sizing issue is fixed, you no longer have to up-size the map in vessel view to get pop-up information on orbital trajectory lines with the mouse cursor
+  - Launchsite/vessel position pop-up information now conforms with every other Lat/Lng display by showing a minus sign for S and W values. Even though this is a bit pendatic, it does clue the user in to what the Lat/Lng values mean when cardinal directions are not included
+  - The pins used for the launchsite/vessel location are now more versatile in their use to mark the location of a vessel and no longer assumes the term "Launched" to describe a mission in progress
+  - You can no longer size up the map while ascent data is being replayed or streamed. It can still go fullscreen though
+  - Vessel patches no longer require a URL to link to
+  - Live ascent data locks out history paging, then reloads it after the ascent has been completed. User can no longer look at a different vessel state except when the ascent telemetry is being replayed
+  - Ascent data is now loaded on demand rather than every time the vessel gets an update, as a noticeable load delay began to appear for vessels with ascent data greater than 3 minutes. It is loaded once per vessel and stays loaded for that vessel until another vessel's ascent data is requested
+  - Orbital View figures are now flat-shaded and do not have lighting. The lighting was unable to be changed to accurately depict the position of the body in relation to the sun. With functioning satellites in orbit this would be confusing to have the orbit appear to put the spacecraft over the dayside while the [Surface Map terminator layer](https://github.com/KSAMissionCtrl/OpsTracker/wiki/Surface-Map#layers-control) might show it over the night side
+  - Related vessels can now be mentioned at a certain time in the mission rather than from only right at the start, when vessels might still be a single craft
+  - The Surface Map will now automatically work to keep an ascending vessel and KSC in view at all times. If the vessel moves to the edge of the map the map will shift to keep it in site. If KSC falls out of view the map will zoom out to bring both it and the vessel back into view. The user is still free to pan/zoom the map as they like, but panning the vessel or KSC out of view will snap it back to show both
+  - Live telemetry data no longer loads at exactly the same time every time after final T-30s poll
+  - The vessel [Info Box Dialog](https://github.com/KSAMissionCtrl/OpsTracker/wiki/Vessel-Details#the-info-box) can no longer be resized or dragged around the screen
+  - The starting time denoted for a crew with a planned mission assignment now remains visible after launch and shows the current mission elapsed time
+  - Selecting an orbit in Orbital View to make the position of its body visible when it is too small to easily see no longer pops up the label - the highlighted orbit line contrasting with the body sphere is enough to make it visible
+  - Arrays are now properly zeroed out when they need to be re-used or are no longer in use to help curtail memory leakage
+  - `currUT()` now defaults to an integer rather than a floating point result
+  - Surface Map buttons that are not able to be used under certain conditions are not rendered as disabled rather than being removed
+  - Crew stat for total EVA time is now hidden if it is 0
+  
+Additions:
+  - Trajectory plotting for vessels can now determine when the vessel has already experienced an SOI event (SOI entry, SOI exit or atmospheric entry) and will not use the current orbital data to render a plot but inform the user that an update is coming
+  - A new option for bodies in the Orbital View is available when you open their information dialogs. "Focus View" will center the 3D view on that body so that zooming in for a closer look at any orbits around it is easier to do
 
 **v11.0.0** (10/24/19)
 
