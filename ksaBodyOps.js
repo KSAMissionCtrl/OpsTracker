@@ -29,10 +29,10 @@ function loadBody(body, flt) {
     // don't create a new entry if this is the same page being reloaded
     if (!history.state) {
       if (window.location.href.includes("&")) var strURL = window.location.href;
-      else var strURL = "http://www.kerbalspace.agency/TrackerDev1/tracker.asp?body=" + body;
+      else var strURL = "http://www.kerbalspace.agency/Tracker/tracker.asp?body=" + body;
       history.replaceState({type: "body", id: body}, document.title, strURL); 
     } else if (history.state.id != body) {
-      var strURL = "http://www.kerbalspace.agency/TrackerDev1/tracker.asp?body=" + body;
+      var strURL = "http://www.kerbalspace.agency/Tracker/tracker.asp?body=" + body;
       if (flt) strURL += "&flt=" + flt;
       history.pushState({type: "body", id: body}, document.title, strURL); 
     }
@@ -164,7 +164,8 @@ function ggbOnInit() {
   ggbApplet.setValue("UT", currUT());
   
   // listen for any objects clicked on
-  ggbApplet.registerClickListener("figureClick");
+  // this can be called twice if the figure is "dirty" underneath a vessel so make sure only call when figure still not yet fully loaded
+  if (!isGGBAppletLoaded) ggbApplet.registerClickListener("figureClick");
 
   // select and show it in the menu if this is the proper page type because
   // the figure can load after a vessel was already selected
@@ -277,6 +278,7 @@ function addGGBOrbitAJAX(xhttp) {
       // add this vessel type and id to the orbits array for filtering if it's not already there
       if (!vesselObj) ops.ggbOrbits.push({type: strVesselType, 
                                           id: ggbID, 
+                                          db: vesselID,
                                           showName: false, 
                                           showNodes: false, 
                                           isSelected: false, 
@@ -288,7 +290,6 @@ function addGGBOrbitAJAX(xhttp) {
       $("#" + strVesselType + "-label").css('color', orbitColors[strVesselType]);
       
       // load the vessel into the figure
-      ggbApplet.evalCommand(ggbID + 'id="' + vesselID + '"');
       ggbApplet.evalCommand(ggbID + 'sma=' + orbitData.SMA);
       ggbApplet.evalCommand(ggbID + 'pe=' + (orbitData.Periapsis + bodyData.Radius));
       ggbApplet.evalCommand(ggbID + 'ap=' + (orbitData.Apoapsis + bodyData.Radius));
@@ -352,7 +353,8 @@ function addGGBOrbitAJAX(xhttp) {
   }
 
   // if we update the figure, for some reason the click callback needs to be re-enabled
-  if (!isGGBAppletRefreshing) ggbApplet.registerClickListener("figureClick");
+  // as of 10/24/21 this no longer is needed
+  // if (!isGGBAppletRefreshing) ggbApplet.registerClickListener("figureClick");
 
   // callback if there is still data to load
   if (ops.vesselsToLoad && ops.vesselsToLoad.length) setTimeout(loadVesselOrbits, 1);
@@ -366,7 +368,9 @@ function addGGBOrbitAJAX(xhttp) {
     activateEventLinks();
     $("#vesselLoaderMsg").spin(false);
     $("#vesselLoaderMsg").fadeOut();
-    if ($("#figure").is(":visible") && ops.pageType == "body") $("#vesselOrbitTypes").fadeIn();
+    if ($("#figure").is(":visible") && ops.pageType == "body" && !window.location.href.includes("&map") && !isMapShown) { 
+      if (!$("#asteroid-filter").prop("disabled") || !$("#debris-filter").prop("disabled") || !$("#probe-filter").prop("disabled") || !$("#ship-filter").prop("disabled") || !$("#station-filter").prop("disabled")) $("#vesselOrbitTypes").fadeIn();
+    }
     timeoutHandle = setTimeout(declutterGGB, 2500);
   }
 }
@@ -418,12 +422,12 @@ function figureClick(object) {
   if (object.includes("conic") || object.includes("position")) {
     $("#figureDialog").dialog("close");
     var clickedObj = ops.ggbOrbits.find(o => o.id === object.replace("position" , "").replace("conic", ""));
-  
+
     // if we clicked on the position after the orbit was selected, then jump to the vessel view & remain selected
     if (clickedObj.isSelected && object.includes("position")) { 
 
       // use getValueString since we need the actual DB name with any hyphens
-      swapContent("vessel", ggbApplet.getValueString(object.replace("position", "id")));
+      swapContent("vessel", clickedObj.db);
       return;
     }
  
@@ -471,7 +475,11 @@ function figureClick(object) {
       strHTML += "Inclination: "+ bodyData.Inc + "&deg;<br>";
       strHTML += "Orbital period: " + formatTime(bodyData.ObtPeriod, false) + "<br>";
       strHTML += "Orbital velocity: " + bodyData.ObtVel + " m/s</p><p><b>Physical Data</b></p>";
-      strHTML += "<p>Equatorial radius: " + numeral(bodyData.Radius*1000).format('0,0') + " m<br>";
+      if (isNaN(bodyData.Radius)) {
+        strHTML += "<p>Equatorial radius: " + bodyData.Radius + " <br>";
+      } else {
+        strHTML += "<p>Equatorial radius: " + numeral(parseInt(bodyData.Radius)*1000).format('0,0') + " m<br>";
+      }
       strHTML += "Mass: " + bodyData.Mass.replace("+", "e") + " kg<br>";
       strHTML += "Density: " + bodyData.Density + " kg/m<sup>3</sup><br>";
       strHTML += "Surface gravity: " + bodyData.SurfaceG.split(":")[0] + " m/s<sup>2</sup> <i>(" + bodyData.SurfaceG.split(":")[1] + " g)</i><br>";
@@ -635,9 +643,7 @@ function toggleLabels(isChecked) {
 function toggleOrbits(isChecked) {
   ops.ggbOrbits.forEach(function(item) { 
     if (item.type == "body") ggbApplet.setVisible(item.id + "23", isChecked);
-    else {
-      if (!item.isHidden) ggbApplet.setVisible(item.id + "conic", isChecked);
-    }
+    else if (!item.isHidden && !item.isSelected) ggbApplet.setVisible(item.id + "conic", isChecked);
   });
   
   // we need to hide all nodes when hiding orbits, regardless of toggle, because nothing is selected

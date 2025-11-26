@@ -1,8 +1,6 @@
 // refactor complete (for launch events only)
 
 function loadEventsAJAX(xhttp) {
-  strCurrentLaunchVessel = "";
-  strCurrentManeuverVessel = "";
 
   // stop both spinners
   $("#launch").spin(false);
@@ -17,20 +15,41 @@ function loadEventsAJAX(xhttp) {
 
     // load the launches into a list, already sorted by name and UT
     var launchEventList = [];
-    var firstLaunchTime = 9999999999;
+    var vesselFinalLaunchTimes = [];
+    var strCurrVesselDB = "";
+    var finalLaunchTime = 0;
     launches.forEach(function(launchEvent) {
       var launchDetails = launchEvent.split(";");
       launchEventList.push({UT: parseFloat(launchDetails[0]),
                             LaunchTime: parseFloat(launchDetails[1]),
                             db: launchDetails[2],
                             Title: launchDetails[3],
-                            Desc: launchDetails[4]
-                          });
+                            Desc: launchDetails[4]});
+
+      // track whether the vessel name has changed and if so, assign the final launch time
+      if (!strCurrVesselDB.length) strCurrVesselDB = launchDetails[2]
+      if (strCurrVesselDB != launchDetails[2]) {
+        vesselFinalLaunchTimes.push({name: strCurrVesselDB,
+                                     time: finalLaunchTime });
+        strCurrVesselDB = launchDetails[2]
+      } 
+      finalLaunchTime = parseFloat(launchDetails[1]);
+    });
+
+    // add the last final vessel launch time
+    vesselFinalLaunchTimes.push({name: strCurrVesselDB,
+                                 time: finalLaunchTime });
+
+    // now we need to loop through the event listing again to find the next launch
+    strCurrentLaunchVessel = "";
+    var firstLaunchTime = 9999999999;
+    launchEventList.forEach(function(vessel) {
 
       // decide if this vessel still has yet to launch and is launching first
-      if (strCurrentLaunchVessel != launchDetails[2] && launchDetails[1] < firstLaunchTime && launchDetails[1] > currUT()) {
-        strCurrentLaunchVessel = launchDetails[2];
-        firstLaunchTime = launchDetails[1];
+      // be sure to compare to final launch time in the event that the launch was moved up and this time is later but now expired
+      if (strCurrentLaunchVessel != vessel.db && vessel.LaunchTime < firstLaunchTime && vessel.LaunchTime > currUT() && vesselFinalLaunchTimes.find(o => o.name === vessel.db).time >= vessel.LaunchTime) {
+        strCurrentLaunchVessel = vessel.db;
+        firstLaunchTime = vessel.LaunchTime;
       }
     });
 
@@ -47,17 +66,13 @@ function loadEventsAJAX(xhttp) {
 
     // find the next update attributed to the launch vessel
     launchEventList.forEach(function(vessel) {
-      if (vessel.UT > currUT() && vessel.db == strCurrentLaunchVessel && ops.updatesList.length == ops.updatesListSize) {
-        ops.updatesList.push({ type: "event", UT: vessel.UT });
-      }
+      if (vessel.UT > currUT() && vessel.db == strCurrentLaunchVessel && ops.updatesList.length == ops.updatesListSize) ops.updatesList.push({ type: "event", UT: vessel.UT });
     });
 
     // if we didn't find a future update for the current launch vehicle, try to find any future update
     if (ops.updatesList.length == ops.updatesListSize) {
       launchEventList.forEach(function(vessel) {
-        if (vessel.UT > currUT() && ops.updatesList.length == ops.updatesListSize) {
-          ops.updatesList.push({ type: "event", UT: vessel.UT });
-        }
+        if (vessel.UT > currUT() && ops.updatesList.length == ops.updatesListSize) ops.updatesList.push({ type: "event", UT: vessel.UT });
       }); 
     }
   } else writeLaunchInfo();
@@ -67,12 +82,10 @@ function loadEventsAJAX(xhttp) {
   if (maneuvers[0] != "null") {
 
     // to be completed once the launch selection works as intended
+    strCurrentManeuverVessel = "";
 
   } else writeManeuverinfo();
   
-  // do the menu load after events load so the event box is always sized before the menu
-  if (!isMenuDataLoaded) loadDB("loadMenuData.asp?UT=" + currUT(), loadMenuAJAX);
-
   // if this is a crew page, no need to wait for GGB to load
   if (ops.pageType.includes("crew")) activateEventLinks();
 }
@@ -80,9 +93,13 @@ function loadEventsAJAX(xhttp) {
 function writeLaunchInfo(data) {
   var size = w2utils.getSize("#launch", 'height');
   var currHTML = $("#launch").html();
+  if (launchRefreshTimeout) {
+    clearTimeout(launchRefreshTimeout);
+    launchRefreshTimeout = null;
+  }
   if (data) {
     var strHTML = "<strong>Next Launch</strong><br>";
-    strHTML += "<span id='launchLink' db='" + data.db + "'>" + wrapText(100, data.Title, 16) + "</span><br>";
+    strHTML += "<span id='launchLink' db='" + data.db + "'>" + wrapText(140, data.Title, 14) + "</span><br>";
     
     // regular launch, or hold event?
     if (data.LaunchTime != data.UT) {
@@ -135,6 +152,10 @@ function writeLaunchInfo(data) {
 function writeManeuverinfo(data) {
   var size = w2utils.getSize("#maneuver", 'height');
   var currHTML = $("#maneuver").html();
+  if (maneuverRefreshTimeout) {
+    clearTimeout(maneuverRefreshTimeout);
+    maneuverRefreshTimeout = null;
+  }
   if (data) {
     var fields = data.split(";");
     strHTML = "<strong>Next Maneuver</strong><br>";

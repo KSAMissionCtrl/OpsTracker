@@ -9,12 +9,12 @@ function loadCrew(crew) {
   // if this is the first page to load, replace the current history
   if (!history.state) {
     if (window.location.href.includes("&")) var strURL = window.location.href;
-    else var strURL = "http://www.kerbalspace.agency/TrackerDev1/tracker.asp?crew=" + crew;
+    else var strURL = "http://www.kerbalspace.agency/Tracker/tracker.asp?crew=" + crew;
     history.replaceState({type: ops.pageType, id: crew}, document.title, strURL);
     
   // don't create a new entry if this is the same page being reloaded
   } else if (history.state.id != crew) {
-    history.pushState({type: ops.pageType, id: crew}, document.title, "http://www.kerbalspace.agency/TrackerDev1/tracker.asp?crew=" + crew);
+    history.pushState({type: ops.pageType, id: crew}, document.title, "http://www.kerbalspace.agency/Tracker/tracker.asp?crew=" + crew);
   }
   
   // remove the current loaded crew
@@ -158,7 +158,7 @@ function showFullRoster() {
 function ribbonDisplayToggle(display = false) {
   $("#dataField11").empty();
   $("#dataField11").html("<span ribbons=" + ops.currentCrew.Ribbons.length + "></span>");
-  if ($("#dataField12").html().includes("Show")) {
+  if ($("#dataField12").html().includes("Show") && !display) {
     $("#dataField12").empty();
     ops.currentCrew.Ribbons.forEach(function(item) {
       $("#dataField11").append("<img src='http://www.blade-edge.com/Roster/Ribbons/" + item.Ribbon + ".png' width='109px' class='tip' style='cursor: help' data-tipped-options=\"maxWidth: 150, position: 'top'\" title='<center>" + item.Title + "<hr>" + item.Desc + "<hr>Earned on " + UTtoDateTime(item.UT).split("@")[0].trim() + "</center>'>");
@@ -192,30 +192,28 @@ function ribbonDisplayToggle(display = false) {
 
 function updateCrewData(crew) {
 
-  // update the current data with the preloaded updated data
-  // we do this regardless of whether the crew page is in view so that the full roster tooltips are updated
-  for (var futureProp in crew.FutureData) {
-    for (var prop in ops.currentCrew) {
-    
-      // only update data that exists and is current for this time 
-      if (futureProp == prop && crew.FutureData[futureProp] && crew.FutureData[futureProp].UT <= currUT()) {
-        
-        // only history and info are classes that can be copied
-        // missions and ribbons need to be pushed into the existing array
-        if (Array.isArray(ops.currentCrew[prop])) ops.currentCrew[prop].unshift(crew.FutureData[futureProp]);
-        else ops.currentCrew[prop] = crew.FutureData[futureProp];
-      }
-    }
-  }
-
-  // update the menu data so tooltips and re-sorting are accurate
-  var crewMenuObj = ops.crewMenu.find(o => o.db === ops.currentCrew.Background.Kerbal);
-  crewMenuObj.assignment = ops.currentCrew.Stats.Assignment;
-  crewMenuObj.rank = ops.currentCrew.Stats.Rank;
-  crewMenuObj.status = ops.currentCrew.Stats.Status;
-
   // perform a live data update if we are looking at the crew in question at the moment
   if (ops.pageType == "crew" && ops.currentCrew.Background.Kerbal == crew.id) {
+
+    // hide any open tooltips
+    Tipped.remove('.tipped');
+    
+    // update the current data with the preloaded updated data
+    // we do this regardless of whether the crew page is in view so that the full roster tooltips are updated
+    for (var futureProp in crew.FutureData) {
+      for (var prop in ops.currentCrew) {
+      
+        // only update data that exists and is current for this time 
+        if (futureProp == prop && crew.FutureData[futureProp] && crew.FutureData[futureProp].UT <= currUT()) {
+          
+          // only history and info are classes that can be copied
+          // missions and ribbons need to be pushed into the existing array
+          if (Array.isArray(ops.currentCrew[prop])) ops.currentCrew[prop].unshift(crew.FutureData[futureProp]);
+          else ops.currentCrew[prop] = crew.FutureData[futureProp];
+        }
+      }
+    }
+
     crewHeaderUpdate(true);
     crewInfoUpdate(true);
     CrewMissionsUpdate(true);
@@ -232,12 +230,16 @@ function updateCrewData(crew) {
     Tipped.create('.tip-update', { showOn: showOpt, hideOnClickOutside: is_touch_device(), detach: false, hideOn: {element: 'mouseleave'} });
   }
 
-  // refresh the menu
+  // update the menu data so tooltips and re-sorting are accurate
+  var crewMenuObj = ops.crewMenu.find(o => o.db === crew.id);
+  crewMenuObj.assignment = crew.FutureData.Stats.Assignment;
+  crewMenuObj.rank = crew.FutureData.Stats.Rank;
+  crewMenuObj.status = crew.FutureData.Stats.Status;
   filterCrewMenu($("input[name=roster]").filter(":checked").val());
   w2ui['menu'].refresh();
 
-  // scroll selection back into view
-  selectMenuItem(ops.currentCrew.Background.Kerbal);
+  // scroll selection back into view?
+  if (ops.currentCrew) selectMenuItem(ops.currentCrew.Background.Kerbal);
 
   // fetch new future data. Add a second just to make sure we don't get the same current data
   crew.isLoading = true;
@@ -268,13 +270,21 @@ function crewInfoUpdate(update) {
   
   // compose the background information
   // get the date of the birthday to display in MM/DD/YYYY format and also age calculation
+  // if crew is deceased, the current date becomes the date they died so their age remains static
+  if (ops.currentCrew.Background.Deactivation && ops.currentCrew.Background.Deactivation.includes("Deceased")) {
+    var currDate = foundingMoment + (parseInt(ops.currentCrew.Background.Deactivation.split(";")[0]) * 1000)
+    var strAge = " (Age at Death: ";
+  } else {
+    var currDate = Date.now()
+    var strAge = " (Current Age: ";
+  }
   var bday = new Date(ops.currentCrew.Background.BirthDate);
   var minutes = 1000 * 60;
   var hours = minutes * 60;
   var days = hours * 24;
-  var years = days * 365;
-  var age = (Date.now() - bday.getTime()) / years;
-  var strBackgrnd = "<b>Birth Date:</b> " + (bday.getUTCMonth() + 1) + "/" + bday.getUTCDate() + "/" + bday.getUTCFullYear() + " (Age: " + numeral(age).format('0.00') + ")";
+  var years = days * 365.2422;
+  var age = (currDate - bday.getTime()) / years;
+  var strBackgrnd = "<b>Birth Date:</b> " + (bday.getUTCMonth() + 1) + "/" + bday.getUTCDate() + "/" + bday.getUTCFullYear() + strAge + numeral(age).format('0.00') + ")";
   
   // family name with help icon for more info
   strBackgrnd += "<p><b>Family Name:</b> " + ops.currentCrew.Background.FamName + "&nbsp;<img src='qmark.png' style='margin-bottom: 10px; left: initial; cursor: help' class='tip' data-tipped-options=\"position: 'right', maxWidth: 135\" title='as a show of global unity, all adult kerbals take the surname of the first planetary leader'></p>";

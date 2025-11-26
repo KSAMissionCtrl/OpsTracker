@@ -20,7 +20,7 @@ function loadMenuAJAX(xhttp) {
     ops.craftsMenu.push({ db: fields[0],
                           name: fields[1],
                           soi: fields[2],
-                          type: fields[3],
+                          type: currType(fields[3]),
                           start: parseInt(fields[4]),
                           end: parseInt(fields[5]),
                           program: fields[6],
@@ -120,13 +120,35 @@ function loadMenuAJAX(xhttp) {
 
     // the type of node image will tell us what to load
     onClick: function (event) {
-      
-      if (event.node.img.includes("body")) swapContent("body", event.node.id);
+
+      // do not register an event if a surface map is loading
+      if (ops.surface.isLoading) return;
+
+      if (event.node.img.includes("body")) {
+        if (event.node.parent.id == "inactiveVessels") swapContent("body", event.node.text.split(" ")[0] + "-System");
+        else swapContent("body", event.node.text.split(" ")[0]);
+      } 
       else if (event.node.img.includes("crew") && event.node.id != "crewFull") swapContent("crew", event.node.id);
       else if (event.node.img.includes("crew") && event.node.id == "crewFull") swapContent("crewFull", event.node.id);
         
-      // when loading aircraft, ensure that it wasn't the aircraft Type folder that was clicked  
+      // when loading aircraft, ensure that it wasn't the aircraft Type folder that was clicked  and that a current load isn't already in progress
       else if (event.node.img.includes("aircraft") && event.node.parent.id != "inactiveVessels") {
+        
+        // let the user know only one data load request can be active at a time
+        if (strFltTrackLoading) {
+          $("#mapDialog").dialog( "option", "title", "Data Load Notice");
+          $("#progressbar").fadeOut();
+          $("#dialogTxt").fadeIn();
+          $("#dialogTxt").html("Only one flight track can be requested at a time. Please wait for the track to load before clicking another from the menu.");
+          $("#mapDialog").dialog( "option", "buttons", [{
+            text: "Okay",
+            click: function() { 
+              $("#mapDialog").dialog("close");
+            }
+          }]);
+          $("#mapDialog").dialog("open");
+          return;
+        }
 
         // check that we are looking at the proper map (hardcoded to Kerbin), and load it if not
         // this will append the flight name to the URL and the path will be loaded
@@ -156,6 +178,7 @@ function loadMenuAJAX(xhttp) {
               ops.surface.layerControl.options.collapsed = false;
               ops.surface.layerControl.addOverlay(surfaceTracksDataLoad.fltTrackDataLoad, "<i class='fa fa-cog fa-spin'></i> Loading Data...", "Flight Tracks");
               loadDB("loadFltData.asp?data=" + event.node.id, loadFltDataAJAX);
+              strFltTrackLoading = event.node.id;
 
             // if the data already exists...
             } else {
@@ -211,6 +234,7 @@ function loadMenuAJAX(xhttp) {
   
   // build the menu for active/inactive vessels
   ops.craftsMenu.forEach(function(item) { addMenuItem(item) });
+  activeVesselCount();
   isMenuDataLoaded = true;
   
   // begin loading the future data sets for all active vessels and crew
@@ -253,6 +277,9 @@ function filterInactiveMenu(id) {
   if (id) $('input:radio[name=inactive]').filter('[id=' + id + ']').prop('checked', true);
   var currOption = $("input[name=inactive]").filter(":checked").val();
 
+  // reset the count to 0
+  w2ui['menu'].get('inactiveVessels').text = "Inactive Vessels (0)";
+
   // if the currently selected menu item is an inactive vessel, show it after the re-sort
   var selectedNode = w2ui['menu'].find({selected: true});
   if (!selectedNode.length || (selectedNode.length && getParentSystem(selectedNode[0].id) != "inactive")) selectedNode = null;
@@ -276,7 +303,7 @@ function filterInactiveMenu(id) {
       if (currSOI(item)[0] == -1) {
         if (!w2ui['menu'].find('inactiveVessels', { id: item.type }).length) {
           w2ui['menu'].add('inactiveVessels', { id: item.type,
-                                                text: capitalizeFirstLetter(item.type),
+                                                text: capitalizeFirstLetter(item.type) + " (0)",
                                                 img: 'icon-' + item.type,
                                                 count: null });
         }
@@ -292,7 +319,7 @@ function filterInactiveMenu(id) {
       if (currSOI(item)[0] == -1) {
         if (item.vessel != "null" && !w2ui['menu'].find('inactiveVessels', { id: item.vessel }).length) {
           w2ui['menu'].add('inactiveVessels', { id: item.vessel,
-                                                text: item.vessel,
+                                                text: item.vessel + " (0)",
                                                 img: 'icon-folder',
                                                 count: null });
         }
@@ -301,7 +328,7 @@ function filterInactiveMenu(id) {
     ops.craftsMenu.sort(function(a,b) { return (a.end > b.end) ? 1 : ((b.end > a.end) ? -1 : 0); });
     ops.craftsMenu.forEach(function(item) {
       if (currSOI(item)[0] == -1) {
-        if (item.vessel != "null") addVesselByDate(item, item.vessel)
+        if (item.vessel != "null") addVesselByDate(item, item.vessel, false)
       }
     });
   } else if (currOption == "program") {
@@ -312,7 +339,7 @@ function filterInactiveMenu(id) {
       if (currSOI(item)[0] == -1) {
         if (item.program != "null" && !w2ui['menu'].find('inactiveVessels', { id: item.program }).length) {
           w2ui['menu'].add('inactiveVessels', { id: item.program,
-                                                text: item.program,
+                                                text: item.program + " (0)",
                                                 img: 'icon-folder',
                                                 count: null });
         }
@@ -328,19 +355,16 @@ function filterInactiveMenu(id) {
 
     // sort by start date to add vessels
     ops.craftsMenu.sort(function(a,b) { return (a.start > b.start) ? 1 : ((b.start > a.start) ? -1 : 0); });
+    console.log(ops.craftsMenu)
     ops.craftsMenu.forEach(function(item) {
-      if (currSOI(item)[0] == -1) {
-        if (item.program != "null") addVesselByDate(item)
-      }
+      if (currSOI(item)[0] == -1) addVesselByDate(item)
     });
   } else if (currOption == "end") {
 
-    // sort by start date to add vessels
+    // sort by end date to add vessels
     ops.craftsMenu.sort(function(a,b) { return (a.end > b.end) ? 1 : ((b.end > a.end) ? -1 : 0); });
     ops.craftsMenu.forEach(function(item) {
-      if (currSOI(item)[0] == -1) {
-        if (item.program != "null") addVesselByDate(item)
-      }
+      if (currSOI(item)[0] == -1) addVesselByDate(item)
     });
   } else if (currOption == "body") {
 
@@ -350,7 +374,7 @@ function filterInactiveMenu(id) {
       if (currSOI(item)[0] == -1) {
         if (item.bodyRef != "null" && !w2ui['menu'].find('inactiveVessels', { id: "refNum" + item.bodyRef }).length) {
           w2ui['menu'].add('inactiveVessels', { id: "refNum" + item.bodyRef,
-                                                text: ops.bodyCatalog.find(o => o.ID === item.bodyRef).Body,
+                                                text: ops.bodyCatalog.find(o => o.ID === item.bodyRef).Body + " (0)",
                                                 img: 'icon-body',
                                                 count: null });
         }
@@ -358,9 +382,7 @@ function filterInactiveMenu(id) {
     });
     ops.craftsMenu.sort(function(a,b) { return (a.end > b.end) ? 1 : ((b.end > a.end) ? -1 : 0); });
     ops.craftsMenu.forEach(function(item) {
-      if (currSOI(item)[0] == -1) {
-        if (item.program != "null") addVesselByDate(item, "refNum" + item.bodyRef)
-      }
+      if (currSOI(item)[0] == -1) addVesselByDate(item, "refNum" + item.bodyRef)
     });
   }
   w2ui['menu'].refresh();
@@ -372,6 +394,9 @@ function filterCrewMenu(id) {
   // if a value was passed in, enable that radio option before we check to see what is selected
   if (id) $('input:radio[name=roster]').filter('[id=' + id + ']').prop('checked', true);
   var currOption = $("input[name=roster]").filter(":checked").val();
+
+  // reset the count to 0
+  w2ui['menu'].get('crew').text = "Crew Roster (0)";
 
   // remove all but the first node
   if (w2ui['menu'].get('crew').nodes.length > 1) {
@@ -389,11 +414,13 @@ function filterCrewMenu(id) {
     // https://stackoverflow.com/questions/1129216/sort-array-of-objects-by-string-property-value-in-javascript
     ops.crewMenu.sort(function(a,b) { return (a.name > b.name) ? 1 : ((b.name > a.name) ? -1 : 0); });
     ops.crewMenu.forEach(function(item) {
+      var folderID = null;
       if (item.UT <= currUT()) {
         if (item.name.charAt(0) <= "F") {
+          folderID = 'a-f';
           if (!w2ui['menu'].find('crew', { id: 'a-f' }).length) {
             w2ui['menu'].add('crew', { id: 'a-f',
-                                       text: "A - F",
+                                       text: "A - F (0)",
                                        img: 'icon-folder' });
           }
           w2ui['menu'].add('a-f', { id: item.db,
@@ -401,9 +428,10 @@ function filterCrewMenu(id) {
                                     img: 'icon-crew' });
           if (item.badged) badgeMenuItem(item.db, true, true);
         } else if (item.name.charAt(0) <= "L") {
+          folderID = 'g-l';
           if (!w2ui['menu'].find('crew', { id: 'g-l' }).length) {
             w2ui['menu'].add('crew', { id: 'g-l',
-                                       text: "G - L",
+                                       text: "G - L (0)",
                                        img: 'icon-folder' });
           }
           w2ui['menu'].add('g-l', { id: item.db,
@@ -411,9 +439,10 @@ function filterCrewMenu(id) {
                                     img: 'icon-crew' });
           if (item.badged) badgeMenuItem(item.db, true, true);
         } else if (item.name.charAt(0) <= "R") {
+          folderID = 'm-r';
           if (!w2ui['menu'].find('crew', { id: 'm-r' }).length) {
             w2ui['menu'].add('crew', { id: 'm-r',
-                                       text: "M - R",
+                                       text: "M - R (0)",
                                        img: 'icon-folder' });
           }
           w2ui['menu'].add('m-r', { id: item.db,
@@ -421,9 +450,10 @@ function filterCrewMenu(id) {
                                     img: 'icon-crew' });
           if (item.badged) badgeMenuItem(item.db, true, true);
         } else {
+          folderID = 's-z';
           if (!w2ui['menu'].find('crew', { id: 's-z' }).length) {
             w2ui['menu'].add('crew', { id: 's-z',
-                                       text: "S - Z",
+                                       text: "S - Z (0)",
                                        img: 'icon-folder' });
           }
           w2ui['menu'].add('s-z', { id: item.db,
@@ -431,6 +461,7 @@ function filterCrewMenu(id) {
                                     img: 'icon-crew' });
           if (item.badged) badgeMenuItem(item.db, true, true);
         }
+        updateFolderCount(folderID);
       }
     });
   } else if (currOption == "status") {
@@ -441,7 +472,7 @@ function filterCrewMenu(id) {
       if (item.UT <= currUT()) {
         if (!w2ui['menu'].find('crew', { id: item.status }).length) {
           w2ui['menu'].add('crew', { id: item.status,
-                                     text: item.status,
+                                     text: item.status + " (0)",
                                      img: 'icon-folder' });
         }
       }
@@ -453,6 +484,7 @@ function filterCrewMenu(id) {
                                         text: "<span>" + item.name + " Kerman</span>",
                                         img: 'icon-crew' });
         if (item.badged) badgeMenuItem(item.db, true, true);
+        updateFolderCount(item.status);
       }
     });
   } else if (currOption == "rank") {
@@ -461,7 +493,7 @@ function filterCrewMenu(id) {
       if (item.UT <= currUT()) {
         if (!w2ui['menu'].find('crew', { id: item.rank }).length) {
           w2ui['menu'].add('crew', { id: item.rank,
-                                     text: item.rank,
+                                     text: item.rank + " (0)",
                                      img: 'icon-folder' });
         }
       }
@@ -473,6 +505,7 @@ function filterCrewMenu(id) {
                                       text: "<span>" + item.name + " Kerman</span>",
                                       img: 'icon-crew' });
         if (item.badged) badgeMenuItem(item.db, true, true);
+        updateFolderCount(item.rank);
       }
     });
   } else if (currOption == "assignment") {
@@ -481,7 +514,7 @@ function filterCrewMenu(id) {
       if (item.UT <= currUT()) {
         if (item.assignment && !w2ui['menu'].find('crew', { id: item.assignment }).length) {
           w2ui['menu'].add('crew', { id: item.assignment,
-                                     text: item.assignment,
+                                     text: item.assignment + " (0)",
                                      img: 'icon-folder' });
         }
       }
@@ -494,10 +527,12 @@ function filterCrewMenu(id) {
                                               text: "<span>" + item.name + " Kerman</span>",
                                               img: 'icon-crew' });
           if (item.badged) badgeMenuItem(item.db, true, true);
+          updateFolderCount(item.assignment);
         }
       }
     });
   }
+  w2ui['menu'].refresh();
   
   // if we are looking at the full crew roster, refresh the view
   // this may place an extra call to the first crew member if loading initially to full roster page but does no harm
@@ -691,10 +726,11 @@ function addMenuItem(item, newAdd = false) {
     item.badged = true;
     filterInactiveMenu();
 
-    // remove this from the active vessels list if it's on there
+    // remove this from the active vessels list if it's on there and update the counts
     for (vessIndex=0; vessIndex<ops.activeVessels.length; vessIndex++) {
       if (ops.activeVessels[vessIndex].db == item.db) {
         ops.activeVessels.splice(vessIndex, 1);
+        activeVesselCount()
         break;
       }
     }
@@ -802,10 +838,10 @@ function showParents(node) {
 }
 
 // takes a craftsMenu item and adds it to the appropriate parent folder depending on the sort option chosen
-function addVesselByDate(item, parentFolder = "inactiveVessels") {
+function addVesselByDate(item, parentFolder = "inactiveVessels", addMonths = true) {
 
   // get the current filter type to determine the wrap width
-  if ($("input[name=inactive]").filter(":checked").val() == "start" || $("input[name=inactive]").filter(":checked").val() == "end") {
+  if ($("input[name=inactive]").filter(":checked").val() == "vessel" || $("input[name=inactive]").filter(":checked").val() == "start" || $("input[name=inactive]").filter(":checked").val() == "end") {
     var wrapLimit = 210;
   } else {
     var wrapLimit = 180;
@@ -813,6 +849,7 @@ function addVesselByDate(item, parentFolder = "inactiveVessels") {
 
   // get the date for this vessel and extract the month and year
   var dateUT = UTtoDateTime(item.end, true).split("@")[0];
+  if ($("input[name=inactive]").filter(":checked").val() == "start") dateUT = UTtoDateTime(item.start, true).split("@")[0];
   var month = dateUT.split("/")[0];
   var year = dateUT.split("/")[2];
   
@@ -828,7 +865,7 @@ function addVesselByDate(item, parentFolder = "inactiveVessels") {
     for (index=0; index<menuNodes.length; index++) {
       if (parseInt(menuNodes[index].text) < parseInt(year)) {
         w2ui['menu'].insert(parentFolder, menuNodes[index].id, { id: parentFolder + year,
-                                                                 text: year,
+                                                                 text: year + "(0)",
                                                                  img: 'icon-folder',
                                                                  count: null });
         break;
@@ -836,45 +873,63 @@ function addVesselByDate(item, parentFolder = "inactiveVessels") {
     }
     if (index == menuNodes.length) {
       w2ui['menu'].add(parentFolder, { id: parentFolder + year,
-                                       text: year,
+                                       text: year + "(0)",
                                        img: 'icon-folder', 
                                        count: null });
     }
   }
 
-  // if this month does not have a menu entry, insert one
-  // sort ascending
-  if (!w2ui['menu'].find(parentFolder + year, { id: parentFolder + year + '-' + month }).length) {
-    menuNodes = w2ui['menu'].get(parentFolder, parentFolder + year).nodes;
-    for (index=0; index<menuNodes.length; index++) {
-      if (parseInt(menuNodes[index].id.split("-")[1]) > parseInt(month)) {
-        w2ui['menu'].insert(parentFolder + year, menuNodes[index].id, { id: parentFolder + year + '-' + month,
-                                                                        text: monthNames[month-1],
-                                                                        img: 'icon-folder',
-                                                                        count: null });
-        break;
+  if (addMonths) {
+
+    // if this month does not have a menu entry, insert one
+    // sort ascending
+    if (!w2ui['menu'].find(parentFolder + year, { id: parentFolder + year + '-' + month }).length) {
+      menuNodes = w2ui['menu'].get(parentFolder, parentFolder + year).nodes;
+      for (index=0; index<menuNodes.length; index++) {
+        if (parseInt(menuNodes[index].id.split("-")[1]) > parseInt(month)) {
+          w2ui['menu'].insert(parentFolder + year, menuNodes[index].id, { id: parentFolder + year + '-' + month,
+                                                                          text: monthNames[month-1] + " (0)",
+                                                                          img: 'icon-folder',
+                                                                          count: null });
+          break;
+        }
+      }
+      if (index == menuNodes.length) {
+        w2ui['menu'].add(parentFolder + year, { id: parentFolder + year + '-' + month,
+                                                text: monthNames[month-1] + " (0)",
+                                                img: 'icon-folder',
+                                                count: null });
       }
     }
-    if (index == menuNodes.length) {
-      w2ui['menu'].add(parentFolder + year, { id: parentFolder + year + '-' + month,
-                                              text: monthNames[month-1],
-                                              img: 'icon-folder',
-                                              count: null });
-    }
-  }
   
-  // add the vessel to this month/year
-  // and decide whether to highlight this menu item
-  w2ui['menu'].add(parentFolder + year + '-' + month, { id: item.db,
-                                                        text: "<span>" + wrapText(wrapLimit, currName(item), 14) + "</span>",
-                                                        img: 'icon-' + item.type,
-                                                        count: null });
+    // add the vessel to this month/year
+    w2ui['menu'].add(parentFolder + year + '-' + month, { id: item.db,
+                                                          text: "<span>" + wrapText(wrapLimit, currName(item), 14) + "</span>",
+                                                          img: 'icon-' + item.type,
+                                                          count: null });
+    updateFolderCount(parentFolder + year + '-' + month);
+  }
+
+  // otherwise just add to the year
+  else {
+    w2ui['menu'].add(parentFolder + year, { id: item.db,
+                                            text: "<span>" + wrapText(wrapLimit, currName(item), 14) + "</span>",
+                                            img: 'icon-' + item.type,
+                                            count: null });    
+    updateFolderCount(parentFolder + year);
+  }
+
+  // decide whether to highlight this menu item
   if (item.badged) badgeMenuItem(item.db, true, true);
 }
 
 // selects the item from the menu and also makes sure to remove any badges
 function selectMenuItem(menuID) {
   var menuNode = w2ui['menu'].get(menuID);
+  if (!menuNode) {
+    console.log("improper menu id: " + menuID);
+    return;
+  }
   w2ui['menu'].select(menuID);
   w2ui['menu'].expandParents(menuID);
   w2ui['menu'].scrollIntoView(menuID);
@@ -886,4 +941,47 @@ function selectMenuItem(menuID) {
     w2ui['menu'].refresh();
     w2ui['menu'].scrollIntoView(menuNode.id);
   }
+}
+
+// iterate up through the parents to add a value to the number count
+function updateFolderCount(folderID) {
+  var nodeObj = w2ui['menu'].get(folderID);
+
+  // get the current count number for the folder, inside (), and increment it then plug it back in
+  var countVal = parseInt(nodeObj.text.split("(")[1].split(")")[0]);
+  countVal++;
+  nodeObj.text = nodeObj.text.split("(")[0] + "(" + countVal + ")";
+
+  // keep going if there is a parent folder
+  if (nodeObj.parent.name == "menu") return;
+  else updateFolderCount(nodeObj.parent.id);
+}
+
+// determine what type the vessel currently is by starting from the end of the possibilites and working back until we find one within the current UT
+// or if there is only one possibility just return that straight away
+function currType(strType) {
+  var types = strType.split("|");
+  if (types.length > 1) {
+    for (index=types.length-1; index>=0; index--) {
+      if (types[index].split(";")[0] <= currUT()) return types[index].split(";")[1];
+    }
+  } else return strType;
+}
+
+// updates the numbers shown for vessels in a system
+function activeVesselCount() {
+  w2ui['menu'].get("activeVessels").text = "Active Vessels";
+  var menuNodes = w2ui['menu'].find('activeVessels', { hidden: false });
+  menuNodes.forEach(function(item) {
+    if (item.text.includes("(")) item.text = item.text.split("(")[0].trim();
+    if (item.img != "icon-body") increaseCount(item);
+  });
+}
+function increaseCount(node) {
+  if (node.parent && (node.parent.img == "icon-body" || node.parent.id == "activeVessels")) {
+    if (!node.parent.text.includes("(")) node.parent.text += " (0)";
+    node.parent.text = node.parent.text.split("(")[0] + "(" + (parseInt(node.parent.text.split("(")[1].split(")")[0]) + 1) + ")";
+  }
+  if (node.parent) increaseCount(node.parent);
+  else return;
 }

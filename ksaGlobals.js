@@ -4,7 +4,7 @@
 var ops = {
   clock: new Date(),      // saves the time at which the page was loaded
   UT: null,               // assigned the current time on page load then used with currUT() to get the current time
-  UTC: 4,                 // time zone DST UTC offset, set at page load
+  UTC: 5,                 // time zone DST UTC offset, set at page load
   tickDelta: 0,           // number of seconds since the page was loaded
   
   pageType: null,         // defines the type of data being shown - body, vessel, crew or crewFull for the entire roster. set only by swapContent() whenever a page type change is needed
@@ -64,6 +64,7 @@ var ops = {
                             // CraftData: {}          all Craft Data table record fields from Vessel DB along with
                               // pastEvent              - whether the current loaded event was from a UT before the current time
                               // prevContent            - what was loaded from the last update to prevent unecessary refreshes
+                              // prevEph                - what was the orbital timestamp from the last update to trigger new calculations
                             // History: []            all records from Craft Data table UT & CraftDescTitle fields from Vessel DB
                             // LaunchTimes: []        all records from Launch Times table from Vessel DB
                             // Manifest: {}           all Manifest table fields from Vessel DB plus
@@ -87,10 +88,11 @@ var ops = {
     telemetry: []           // the second-by-second data for the ascent
   },
   surface: {              // contains anything related to the surface map
-    map: null,              // leaflet object reference
-    Data: {},               // contains record fields for the current UT from the Maps DB of the current body
-    layerControl: null,     // contains the instance of the Leaflet layer control that shows various map markers and paths
-    isLoading: false        // whether an ajax call to load map data is awaiting a response or not
+    map: null,                    // leaflet object reference
+    Data: {},                     // contains record fields for the current UT from the Maps DB of the current body
+    layerControl: null,           // contains the instance of the Leaflet layer control that shows various map markers and paths
+    isLoading: false,             // whether an ajax call to load map data is awaiting a response or not
+    loadingLayer: L.layerGroup()  // general message in layers box that new map data is being requested
   }
 }
 
@@ -108,6 +110,10 @@ var mapDialogDelay;
 
 // used to ensure the GGB figure does not declutter too fast - resets the 5s timer on each new GGB load if timer is running
 var timeoutHandle;
+
+// used to cancel auto event refresh events if an update is done while it is running
+var launchRefreshTimeout = null;
+var maneuverRefreshTimeout = null;
 
 // contains the instance of the Leaflet UI button for resizing the map (in vessel view)
 var mapResizeButton;
@@ -211,6 +217,9 @@ var menuSaveSelected = null;
 // handle of the interval() call to automatically update the flight timeline data popup
 var flightTimelineInterval = null;
 
+// handle for updating the caption of the vessel image
+var vesselImgTimeout = null;
+
 // handle to the timer that maintains ascent interpolation FPS so it can be cancelled when needed
 // make a part of ascent structure
 var ascentInterpTimeout = null;
@@ -253,9 +262,9 @@ var isMapFullscreen = false;
 // whether the ascent data playback is paused or not
 var isAscentPaused = false;
 
-// number of ms from 1970/01/01 to 2016/09/13
+// number of ms from 1970/01/01 to 2016/09/13 = 1473739200000
 // used as a base when calculating time since KSA began
-var foundingMoment = 1473739200000;
+var foundingMoment = luxon.DateTime.fromISO("2016-09-13T04:00:00-00:00", { setZone: true });
 
 // the current rotation angle of the vessel if its static image can be spun
 var vesselRotationIndex = 0;
@@ -304,10 +313,18 @@ var strTinyBodyLabel = "";
 // make a property of bodies so it can be flagged as current
 var strActiveAscent = "";
 
+// contains the instances of the circle objects for a vessel's view horizon of the body
+var vesselHorizon = {
+  vessel: null,
+  eastWest: null,
+  northSouth: null
+};
+
 // contains the ids of bodies that need orbits plotted for the surface map and also the paths calculated for the body
 var bodyPaths = {
   bodyName: "",
-  paths: []
+  paths: [],
+  layers: []
 };
 
 // defines the color of the surface path or GGB orbit that associates with a type of vessel

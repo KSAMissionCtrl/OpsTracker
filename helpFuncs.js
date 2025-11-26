@@ -38,11 +38,11 @@ String.prototype.width = function(font) {
 
 // call up an AJAX query and assign it to a callback function
 // https://www.w3schools.com/xml/ajax_xmlhttprequest_response.asp
-function loadDB(url, cFunction) {
+function loadDB(url, cFunction, data) {
   console.log(url);
   var xhttp;
   xhttp=new XMLHttpRequest();
-  xhttp.onreadystatechange = function() { if (this.readyState == 4 && this.status == 200) cFunction(this); };
+  xhttp.onreadystatechange = function() { if (this.readyState == 4 && this.status == 200) cFunction(this, data); };
   xhttp.open("GET", url, true);
   xhttp.send();
 }
@@ -50,7 +50,8 @@ function loadDB(url, cFunction) {
 // take an amount of time in seconds and convert it to years, days, hours, minutes and seconds
 // leave out any values that are not necessary (0y, 0d won't show, for example)
 // give seconds to 3 significant digits if precision is true
-function formatTime(time, precision = false) {
+// format allows to include spaces between hms ( ) and a leading 0 for seconds (0)
+function formatTime(time, precision = false, format = "0 ") {
   var years = 0;
   var days = 0;
   var hours = 0;
@@ -74,13 +75,15 @@ function formatTime(time, precision = false) {
   if (time >= 3600) {
     hours = Math.floor(time / 3600);
     time -= hours * 3600;
-    ydhms += hours + "h ";
+    if (format.includes(" ")) ydhms += hours + "h ";
+    else ydhms += hours + "h";
   }
 
   if (time >= 60) {
     minutes = Math.floor(time / 60);
     time -= minutes * 60;
-    ydhms += minutes + "m ";
+    if (format.includes(" ")) ydhms += minutes + "m ";
+    else ydhms += minutes + "m";
   }
   
   if (precision) {
@@ -89,7 +92,7 @@ function formatTime(time, precision = false) {
     time = Math.floor(time);
   }
   
-  if ( time < 10) {
+  if ( time < 10 && format.includes("0")) {
     seconds = "0" + time
   }
   else seconds = time;
@@ -99,25 +102,23 @@ function formatTime(time, precision = false) {
 
 // take a date object of a given time and output "mm/dd/yyyy hh:mm:ss"
 function formatDateTime(time) {
-  var hours = time.getUTCHours(); 
-  var day = time.getUTCDate();
+  var hours = time.hour; 
+  var day = time.day;
   if (hours < 0) hours += 24;
   if (hours < 10) hours = "0" + hours;
-  var minutes = time.getUTCMinutes();
+  var minutes = time.minute;
   if (minutes < 10) minutes = "0" + minutes;
-  var seconds = time.getUTCSeconds();
+  var seconds = time.second;
   if (seconds < 10) seconds = "0" + seconds;
-  return ((time.getUTCMonth()+1) + '/' + day + '/' + time.getUTCFullYear() + ' @ ' + hours + ':' + minutes + ':' + seconds);
+  return ((time.month) + '/' + day + '/' + time.year + ' @ ' + hours + ':' + minutes + ':' + seconds);
 }
 
 // convert a given game UT time into the equivalent "mm/dd/yyyy hh:mm:ss" in UTC
 function UTtoDateTime(setUT, local = false, fullYear = true) {
-  var d = new Date();
-  d.setTime(foundingMoment + (setUT * 1000));
-  if (d.toString().includes("Standard")) d.setTime(foundingMoment + ((setUT + 3600) * 1000));
+  var d = foundingMoment.plus({seconds: setUT});
 
-  // if we ask for local time, apply the proper UTC offset
-  if (local) d.setUTCHours(d.getUTCHours() - ops.UTC);
+  // if we ask for KSC time, apply the proper UTC offset
+  if (local) d = d.setZone("America/New_York");
   
   // take off the first two digits of the year?
   if (!fullYear) {
@@ -132,16 +133,14 @@ function UTtoDateTime(setUT, local = false, fullYear = true) {
 
 // convert a given game UT time into the local date time for the end user
 function UTtoDateTimeLocal(setUT) {
-  var d = new Date();
-  d.setTime(foundingMoment + (setUT * 1000));
-  if (d.toString().includes("Standard")) d.setTime(foundingMoment + ((setUT + 3600) * 1000));
-  return d.toString();
+  var d = foundingMoment.plus({seconds: setUT}).toLocal();
+  return d.toLocaleString(luxon.DateTime.DATETIME_HUGE_WITH_SECONDS);
 }
 
 // convert a given date object to game UT
 function dateObjtoUT(dateTime) {
   var setUT = ((dateTime.getTime() - foundingMoment) / 1000);
-  if (dateTime.toString().includes("Standard")) setUT += 3600;
+  if (ops.UTC == 5) setUT += 3600;
   return setUT;
 }
 
@@ -185,6 +184,13 @@ function hexToRgb(hex) {
     g: parseInt(result[2], 16),
     b: parseInt(result[3], 16)
   } : null;
+}
+function componentToHex(c) {
+  var hex = c.toString(16);
+  return hex.length == 1 ? "0" + hex : hex;
+}
+function rgbToHex(r, g, b) {
+  return "#" + componentToHex(r) + componentToHex(g) + componentToHex(b);
 }
 
 // put all the fields from a recordset into an object
@@ -294,7 +300,7 @@ function flashUpdate(element, startColor, endColor) {
 Math.radians = function(degrees) { return degrees * Math.PI / 180; };
 Math.degrees = function(radians) { return radians * 180 / Math.PI; };
 
-// recursive function to shorten text word by word until it all fits on two or more lines
+// recursive function to shorten text word by word until it all fits on two lines
 function wrapText(limit, strText, fontSize) {
 
   // check if the text is too long for the length limit
