@@ -1,19 +1,20 @@
+<!--#include file="aspUtils.asp"-->
 <%
 response.expires=-1
+Call SetSecurityHeaders()
 
-'convert the text string into a number
-UT = int(request.querystring("ut") * 1)
+' Validate inputs
+Dim validatedUT
+validatedUT = ValidateUT(request.querystring("ut"))
 
-'open catalog database. "db" was prepended because without it for some reason I had trouble connecting
-db = "..\..\database\dbCatalog.mdb"
-Dim conn
-Set conn = Server.CreateObject("ADODB.Connection")
-sConnection = "Provider=Microsoft.Jet.OLEDB.4.0;" & _
+If validatedUT = -1 Then
+    Call SendErrorResponse("Invalid parameters")
+End If
 
-              "Data Source=" & server.mappath(db) &";" & _
+UT = validatedUT
 
-              "Persist Security Info=False"
-conn.Open(sConnection)
+'open catalog database using utility function
+Set conn = GetCatalogConnection()
 
 'create and open the tables
 set rsCrafts = Server.CreateObject("ADODB.recordset")

@@ -1,15 +1,23 @@
+<!--#include file="aspUtils.asp"-->
 <%
 response.expires=-1
+Call SetSecurityHeaders()
 flightDataStr = ""
 
-'open the database. "db" was prepended because without it for some reason I had trouble connecting
-db = "..\..\database\dbFlt" & request.querystring("data") & ".mdb"
+' Validate inputs
+Dim dataName
+dataName = ValidateDBName(request.querystring("data"))
+
+If dataName = "" Then
+    Call SendErrorResponse("Invalid parameters")
+End If
+
+'open the database using validated input
+db = "..\..\database\dbFlt" & dataName & ".mdb"
 Dim connFlight
 Set connFlight = Server.CreateObject("ADODB.Connection")
 sConnection = "Provider=Microsoft.Jet.OLEDB.4.0;" & _
-
               "Data Source=" & server.mappath(db) &";" & _
-
               "Persist Security Info=False"
 connFlight.Open(sConnection)
 
@@ -43,6 +51,6 @@ loop
 
 connFlight.Close
 Set connFlight = nothing
-flightDataStr = flightDataStr & "^" & request.querystring("data")
+flightDataStr = flightDataStr & "^" & dataName
 response.write flightDataStr
 %>

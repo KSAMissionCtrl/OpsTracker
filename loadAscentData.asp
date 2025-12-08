@@ -1,16 +1,18 @@
+<!--#include file="aspUtils.asp"-->
 <%
 response.expires=-1
+Call SetSecurityHeaders()
 
-'get ascent data from the vessel database
-db = "..\..\database\db" & request.querystring("db") & ".mdb"
-Dim conn2
-Set conn2 = Server.CreateObject("ADODB.Connection")
-sConnection2 = "Provider=Microsoft.Jet.OLEDB.4.0;" & _
+' Validate inputs
+Dim dbName
+dbName = ValidateDBName(request.querystring("db"))
 
-              "Data Source=" & server.mappath(db) &";" & _
+If dbName = "" Then
+    Call SendErrorResponse("Invalid parameters")
+End If
 
-              "Persist Security Info=False"
-conn2.Open(sConnection2)
+'get ascent data from the vessel database using utility function
+Set conn2 = GetIndividualDBConnection(dbName)
 
 'create the tables
 set rsAscentData = Server.CreateObject("ADODB.recordset")

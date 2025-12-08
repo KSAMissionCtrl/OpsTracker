@@ -1,4 +1,7 @@
 // refactor complete
+// SECURITY: All user-supplied data from database is sanitized with sanitizeHTML()
+// before insertion into DOM to prevent XSS attacks. Use sanitizeHTML() for any
+// new code that inserts database content into HTML.
 
 function loadVessel(vessel, givenUT) {
   if (!givenUT || givenUT < 0) givenUT = currUT();
@@ -288,8 +291,8 @@ function vesselInfoUpdate(update) {
   }
 
   // setup the basics
-  $("#infoImg").html("<img src='" + getVesselImage() + "'>");
-  $("#infoTitle").html(ops.currentVessel.CraftData.CraftDescTitle);
+  $("#infoImg").html("<img src='" + sanitizeHTML(getVesselImage()) + "'>");
+  $("#infoTitle").html(sanitizeHTML(ops.currentVessel.CraftData.CraftDescTitle));
   $("#infoTitle").attr("class", "infoTitle vessel");
 
   // fix any mistakes that may have worked their way into several vessel updates
@@ -827,11 +830,11 @@ function vesselContentUpdate(update) {
         
         // two images?
         if (data[1].includes(".png")) {
-          $("#content").html("<div class='fullCenter'><img width='475' class='contentTip' style='cursor: help' title='Ecliptic View<br>Dynamic orbit unavailable - viewing old data' src='" + data[0] + "'>&nbsp;<img width='475' class='tipped' data-tipped-options=\"target: 'mouse'\"  style='cursor: help' title='Polar View<br>Dynamic orbit unavailable - viewing old data' src='" + data[1] + "'></div>");
+          $("#content").html("<div class='fullCenter'><img width='475' class='contentTip' style='cursor: help' title='Ecliptic View<br>Dynamic orbit unavailable - viewing old data' src='" + sanitizeHTML(data[0]) + "'>&nbsp;<img width='475' class='tipped' data-tipped-options=\"target: 'mouse'\"  style='cursor: help' title='Polar View<br>Dynamic orbit unavailable - viewing old data' src='" + sanitizeHTML(data[1]) + "'></div>");
           
         // one image
         } else {
-          $("#content").html("<img class='fullCenter contentTip' style='cursor: help' title='" + data[1] + "' src='" + data[0] + "'>");
+          $("#content").html("<img class='fullCenter contentTip' style='cursor: help' title='" + sanitizeHTML(data[1]) + "' src='" + sanitizeHTML(data[0]) + "'>");
         }
         $("#content").fadeIn();
       }
@@ -946,6 +949,14 @@ function showInfoDialog() {
 // provides full details for all vessel parts, ensures the parts catalog is loaded
 function assignPartInfo() {
   if (!partsCatalog.length) return setTimeout(assignPartInfo, 100);
+  
+  // Clean up old part tooltips before creating new ones
+  try {
+    Tipped.remove('.imgmap');
+  } catch (error) {
+    // Ignore errors if tooltips don't exist yet
+  }
+  
   $(".imgmap").each(function() {
     var part = partsCatalog.find(o => o.Part === $(this).attr("id"));
 
@@ -1206,10 +1217,10 @@ function setupStreamingAscent() {
     }
 
     // update info box img and title
-    $("#infoImg").html("<img src='" + ops.activeAscentFrame.img + "'>");
+    $("#infoImg").html("<img src='" + sanitizeHTML(ops.activeAscentFrame.img) + "'>");
     $("#infoTitle").attr("class", "infoTitle vessel");
     $("#infoTitle").css("cursor", "auto");
-    $("#infoTitle").html(ops.activeAscentFrame.event);
+    $("#infoTitle").html(sanitizeHTML(ops.activeAscentFrame.event));
   
   // otherwise just update with the current status
   } else vesselInfoUpdate();
@@ -1513,7 +1524,7 @@ function updateAscentData(clamp) {
         }
       }
     }
-    $("#infoImg").html("<img src='" + ops.activeAscentFrame.img + "'>");
+    $("#infoImg").html("<img src='" + sanitizeHTML(ops.activeAscentFrame.img) + "'>");
     if (ops.ascentData.telemetry[ops.activeAscentFrame.ascentIndex].Event) {
       ops.activeAscentFrame.event = ops.ascentData.telemetry[ops.activeAscentFrame.ascentIndex].Event;
       flashUpdate("#infoTitle", "#77C6FF", "#000000");
@@ -1688,6 +1699,7 @@ function updateAscentData(clamp) {
 
     // call ourselves again at the proper FPS interval, taking into account the time we just used up
     ascentInterpTimeout = setTimeout(updateAscentData, (1000/ops.activeAscentFrame.FPS) - diff);
+    KSA_TIMERS.ascentInterpTimeout = ascentInterpTimeout;
     ops.activeAscentFrame.interpCount++;
   }
 

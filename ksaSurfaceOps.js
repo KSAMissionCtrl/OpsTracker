@@ -1959,6 +1959,7 @@ function prevFltData() {
   // otherwise start the playback
   } else {
     flightTimelineInterval = setInterval(prevFltDataOnce, 1000);
+    KSA_TIMERS.flightTimelineInterval = flightTimelineInterval;
     prevFltDataOnce();
     $("#prevFltData").html("XX");
     $("#nextFltData").html(">>");
@@ -1997,6 +1998,7 @@ function nextFltData() {
   // otherwise start the playback
   } else {
     flightTimelineInterval = setInterval(nextFltDataOnce, 1000);
+    KSA_TIMERS.flightTimelineInterval = flightTimelineInterval;
     nextFltDataOnce();
     $("#nextFltData").html("XX");
     $("#prevFltData").html("<<");

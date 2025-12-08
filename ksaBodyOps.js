@@ -1,4 +1,7 @@
 // refactor complete
+// SECURITY: All user-supplied data from database is sanitized with sanitizeHTML()
+// before insertion into DOM to prevent XSS attacks. Use sanitizeHTML() for any
+// new code that inserts database content into HTML.
 
 // load a new GeoGebra figure into the main content window
 function loadBody(body, flt) {
@@ -22,8 +25,8 @@ function loadBody(body, flt) {
 
     // default to kerbol system
     if (!body || !body.length) body = "Kerbol-System";
-    $("#contentHeader").html(body.replace("-", " "));
-    document.title = "KSA Operations Tracker" + " - " + body.replace("-", " ");
+    $("#contentHeader").html(sanitizeHTML(body.replace("-", " ")));
+    document.title = "KSA Operations Tracker" + " - " + sanitizeHTML(body.replace("-", " "));
     
     // if this is the first page to load, replace the current history
     // don't create a new entry if this is the same page being reloaded

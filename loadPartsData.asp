@@ -1,16 +1,10 @@
+<!--#include file="aspUtils.asp"-->
 <%
 response.expires=-1
+Call SetSecurityHeaders()
 
-'open catalog database. "db" was prepended because without it for some reason I had trouble connecting
-db = "..\..\database\dbCatalog.mdb"
-Dim connCatalog
-Set connCatalog = Server.CreateObject("ADODB.Connection")
-sConnection2 = "Provider=Microsoft.Jet.OLEDB.4.0;" & _
-
-              "Data Source=" & server.mappath(db) &";" & _
-
-              "Persist Security Info=False"
-connCatalog.Open(sConnection2)
+'open catalog database using utility function
+Set connCatalog = GetCatalogConnection()
 
 'create the tables
 set rsParts = Server.CreateObject("ADODB.recordset")

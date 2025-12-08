@@ -1,41 +1,41 @@
+<!--#include file="aspUtils.asp"-->
 <%
 response.expires=-1
+Call SetSecurityHeaders()
 output = ""
 
-'convert the text strings into numbers
-UT = int(request.querystring("ut") * 1)
+' Validate and sanitize inputs
+Dim dbName, validatedUT
+dbName = ValidateDBName(request.querystring("db"))
+validatedUT = ValidateUT(request.querystring("ut"))
 
-'open the catalog 
-db = "..\..\database\dbCatalog.mdb"
-Dim conn
-Set conn = Server.CreateObject("ADODB.Connection")
-sConnection = "Provider=Microsoft.Jet.OLEDB.4.0;" & _
+' Check for required parameters
+If dbName = "" Or validatedUT = -1 Then
+    Call SendErrorResponse("Invalid parameters")
+End If
 
-              "Data Source=" & server.mappath(db) &";" & _
+UT = validatedUT
 
-              "Persist Security Info=False"
-conn.Open(sConnection)
+' Open catalog database using utility function
+Set conn = GetCatalogConnection()
 
 'create and open the tables
 set rsCrew = Server.CreateObject("ADODB.recordset")
 
-'who are we loading
-rsCrew.open "select * from Crew where Kerbal='" & request.querystring("db") & "'", conn, 1, 1
+'who are we loading - using parameterized query
+Set cmd = Server.CreateObject("ADODB.Command")
+cmd.ActiveConnection = conn
+cmd.CommandText = "SELECT * FROM Crew WHERE Kerbal=?"
+cmd.Parameters.Append cmd.CreateParameter("@kerbal", 200, 1, 255, dbName)
+Set rsCrew = cmd.Execute
 for each field in rsCrew.fields
   output = output & replace(field.name, " ", "") & "~" & field.value & "`"
 next
 output = left(output, len(output)-1)
 output = output & "*"
 
-'get additional data from the individual database
-db = "..\..\database\db" & request.querystring("db") & ".mdb"
-Set conn = Server.CreateObject("ADODB.Connection")
-sConnection = "Provider=Microsoft.Jet.OLEDB.4.0;" & _
-
-              "Data Source=" & server.mappath(db) &";" & _
-
-              "Persist Security Info=False"
-conn.Open(sConnection)
+'get additional data from the individual database using utility function
+Set conn = GetIndividualDBConnection(dbName)
 
 'get the roster tables
 set rsKerbal = Server.CreateObject("ADODB.recordset")

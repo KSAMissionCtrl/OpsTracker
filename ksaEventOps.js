@@ -117,10 +117,25 @@ function writeLaunchInfo(data) {
         $("#metTip").html("launch time currently being assessed");
         if (is_touch_device()) { showOpt = 'click'; }
         else { showOpt = 'mouseenter'; }
+        
+        // Clean up old tooltip before creating new one to prevent memory leaks
+        try {
+          Tipped.remove('.tip-update');
+        } catch (error) {
+          // Ignore errors if tooltip doesn't exist yet
+        }
+        
         Tipped.create('.tip-update', { showOn: showOpt, hideOnClickOutside: is_touch_device(), detach: false, hideOn: {element: 'mouseleave'} });
       }
     }
     $("#launch").html(strHTML);
+    
+    // Clean up old tooltip before creating new one
+    try {
+      Tipped.remove('#launchLink');
+    } catch (error) {
+      // Ignore errors if tooltip doesn't exist yet
+    }
     
     // add an info tooltip
     Tipped.create("#launchLink", data.Desc, { offset: { y: -10 }, maxWidth: 150, position: 'top' });
@@ -165,6 +180,13 @@ function writeManeuverinfo(data) {
     strHTML += "<span id='maneuverCountdown'>" + formatTime(parseFloat(fields[1]) - (currUT())) + "</span>";
     maneuverCountdown = parseFloat(data[1]);
     $("#maneuver").html(strHTML);
+    
+    // Clean up old tooltip before creating new one to prevent memory leaks
+    try {
+      Tipped.remove('#maneuverLink');
+    } catch (error) {
+      // Ignore errors if tooltip doesn't exist yet
+    }
     
     // add an info tooltip
     Tipped.create("#maneuverLink", fields[4], { offset: { y: -10 }, maxWidth: 150, position: 'top' });

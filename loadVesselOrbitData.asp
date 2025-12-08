@@ -1,19 +1,21 @@
+<!--#include file="aspUtils.asp"-->
 <%
 response.expires=-1
+Call SetSecurityHeaders()
 
-'convert the text string into a number
-UT = int(request.querystring("ut") * 1)
+' Validate inputs
+Dim dbName, validatedUT
+dbName = ValidateDBName(request.querystring("db"))
+validatedUT = ValidateUT(request.querystring("ut"))
+
+If dbName = "" Or validatedUT = -1 Then
+    Call SendErrorResponse("Invalid parameters")
+End If
+
+UT = validatedUT
   
-'open catalog database. "db" was prepended because without it for some reason I had trouble connecting
-db = "..\..\database\db" & request.querystring("db") & ".mdb"
-Dim conn
-Set conn = Server.CreateObject("ADODB.Connection")
-sConnection = "Provider=Microsoft.Jet.OLEDB.4.0;" & _
-
-              "Data Source=" & server.mappath(db) &";" & _
-
-              "Persist Security Info=False"
-conn.Open(sConnection)
+'open database using utility function
+Set conn = GetIndividualDBConnection(dbName)
 
 'create the tables
 set rsOrbit = Server.CreateObject("ADODB.recordset")
@@ -33,7 +35,7 @@ if not rsOrbit.eof then
 end if
 
 'output the record in name/value pairs for each field if a record exists for this time period
-output = request.querystring("db") & "*"
+output = dbName & "*"
 if not rsOrbit.bof then
   for each field in rsOrbit.fields
     output = output & replace(field.name, " ", "") & "~" & field.value & "`"

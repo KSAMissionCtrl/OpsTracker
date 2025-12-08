@@ -1,48 +1,48 @@
+<!--#include file="aspUtils.asp"-->
 <%
 response.expires=-1
+Call SetSecurityHeaders()
 
-'convert the text strings into numbers
-UT = int(request.querystring("ut") * 1)
+' Validate and sanitize inputs
+Dim dbName, dbType, UT, pastUT, validatedUT
+dbName = ValidateDBName(request.querystring("db"))
+dbType = ValidateType(request.querystring("type"))
+validatedUT = ValidateUT(request.querystring("ut"))
+
+' Check for required parameters
+If dbName = "" Or dbType = "" Or validatedUT = -1 Then
+    Call SendErrorResponse("Invalid parameters")
+End If
+
+UT = validatedUT
 pastUT = -1
 
 'this used to do something but I can't figure out what the hell it was. Maybe not needed anymore
 'if request.querystring("pastUT") <> "NaN" then pastUT = int(request.querystring("pastUT") * 1)
 
 'header information that was passed in
-output = request.querystring("db") & "Typ3" & request.querystring("type")
+output = dbName & "Typ3" & dbType
 
-'have to open the catalog regardless
-db = "..\..\database\dbCatalog.mdb"
-Dim conn
-Set conn = Server.CreateObject("ADODB.Connection")
-sConnection = "Provider=Microsoft.Jet.OLEDB.4.0;" & _
-
-              "Data Source=" & server.mappath(db) &";" & _
-
-              "Persist Security Info=False"
-conn.Open(sConnection)
+' Open catalog database using utility function
+Set conn = GetCatalogConnection()
 
 'create and open the tables
 set rsCrafts = Server.CreateObject("ADODB.recordset")
 
-'begin loading
-rsCrafts.open "select * from Crafts where DB='" & request.querystring("db") & "'", conn, 1, 1
+'begin loading - using parameterized query
+Set cmd = Server.CreateObject("ADODB.Command")
+cmd.ActiveConnection = conn
+cmd.CommandText = "SELECT * FROM Crafts WHERE DB=?"
+cmd.Parameters.Append cmd.CreateParameter("@db", 200, 1, 255, dbName)
+Set rsCrafts = cmd.Execute
 for each field in rsCrafts.fields
   output = output & replace(field.name, " ", "") & "~" & field.value & "`"
 next
 output = left(output, len(output)-1)
 output = output & "*"
 
-'get additional data from the individual database
-db = "..\..\database\db" & request.querystring("db") & ".mdb"
-Dim conn2
-Set conn2 = Server.CreateObject("ADODB.Connection")
-sConnection2 = "Provider=Microsoft.Jet.OLEDB.4.0;" & _
-
-              "Data Source=" & server.mappath(db) &";" & _
-
-              "Persist Security Info=False"
-conn2.Open(sConnection2)
+'get additional data from the individual database using utility function
+Set conn2 = GetIndividualDBConnection(dbName)
 
 'create the tables
 set rsCraftData = Server.CreateObject("ADODB.recordset")

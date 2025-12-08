@@ -1,5 +1,138 @@
 // refactor complete
 
+// ==============================================================================
+// ERROR HANDLING UTILITIES
+// ==============================================================================
+
+/**
+ * Central error handler for logging and displaying errors
+ * @param {Error} error - The error object
+ * @param {string} context - Context where the error occurred
+ * @param {boolean} showUser - Whether to show error to user
+ */
+function handleError(error, context = 'Unknown', showUser = false) {
+  const errorMsg = `[${context}] ${error.message || error}`;
+  console.error(errorMsg, error);
+  
+  // Log stack trace if available
+  if (error.stack) {
+    console.error('Stack trace:', error.stack);
+  }
+  
+  // Optionally show user-friendly message
+  if (showUser) {
+    showUserError(`An error occurred: ${context}. Please try refreshing the page.`);
+  }
+  
+  // TODO: In production, send to error tracking service (e.g., Sentry)
+  // logErrorToServer(errorMsg, error.stack);
+}
+
+/**
+ * Displays error message to user
+ * @param {string} message - User-friendly error message
+ */
+function showUserError(message) {
+  // Could be enhanced with a modal or notification system
+  alert(message);
+}
+
+/**
+ * Safely parses JSON with error handling
+ * @param {string} jsonString - JSON string to parse
+ * @param {string} context - Context for error reporting
+ * @returns {object|null} Parsed object or null on error
+ */
+function safeJSONParse(jsonString, context = 'JSON Parse') {
+  try {
+    return JSON.parse(jsonString);
+  } catch (error) {
+    handleError(error, context);
+    return null;
+  }
+}
+
+/**
+ * Validates that a value is not null or undefined
+ * @param {*} value - Value to check
+ * @param {string} varName - Variable name for error message
+ * @param {string} context - Context for error reporting
+ * @returns {boolean} True if valid
+ */
+function validateNotNull(value, varName = 'value', context = 'Validation') {
+  if (value === null || value === undefined) {
+    handleError(new Error(`${varName} is null or undefined`), context);
+    return false;
+  }
+  return true;
+}
+
+/**
+ * Sanitizes HTML to prevent XSS attacks
+ * @param {string} html - HTML string to sanitize
+ * @returns {string} Sanitized HTML
+ */
+function sanitizeHTML(html) {
+  if (typeof html !== 'string') return '';
+  
+  const div = document.createElement('div');
+  div.textContent = html;
+  return div.innerHTML;
+}
+
+/**
+ * Safely sets text content (use instead of innerHTML when possible)
+ * @param {string} selector - jQuery selector
+ * @param {string} text - Text to set
+ */
+function safeSetText(selector, text) {
+  try {
+    $(selector).text(text || '');
+  } catch (error) {
+    handleError(error, `safeSetText: ${selector}`);
+  }
+}
+
+/**
+ * Safely sets HTML content with sanitization
+ * @param {string} selector - jQuery selector
+ * @param {string} html - HTML to set (will be sanitized)
+ */
+function safeSetHTML(selector, html) {
+  try {
+    // For security, prefer using text() when possible
+    // This function sanitizes but complex HTML may need DOMPurify library
+    $(selector).html(sanitizeHTML(html || ''));
+  } catch (error) {
+    handleError(error, `safeSetHTML: ${selector}`);
+  }
+}
+
+/**
+ * Builds HTML string from template safely
+ * Escapes all values to prevent XSS
+ * @param {string} template - Template string with placeholders
+ * @param {object} values - Object with values to substitute
+ * @returns {string} Sanitized HTML string
+ */
+function buildSafeHTML(template, values) {
+  try {
+    let result = template;
+    for (const [key, value] of Object.entries(values)) {
+      const placeholder = new RegExp(`{{${key}}}`, 'g');
+      result = result.replace(placeholder, sanitizeHTML(String(value)));
+    }
+    return result;
+  } catch (error) {
+    handleError(error, 'buildSafeHTML');
+    return '';
+  }
+}
+
+// ==============================================================================
+// EXISTING UTILITIES
+// ==============================================================================
+
 // https://stackoverflow.com/questions/11887934/how-to-check-if-the-dst-daylight-saving-time-is-in-effect-and-if-it-is-whats
 Date.prototype.stdTimezoneOffset = function () {
   var jan = new Date(this.getFullYear(), 0, 1);
@@ -18,33 +151,89 @@ function randomIntFromInterval(min, max) {
 // for retrieving URL query strings
 // http://stackoverflow.com/questions/901115/how-can-i-get-query-string-values-in-javascript
 function getParameterByName(name) {
-  name = name.replace(/[\[]/, "\\[").replace(/[\]]/, "\\]");
-  var regex = new RegExp("[\\?&]" + name + "=([^&#]*)"),
-      results = regex.exec(location.search);
-  return results === null ? "" : decodeURIComponent(results[1].replace(/\+/g, " "));
+  try {
+    name = name.replace(/[\[]/, "\\[").replace(/[\]]/, "\\]");
+    var regex = new RegExp("[\\?&]" + name + "=([^&#]*)"),
+        results = regex.exec(location.search);
+    return results === null ? "" : decodeURIComponent(results[1].replace(/\+/g, " "));
+  } catch (error) {
+    handleError(error, 'getParameterByName');
+    return "";
+  }
 }
 
 // calculate the width of text
 // https://stackoverflow.com/questions/118241/calculate-text-width-with-javascript
 String.prototype.width = function(font) {
-  var f = font || '12px arial',
-      o = $('<div>' + this + '</div>')
-            .css({'position': 'absolute', 'float': 'left', 'white-space': 'nowrap', 'visibility': 'hidden', 'font': f})
-            .appendTo($('body')),
-      w = o.width();
-  o.remove();
-  return w;
+  try {
+    var f = font || '12px arial',
+        o = $('<div>' + this + '</div>')
+              .css({'position': 'absolute', 'float': 'left', 'white-space': 'nowrap', 'visibility': 'hidden', 'font': f})
+              .appendTo($('body')),
+        w = o.width();
+    o.remove();
+    return w;
+  } catch (error) {
+    handleError(error, 'String.width');
+    return 0;
+  }
 }
 
-// call up an AJAX query and assign it to a callback function
-// https://www.w3schools.com/xml/ajax_xmlhttprequest_response.asp
+/**
+ * Call up an AJAX query and assign it to a callback function
+ * Enhanced with error handling
+ * @param {string} url - The URL to request
+ * @param {function} cFunction - Callback function on success
+ * @param {*} data - Optional data to pass to callback
+ */
 function loadDB(url, cFunction, data) {
   console.log(url);
   var xhttp;
-  xhttp=new XMLHttpRequest();
-  xhttp.onreadystatechange = function() { if (this.readyState == 4 && this.status == 200) cFunction(this, data); };
-  xhttp.open("GET", url, true);
-  xhttp.send();
+  
+  try {
+    xhttp = new XMLHttpRequest();
+    
+    xhttp.onreadystatechange = function() {
+      try {
+        if (this.readyState == 4) {
+          if (this.status == 200) {
+            cFunction(this, data);
+          } else if (this.status >= 400) {
+            handleError(
+              new Error(`HTTP ${this.status}: ${this.statusText}`),
+              `loadDB: ${url}`,
+              true
+            );
+          }
+        }
+      } catch (error) {
+        handleError(error, `loadDB callback: ${url}`, true);
+      }
+    };
+    
+    xhttp.onerror = function() {
+      handleError(
+        new Error('Network request failed'),
+        `loadDB: ${url}`,
+        true
+      );
+    };
+    
+    xhttp.ontimeout = function() {
+      handleError(
+        new Error('Request timeout'),
+        `loadDB: ${url}`,
+        true
+      );
+    };
+    
+    xhttp.open("GET", url, true);
+    xhttp.timeout = 30000; // 30 second timeout
+    xhttp.send();
+    
+  } catch (error) {
+    handleError(error, `loadDB initialization: ${url}`, true);
+  }
 }
 
 // take an amount of time in seconds and convert it to years, days, hours, minutes and seconds

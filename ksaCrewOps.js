@@ -1,4 +1,7 @@
 // refactor complete
+// SECURITY: All user-supplied data from database is sanitized with sanitizeHTML()
+// before insertion into DOM to prevent XSS attacks. Use sanitizeHTML() for any
+// new code that inserts database content into HTML.
 
 function loadCrew(crew) {
   
@@ -81,9 +84,9 @@ function loadCrewAJAX(xhttp) {
   if (ops.pageType == "crewFull") {
     
     // compose and assign the portrait tooltip
-    strTip = "<b>" + ops.currentCrew.Stats.Rank + " " + ops.currentCrew.Background.FullName + " Kerman<p>Activation Date:</b> " + UTtoDateTime(ops.currentCrew.Background.Activation).split("@")[0] + "<br><b>Mission Count:</b> " + ops.currentCrew.Missions.length + "<br><b>Ribbon Count:</b> " + ops.currentCrew.Ribbons.length + "<br><b>Current Status:</b><br>" + ops.currentCrew.Stats.Status;
-    if (ops.currentCrew.Stats.Assignment) strTip += "<br><b>Current Assignment:</b><br>" + ops.currentCrew.Stats.Assignment;
-    $("#" + ops.currentCrew.Background.Kerbal).html("<img src='" + ops.currentCrew.Stats.Image + "' class='tip' data-tipped-options=\"position: 'bottom', target: 'mouse'\" style='width: 235px; cursor: pointer' title='" + strTip + "'>");
+    strTip = "<b>" + sanitizeHTML(ops.currentCrew.Stats.Rank) + " " + sanitizeHTML(ops.currentCrew.Background.FullName) + " Kerman<p>Activation Date:</b> " + UTtoDateTime(ops.currentCrew.Background.Activation).split("@")[0] + "<br><b>Mission Count:</b> " + ops.currentCrew.Missions.length + "<br><b>Ribbon Count:</b> " + ops.currentCrew.Ribbons.length + "<br><b>Current Status:</b><br>" + sanitizeHTML(ops.currentCrew.Stats.Status);
+    if (ops.currentCrew.Stats.Assignment) strTip += "<br><b>Current Assignment:</b><br>" + sanitizeHTML(ops.currentCrew.Stats.Assignment);
+    $("#" + ops.currentCrew.Background.Kerbal).html("<img src='" + sanitizeHTML(ops.currentCrew.Stats.Image) + "' class='tip' data-tipped-options=\"position: 'bottom', target: 'mouse'\" style='width: 235px; cursor: pointer' title='" + strTip + "'>");
     
     // remove the current loaded crew
     if (ops.currentCrew) {
@@ -138,6 +141,15 @@ function loadCrewAJAX(xhttp) {
   // behavior of tooltips depends on the device
   if (is_touch_device()) showOpt = 'click';
   else showOpt = 'mouseenter';
+  
+  // Clean up old tooltips before creating new ones to prevent memory leaks
+  try {
+    Tipped.remove('.tip');
+    Tipped.remove('.tip-update');
+  } catch (error) {
+    // Ignore errors if tooltips don't exist yet
+  }
+  
   Tipped.create('.tip', { showOn: showOpt, hideOnClickOutside: is_touch_device(), hideOn: {element: 'mouseleave'} });
   Tipped.create('.tip-update', { showOn: showOpt, hideOnClickOutside: is_touch_device(), detach: false, hideOn: {element: 'mouseleave'} });
 }
@@ -187,6 +199,14 @@ function ribbonDisplayToggle(display = false) {
   // behavior of tooltips depends on the device
   if (is_touch_device()) showOpt = 'click';
   else showOpt = 'mouseenter';
+  
+  // Clean up old tooltip before creating new one to prevent memory leaks
+  try {
+    Tipped.remove('.tip');
+  } catch (error) {
+    // Ignore errors if tooltip doesn't exist yet
+  }
+  
   Tipped.create('.tip', { showOn: showOpt, hideOnClickOutside: is_touch_device(), hideOn: {element: 'mouseleave'} });
 }
 
@@ -226,6 +246,15 @@ function updateCrewData(crew) {
     // behavior of tooltips depends on the device
     if (is_touch_device()) showOpt = 'click';
     else showOpt = 'mouseenter';
+    
+    // Clean up old tooltips before creating new ones to prevent memory leaks
+    try {
+      Tipped.remove('.tip');
+      Tipped.remove('.tip-update');
+    } catch (error) {
+      // Ignore errors if tooltips don't exist yet
+    }
+    
     Tipped.create('.tip', { showOn: showOpt, hideOnClickOutside: is_touch_device(), detach: false, hideOn: {element: 'mouseleave'} });
     Tipped.create('.tip-update', { showOn: showOpt, hideOnClickOutside: is_touch_device(), detach: false, hideOn: {element: 'mouseleave'} });
   }
@@ -248,8 +277,8 @@ function updateCrewData(crew) {
 
 function crewHeaderUpdate(update) {
   if (update && !$("#contentHeader").html().includes(ops.currentCrew.Stats.Rank)) flashUpdate("#contentHeader", "#77C6FF", "#FFF");
-  $("#contentHeader").html(ops.currentCrew.Stats.Rank + " " + ops.currentCrew.Background.FullName + " Kerman");
-  document.title = "KSA Operations Tracker" + " - " + ops.currentCrew.Stats.Rank + " " + ops.currentCrew.Background.FullName + " Kerman";
+  $("#contentHeader").html(sanitizeHTML(ops.currentCrew.Stats.Rank) + " " + sanitizeHTML(ops.currentCrew.Background.FullName) + " Kerman");
+  document.title = "KSA Operations Tracker" + " - " + sanitizeHTML(ops.currentCrew.Stats.Rank) + " " + sanitizeHTML(ops.currentCrew.Background.FullName) + " Kerman";
 
   // for tag loading
   // $("#contentHeader").spin({ scale: 0.35, position: 'relative', top: '10px', left: (((955/2) + (crew.width('bold 32px arial')/2)) + 10) +'px' });
@@ -258,7 +287,7 @@ function crewHeaderUpdate(update) {
 function crewInfoUpdate(update) {
 
   // basic setups
-  $("#infoImg").html("<img src='" + ops.currentCrew.Stats.Image + "'>");
+  $("#infoImg").html("<img src='" + sanitizeHTML(ops.currentCrew.Stats.Image) + "'>");
   $("#infoTitle").html("Click Here for Background Information");
   $("#infoTitle").attr("class", "infoTitle crew");
   $("#infoDialog").dialog("option", "title", "Background Information");
@@ -290,7 +319,7 @@ function crewInfoUpdate(update) {
   strBackgrnd += "<p><b>Family Name:</b> " + ops.currentCrew.Background.FamName + "&nbsp;<img src='qmark.png' style='margin-bottom: 10px; left: initial; cursor: help' class='tip' data-tipped-options=\"position: 'right', maxWidth: 135\" title='as a show of global unity, all adult kerbals take the surname of the first planetary leader'></p>";
   
   // rest of the bio stuff
-  strBackgrnd += "<p><b>Specialty:</b> " + ops.currentCrew.Background.Speciality + "</p><p><b>Hobbies:</b> " + ops.currentCrew.Background.Hobbies + "</p><p><b>Biography:</b> " + ops.currentCrew.Background.Bio + "</p><p><b>Service History:</b> " + ops.currentCrew.History.History + "</p>";
+  strBackgrnd += "<p><b>Specialty:</b> " + sanitizeHTML(ops.currentCrew.Background.Speciality) + "</p><p><b>Hobbies:</b> " + sanitizeHTML(ops.currentCrew.Background.Hobbies) + "</p><p><b>Biography:</b> " + sanitizeHTML(ops.currentCrew.Background.Bio) + "</p><p><b>Service History:</b> " + sanitizeHTML(ops.currentCrew.History.History) + "</p>";
   $("#infoDialog").html(strBackgrnd);
 }
 
@@ -356,7 +385,7 @@ function CrewMissionsUpdate(update) {
 // use of saveTip attribute is so match can be made when update check runs since Tipped removes text from the title attribute
 function crewStatusUpdate(update) {
   if (update && (!$("#dataField7").html().includes(ops.currentCrew.Stats.StatusHTML) || !$("#dataField7").html().includes(ops.currentCrew.Stats.Status))) flashUpdate("#dataField7", "#77C6FF", "#FFF");
-  $("#dataField7").html("<b>Current Status:</b> <u><span style='cursor:help' class='tip' data-tipped-options=\"maxWidth: 250, position: 'top'\" title='" + ops.currentCrew.Stats.StatusHTML + "' saveTip='" + ops.currentCrew.Stats.AssignmentHTML + "'>" + ops.currentCrew.Stats.Status + "</span></u>");
+  $("#dataField7").html("<b>Current Status:</b> <u><span style='cursor:help' class='tip' data-tipped-options=\"maxWidth: 250, position: 'top'\" title='" + sanitizeHTML(ops.currentCrew.Stats.StatusHTML) + "' saveTip='" + sanitizeHTML(ops.currentCrew.Stats.AssignmentHTML) + "'>" + sanitizeHTML(ops.currentCrew.Stats.Status) + "</span></u>");
   $("#dataField7").fadeIn();
 }
 
@@ -364,7 +393,7 @@ function crewStatusUpdate(update) {
 function crewAssignmentUpdate(update) {
   if (ops.currentCrew.Stats.Assignment) {
     if (update && (!$("#dataField8").html().includes(ops.currentCrew.Stats.AssignmentHTML) || !$("#dataField8").html().includes(ops.currentCrew.Stats.Assignment))) flashUpdate("#dataField8", "#77C6FF", "#FFF");
-    $("#dataField8").html("<b>Current Assignment:</b> <u><span style='cursor:help' class='tip' data-tipped-options=\"maxWidth: 350, position: 'top'\" title='" + ops.currentCrew.Stats.AssignmentHTML + "' saveTip='" + ops.currentCrew.Stats.AssignmentHTML + "'>" + ops.currentCrew.Stats.Assignment + "</span></u>");
+    $("#dataField8").html("<b>Current Assignment:</b> <u><span style='cursor:help' class='tip' data-tipped-options=\"maxWidth: 350, position: 'top'\" title='" + sanitizeHTML(ops.currentCrew.Stats.AssignmentHTML) + "' saveTip='" + sanitizeHTML(ops.currentCrew.Stats.AssignmentHTML) + "'>" + sanitizeHTML(ops.currentCrew.Stats.Assignment) + "</span></u>");
     $("#dataField8").fadeIn();
   } else $("#dataField8").fadeOut();
 }

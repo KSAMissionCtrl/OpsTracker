@@ -9,6 +9,117 @@ if (window.location.href.includes("&live") && getParameterByName("ut") && parseI
 // handle history state changes when user invokes forward/back button
 window.onpopstate = function(event) { swapContent(event.state.type, event.state.id, event.state.UT); }
 
+// ==============================================================================
+// MEMORY LEAK PREVENTION - Cleanup Functions
+// ==============================================================================
+
+/**
+ * Cleans up all tooltips to prevent memory leaks
+ * Should be called before switching views
+ * Note: Does NOT remove .imgmap tooltips (parts overlay) as they persist within views
+ */
+function cleanupTooltips() {
+  try {
+    // Remove general tooltips that are recreated on each view
+    Tipped.remove('.tip');
+    Tipped.remove('.tip-update');
+    Tipped.remove('.contentTip');
+    
+    // Remove specific event tooltips
+    Tipped.remove('#launchLink');
+    Tipped.remove('#maneuverLink');
+    
+    // Note: .imgmap tooltips (parts overlay) are NOT removed here
+    // They are managed by assignPartInfo() and only need cleanup when
+    // the vessel itself changes, not during general view switches
+  } catch (error) {
+    handleError(error, 'cleanupTooltips');
+  }
+}
+
+/**
+ * Cleans up all active timers and intervals
+ * Stores timer handles in KSA_TIMERS for proper cleanup
+ */
+function cleanupTimers() {
+  try {
+    // Clear all known timeout handles
+    if (KSA_TIMERS.mapDialogDelay) {
+      clearTimeout(KSA_TIMERS.mapDialogDelay);
+      KSA_TIMERS.mapDialogDelay = null;
+    }
+    if (KSA_TIMERS.timeoutHandle) {
+      clearTimeout(KSA_TIMERS.timeoutHandle);
+      KSA_TIMERS.timeoutHandle = null;
+    }
+    if (KSA_TIMERS.launchRefreshTimeout) {
+      clearTimeout(KSA_TIMERS.launchRefreshTimeout);
+      KSA_TIMERS.launchRefreshTimeout = null;
+    }
+    if (KSA_TIMERS.maneuverRefreshTimeout) {
+      clearTimeout(KSA_TIMERS.maneuverRefreshTimeout);
+      KSA_TIMERS.maneuverRefreshTimeout = null;
+    }
+    if (KSA_TIMERS.mapMarkerTimeout) {
+      clearTimeout(KSA_TIMERS.mapMarkerTimeout);
+      KSA_TIMERS.mapMarkerTimeout = null;
+    }
+    if (KSA_TIMERS.flightTimelineInterval) {
+      clearInterval(KSA_TIMERS.flightTimelineInterval);
+      KSA_TIMERS.flightTimelineInterval = null;
+    }
+    if (KSA_TIMERS.vesselImgTimeout) {
+      clearTimeout(KSA_TIMERS.vesselImgTimeout);
+      KSA_TIMERS.vesselImgTimeout = null;
+    }
+    if (KSA_TIMERS.ascentInterpTimeout) {
+      clearTimeout(KSA_TIMERS.ascentInterpTimeout);
+      KSA_TIMERS.ascentInterpTimeout = null;
+    }
+    
+    // Update global references for backward compatibility
+    mapDialogDelay = null;
+    timeoutHandle = null;
+    launchRefreshTimeout = null;
+    maneuverRefreshTimeout = null;
+    mapMarkerTimeout = null;
+    flightTimelineInterval = null;
+    vesselImgTimeout = null;
+    ascentInterpTimeout = null;
+  } catch (error) {
+    handleError(error, 'cleanupTimers');
+  }
+}
+
+/**
+ * Cleans up event listeners on specific elements
+ * Call before removing or replacing DOM elements
+ */
+function cleanupEventListeners() {
+  try {
+    // Remove jQuery event handlers from dialog elements
+    $('#infoDialog').off();
+    $('#figureDialog').off();
+    
+    // Note: #infoBox, #contentBox, and #dataBox event handlers are NOT removed
+    // These elements persist across views and have permanent callbacks
+    // (e.g., #infoBox hover for parts overlay, dropdown change handlers)
+    // Removing them would break functionality within views
+  } catch (error) {
+    handleError(error, 'cleanupEventListeners');
+  }
+}
+
+/**
+ * Master cleanup function to call when switching views
+ * Prevents memory leaks by removing all dynamic resources
+ */
+function cleanupView() {
+  cleanupTooltips();
+  cleanupTimers();
+  cleanupEventListeners();
+}
+
 // animate the size of the main content box
 function raiseContent(mapInvalTime = 1500) {
   if ($("#contentBox").css("height") != "885px") {
@@ -241,6 +352,9 @@ function swapContent(newPageType, id, ut, flt) {
     return;
   }
 
+  // Clean up resources from previous view to prevent memory leaks
+  cleanupView();
+
   // make sure any map dialog that was commanded to show does not
   if (mapDialogDelay) {
     clearTimeout(mapDialogDelay);
@@ -301,9 +415,6 @@ function swapContent(newPageType, id, ut, flt) {
     }
     return;
   }
-
-  // remove any tooltips open
-  Tipped.remove('.tipped');
   
   // if a vessel orbital calculation is in progress, pause it
   if (ops.currentVessel && ops.pageType == "vessel" && !ops.surface.layerControl.options.collapsed) {

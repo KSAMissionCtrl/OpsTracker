@@ -1,6 +1,49 @@
-// This is horrible and I DON'T CARE HAHAHAHAHAHAGAGAJABSVSAHCSAJHSG,JDVKWHBDWLEBD,EBDFKESNFL.JSCSDE;VDF
+// ==============================================================================
+// KSA Operations Tracker - Global State Management
+// ==============================================================================
+// This file contains the centralized state management for the operations tracker.
+// While consolidating into a single 'ops' object, additional cleanup and 
+// modularization is recommended for long-term maintainability.
+// ==============================================================================
 
-// this structure is all the data that needs to be easily accessed for debugging purposes
+// ------------------------------------------------------------------------------
+// CONSTANTS
+// ------------------------------------------------------------------------------
+const KSA_CONSTANTS = {
+  // Time constants
+  FOUNDING_MOMENT: luxon.DateTime.fromISO("2016-09-13T04:00:00-00:00", { setZone: true }),
+  MS_FROM_1970_TO_KSA_FOUNDING: 1473739200000,
+  
+  // UI constants
+  DEFAULT_MAX_MENU_HEIGHT: 340,
+  
+  // Map constants
+  NO_MARK_BOX_BOUNDS: {
+    northEast: { lat: 0.1978, lng: -74.8389 },
+    southWest: { lat: -0.3516, lng: -74.2896 }
+  },
+  
+  // Timing constants
+  TIMEOUTS: {
+    MAP_DIALOG_DELAY: 50,
+    DECLUTTER_DELAY: 5000,
+    MAP_MARKER_TIMEOUT: 100,
+    VESSEL_IMG_UPDATE: 150,
+    FLIGHT_TIMELINE_UPDATE: 1000
+  },
+  
+  // Popup offsets
+  POPUP_OFFSETS: {
+    VESSEL_POSITION: { x: 0, y: -1 },
+    FLIGHT_POSITION: { x: 0, y: -1 }
+  }
+};
+
+// ------------------------------------------------------------------------------
+// MAIN STATE OBJECT
+// ------------------------------------------------------------------------------
+// This structure contains all data that needs to be easily accessed for 
+// debugging and runtime operations
 var ops = {
   clock: new Date(),      // saves the time at which the page was loaded
   UT: null,               // assigned the current time on page load then used with currUT() to get the current time
@@ -10,7 +53,7 @@ var ops = {
   pageType: null,         // defines the type of data being shown - body, vessel, crew or crewFull for the entire roster. set only by swapContent() whenever a page type change is needed
   twitterSource: null,    // used in swapTwitterSource() to remember the current source of the twitter feed
 
-  maxMenuHeight: 340,     // default value for the menu on page load, changed dynamically based on contents of event box or menu resize
+  maxMenuHeight: KSA_CONSTANTS.DEFAULT_MAX_MENU_HEIGHT,  // default value for the menu on page load, changed dynamically based on contents of event box or menu resize
   updatesListSize: 0,     // the current size of the updatesList structure since it was last checked so any added items can be detected
 
   vesselsToLoad: [],      // uses extractIDs() to hold the ids of all the vessels in the current SOI that need to have GGB orbits rendered & loads them
@@ -102,274 +145,297 @@ ops.currentVessel = null;
 ops.currentVesselPlot = null;
 ops.surface.Data = null;
 
-// whether the surface map is being resized in the vessel view
-var isContentMoving = false;
-
-// timeout handle to prevent the map dialog from showing if the view is switched away before the timer ends
-var mapDialogDelay;
-
-// used to ensure the GGB figure does not declutter too fast - resets the 5s timer on each new GGB load if timer is running
-var timeoutHandle;
-
-// used to cancel auto event refresh events if an update is done while it is running
-var launchRefreshTimeout = null;
-var maneuverRefreshTimeout = null;
-
-// contains the instance of the Leaflet UI button for resizing the map (in vessel view)
-var mapResizeButton;
-
-// contains the instance of the Leaflet UI button for switching from vessel map to just the surface map
-var mapViewButton;
-
-// contains the instance of the Leaflet UI button for reloading orbital trajectory data
-var mapRefreshButton;
-
-// contains the instance of the Leaflet UI button for closing the surface map to view the orbital display
-var mapCloseButton;
-
-// contains the instance of the marker object for a launch site
-var launchsiteMarker;
-
-// contains the instance of the marker object for a vessel icon
-var vesselMarker;
-
-// contains the instance of the marker object for the sun position
-var sunMarker;
-
-// ensures the 5s timmer to declutter the map is reset if a new vessel is loaded before the timer completes
-var mapMarkerTimeout;
-
-// NOT USED
-// would have displayed data in a lower-left map box
-var infoControl;
-
-// icons for the various map markers - all just a single icon
-var POIIcon;
-var anomalyIcon;
-var sunIcon;
-var apIcon;
-var peIcon;
-var soiEntryIcon;
-var soiExitIcon;
-var nodeIcon;
-var vesselIcon;
-var flagIcon;
-var labelIcon;
-
-// how many orbits should be rendered onto the surface map for the current vessel
-var numOrbitRenders;
-
-// the starting time of the orbit to calculate
-var obtCalcUT;
-
-// contains the instance of the surface map popup holding lat/lng/lt/spd and time information when hovering over a path
-var timePopup;
-
-// saves the index of the path in fltPaths that corresponds to the one last clicked on to display additional data popup
-var currentFlightIndex;
-
-// saves the last hovered-over index in the flight path, which would also be the last point the user clicked
-// it then serves as the starting point for moving back/fore in the timeline data popup
-var currentFlightTimelineIndex;
-
-// the id of the vessel that was unloaded during orbital calculation so it can be resumed if reloaded
-var strPausedVesselCalculation;
-
-// the id of the vessel the event calendar has found is next to launch
-// make a property of bodies so it can be flagged as current
-var strCurrentLaunchVessel;
-
-// the id of the vessel the event calendar has found is next to maneuver
-// make a property of bodies so it can be flagged as current
-var strCurrentManeuverVessel;
-
-// holds all ids of multiple URL params of &flt and loads them one at a time until all are done
-var flightsToLoad;
-
-// the UT of the next launch the event calendar is displaying
-var launchCountdown;
-
-// the UT of the next maneuver the event calendar is displaying
-var maneuverCountdown;
-
-// holds the instance of the surface map polygon that shapes the terminator
-var terminator;
-
-// ensures that ascent data interpolation sticks to the defined FPS
-// add to ascent data structure
-var interpStart;
-
-// contains instance of leaflet popup for vessel data
-var vesselPositionPopup = L.popup({offset: new L.Point(0,-1), autoClose: false});
-
-// contains instance of leaflet popup for flight data
-var flightPositionPopup = L.popup({offset: new L.Point(0,-1), autoClose: false, maxWidth: 500});
-
-// defines the area around KSC where ascent trajectory path & markers should not be shown until vessel is further downrange
-var noMarkBox = L.latLngBounds(L.latLng(0.1978, -74.8389), L.latLng(-0.3516, -74.2896));
-
-// reference to the layer group that contains the terminator polygon
-var layerSolar = L.layerGroup();
-
-// saves the id of menu item that was last clicked on
-var menuSaveSelected = null;
-
-// handle of the interval() call to automatically update the flight timeline data popup
-var flightTimelineInterval = null;
-
-// handle for updating the caption of the vessel image
-var vesselImgTimeout = null;
-
-// handle to the timer that maintains ascent interpolation FPS so it can be cancelled when needed
-// make a part of ascent structure
-var ascentInterpTimeout = null;
-
-// saves the id of the flight track currently loading new body data via ajax
-var strFltTrackLoading = null;
-
-// mouseover popup instance to show ascent path and marker information
-var ascentPopup = null;
-
-// instance of the layer object that shows/hides custom pins on the surface map
-var layerPins = null;
-
-// flags to tell when certain things have finished loading
-var isMenuDataLoaded = false;
-var isGGBAppletLoaded = false;      // when the GGB figure is ready to be displayed and updated
-var isGGBAppletRefreshing = false;  // when the GGB figure is still loading any additional vessel orbits
-
-// used to tell the GGB figure that is loaded underneath a vessel to refresh so labels are shown for a few seconds
-var isDirty = false;
-
-// NOT USED
-var isTipShow = false;
-
-// whether the Cancel button was clicked to stop orbital calculation early
-var isOrbitRenderCancelled = false;
-
-// whether the orbital calc was stopped due to changing a vessel or view
-var isOrbitRenderTerminated = false;
-
-// NOT USED
-var isNewUser = false;
-
-// whether the surface map is shown or not
-var isMapShown = false;
-
-// whether the map has been sized fullscreen or not
-var isMapFullscreen = false;
-
-// whether the ascent data playback is paused or not
-var isAscentPaused = false;
-
-// number of ms from 1970/01/01 to 2016/09/13 = 1473739200000
-// used as a base when calculating time since KSA began
-var foundingMoment = luxon.DateTime.fromISO("2016-09-13T04:00:00-00:00", { setZone: true });
-
-// the current rotation angle of the vessel if its static image can be spun
-var vesselRotationIndex = 0;
-
-// current color to use for plotting the ascent path
-var ascentColorsIndex = -1;
-
-// NOT USED
-var planetLabels = [];
-
-// NOT USED?
-// same definition as nodes for w2ui menu, but likely meant for node indicators on orbital display
-var nodes = [];
-
-// NOT USED
-var nodesVisible = [];
-
-// NOT USED
-var distanceCatalog = [];
-
-// holds info on all parts loaded from the catalog db
-var partsCatalog = [];
-
-// contains all the lat/lng/alt/spd points for the current calculated trajectory
-var orbitDataCalc = [];
-
-// holds list of ids for all active crew members so they can be shown in the full roster view
-var crewList = [];
-
-// contains data for all aircraft flight paths loaded onto the surface map
-var fltPaths = [];
-
-// NOT USED
-var vesselPaths = [];
-
-// contains the paths that are drawn out for live ascent telemetry
-var ascentTracks = [];
-
-// contains the instances of markers that mark events along the ascent paths
-var ascentMarks = [];
-
-// stores id of the body that was clicked on to show its label and identify its position because its too small to see easily
-var strTinyBodyLabel = "";
-
-// holds the id of the vessel that is currently undergoing a live ascent
-// make a property of bodies so it can be flagged as current
-var strActiveAscent = "";
-
-// contains the instances of the circle objects for a vessel's view horizon of the body
-var vesselHorizon = {
-  vessel: null,
-  eastWest: null,
-  northSouth: null
+// ------------------------------------------------------------------------------
+// UI STATE MODULE
+// ------------------------------------------------------------------------------
+const KSA_UI_STATE = {
+  // Content & view states
+  isContentMoving: false,        // whether the surface map is being resized in the vessel view
+  isMapShown: false,             // whether the surface map is shown or not
+  isMapFullscreen: false,        // whether the map has been sized fullscreen or not
+  isAscentPaused: false,         // whether the ascent data playback is paused or not
+  isDirty: false,                // tells the GGB figure that is loaded underneath a vessel to refresh
+  isOrbitRenderCancelled: false, // whether the Cancel button was clicked to stop orbital calculation early
+  isOrbitRenderTerminated: false,// whether the orbital calc was stopped due to changing a vessel or view
+  
+  // Loading states
+  isMenuDataLoaded: false,
+  isGGBAppletLoaded: false,      // when the GGB figure is ready to be displayed and updated
+  isGGBAppletRefreshing: false,  // when the GGB figure is still loading any additional vessel orbits
+  
+  // Menu state
+  menuSaveSelected: null,        // saves the id of menu item that was last clicked on
+  
+  // Visual indices
+  vesselRotationIndex: 0,        // current rotation angle of the vessel if its static image can be spun
+  ascentColorsIndex: -1          // current color to use for plotting the ascent path
 };
 
-// contains the ids of bodies that need orbits plotted for the surface map and also the paths calculated for the body
-var bodyPaths = {
-  bodyName: "",
-  paths: [],
-  layers: []
+// ------------------------------------------------------------------------------
+// TIMEOUT/INTERVAL HANDLES MODULE
+// ------------------------------------------------------------------------------
+const KSA_TIMERS = {
+  mapDialogDelay: null,          // timeout handle to prevent the map dialog from showing if view switched
+  timeoutHandle: null,           // ensures the GGB figure does not declutter too fast
+  launchRefreshTimeout: null,    // cancel auto event refresh if update done while running
+  maneuverRefreshTimeout: null,  // cancel auto event refresh if update done while running
+  mapMarkerTimeout: null,        // ensures the 5s timer to declutter map is reset if new vessel loaded
+  interpStart: null,             // ensures that ascent data interpolation sticks to the defined FPS
+  flightTimelineInterval: null,  // handle for automatically updating the flight timeline data popup
+  vesselImgTimeout: null,        // handle for updating the caption of the vessel image
+  ascentInterpTimeout: null      // timer that maintains ascent interpolation FPS
 };
 
-// defines the color of the surface path or GGB orbit that associates with a type of vessel
-var orbitColors = {
-  probe: "#FFD800",
-  debris: "#ff0000",
-  ship: "#0094FF",
-  station: "#B200FF",
-  asteroid: "#996633"
+// ------------------------------------------------------------------------------
+// LEAFLET UI COMPONENTS MODULE
+// ------------------------------------------------------------------------------
+const KSA_MAP_CONTROLS = {
+  // Leaflet UI button instances
+  mapResizeButton: null,   // button for resizing the map (in vessel view)
+  mapViewButton: null,     // button for switching from vessel map to surface map
+  mapRefreshButton: null,  // button for reloading orbital trajectory data
+  mapCloseButton: null,    // button for closing the surface map
+  
+  // Marker instances
+  launchsiteMarker: null,  // marker for launch site
+  vesselMarker: null,      // marker for vessel icon
+  sunMarker: null,         // marker for sun position
+  
+  // Popup instances
+  vesselPositionPopup: L.popup({
+    offset: new L.Point(KSA_CONSTANTS.POPUP_OFFSETS.VESSEL_POSITION.x, 
+                        KSA_CONSTANTS.POPUP_OFFSETS.VESSEL_POSITION.y),
+    autoClose: false
+  }),
+  flightPositionPopup: L.popup({
+    offset: new L.Point(KSA_CONSTANTS.POPUP_OFFSETS.FLIGHT_POSITION.x,
+                        KSA_CONSTANTS.POPUP_OFFSETS.FLIGHT_POSITION.y),
+    autoClose: false,
+    maxWidth: 500
+  }),
+  ascentPopup: null,       // mouseover popup for ascent path and marker information
+  timePopup: null,         // popup holding lat/lng/lt/spd and time information
+  
+  // Geometry objects
+  terminator: null,        // surface map polygon that shapes the terminator
+  vesselHorizon: {         // circle objects for vessel's view horizon
+    vessel: null,
+    eastWest: null,
+    northSouth: null
+  },
+  
+  // Leaflet bounds
+  noMarkBox: L.latLngBounds(
+    L.latLng(KSA_CONSTANTS.NO_MARK_BOX_BOUNDS.northEast.lat, 
+             KSA_CONSTANTS.NO_MARK_BOX_BOUNDS.northEast.lng),
+    L.latLng(KSA_CONSTANTS.NO_MARK_BOX_BOUNDS.southWest.lat,
+             KSA_CONSTANTS.NO_MARK_BOX_BOUNDS.southWest.lng)
+  )
 };
 
-// holds instances of the leaflet layer that defines a spinning load icon for a specific map layer
-// used to check also if a layer is still loading data via checkDataLoad()
-var surfaceTracksDataLoad = {
-  obtTrackDataLoad: null,
-  fltTrackDataLoad: null,
-  vesselsTrackDataLoad: null,
-  bodiesTrackDataLoad: null
+// ------------------------------------------------------------------------------
+// MAP ICONS MODULE
+// ------------------------------------------------------------------------------
+const KSA_MAP_ICONS = {
+  POIIcon: null,
+  anomalyIcon: null,
+  sunIcon: null,
+  apIcon: null,
+  peIcon: null,
+  soiEntryIcon: null,
+  soiExitIcon: null,
+  nodeIcon: null,
+  vesselIcon: null,
+  flagIcon: null,
+  labelIcon: null
 };
 
-// the colors of the 3 surface paths that can be rendered for a vessel in orbit
-var vesselOrbitColors = [
-  "#4CFF00",
-  "#FFD800",
-  "#FF0000"
-];
-
-// the colors that are cycled through when rendering ascent phases or aircraft paths on the surface map
-var surfacePathColors = [
-  "#FFD800",
-  "#FF0000",
-  "#4CFF00",
-  "#0026FF",
-  "#00FFFF",
-  "#B200FF",
-  "#0094FF",
-  "#4800FF",
-  "#FF00DC",
-  "#FF8EDD"
-];
-
-//  pre-defined points on the surface that can be used for reference
-var srfLocations = {
-  KSC: [-0.0972, -74.5577]
+// ------------------------------------------------------------------------------
+// CALCULATION & TRACKING MODULE
+// ------------------------------------------------------------------------------
+const KSA_CALCULATIONS = {
+  // Orbit calculations
+  numOrbitRenders: null,           // how many orbits should be rendered onto surface map
+  obtCalcUT: null,                 // the starting time of the orbit to calculate
+  orbitDataCalc: [],               // lat/lng/alt/spd points for current calculated trajectory
+  
+  // Flight tracking
+  currentFlightIndex: null,        // index of path in fltPaths corresponding to clicked path
+  currentFlightTimelineIndex: null,// last hovered-over index in flight path
+  strPausedVesselCalculation: null,// id of vessel unloaded during orbital calculation
+  strFltTrackLoading: null,        // id of flight track currently loading new body data
+  
+  // Event tracking
+  strCurrentLaunchVessel: null,    // id of vessel next to launch
+  strCurrentManeuverVessel: null,  // id of vessel next to maneuver
+  launchCountdown: null,           // UT of next launch
+  maneuverCountdown: null,         // UT of next maneuver
+  strActiveAscent: "",             // id of vessel currently undergoing live ascent
+  strTinyBodyLabel: "",            // id of body clicked to show its label
+  
+  // Load tracking
+  flightsToLoad: null              // ids of multiple URL params of &flt to load
 };
+
+// ------------------------------------------------------------------------------
+// DATA CATALOGS MODULE
+// ------------------------------------------------------------------------------
+const KSA_CATALOGS = {
+  partsCatalog: [],     // info on all parts loaded from catalog db
+  crewList: [],         // list of ids for all active crew members
+  fltPaths: [],         // data for all aircraft flight paths loaded onto surface map
+  ascentTracks: [],     // paths drawn for live ascent telemetry
+  ascentMarks: [],      // marker instances for events along ascent paths
+  
+  bodyPaths: {          // ids of bodies needing orbits plotted & calculated paths
+    bodyName: "",
+    paths: [],
+    layers: []
+  }
+};
+
+// ------------------------------------------------------------------------------
+// LAYER MANAGEMENT MODULE
+// ------------------------------------------------------------------------------
+const KSA_LAYERS = {
+  layerSolar: L.layerGroup(),  // layer group containing terminator polygon
+  layerPins: null,             // layer showing/hiding custom pins on surface map
+  
+  // Loading indicators for map layers
+  surfaceTracksDataLoad: {
+    obtTrackDataLoad: null,
+    fltTrackDataLoad: null,
+    vesselsTrackDataLoad: null,
+    bodiesTrackDataLoad: null
+  }
+};
+
+// ------------------------------------------------------------------------------
+// COLOR SCHEMES MODULE
+// ------------------------------------------------------------------------------
+const KSA_COLORS = {
+  // Orbit colors by vessel type
+  orbitColors: {
+    probe: "#FFD800",
+    debris: "#ff0000",
+    ship: "#0094FF",
+    station: "#B200FF",
+    asteroid: "#996633"
+  },
+  
+  // Vessel orbit path colors (3 paths)
+  vesselOrbitColors: [
+    "#4CFF00",
+    "#FFD800",
+    "#FF0000"
+  ],
+  
+  // Surface path colors (cycling through)
+  surfacePathColors: [
+    "#FFD800",
+    "#FF0000",
+    "#4CFF00",
+    "#0026FF",
+    "#00FFFF",
+    "#B200FF",
+    "#0094FF",
+    "#4800FF",
+    "#FF00DC",
+    "#FF8EDD"
+  ]
+};
+
+// ------------------------------------------------------------------------------
+// SURFACE LOCATIONS MODULE
+// ------------------------------------------------------------------------------
+const KSA_LOCATIONS = {
+  srfLocations: {
+    KSC: [-0.0972, -74.5577]
+  }
+};
+
+// ------------------------------------------------------------------------------
+// BACKWARD COMPATIBILITY ALIASES
+// ------------------------------------------------------------------------------
+// These maintain backward compatibility with existing code that references
+// the old global variables. Gradually refactor code to use the new modules.
+
+var isContentMoving = KSA_UI_STATE.isContentMoving;
+var mapDialogDelay = KSA_TIMERS.mapDialogDelay;
+var timeoutHandle = KSA_TIMERS.timeoutHandle;
+var launchRefreshTimeout = KSA_TIMERS.launchRefreshTimeout;
+var maneuverRefreshTimeout = KSA_TIMERS.maneuverRefreshTimeout;
+var mapResizeButton = KSA_MAP_CONTROLS.mapResizeButton;
+var mapViewButton = KSA_MAP_CONTROLS.mapViewButton;
+var mapRefreshButton = KSA_MAP_CONTROLS.mapRefreshButton;
+var mapCloseButton = KSA_MAP_CONTROLS.mapCloseButton;
+var launchsiteMarker = KSA_MAP_CONTROLS.launchsiteMarker;
+var vesselMarker = KSA_MAP_CONTROLS.vesselMarker;
+var sunMarker = KSA_MAP_CONTROLS.sunMarker;
+var mapMarkerTimeout = KSA_TIMERS.mapMarkerTimeout;
+var POIIcon = KSA_MAP_ICONS.POIIcon;
+var anomalyIcon = KSA_MAP_ICONS.anomalyIcon;
+var sunIcon = KSA_MAP_ICONS.sunIcon;
+var sunIcon = KSA_MAP_ICONS.sunIcon;
+var apIcon = KSA_MAP_ICONS.apIcon;
+var peIcon = KSA_MAP_ICONS.peIcon;
+var soiEntryIcon = KSA_MAP_ICONS.soiEntryIcon;
+var soiExitIcon = KSA_MAP_ICONS.soiExitIcon;
+var nodeIcon = KSA_MAP_ICONS.nodeIcon;
+var vesselIcon = KSA_MAP_ICONS.vesselIcon;
+var flagIcon = KSA_MAP_ICONS.flagIcon;
+var labelIcon = KSA_MAP_ICONS.labelIcon;
+var numOrbitRenders = KSA_CALCULATIONS.numOrbitRenders;
+var obtCalcUT = KSA_CALCULATIONS.obtCalcUT;
+var timePopup = KSA_MAP_CONTROLS.timePopup;
+var currentFlightIndex = KSA_CALCULATIONS.currentFlightIndex;
+var currentFlightTimelineIndex = KSA_CALCULATIONS.currentFlightTimelineIndex;
+var strPausedVesselCalculation = KSA_CALCULATIONS.strPausedVesselCalculation;
+var strCurrentLaunchVessel = KSA_CALCULATIONS.strCurrentLaunchVessel;
+var strCurrentManeuverVessel = KSA_CALCULATIONS.strCurrentManeuverVessel;
+var flightsToLoad = KSA_CALCULATIONS.flightsToLoad;
+var launchCountdown = KSA_CALCULATIONS.launchCountdown;
+var maneuverCountdown = KSA_CALCULATIONS.maneuverCountdown;
+var terminator = KSA_MAP_CONTROLS.terminator;
+var interpStart = KSA_TIMERS.interpStart;
+var vesselPositionPopup = KSA_MAP_CONTROLS.vesselPositionPopup;
+var flightPositionPopup = KSA_MAP_CONTROLS.flightPositionPopup;
+var noMarkBox = KSA_MAP_CONTROLS.noMarkBox;
+var layerSolar = KSA_LAYERS.layerSolar;
+var menuSaveSelected = KSA_UI_STATE.menuSaveSelected;
+var flightTimelineInterval = KSA_TIMERS.flightTimelineInterval;
+var vesselImgTimeout = KSA_TIMERS.vesselImgTimeout;
+var ascentInterpTimeout = KSA_TIMERS.ascentInterpTimeout;
+var strFltTrackLoading = KSA_CALCULATIONS.strFltTrackLoading;
+var ascentPopup = KSA_MAP_CONTROLS.ascentPopup;
+var layerPins = KSA_LAYERS.layerPins;
+var isMenuDataLoaded = KSA_UI_STATE.isMenuDataLoaded;
+var isGGBAppletLoaded = KSA_UI_STATE.isGGBAppletLoaded;
+var isGGBAppletRefreshing = KSA_UI_STATE.isGGBAppletRefreshing;
+var isDirty = KSA_UI_STATE.isDirty;
+var isOrbitRenderCancelled = KSA_UI_STATE.isOrbitRenderCancelled;
+var isOrbitRenderTerminated = KSA_UI_STATE.isOrbitRenderTerminated;
+var isMapShown = KSA_UI_STATE.isMapShown;
+var isMapFullscreen = KSA_UI_STATE.isMapFullscreen;
+var isAscentPaused = KSA_UI_STATE.isAscentPaused;
+var foundingMoment = KSA_CONSTANTS.FOUNDING_MOMENT;
+var vesselRotationIndex = KSA_UI_STATE.vesselRotationIndex;
+var ascentColorsIndex = KSA_UI_STATE.ascentColorsIndex;
+var partsCatalog = KSA_CATALOGS.partsCatalog;
+var orbitDataCalc = KSA_CALCULATIONS.orbitDataCalc;
+var crewList = KSA_CATALOGS.crewList;
+var fltPaths = KSA_CATALOGS.fltPaths;
+var ascentTracks = KSA_CATALOGS.ascentTracks;
+var ascentMarks = KSA_CATALOGS.ascentMarks;
+var strTinyBodyLabel = KSA_CALCULATIONS.strTinyBodyLabel;
+var strActiveAscent = KSA_CALCULATIONS.strActiveAscent;
+var vesselHorizon = KSA_MAP_CONTROLS.vesselHorizon;
+var bodyPaths = KSA_CATALOGS.bodyPaths;
+var orbitColors = KSA_COLORS.orbitColors;
+var surfaceTracksDataLoad = KSA_LAYERS.surfaceTracksDataLoad;
+var vesselOrbitColors = KSA_COLORS.vesselOrbitColors;
+var surfacePathColors = KSA_COLORS.surfacePathColors;
+var srfLocations = KSA_LOCATIONS.srfLocations;
 
 // data from kerbalmaps.com for future surface base layer types
 var mapElevationLegend = [

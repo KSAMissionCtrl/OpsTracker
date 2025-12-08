@@ -1,18 +1,26 @@
+<!--#include file="aspUtils.asp"-->
 <%
 response.expires=-1
+Call SetSecurityHeaders()
 hasTable = false
 
-'convert the text string into a number
-UT = int(request.querystring("ut") * 1)
+' Validate inputs
+Dim mapName, validatedUT
+mapName = ValidateDBName(request.querystring("map"))
+validatedUT = ValidateUT(request.querystring("ut"))
 
-'open craft database. "db" was prepended because without it for some reason I had trouble connecting
+If mapName = "" Or validatedUT = -1 Then
+    Call SendErrorResponse("Invalid parameters")
+End If
+
+UT = validatedUT
+
+'open craft database using utility function
 db = "..\..\database\dbMaps.mdb"
 Dim conn
 Set conn = Server.CreateObject("ADODB.Connection")
 sConnection = "Provider=Microsoft.Jet.OLEDB.4.0;" & _
-
               "Data Source=" & server.mappath(db) &";" & _
-
               "Persist Security Info=False"
 conn.Open(sConnection)
 
@@ -23,13 +31,13 @@ set rsMap = Server.CreateObject("ADODB.recordset")
 set adoxConn = CreateObject("ADOX.Catalog")  
 adoxConn.activeConnection = conn  
 for each table in adoxConn.tables 
-  if table.name = request.querystring("map") then hasTable = true
+  if LCase(table.name) = LCase(mapName) then hasTable = true
 next
 
 if hasTable then
 
-  'query the data
-  rsMap.open "select * from " & request.querystring("map"), conn, 2
+  'query the data - using validated table name
+  rsMap.open "select * from [" & Replace(mapName, "]", "]]") & "]", conn, 2
 
   'select the data closest to this UT
   if not rsMap.eof then
@@ -42,7 +50,7 @@ if hasTable then
 
   'output the record in name/value pairs for each field if a record exists for this time period
   if not rsMap.bof then
-    output = "Name~" & request.querystring("map") & "`"
+    output = "Name~" & mapName & "`"
     for each field in rsMap.fields
       output = output & replace(field.name, " ", "") & "~" & field.value & "`"
     next

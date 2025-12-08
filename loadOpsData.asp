@@ -1,47 +1,55 @@
+<!--#include file="aspUtils.asp"-->
 <%
 response.expires=-1
+Call SetSecurityHeaders()
 
-'convert the text strings into numbers
-UT = int(request.querystring("ut") * 1)
+' Validate and sanitize inputs
+Dim dbName, dbType, validatedUT, validatedPastUT
+dbName = ValidateDBName(request.querystring("db"))
+dbType = ValidateType(request.querystring("type"))
+validatedUT = ValidateUT(request.querystring("ut"))
+
+' Check for required parameters
+If dbName = "" Or dbType = "" Or validatedUT = -1 Then
+    Call SendErrorResponse("Invalid parameters")
+End If
+
+UT = validatedUT
 pastUT = -1
-if request.querystring("pastUT") <> "NaN" then pastUT = int(request.querystring("pastUT") * 1)
+If request.querystring("pastUT") <> "NaN" Then
+    validatedPastUT = ValidateUT(request.querystring("pastUT"))
+    If validatedPastUT <> -1 Then
+        pastUT = validatedPastUT
+    End If
+End If
 
 'header information that was passed in
-output = request.querystring("db") & "Typ3" & request.querystring("type")
+output = dbName & "Typ3" & dbType
 
-'have to open the catalog regardless
-db = "..\..\database\dbCatalog.mdb"
-Dim conn
-Set conn = Server.CreateObject("ADODB.Connection")
-sConnection = "Provider=Microsoft.Jet.OLEDB.4.0;" & _
-
-              "Data Source=" & server.mappath(db) &";" & _
-
-              "Persist Security Info=False"
-conn.Open(sConnection)
+' Open catalog database using utility function
+Set conn = GetCatalogConnection()
 
 'create and open the tables
 set rsCrafts = Server.CreateObject("ADODB.recordset")
 set rsCrew = Server.CreateObject("ADODB.recordset")
 
 'decide what we are loading
-if request.querystring("type") = "crew" then
-  rsCrew.open "select * from Crew where Kerbal='" & request.querystring("db") & "'", conn, 1, 1
+Dim cmd
+if dbType = "crew" then
+  ' Using parameterized query
+  Set cmd = Server.CreateObject("ADODB.Command")
+  cmd.ActiveConnection = conn
+  cmd.CommandText = "SELECT * FROM Crew WHERE Kerbal=?"
+  cmd.Parameters.Append cmd.CreateParameter("@kerbal", 200, 1, 255, dbName)
+  Set rsCrew = cmd.Execute
   for each field in rsCrew.fields
     output = output & replace(field.name, " ", "") & "~" & field.value & "`"
   next
   output = left(output, len(output)-1)
   output = output & "*"
   
-  'get additional data from the individual database
-  db = "..\..\database\db" & request.querystring("db") & ".mdb"
-  Set conn = Server.CreateObject("ADODB.Connection")
-  sConnection = "Provider=Microsoft.Jet.OLEDB.4.0;" & _
-
-                "Data Source=" & server.mappath(db) &";" & _
-
-                "Persist Security Info=False"
-  conn.Open(sConnection)
+  'get additional data from the individual database using utility function
+  Set conn = GetIndividualDBConnection(dbName)
 
   'get the roster tables
   set rsKerbal = Server.CreateObject("ADODB.recordset")
@@ -170,24 +178,22 @@ Loop
   else
     output = output & "null^"
   end if 
-elseif request.querystring("type") = "vessel" then
-  rsCrafts.open "select * from Crafts where DB='" & request.querystring("db") & "'", conn, 1, 1
+elseif dbType = "vessel" then
+  ' Using parameterized query
+  Set cmd = Server.CreateObject("ADODB.Command")
+  cmd.ActiveConnection = conn
+  cmd.CommandText = "SELECT * FROM Crafts WHERE DB=?"
+  cmd.Parameters.Append cmd.CreateParameter("@db", 200, 1, 255, dbName)
+  Set rsCrafts = cmd.Execute
   for each field in rsCrafts.fields
     output = output & replace(field.name, " ", "") & "~" & field.value & "`"
   next
   output = left(output, len(output)-1)
   output = output & "*"
   
-  'get additional data from the individual database
-  db = "..\..\database\db" & request.querystring("db") & ".mdb"
+  'get additional data from the individual database using utility function
   Dim conn2
-  Set conn2 = Server.CreateObject("ADODB.Connection")
-  sConnection2 = "Provider=Microsoft.Jet.OLEDB.4.0;" & _
-
-                "Data Source=" & server.mappath(db) &";" & _
-
-                "Persist Security Info=False"
-  conn2.Open(sConnection2)
+  Set conn2 = GetIndividualDBConnection(dbName)
 
   'create the tables
   set rsCraftData = Server.CreateObject("ADODB.recordset")
