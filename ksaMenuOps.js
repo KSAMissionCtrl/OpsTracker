@@ -135,7 +135,7 @@ function loadMenuAJAX(xhttp) {
       else if (event.node.img.includes("aircraft") && event.node.parent.id != "inactiveVessels") {
         
         // let the user know only one data load request can be active at a time
-        if (strFltTrackLoading) {
+        if (KSA_CALCULATIONS.strFltTrackLoading) {
           $("#mapDialog").dialog( "option", "title", "Data Load Notice");
           $("#progressbar").fadeOut();
           $("#dialogTxt").fadeIn();
@@ -157,28 +157,28 @@ function loadMenuAJAX(xhttp) {
           swapContent("body", "Kerbin-System", event.node.id);
 
           // don't let an accidental double-click load this twice
-          strFltTrackLoading = event.node.id;
+          KSA_CALCULATIONS.strFltTrackLoading = event.node.id;
         }
 
         // however if the system is already set to Kerbin, just load the path straight to the map
         else {
 
           // don't try to load this if it is already being loaded
-          if (strFltTrackLoading != event.node.id) {
+          if (KSA_CALCULATIONS.strFltTrackLoading != event.node.id) {
 
             // if this isn't the right page type, set it up
             if (ops.pageType != "body") swapContent("body", "Kerbin-System", event.node.id);
             setTimeout(showMap, 1000);
 
             // call for the aircraft track if it doesn't already exist
-            var path = fltPaths.find(o => o.id === event.node.id);
+            var path = KSA_CATALOGS.fltPaths.find(o => o.id === event.node.id);
             if (!path) {
-              surfaceTracksDataLoad.fltTrackDataLoad = L.layerGroup();
+              KSA_LAYERS.surfaceTracksDataLoad.fltTrackDataLoad = L.layerGroup();
               ops.surface.layerControl._expand();
               ops.surface.layerControl.options.collapsed = false;
-              ops.surface.layerControl.addOverlay(surfaceTracksDataLoad.fltTrackDataLoad, "<i class='fa fa-cog fa-spin'></i> Loading Data...", "Flight Tracks");
+              ops.surface.layerControl.addOverlay(KSA_LAYERS.surfaceTracksDataLoad.fltTrackDataLoad, "<i class='fa fa-cog fa-spin'></i> Loading Data...", "Flight Tracks");
               loadDB("loadFltData.asp?data=" + event.node.id, loadFltDataAJAX);
-              strFltTrackLoading = event.node.id;
+              KSA_CALCULATIONS.strFltTrackLoading = event.node.id;
 
             // if the data already exists...
             } else {
@@ -235,7 +235,7 @@ function loadMenuAJAX(xhttp) {
   // build the menu for active/inactive vessels
   ops.craftsMenu.forEach(function(item) { addMenuItem(item) });
   activeVesselCount();
-  isMenuDataLoaded = true;
+  KSA_UI_STATE.isMenuDataLoaded = true;
   
   // begin loading the future data sets for all active vessels and crew
   loadOpsDataAJAX();
@@ -538,7 +538,7 @@ function filterCrewMenu(id) {
   // this may place an extra call to the first crew member if loading initially to full roster page but does no harm
   if (ops.pageType == "crewFull") {
     $('#fullRoster').empty(); 
-    crewList = extractIDs(w2ui['menu'].get('crew').nodes).split(";");
+    KSA_CATALOGS.crewList = extractIDs(w2ui['menu'].get('crew').nodes).split(";");
     loadDB("loadCrewData.asp?db=" + showFullRoster() + "&ut=" + currUT(), loadCrewAJAX);
   }
 }
@@ -708,7 +708,7 @@ function addMenuItem(item, newAdd = false) {
     // as an active vessel, we will want to check for future data
     // also save to list so it can be checked for orbital data for body/surface views
     // check too if it has orbital data to render if the GGB figure is already loaded
-    if (isGGBAppletLoaded && !isGGBAppletRefreshing) {
+    if (KSA_UI_STATE.isGGBAppletLoaded && !KSA_UI_STATE.isGGBAppletRefreshing) {
       loadDB("loadVesselOrbitData.asp?db=" + item.db + "&ut=" + currUT(), addGGBOrbitAJAX);
     }
     ops.activeVessels.push(item);

@@ -6,7 +6,7 @@
 function loadCrew(crew) {
   
   // make sure the menu data is loaded before continuing
-  if (!isMenuDataLoaded) return setTimeout(loadCrew, 100, crew);
+  if (!KSA_UI_STATE.isMenuDataLoaded) return setTimeout(loadCrew, 100, crew);
 
   // modify the history so people can page back/forward
   // if this is the first page to load, replace the current history
@@ -34,7 +34,7 @@ function loadCrew(crew) {
     document.title = "KSA Operations Tracker - Full Roster";
     
     // get the full crew listing and start to show them all
-    crewList = extractIDs(w2ui['menu'].get('crew').nodes).split(";");
+    KSA_CATALOGS.crewList = extractIDs(w2ui['menu'].get('crew').nodes).split(";");
     loadDB("loadCrewData.asp?db=" + showFullRoster() + "&ut=" + currUT(), loadCrewAJAX);
   } else {
     $("#contentHeader").html("&nbsp;");
@@ -157,7 +157,7 @@ function loadCrewAJAX(xhttp) {
 // returns the next crew member in the full roster that needs to be loaded
 // matches the current menu sorting option for crew
 function showFullRoster() {
-  var crewID = crewList.shift();
+  var crewID = KSA_CATALOGS.crewList.shift();
   if (crewID) {
 
     // make a new crew card entry and start the spinner to show data is being fetched
@@ -301,7 +301,7 @@ function crewInfoUpdate(update) {
   // get the date of the birthday to display in MM/DD/YYYY format and also age calculation
   // if crew is deceased, the current date becomes the date they died so their age remains static
   if (ops.currentCrew.Background.Deactivation && ops.currentCrew.Background.Deactivation.includes("Deceased")) {
-    var currDate = foundingMoment + (parseInt(ops.currentCrew.Background.Deactivation.split(";")[0]) * 1000)
+    var currDate = KSA_CONSTANTS.FOUNDING_MOMENT + (parseInt(ops.currentCrew.Background.Deactivation.split(";")[0]) * 1000)
     var strAge = " (Age at Death: ";
   } else {
     var currDate = Date.now()

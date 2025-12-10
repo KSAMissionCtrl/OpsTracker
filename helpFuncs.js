@@ -304,7 +304,7 @@ function formatDateTime(time) {
 
 // convert a given game UT time into the equivalent "mm/dd/yyyy hh:mm:ss" in UTC
 function UTtoDateTime(setUT, local = false, fullYear = true) {
-  var d = foundingMoment.plus({seconds: setUT});
+  var d = KSA_CONSTANTS.FOUNDING_MOMENT.plus({seconds: setUT});
 
   // if we ask for KSC time, apply the proper UTC offset
   if (local) d = d.setZone("America/New_York");
@@ -322,13 +322,13 @@ function UTtoDateTime(setUT, local = false, fullYear = true) {
 
 // convert a given game UT time into the local date time for the end user
 function UTtoDateTimeLocal(setUT) {
-  var d = foundingMoment.plus({seconds: setUT}).toLocal();
+  var d = KSA_CONSTANTS.FOUNDING_MOMENT.plus({seconds: setUT}).toLocal();
   return d.toLocaleString(luxon.DateTime.DATETIME_HUGE_WITH_SECONDS);
 }
 
 // convert a given date object to game UT
 function dateObjtoUT(dateTime) {
-  var setUT = ((dateTime.getTime() - foundingMoment) / 1000);
+  var setUT = ((dateTime.getTime() - KSA_CONSTANTS.FOUNDING_MOMENT) / 1000);
   if (ops.UTC == 5) setUT += 3600;
   return setUT;
 }

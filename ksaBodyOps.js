@@ -14,7 +14,7 @@ function loadBody(body, flt) {
   if (!ops.bodyCatalog.length) return setTimeout(loadBody, 50, body);
 
   // if there is already a body loading then try calling back later
-  if (ops.bodyCatalog.find(o => o.selected === true) && !isGGBAppletLoaded) return setTimeout(loadBody, 50, body);
+  if (ops.bodyCatalog.find(o => o.selected === true) && !KSA_UI_STATE.isGGBAppletLoaded) return setTimeout(loadBody, 50, body);
 
   // hide the map just in case it's open
   hideMap();
@@ -44,18 +44,18 @@ function loadBody(body, flt) {
     // $("#contentHeader").spin({ scale: 0.35, position: 'relative', top: '10px', left: (((955/2) + (body.width('bold 32px arial')/2)) + 10) +'px' });
 
     // if body was already loaded & we are switching to it then just exit at this point
-    if (isGGBAppletLoaded && ops.bodyCatalog.find(o => o.selected === true) && ops.bodyCatalog.find(o => o.selected === true).Body == body.split("-")[0]) { 
+    if (KSA_UI_STATE.isGGBAppletLoaded && ops.bodyCatalog.find(o => o.selected === true) && ops.bodyCatalog.find(o => o.selected === true).Body == body.split("-")[0]) { 
 
       // if it was loaded behind a vessel page, show all the details for a bit
-      if (isDirty) {
+      if (KSA_UI_STATE.isDirty) {
         ggbApplet.reset();
-        isDirty = false;
+        KSA_UI_STATE.isDirty = false;
       }
       return;
     }
   
   // if this is a vessel page calling the load then set a flag to let us know the figure will need to be reset next time it is shown
-  } else if (ops.pageType == "vessel") isDirty = true;
+  } else if (ops.pageType == "vessel") KSA_UI_STATE.isDirty = true;
 
   // update the current body & system
   if (ops.bodyCatalog.find(o => o.selected === true)) ops.bodyCatalog.find(o => o.selected === true).selected = false;
@@ -63,7 +63,7 @@ function loadBody(body, flt) {
   
   // hide and reset stuff
   $("#figureOptions").fadeOut();
-  isGGBAppletLoaded = false;
+  KSA_UI_STATE.isGGBAppletLoaded = false;
 
   // remove and add the GGB figure container
   $("#figure").remove();
@@ -115,7 +115,7 @@ function loadBodyAJAX(xhttp) {
 
 // called by GGB figure after it finishes loading or after user clicks the reset
 function ggbOnInit() {
-  isGGBAppletRefreshing = true;
+  KSA_UI_STATE.isGGBAppletRefreshing = true;
   $("#figureDialog").dialog("close");
 
   // hide and disable vessel filters
@@ -130,7 +130,7 @@ function ggbOnInit() {
   ops.vesselsToLoad = [];
 
   // can't continue if menu data hasn't loaded. Try again in 50ms
-  if (!isMenuDataLoaded) return setTimeout(ggbOnInit, 50);
+  if (!KSA_UI_STATE.isMenuDataLoaded) return setTimeout(ggbOnInit, 50);
   
   // reset all the checkboxes
   $("#nodes").prop('checked', true);
@@ -140,7 +140,7 @@ function ggbOnInit() {
   $("#soi").prop('checked', true);
 
   // disable the spinner & show checkboxes if this is the first load and not a vessel page call
-  if (!isGGBAppletLoaded && ops.pageType == "body") { 
+  if (!KSA_UI_STATE.isGGBAppletLoaded && ops.pageType == "body") { 
     $("#contentBox").spin(false); 
     $("#figureOptions").fadeIn();
   }
@@ -168,7 +168,7 @@ function ggbOnInit() {
   
   // listen for any objects clicked on
   // this can be called twice if the figure is "dirty" underneath a vessel so make sure only call when figure still not yet fully loaded
-  if (!isGGBAppletLoaded) ggbApplet.registerClickListener("figureClick");
+  if (!KSA_UI_STATE.isGGBAppletLoaded) ggbApplet.registerClickListener("figureClick");
 
   // select and show it in the menu if this is the proper page type because
   // the figure can load after a vessel was already selected
@@ -177,14 +177,14 @@ function ggbOnInit() {
     
   // declutter the view after a few seconds
   // make sure a quick figure switch doesn't declutter things too fast
-  clearTimeout(timeoutHandle);
-  timeoutHandle = setTimeout(declutterGGB, 2500);
+  clearTimeout(KSA_TIMERS.timeoutHandle);
+  KSA_TIMERS.timeoutHandle = setTimeout(declutterGGB, 2500);
 
   // load additional data
-  isGGBAppletLoaded = true;
+  KSA_UI_STATE.isGGBAppletLoaded = true;
   loadMap(currBody);
   if (!loadVesselOrbits()) { 
-    isGGBAppletRefreshing = false;
+    KSA_UI_STATE.isGGBAppletRefreshing = false;
     activateEventLinks();
   }
 }
@@ -193,7 +193,7 @@ function ggbOnInit() {
 function loadVesselOrbits() {
 
   // we need to stop all AJAX calls if the body is being switched before we finish
-  if (!isGGBAppletLoaded) {
+  if (!KSA_UI_STATE.isGGBAppletLoaded) {
     ops.vesselsToLoad.length = 0;
     return;
   }
@@ -213,7 +213,7 @@ function loadVesselOrbits() {
       ops.vesselsToLoad = strVesselsToload.substr(0, strVesselsToload.length-1).split(";");
       $("#vesselLoaderMsg").spin({ scale: 0.35, position: 'relative', top: '8px', left: '0px' });
       $("#vesselLoaderMsg").fadeIn();
-      clearTimeout(timeoutHandle);
+      clearTimeout(KSA_TIMERS.timeoutHandle);
     } else {
 
       // no vessels to load
@@ -228,8 +228,8 @@ function loadVesselOrbits() {
 
 // creates an orbit on the GeoGebra figure if it is loaded
 function addGGBOrbitAJAX(xhttp) {
-  if (!isGGBAppletLoaded) return;
-  if (!isGGBAppletRefreshing) ggbApplet.unregisterClickListener("figureClick");
+  if (!KSA_UI_STATE.isGGBAppletLoaded) return;
+  if (!KSA_UI_STATE.isGGBAppletRefreshing) ggbApplet.unregisterClickListener("figureClick");
 
   // parse data
   var vesselID = xhttp.responseText.split("*")[0];
@@ -290,7 +290,7 @@ function addGGBOrbitAJAX(xhttp) {
       // enable this vessel type in the filters menu
       $("#" + strVesselType + "-filter").removeAttr("disabled");
       $("#" + strVesselType + "-filter").prop('checked', true);
-      $("#" + strVesselType + "-label").css('color', orbitColors[strVesselType]);
+      $("#" + strVesselType + "-label").css('color', KSA_COLORS.orbitColors[strVesselType]);
       
       // load the vessel into the figure
       ggbApplet.evalCommand(ggbID + 'sma=' + orbitData.SMA);
@@ -312,7 +312,7 @@ function addGGBOrbitAJAX(xhttp) {
       ggbApplet.evalCommand(ggbID + 'refpoint=Rotate(Rotate((' + ggbID + 'sma; 0; 0), ' + ggbID + 'raan, zAxis), ' + ggbID + 'arg - acos(-' + ggbID + 'ecc), ' + ggbID + 'obtaxis)');
       ggbApplet.setVisible(ggbID + 'refpoint', false);
       ggbApplet.evalCommand(ggbID + 'conic=Ellipse(origin, ' + ggbID + 'secondfocus, ' + ggbID + 'refpoint)');
-      ggbApplet.setColor(ggbID + 'conic', hexToRgb(orbitColors[strVesselType]).r, hexToRgb(orbitColors[strVesselType]).g, hexToRgb(orbitColors[strVesselType]).b);
+      ggbApplet.setColor(ggbID + 'conic', hexToRgb(KSA_COLORS.orbitColors[strVesselType]).r, hexToRgb(KSA_COLORS.orbitColors[strVesselType]).g, hexToRgb(KSA_COLORS.orbitColors[strVesselType]).b);
       ggbApplet.evalCommand(ggbID + 'penode=Point(' + ggbID + 'conic, 0)');
       ggbApplet.setCaption(ggbID + 'penode', "Pe");
       ggbApplet.setLabelStyle(ggbID + 'penode', 3);
@@ -351,7 +351,7 @@ function addGGBOrbitAJAX(xhttp) {
       ggbApplet.setLabelStyle(ggbID + 'position', 3);
       ggbApplet.setPointSize(ggbID + 'position', 2);
       ggbApplet.setLabelVisible(ggbID + 'position', true);
-      ggbApplet.setColor(ggbID + 'position', hexToRgb(orbitColors[strVesselType]).r, hexToRgb(orbitColors[strVesselType]).g, hexToRgb(orbitColors[strVesselType]).b);
+      ggbApplet.setColor(ggbID + 'position', hexToRgb(KSA_COLORS.orbitColors[strVesselType]).r, hexToRgb(KSA_COLORS.orbitColors[strVesselType]).g, hexToRgb(KSA_COLORS.orbitColors[strVesselType]).b);
     }
   }
 
@@ -367,14 +367,14 @@ function addGGBOrbitAJAX(xhttp) {
     ops.vesselsToLoad = null;
 
     // finish cleaning up after body load
-    isGGBAppletRefreshing = false;
+    KSA_UI_STATE.isGGBAppletRefreshing = false;
     activateEventLinks();
     $("#vesselLoaderMsg").spin(false);
     $("#vesselLoaderMsg").fadeOut();
-    if ($("#figure").is(":visible") && ops.pageType == "body" && !window.location.href.includes("&map") && !isMapShown) { 
+    if ($("#figure").is(":visible") && ops.pageType == "body" && !window.location.href.includes("&map") && !KSA_UI_STATE.isMapShown) { 
       if (!$("#asteroid-filter").prop("disabled") || !$("#debris-filter").prop("disabled") || !$("#probe-filter").prop("disabled") || !$("#ship-filter").prop("disabled") || !$("#station-filter").prop("disabled")) $("#vesselOrbitTypes").fadeIn();
     }
-    timeoutHandle = setTimeout(declutterGGB, 2500);
+    KSA_TIMERS.timeoutHandle = setTimeout(declutterGGB, 2500);
   }
 }
 
@@ -411,7 +411,7 @@ function declutterGGB() {
   $("#soi").prop('checked', false);
   
   // nullify to let anyone else know this has already happened
-  timeoutHandle = null;
+  KSA_TIMERS.timeoutHandle = null;
 }
 
 // handle any objects that are clicked in the GeoGebra figure

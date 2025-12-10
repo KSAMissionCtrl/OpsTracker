@@ -2,7 +2,7 @@
 
 // current game time is the difference between current real time minus number of ms since midnight on 9/13/16
 var tzOffset = luxon.DateTime.utc();
-ops.UT = luxon.Interval.fromDateTimes(foundingMoment, tzOffset).count("milliseconds")/1000;
+ops.UT = luxon.Interval.fromDateTimes(KSA_CONSTANTS.FOUNDING_MOMENT, tzOffset).count("milliseconds")/1000;
 if (getParameterByName("setut") && (getCookie("missionctrl") || parseInt(getParameterByName("setut")) < ops.UT)) ops.UT = parseInt(getParameterByName("setut"));
 if (window.location.href.includes("&live") && getParameterByName("ut") && parseInt(getParameterByName("ut")) < ops.UT) ops.UT = parseInt(getParameterByName("ut"));
 
@@ -78,14 +78,14 @@ function cleanupTimers() {
     }
     
     // Update global references for backward compatibility
-    mapDialogDelay = null;
-    timeoutHandle = null;
-    launchRefreshTimeout = null;
-    maneuverRefreshTimeout = null;
-    mapMarkerTimeout = null;
-    flightTimelineInterval = null;
-    vesselImgTimeout = null;
-    ascentInterpTimeout = null;
+    KSA_TIMERS.mapDialogDelay = null;
+    KSA_TIMERS.timeoutHandle = null;
+    KSA_TIMERS.launchRefreshTimeout = null;
+    KSA_TIMERS.maneuverRefreshTimeout = null;
+    KSA_TIMERS.mapMarkerTimeout = null;
+    KSA_TIMERS.flightTimelineInterval = null;
+    KSA_TIMERS.vesselImgTimeout = null;
+    KSA_TIMERS.ascentInterpTimeout = null;
   } catch (error) {
     handleError(error, 'cleanupTimers');
   }
@@ -123,24 +123,24 @@ function cleanupView() {
 // animate the size of the main content box
 function raiseContent(mapInvalTime = 1500) {
   if ($("#contentBox").css("height") != "885px") {
-    isContentMoving = true;
+    KSA_UI_STATE.isContentMoving = true;
     $("#contentBox").css("transform", "translateY(0px)");
     setTimeout(function() { 
       $("#contentBox").css("height", "885px");
       $("#map").css("height", "885px");
       if (ops.surface.map) setTimeout(function() { ops.surface.map.invalidateSize(); }, mapInvalTime);
-      isContentMoving = false;
+      KSA_UI_STATE.isContentMoving = false;
     }, 400);
   }
 }
 function lowerContent(mapInvalTime = 1900) {
   if ($("#contentBox").css("height") != "480px") {
-    isContentMoving = true;
+    KSA_UI_STATE.isContentMoving = true;
     $("#contentBox").css("height", "480px");
     $("#map").css("height", "480px");
     setTimeout(function() { 
       $("#contentBox").css("transform", "translateY(405px)"); 
-      setTimeout(function() { isContentMoving = false; }, 400);
+      setTimeout(function() { KSA_UI_STATE.isContentMoving = false; }, 400);
       if (ops.surface.map) setTimeout(function() { ops.surface.map.invalidateSize(); }, mapInvalTime);
     }, 400);
   }
@@ -250,11 +250,11 @@ function setupContent() {
                           open: function() { 
 
                             // don't allow the user to manipulate the map size while dialog is open
-                            if (mapResizeButton) mapResizeButton.disable();
+                            if (KSA_MAP_CONTROLS.mapResizeButton) KSA_MAP_CONTROLS.mapResizeButton.disable();
                             $(".leaflet-control-zoom-fullscreen.fullscreen-icon").hide();
                           },
                           close: function() { 
-                            if (mapResizeButton) mapResizeButton.enable();
+                            if (KSA_MAP_CONTROLS.mapResizeButton) KSA_MAP_CONTROLS.mapResizeButton.enable();
                             $(".leaflet-control-zoom-fullscreen.fullscreen-icon").show();
                           }
                           });
@@ -356,9 +356,9 @@ function swapContent(newPageType, id, ut, flt) {
   cleanupView();
 
   // make sure any map dialog that was commanded to show does not
-  if (mapDialogDelay) {
-    clearTimeout(mapDialogDelay);
-    mapDialogDelay = null;
+  if (KSA_TIMERS.mapDialogDelay) {
+    clearTimeout(KSA_TIMERS.mapDialogDelay);
+    KSA_TIMERS.mapDialogDelay = null;
   }
 
   // close any open map popups
@@ -418,9 +418,9 @@ function swapContent(newPageType, id, ut, flt) {
   
   // if a vessel orbital calculation is in progress, pause it
   if (ops.currentVessel && ops.pageType == "vessel" && !ops.surface.layerControl.options.collapsed) {
-    if (surfaceTracksDataLoad.obtTrackDataLoad) ops.surface.layerControl.removeLayer(surfaceTracksDataLoad.obtTrackDataLoad);
-    surfaceTracksDataLoad.obtTrackDataLoad = null;
-    strPausedVesselCalculation = ops.currentVessel.Catalog.DB;
+    if (KSA_LAYERS.surfaceTracksDataLoad.obtTrackDataLoad) ops.surface.layerControl.removeLayer(KSA_LAYERS.surfaceTracksDataLoad.obtTrackDataLoad);
+    KSA_LAYERS.surfaceTracksDataLoad.obtTrackDataLoad = null;
+    KSA_CALCULATIONS.strPausedVesselCalculation = ops.currentVessel.Catalog.DB;
     checkDataLoad();
   }
 
@@ -443,9 +443,9 @@ function swapContent(newPageType, id, ut, flt) {
     $("#figure").fadeOut();
     $("#figureDialog").dialog("close");
     removeMapCloseButton();
-    if (surfaceTracksDataLoad.bodiesTrackDataLoad) {
-      ops.surface.layerControl.removeLayer(surfaceTracksDataLoad.bodiesTrackDataLoad);
-      surfaceTracksDataLoad.bodiesTrackDataLoad = null;
+    if (KSA_LAYERS.surfaceTracksDataLoad.bodiesTrackDataLoad) {
+      ops.surface.layerControl.removeLayer(KSA_LAYERS.surfaceTracksDataLoad.bodiesTrackDataLoad);
+      KSA_LAYERS.surfaceTracksDataLoad.bodiesTrackDataLoad = null;
     }
   } else if (ops.pageType == "vessel") {
   
@@ -485,15 +485,15 @@ function swapContent(newPageType, id, ut, flt) {
     setTimeout(function() { 
       if (!window.location.href.includes("&map")) {
         $("#figureOptions").fadeIn();
-        if (!isMapShown && (!$("#asteroid-filter").prop("disabled") || !$("#debris-filter").prop("disabled") || !$("#probe-filter").prop("disabled") || !$("#ship-filter").prop("disabled") || !$("#station-filter").prop("disabled"))) $("#vesselOrbitTypes").fadeIn();
+        if (!KSA_UI_STATE.isMapShown && (!$("#asteroid-filter").prop("disabled") || !$("#debris-filter").prop("disabled") || !$("#probe-filter").prop("disabled") || !$("#ship-filter").prop("disabled") || !$("#station-filter").prop("disabled"))) $("#vesselOrbitTypes").fadeIn();
         $("#figure").fadeIn();
       }
       $("#contentBox").fadeIn();
-      if (layerPins) {
-        layerPins.addTo(ops.surface.map);
-        ops.surface.layerControl.addOverlay(layerPins, "<img src='defPin.png' style='width: 10px; height: 14px; vertical-align: 1px;'> Custom Pins", "Ground Markers");
+      if (KSA_LAYERS.layerPins) {
+        KSA_LAYERS.layerPins.addTo(ops.surface.map);
+        ops.surface.layerControl.addOverlay(KSA_LAYERS.layerPins, "<img src='defPin.png' style='width: 10px; height: 14px; vertical-align: 1px;'> Custom Pins", "Ground Markers");
       }
-      bodyPaths.layers.forEach(function(layer) {
+     KSA_CATALOGS.bodyPaths.layers.forEach(function(layer) {
         if (layer.isLoaded) {
           var strType = capitalizeFirstLetter(layer.type);
           if (!strType.endsWith("s")) strType += "s";
@@ -542,8 +542,8 @@ function swapContent(newPageType, id, ut, flt) {
 
 // updates various content on the page depending on what update event has been triggered
 function updatePage(updateEvent) {
-  menuSaveSelected = w2ui['menu'].find({selected: true});
-  if (menuSaveSelected.length == 0) menuSaveSelected = null;
+  KSA_UI_STATE.menuSaveSelected = w2ui['menu'].find({selected: true});
+  if (KSA_UI_STATE.menuSaveSelected.length == 0) KSA_UI_STATE.menuSaveSelected = null;
   if (updateEvent.type.includes("menu")) menuUpdate(updateEvent.type.split(";")[1], updateEvent.id);
   else if (updateEvent.type == "event") loadDB("loadEventData.asp?UT=" + currUT(), loadEventsAJAX);
   else if (updateEvent.type == "object") {
@@ -559,7 +559,7 @@ function updatePage(updateEvent) {
 
 // recursively check through updates so we get any that occur at the same time
 function checkPageUpdate() {
-  if (!isMenuDataLoaded) return;
+  if (!KSA_UI_STATE.isMenuDataLoaded) return;
   if (ops.updatesList.length && currUT() >= ops.updatesList[0].UT) {
     updatePage(ops.updatesList.shift());
     ops.updatesListSize = ops.updatesList.length;
@@ -744,7 +744,7 @@ function loadOpsDataAJAX(xhttp) {
       if (getParameterByName("body")) menuID = getParameterByName("body");
       if (getParameterByName("vessel")) menuID = getParameterByName("vessel");
       if (getParameterByName("crew")) menuID = getParameterByName("crew");
-      if (!menuSaveSelected || (menuSaveSelected && (menuSaveSelected[0].id != menuID))) {
+      if (!KSA_UI_STATE.menuSaveSelected || (KSA_UI_STATE.menuSaveSelected && (KSA_UI_STATE.menuSaveSelected[0].id != menuID))) {
         if (menuID && !window.location.href.includes("flt")) selectMenuItem(menuID);
         else w2ui['menu'].scrollIntoView();
       }
@@ -766,25 +766,25 @@ function loadOpsDataAJAX(xhttp) {
 
   // update the clocks
   $('#ksctime').html(UTtoDateTime(currUT(), true));
-  if (!isNaN(launchCountdown) && launchCountdown - currUT() > 0) $('#launchCountdown').html(formatTime(launchCountdown - currUT(), false));
-  else if (!isNaN(launchCountdown) && launchCountdown - currUT() <= 0) { 
+  if (!isNaN(KSA_CALCULATIONS.launchCountdown) && KSA_CALCULATIONS.launchCountdown - currUT() > 0) $('#launchCountdown').html(formatTime(KSA_CALCULATIONS.launchCountdown - currUT(), false));
+  else if (!isNaN(KSA_CALCULATIONS.launchCountdown) && KSA_CALCULATIONS.launchCountdown - currUT() <= 0) { 
     
     // cleanup the event data and prep for checking for new events
     $('#launchCountdown').html("LIFTOFF!!"); 
-    launchCountdown = "null";
+    KSA_CALCULATIONS.launchCountdown = "null";
     setTimeout(function() { loadDB("loadEventData.asp?UT=" + currUT(), loadEventsAJAX); }, 5000);
   }
-  if (!isNaN(maneuverCountdown) && maneuverCountdown - currUT() > 0) $('#maneuverCountdown').html(formatTime(maneuverCountdown - currUT(), false));
-  else if (!isNaN(maneuverCountdown) && maneuverCountdown - currUT() <= 0) { 
+  if (!isNaN(KSA_CALCULATIONS.maneuverCountdown) && KSA_CALCULATIONS.maneuverCountdown - currUT() > 0) $('#maneuverCountdown').html(formatTime(KSA_CALCULATIONS.maneuverCountdown - currUT(), false));
+  else if (!isNaN(KSA_CALCULATIONS.maneuverCountdown) && KSA_CALCULATIONS.maneuverCountdown - currUT() <= 0) { 
     $('#maneuverCountdown').html("EXECUTE!!"); 
-    maneuverCountdown = "null";
-    maneuverRefreshTimeout = setTimeout(function() { loadDB("loadEventData.asp?UT=" + currUT(), loadEventsAJAX); }, 5000);
+    KSA_CALCULATIONS.maneuverCountdown = "null";
+    KSA_TIMERS.maneuverRefreshTimeout = setTimeout(function() { loadDB("loadEventData.asp?UT=" + currUT(), loadEventsAJAX); }, 5000);
   }
 
   // update the terminator & sun display if a marker exists and the current body has a solar day length (is not the sun)
   // drawn based on the technique from SCANSat
   // https://github.com/S-C-A-N/SCANsat/blob/dev/SCANsat/SCAN_Unity/SCAN_UI_MainMap.cs#L682-L704
-  if (ops.surface.Data && ops.surface.Data.Name == "Kerbin" && sunMarker && ops.bodyCatalog.find(o => o.selected === true).SolarDay) {
+  if (ops.surface.Data && ops.surface.Data.Name == "Kerbin" && KSA_MAP_CONTROLS.sunMarker && ops.bodyCatalog.find(o => o.selected === true).SolarDay) {
 
     // for now only for Kerbin, with no solar inclination
     var sunLon = -ops.bodyCatalog.find(o => o.selected === true).RotIni - (((currUT() / ops.bodyCatalog.find(o => o.selected === true).SolarDay) % 1) * 360);
@@ -792,7 +792,7 @@ function loadOpsDataAJAX(xhttp) {
     if (sunLon < -180) sunLon += 360;
 
     // update the marker position
-    sunMarker.setLatLng([sunLat, sunLon]);
+    KSA_MAP_CONTROLS.sunMarker.setLatLng([sunLat, sunLon]);
 
     // calculate the new terminator line
     var sunLatCenter = (0 + 180 + 90) % 180 - 90;
@@ -810,16 +810,16 @@ function loadOpsDataAJAX(xhttp) {
     terminatorPath.push([-90, -180]);
 
     // remove the previous layer if there is one before adding the new one
-    if (terminator) layerSolar.removeLayer(terminator);
-    terminator = L.polygon(terminatorPath, {stroke: false, fillOpacity: 0.5, fillColor: "#000000", interactive: false});
-    layerSolar.addLayer(terminator);
+    if (KSA_MAP_CONTROLS.terminator) KSA_LAYERS.layerSolar.removeLayer(KSA_MAP_CONTROLS.terminator);
+    KSA_MAP_CONTROLS.terminator = L.polygon(terminatorPath, {stroke: false, fillOpacity: 0.5, fillColor: "#000000", interactive: false});
+    KSA_LAYERS.layerSolar.addLayer(KSA_MAP_CONTROLS.terminator);
   }
 
   // update any crew mission countdown that is active
   if (ops.pageType == "crew" && !$('#dataField10').is(':empty')) $("#crewCountdown").html(formatTime($("#crewCountdown").attr("data")-currUT()));
   
   // update the dynamic orbit figure
-  if (isGGBAppletLoaded) ggbApplet.setValue("UT", currUT());
+  if (KSA_UI_STATE.isGGBAppletLoaded) ggbApplet.setValue("UT", currUT());
   
   // is there a loaded vessel we need to monitor?
   if (ops.currentVessel) {
@@ -846,7 +846,7 @@ function loadOpsDataAJAX(xhttp) {
       $("#metCount").html(formatTime($("#metCount").attr("data")-currUT()));
       
       // update vessel surface map information if a vessel is on the map and calculations are not running
-      if (vesselMarker && (ops.surface.layerControl && ops.surface.layerControl.options.collapsed)) {
+      if (KSA_MAP_CONTROLS.vesselMarker && (ops.surface.layerControl && ops.surface.layerControl.options.collapsed)) {
 
         // is there an ascent going on?
         if (ops.ascentData.active && !ops.ascentData.isPaused) {
@@ -865,7 +865,7 @@ function loadOpsDataAJAX(xhttp) {
 
           // only perform interpolation if we are beyond the start of data and there is still data remaining
           if (currUT() >= ops.ascentData.telemetry[0].UT && ops.activeAscentFrame.ascentIndex < ops.ascentData.telemetry.length-1) {
-            interpStart = new Date().getTime();
+            KSA_TIMERS.interpStart = new Date().getTime();
 
             // set the FPS to default 30 if null
             if (!ops.activeAscentFrame.FPS) ops.activeAscentFrame.FPS = 30;
@@ -904,9 +904,9 @@ function loadOpsDataAJAX(xhttp) {
             else ops.activeAscentFrame.traveledDelta = null;
 
             // cancel the current interpolation timer & reset counter
-            if (ascentInterpTimeout) {
-              clearTimeout(ascentInterpTimeout);
-              ascentInterpTimeout = null;
+            if (KSA_TIMERS.ascentInterpTimeout) {
+              clearTimeout(KSA_TIMERS.ascentInterpTimeout);
+              KSA_TIMERS.ascentInterpTimeout = null;
               ops.activeAscentFrame.interpCount = 0;
             }
 
@@ -924,9 +924,9 @@ function loadOpsDataAJAX(xhttp) {
 
             // interpolation function timeout handle nulled after one last update
             updateAscentData(true);
-            if (ascentInterpTimeout) {
-              clearTimeout(ascentInterpTimeout);
-              ascentInterpTimeout = null;
+            if (KSA_TIMERS.ascentInterpTimeout) {
+              clearTimeout(KSA_TIMERS.ascentInterpTimeout);
+              KSA_TIMERS.ascentInterpTimeout = null;
             }
 
             // one last surface track update
@@ -947,69 +947,69 @@ function loadOpsDataAJAX(xhttp) {
 
           // update craft position and popup content
           var cardinal = getLatLngCompass(ops.currentVesselPlot.obtData[now.obtNum].orbit[now.index].latlng);
-          vesselMarker.setLatLng(ops.currentVesselPlot.obtData[now.obtNum].orbit[now.index].latlng);
+          KSA_MAP_CONTROLS.vesselMarker.setLatLng(ops.currentVesselPlot.obtData[now.obtNum].orbit[now.index].latlng);
           $('#lat').html(numeral(ops.currentVesselPlot.obtData[now.obtNum].orbit[now.index].latlng.lat).format('0.0000') + "&deg;" + cardinal.lat);
           $('#lng').html(numeral(ops.currentVesselPlot.obtData[now.obtNum].orbit[now.index].latlng.lng).format('0.0000') + "&deg;" + cardinal.lng);
           $('#alt').html(numeral(ops.currentVesselPlot.obtData[now.obtNum].orbit[now.index].alt).format('0,0.000') + " km");
           $('#vel').html(numeral(ops.currentVesselPlot.obtData[now.obtNum].orbit[now.index].vel).format('0,0.000') + " km/s");
 
           // create the horizon if needed, then update it
-          if (ops.surface.map.hasLayer(vesselMarker)) {
+          if (ops.surface.map.hasLayer(KSA_MAP_CONTROLS.vesselMarker)) {
             var horizonRadius = Math.sqrt((ops.currentVesselPlot.obtData[now.obtNum].orbit[now.index].alt*1000)*((ops.bodyCatalog.find(o => o.selected === true).Radius*1000) * 2 + (ops.currentVesselPlot.obtData[now.obtNum].orbit[now.index].alt*1000)))*10;
             if (horizonRadius/10 > ops.bodyCatalog.find(o => o.selected === true).Radius*1000) horizonRadius = (ops.bodyCatalog.find(o => o.selected === true).Radius*1000)*10;
-            if (!vesselHorizon.vessel) {
-              vesselHorizon.vessel = L.circle(vesselMarker.getLatLng(), { 
+            if (!KSA_MAP_CONTROLS.vesselHorizon.vessel) {
+              KSA_MAP_CONTROLS.vesselHorizon.vessel = L.circle(KSA_MAP_CONTROLS.vesselMarker.getLatLng(), { 
                 radius: horizonRadius,
-                color: vesselOrbitColors[now.obtNum],
+                color: KSA_COLORS.vesselOrbitColors[now.obtNum],
                 weight: 2,
                 interactive: false
               }).addTo(ops.surface.map);
             } else {
-              vesselHorizon.vessel.setLatLng(vesselMarker.getLatLng());
-              vesselHorizon.vessel.setRadius(horizonRadius);
-              vesselHorizon.vessel.setStyle({color: vesselOrbitColors[now.obtNum]});
+              KSA_MAP_CONTROLS.vesselHorizon.vessel.setLatLng(KSA_MAP_CONTROLS.vesselMarker.getLatLng());
+              KSA_MAP_CONTROLS.vesselHorizon.vessel.setRadius(horizonRadius);
+              KSA_MAP_CONTROLS.vesselHorizon.vessel.setStyle({color: KSA_COLORS.vesselOrbitColors[now.obtNum]});
             }
 
             // set additional horizon circles to wrap map edges?
-            if (vesselHorizon.vessel.getBounds().getWest() < -180 || vesselHorizon.vessel.getBounds().getEast() > 180) {
+            if (KSA_MAP_CONTROLS.vesselHorizon.vessel.getBounds().getWest() < -180 || KSA_MAP_CONTROLS.vesselHorizon.vessel.getBounds().getEast() > 180) {
               var eastWest = 0;
-              if (vesselHorizon.vessel.getBounds().getWest() < -180) eastWest = 1;
-              else if (vesselHorizon.vessel.getBounds().getEast() > 180) eastWest = -1;
-              if (!vesselHorizon.eastWest) {
-                vesselHorizon.eastWest = L.circle([vesselMarker.getLatLng().lat, vesselMarker.getLatLng().lng + (360 * eastWest)], { 
+              if (KSA_MAP_CONTROLS.vesselHorizon.vessel.getBounds().getWest() < -180) eastWest = 1;
+              else if (KSA_MAP_CONTROLS.vesselHorizon.vessel.getBounds().getEast() > 180) eastWest = -1;
+              if (!KSA_MAP_CONTROLS.vesselHorizon.eastWest) {
+                KSA_MAP_CONTROLS.vesselHorizon.eastWest = L.circle([KSA_MAP_CONTROLS.vesselMarker.getLatLng().lat, KSA_MAP_CONTROLS.vesselMarker.getLatLng().lng + (360 * eastWest)], { 
                   radius: horizonRadius,
-                  color: vesselOrbitColors[now.obtNum],
+                  color: KSA_COLORS.vesselOrbitColors[now.obtNum],
                   weight: 2,
                   interactive: false
                 }).addTo(ops.surface.map);
               } else {
-                vesselHorizon.eastWest.setLatLng([vesselMarker.getLatLng().lat, vesselMarker.getLatLng().lng + (360 * eastWest)]);
-                vesselHorizon.eastWest.setRadius(horizonRadius);
-                vesselHorizon.eastWest.setStyle({color: vesselOrbitColors[now.obtNum]});
+                KSA_MAP_CONTROLS.vesselHorizon.eastWest.setLatLng([KSA_MAP_CONTROLS.vesselMarker.getLatLng().lat, KSA_MAP_CONTROLS.vesselMarker.getLatLng().lng + (360 * eastWest)]);
+                KSA_MAP_CONTROLS.vesselHorizon.eastWest.setRadius(horizonRadius);
+                KSA_MAP_CONTROLS.vesselHorizon.eastWest.setStyle({color: KSA_COLORS.vesselOrbitColors[now.obtNum]});
               }
-            } else if (vesselHorizon.eastWest) {
-              ops.surface.map.removeLayer(vesselHorizon.eastWest);
-              vesselHorizon.eastWest = null;
+            } else if (KSA_MAP_CONTROLS.vesselHorizon.eastWest) {
+              ops.surface.map.removeLayer(KSA_MAP_CONTROLS.vesselHorizon.eastWest);
+              KSA_MAP_CONTROLS.vesselHorizon.eastWest = null;
             }
-            if (vesselHorizon.vessel.getBounds().getSouth() < -90 || vesselHorizon.vessel.getBounds().getNorth() > 90) {
+            if (KSA_MAP_CONTROLS.vesselHorizon.vessel.getBounds().getSouth() < -90 || KSA_MAP_CONTROLS.vesselHorizon.vessel.getBounds().getNorth() > 90) {
               var northSouth = 0;
-              if (vesselHorizon.vessel.getBounds().getSouth() < -90) northSouth = 1;
-              else if (vesselHorizon.vessel.getBounds().getNorth() > 90) northSouth = -1;
-              if (!vesselHorizon.northSouth) {
-                vesselHorizon.northSouth = L.circle([vesselMarker.getLatLng().lat + (180 * northSouth), vesselMarker.getLatLng().lng], { 
+              if (KSA_MAP_CONTROLS.vesselHorizon.vessel.getBounds().getSouth() < -90) northSouth = 1;
+              else if (KSA_MAP_CONTROLS.vesselHorizon.vessel.getBounds().getNorth() > 90) northSouth = -1;
+              if (!KSA_MAP_CONTROLS.vesselHorizon.northSouth) {
+                KSA_MAP_CONTROLS.vesselHorizon.northSouth = L.circle([KSA_MAP_CONTROLS.vesselMarker.getLatLng().lat + (180 * northSouth), KSA_MAP_CONTROLS.vesselMarker.getLatLng().lng], { 
                   radius: horizonRadius,
-                  color: vesselOrbitColors[now.obtNum],
+                  color: KSA_COLORS.vesselOrbitColors[now.obtNum],
                   weight: 2,
                   interactive: false
                 }).addTo(ops.surface.map);
               } else {
-                vesselHorizon.northSouth.setLatLng([vesselMarker.getLatLng().lat + (180 * northSouth), vesselMarker.getLatLng().lng]);
-                vesselHorizon.northSouth.setRadius(horizonRadius);
-                vesselHorizon.northSouth.setStyle({color: vesselOrbitColors[now.obtNum]});
+                KSA_MAP_CONTROLS.vesselHorizon.northSouth.setLatLng([KSA_MAP_CONTROLS.vesselMarker.getLatLng().lat + (180 * northSouth), KSA_MAP_CONTROLS.vesselMarker.getLatLng().lng]);
+                KSA_MAP_CONTROLS.vesselHorizon.northSouth.setRadius(horizonRadius);
+                KSA_MAP_CONTROLS.vesselHorizon.northSouth.setStyle({color: KSA_COLORS.vesselOrbitColors[now.obtNum]});
               }
-            } else if (vesselHorizon.northSouth) {
-              ops.surface.map.removeLayer(vesselHorizon.northSouth);
-              vesselHorizon.northSouth = null;
+            } else if (KSA_MAP_CONTROLS.vesselHorizon.northSouth) {
+              ops.surface.map.removeLayer(KSA_MAP_CONTROLS.vesselHorizon.northSouth);
+              KSA_MAP_CONTROLS.vesselHorizon.northSouth = null;
             }
           }
           
@@ -1020,14 +1020,14 @@ function loadOpsDataAJAX(xhttp) {
             // if we've hit or exceeded the entry time, remove the vessel marker and update the entry marker popup
             if (ops.currentVesselPlot.events.soiEntry.UT-1 <= currUT()) {
               ops.currentVesselPlot.events.soiEntry.marker.closePopup();
-              ops.surface.map.removeLayer(vesselMarker);
-              ops.surface.map.removeLayer(vesselHorizon.vessel);
-              if (vesselHorizon.eastWest) ops.surface.map.removeLayer(vesselHorizon.eastWest);
-              if (vesselHorizon.northSouth) ops.surface.map.removeLayer(vesselHorizon.northSouth);
-              vesselMarker = null;
-              vesselHorizon.vessel = null;
-              vesselHorizon.eastWest = null;
-              vesselHorizon.northSouth = null;
+              ops.surface.map.removeLayer(KSA_MAP_CONTROLS.vesselMarker);
+              ops.surface.map.removeLayer(KSA_MAP_CONTROLS.vesselHorizon.vessel);
+              if (KSA_MAP_CONTROLS.vesselHorizon.eastWest) ops.surface.map.removeLayer(KSA_MAP_CONTROLS.vesselHorizon.eastWest);
+              if (KSA_MAP_CONTROLS.vesselHorizon.northSouth) ops.surface.map.removeLayer(KSA_MAP_CONTROLS.vesselHorizon.northSouth);
+              KSA_MAP_CONTROLS.vesselMarker = null;
+              KSA_MAP_CONTROLS.vesselHorizon.vessel = null;
+              KSA_MAP_CONTROLS.vesselHorizon.eastWest = null;
+              KSA_MAP_CONTROLS.vesselHorizon.northSouth = null;
               ops.currentVesselPlot.events.soiEntry.marker.bindPopup("<center>" + UTtoDateTime(currUT()).split("@")[1] + " UTC<br>Telemetry data invalid due to " + ops.currentVessel.Orbit.SOIEvent.split(";")[2] + "<br>Please stand by for update</center>", { autoClose: false });
               ops.currentVesselPlot.events.soiEntry.marker.openPopup();
             }
@@ -1083,11 +1083,11 @@ function loadOpsDataAJAX(xhttp) {
   }
 
   // are there surface paths that need to be monitored?
-  if (bodyPaths.paths.length) {
-    bodyPaths.paths.forEach(function(object) {
+  if (KSA_CATALOGS.bodyPaths.paths.length) {
+   KSA_CATALOGS.bodyPaths.paths.forEach(function(object) {
       if (object.obtData) {
         var now = currUT() - object.obtData.startUT;
-        var currLayer = bodyPaths.layers.find(o => o.type === object.type);
+        var currLayer =KSA_CATALOGS.bodyPaths.layers.find(o => o.type === object.type);
 
         // update craft position and popup content
         if (object.obtData.marker) object.obtData.marker.setLatLng(object.obtData.orbit[now].latlng);
@@ -1105,51 +1105,51 @@ function loadOpsDataAJAX(xhttp) {
           // update the horizon
           var horizonRadius = Math.sqrt((object.obtData.orbit[now].alt*1000)*((ops.bodyCatalog.find(o => o.selected === true).Radius*1000) * 2 + (object.obtData.orbit[now].alt*1000)))*10;
           if (horizonRadius/10 > ops.bodyCatalog.find(o => o.selected === true).Radius*1000) horizonRadius = ((ops.bodyCatalog.find(o => o.selected === true).Radius*1000)*10)*2;
-          if (vesselHorizon.vessel) {
-            vesselHorizon.vessel.setLatLng(object.obtData.marker.getLatLng());
-            vesselHorizon.vessel.setRadius(horizonRadius);
+          if (KSA_MAP_CONTROLS.vesselHorizon.vessel) {
+            KSA_MAP_CONTROLS.vesselHorizon.vessel.setLatLng(object.obtData.marker.getLatLng());
+            KSA_MAP_CONTROLS.vesselHorizon.vessel.setRadius(horizonRadius);
           }
 
           // set additional horizon circles to wrap map edges?
-          if (vesselHorizon.vessel.getBounds().getWest() < -180 || vesselHorizon.vessel.getBounds().getEast() > 180) {
+          if (KSA_MAP_CONTROLS.vesselHorizon.vessel.getBounds().getWest() < -180 || KSA_MAP_CONTROLS.vesselHorizon.vessel.getBounds().getEast() > 180) {
             var eastWest = 0;
-            if (vesselHorizon.vessel.getBounds().getWest() < -180) eastWest = 1;
-            else if (vesselHorizon.vessel.getBounds().getEast() > 180) eastWest = -1;
-            if (!vesselHorizon.eastWest) {
-              vesselHorizon.eastWest = L.circle([object.obtData.marker.getLatLng().lat, object.obtData.marker.getLatLng().lng + (360 * eastWest)], { 
+            if (KSA_MAP_CONTROLS.vesselHorizon.vessel.getBounds().getWest() < -180) eastWest = 1;
+            else if (KSA_MAP_CONTROLS.vesselHorizon.vessel.getBounds().getEast() > 180) eastWest = -1;
+            if (!KSA_MAP_CONTROLS.vesselHorizon.eastWest) {
+              KSA_MAP_CONTROLS.vesselHorizon.eastWest = L.circle([object.obtData.marker.getLatLng().lat, object.obtData.marker.getLatLng().lng + (360 * eastWest)], { 
                 radius: horizonRadius,
                 color: "#00ff3c",
                 weight: 2,
                 interactive: false
               });
-              currLayer.group.addLayer(vesselHorizon.eastWest);
+              currLayer.group.addLayer(KSA_MAP_CONTROLS.vesselHorizon.eastWest);
             } else {
-              vesselHorizon.eastWest.setLatLng([object.obtData.marker.getLatLng().lat, object.obtData.marker.getLatLng().lng + (360 * eastWest)]);
-              vesselHorizon.eastWest.setRadius(horizonRadius);
+              KSA_MAP_CONTROLS.vesselHorizon.eastWest.setLatLng([object.obtData.marker.getLatLng().lat, object.obtData.marker.getLatLng().lng + (360 * eastWest)]);
+              KSA_MAP_CONTROLS.vesselHorizon.eastWest.setRadius(horizonRadius);
             }
-          } else if (vesselHorizon.eastWest) {
-            currLayer.group.removeLayer(vesselHorizon.eastWest);
-            vesselHorizon.eastWest = null;
+          } else if (KSA_MAP_CONTROLS.vesselHorizon.eastWest) {
+            currLayer.group.removeLayer(KSA_MAP_CONTROLS.vesselHorizon.eastWest);
+            KSA_MAP_CONTROLS.vesselHorizon.eastWest = null;
           }
-          if (vesselHorizon.vessel.getBounds().getSouth() < -90 || vesselHorizon.vessel.getBounds().getNorth() > 90) {
+          if (KSA_MAP_CONTROLS.vesselHorizon.vessel.getBounds().getSouth() < -90 || KSA_MAP_CONTROLS.vesselHorizon.vessel.getBounds().getNorth() > 90) {
             var northSouth = 0;
-            if (vesselHorizon.vessel.getBounds().getSouth() < -90) northSouth = 1;
-            else if (vesselHorizon.vessel.getBounds().getNorth() > 90) northSouth = -1;
-            if (!vesselHorizon.northSouth) {
-              vesselHorizon.northSouth = L.circle([object.obtData.marker.getLatLng().lat + (180 * northSouth), object.obtData.marker.getLatLng().lng], { 
+            if (KSA_MAP_CONTROLS.vesselHorizon.vessel.getBounds().getSouth() < -90) northSouth = 1;
+            else if (KSA_MAP_CONTROLS.vesselHorizon.vessel.getBounds().getNorth() > 90) northSouth = -1;
+            if (!KSA_MAP_CONTROLS.vesselHorizon.northSouth) {
+              KSA_MAP_CONTROLS.vesselHorizon.northSouth = L.circle([object.obtData.marker.getLatLng().lat + (180 * northSouth), object.obtData.marker.getLatLng().lng], { 
                 radius: horizonRadius,
                 color: "#00ff3c",
                 weight: 2,
                 interactive: false
               });
-              currLayer.group.addLayer(vesselHorizon.northSouth);
+              currLayer.group.addLayer(KSA_MAP_CONTROLS.vesselHorizon.northSouth);
             } else {
-              vesselHorizon.northSouth.setLatLng([object.obtData.marker.getLatLng().lat + (180 * northSouth), object.obtData.marker.getLatLng().lng]);
-              vesselHorizon.northSouth.setRadius(horizonRadius);
+              KSA_MAP_CONTROLS.vesselHorizon.northSouth.setLatLng([object.obtData.marker.getLatLng().lat + (180 * northSouth), object.obtData.marker.getLatLng().lng]);
+              KSA_MAP_CONTROLS.vesselHorizon.northSouth.setRadius(horizonRadius);
             }
-          } else if (vesselHorizon.northSouth) {
-            currLayer.group.removeLayer(vesselHorizon.northSouth);
-            vesselHorizon.northSouth = null;
+          } else if (KSA_MAP_CONTROLS.vesselHorizon.northSouth) {
+            currLayer.group.removeLayer(KSA_MAP_CONTROLS.vesselHorizon.northSouth);
+            KSA_MAP_CONTROLS.vesselHorizon.northSouth = null;
           }
         }
         

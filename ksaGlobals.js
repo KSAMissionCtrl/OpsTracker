@@ -247,7 +247,10 @@ const KSA_MAP_ICONS = {
   nodeIcon: null,
   vesselIcon: null,
   flagIcon: null,
-  labelIcon: null
+  labelIcon: null,
+  airportIcon: null,
+  omniIcon: null,
+  dishIcon: null
 };
 
 // ------------------------------------------------------------------------------
@@ -255,7 +258,6 @@ const KSA_MAP_ICONS = {
 // ------------------------------------------------------------------------------
 const KSA_CALCULATIONS = {
   // Orbit calculations
-  numOrbitRenders: null,           // how many orbits should be rendered onto surface map
   obtCalcUT: null,                 // the starting time of the orbit to calculate
   orbitDataCalc: [],               // lat/lng/alt/spd points for current calculated trajectory
   
@@ -357,85 +359,8 @@ const KSA_LOCATIONS = {
 // ------------------------------------------------------------------------------
 // BACKWARD COMPATIBILITY ALIASES
 // ------------------------------------------------------------------------------
-// These maintain backward compatibility with existing code that references
-// the old global variables. Gradually refactor code to use the new modules.
-
-var isContentMoving = KSA_UI_STATE.isContentMoving;
-var mapDialogDelay = KSA_TIMERS.mapDialogDelay;
-var timeoutHandle = KSA_TIMERS.timeoutHandle;
-var launchRefreshTimeout = KSA_TIMERS.launchRefreshTimeout;
-var maneuverRefreshTimeout = KSA_TIMERS.maneuverRefreshTimeout;
-var mapResizeButton = KSA_MAP_CONTROLS.mapResizeButton;
-var mapViewButton = KSA_MAP_CONTROLS.mapViewButton;
-var mapRefreshButton = KSA_MAP_CONTROLS.mapRefreshButton;
-var mapCloseButton = KSA_MAP_CONTROLS.mapCloseButton;
-var launchsiteMarker = KSA_MAP_CONTROLS.launchsiteMarker;
-var vesselMarker = KSA_MAP_CONTROLS.vesselMarker;
-var sunMarker = KSA_MAP_CONTROLS.sunMarker;
-var mapMarkerTimeout = KSA_TIMERS.mapMarkerTimeout;
-var POIIcon = KSA_MAP_ICONS.POIIcon;
-var anomalyIcon = KSA_MAP_ICONS.anomalyIcon;
-var sunIcon = KSA_MAP_ICONS.sunIcon;
-var sunIcon = KSA_MAP_ICONS.sunIcon;
-var apIcon = KSA_MAP_ICONS.apIcon;
-var peIcon = KSA_MAP_ICONS.peIcon;
-var soiEntryIcon = KSA_MAP_ICONS.soiEntryIcon;
-var soiExitIcon = KSA_MAP_ICONS.soiExitIcon;
-var nodeIcon = KSA_MAP_ICONS.nodeIcon;
-var vesselIcon = KSA_MAP_ICONS.vesselIcon;
-var flagIcon = KSA_MAP_ICONS.flagIcon;
-var labelIcon = KSA_MAP_ICONS.labelIcon;
-var numOrbitRenders = KSA_CALCULATIONS.numOrbitRenders;
-var obtCalcUT = KSA_CALCULATIONS.obtCalcUT;
-var timePopup = KSA_MAP_CONTROLS.timePopup;
-var currentFlightIndex = KSA_CALCULATIONS.currentFlightIndex;
-var currentFlightTimelineIndex = KSA_CALCULATIONS.currentFlightTimelineIndex;
-var strPausedVesselCalculation = KSA_CALCULATIONS.strPausedVesselCalculation;
-var strCurrentLaunchVessel = KSA_CALCULATIONS.strCurrentLaunchVessel;
-var strCurrentManeuverVessel = KSA_CALCULATIONS.strCurrentManeuverVessel;
-var flightsToLoad = KSA_CALCULATIONS.flightsToLoad;
-var launchCountdown = KSA_CALCULATIONS.launchCountdown;
-var maneuverCountdown = KSA_CALCULATIONS.maneuverCountdown;
-var terminator = KSA_MAP_CONTROLS.terminator;
-var interpStart = KSA_TIMERS.interpStart;
-var vesselPositionPopup = KSA_MAP_CONTROLS.vesselPositionPopup;
-var flightPositionPopup = KSA_MAP_CONTROLS.flightPositionPopup;
-var noMarkBox = KSA_MAP_CONTROLS.noMarkBox;
-var layerSolar = KSA_LAYERS.layerSolar;
-var menuSaveSelected = KSA_UI_STATE.menuSaveSelected;
-var flightTimelineInterval = KSA_TIMERS.flightTimelineInterval;
-var vesselImgTimeout = KSA_TIMERS.vesselImgTimeout;
-var ascentInterpTimeout = KSA_TIMERS.ascentInterpTimeout;
-var strFltTrackLoading = KSA_CALCULATIONS.strFltTrackLoading;
-var ascentPopup = KSA_MAP_CONTROLS.ascentPopup;
-var layerPins = KSA_LAYERS.layerPins;
-var isMenuDataLoaded = KSA_UI_STATE.isMenuDataLoaded;
-var isGGBAppletLoaded = KSA_UI_STATE.isGGBAppletLoaded;
-var isGGBAppletRefreshing = KSA_UI_STATE.isGGBAppletRefreshing;
-var isDirty = KSA_UI_STATE.isDirty;
-var isOrbitRenderCancelled = KSA_UI_STATE.isOrbitRenderCancelled;
-var isOrbitRenderTerminated = KSA_UI_STATE.isOrbitRenderTerminated;
-var isMapShown = KSA_UI_STATE.isMapShown;
-var isMapFullscreen = KSA_UI_STATE.isMapFullscreen;
-var isAscentPaused = KSA_UI_STATE.isAscentPaused;
-var foundingMoment = KSA_CONSTANTS.FOUNDING_MOMENT;
-var vesselRotationIndex = KSA_UI_STATE.vesselRotationIndex;
-var ascentColorsIndex = KSA_UI_STATE.ascentColorsIndex;
-var partsCatalog = KSA_CATALOGS.partsCatalog;
-var orbitDataCalc = KSA_CALCULATIONS.orbitDataCalc;
-var crewList = KSA_CATALOGS.crewList;
-var fltPaths = KSA_CATALOGS.fltPaths;
-var ascentTracks = KSA_CATALOGS.ascentTracks;
-var ascentMarks = KSA_CATALOGS.ascentMarks;
-var strTinyBodyLabel = KSA_CALCULATIONS.strTinyBodyLabel;
-var strActiveAscent = KSA_CALCULATIONS.strActiveAscent;
-var vesselHorizon = KSA_MAP_CONTROLS.vesselHorizon;
-var bodyPaths = KSA_CATALOGS.bodyPaths;
-var orbitColors = KSA_COLORS.orbitColors;
-var surfaceTracksDataLoad = KSA_LAYERS.surfaceTracksDataLoad;
-var vesselOrbitColors = KSA_COLORS.vesselOrbitColors;
-var surfacePathColors = KSA_COLORS.surfacePathColors;
-var srfLocations = KSA_LOCATIONS.srfLocations;
+// All code has been refactored to use the new modular structure.
+// The backward compatibility aliases have been removed.
 
 // data from kerbalmaps.com for future surface base layer types
 var mapElevationLegend = [

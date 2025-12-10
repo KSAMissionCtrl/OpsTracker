@@ -7,7 +7,7 @@ function loadVessel(vessel, givenUT) {
   if (!givenUT || givenUT < 0) givenUT = currUT();
 
   // can't continue if menu data hasn't loaded
-  if (!isMenuDataLoaded) return setTimeout(loadVessel, 50, vessel, givenUT);
+  if (!KSA_UI_STATE.isMenuDataLoaded) return setTimeout(loadVessel, 50, vessel, givenUT);
 
   // we can't let anyone jump to a UT later than the current UT
   if (givenUT > currUT() && !getCookie("missionctrl")) givenUT = currUT();
@@ -65,22 +65,22 @@ function loadVessel(vessel, givenUT) {
   lowerContent();
   
   // close any popups
-  if (vesselPositionPopup && ops.surface.map) ops.surface.map.closePopup(vesselPositionPopup); 
+  if (KSA_MAP_CONTROLS.vesselPositionPopup && ops.surface.map) ops.surface.map.closePopup(KSA_MAP_CONTROLS.vesselPositionPopup); 
 
   // we can't be switching vessels while loading any plot data so if it's in progress, kill it
   if (ops.surface.layerControl && !ops.surface.layerControl.options.collapsed) { 
-    isOrbitRenderTerminated = true;
+    KSA_UI_STATE.isOrbitRenderTerminated = true;
     ops.surface.layerControl._collapse();
     ops.surface.layerControl.options.collapsed = true;
-    if (surfaceTracksDataLoad.obtTrackDataLoad) ops.surface.layerControl.removeLayer(surfaceTracksDataLoad.obtTrackDataLoad);
-    surfaceTracksDataLoad.obtTrackDataLoad = null;
+    if (KSA_LAYERS.surfaceTracksDataLoad.obtTrackDataLoad) ops.surface.layerControl.removeLayer(KSA_LAYERS.surfaceTracksDataLoad.obtTrackDataLoad);
+    KSA_LAYERS.surfaceTracksDataLoad.obtTrackDataLoad = null;
     clearSurfacePlots();
   }
 }
 
 // parses data used to display information on parts for vessels
 function loadPartsAJAX(xhttp) {
-  xhttp.responseText.split("^").forEach(function(item) { partsCatalog.push(rsToObj(item)); });
+  xhttp.responseText.split("^").forEach(function(item) { KSA_CATALOGS.partsCatalog.push(rsToObj(item)); });
 }
 
 // parses data used to drive the live/replay ascent telemetry
@@ -725,7 +725,7 @@ function vesselContentUpdate(update) {
   // we can't know whether this body has a surface map if we are still waiting for map data to load
   // since map data is called after GGB load, make sure that's not happening either
   // finally, ops data could still be loading as well
-  if (!isGGBAppletLoaded || ops.surface.isLoading || ops.updateData.find(o => o.isLoading === true)) {
+  if (!KSA_UI_STATE.isGGBAppletLoaded || ops.surface.isLoading || ops.updateData.find(o => o.isLoading === true)) {
     return setTimeout(vesselContentUpdate, 50, update);
   }
 
@@ -738,21 +738,21 @@ function vesselContentUpdate(update) {
       showMap();
       
       // remove any previous markers and surface plots
-      if (launchsiteMarker) ops.surface.map.removeLayer(launchsiteMarker);
-      if (vesselMarker) ops.surface.map.removeLayer(vesselMarker);
-      if (vesselHorizon.vessel) ops.surface.map.removeLayer(vesselHorizon.vessel); vesselHorizon.vessel = null;
-      if (vesselHorizon.eastWest) ops.surface.map.removeLayer(vesselHorizon.eastWest); vesselHorizon.eastWest = null;
-      if (vesselHorizon.northSouth) ops.surface.map.removeLayer(vesselHorizon.northSouth); vesselHorizon.northSouth = null;
-        launchsiteMarker = null;
+      if (KSA_MAP_CONTROLS.launchsiteMarker) ops.surface.map.removeLayer(KSA_MAP_CONTROLS.launchsiteMarker);
+      if (KSA_MAP_CONTROLS.vesselMarker) ops.surface.map.removeLayer(KSA_MAP_CONTROLS.vesselMarker);
+      if (KSA_MAP_CONTROLS.vesselHorizon.vessel) ops.surface.map.removeLayer(KSA_MAP_CONTROLS.vesselHorizon.vessel); KSA_MAP_CONTROLS.vesselHorizon.vessel = null;
+      if (KSA_MAP_CONTROLS.vesselHorizon.eastWest) ops.surface.map.removeLayer(KSA_MAP_CONTROLS.vesselHorizon.eastWest); KSA_MAP_CONTROLS.vesselHorizon.eastWest = null;
+      if (KSA_MAP_CONTROLS.vesselHorizon.northSouth) ops.surface.map.removeLayer(KSA_MAP_CONTROLS.vesselHorizon.northSouth); KSA_MAP_CONTROLS.vesselHorizon.northSouth = null;
+        KSA_MAP_CONTROLS.launchsiteMarker = null;
       clearSurfacePlots();
 
       // extract the data
       var data = ops.currentVessel.CraftData.Content.split("@")[1].split("|");
     
       // these elements should only appear on general surface maps
-      if (layerPins) {
-        ops.surface.map.removeLayer(layerPins);
-        ops.surface.layerControl.removeLayer(layerPins); 
+      if (KSA_LAYERS.layerPins) {
+        ops.surface.map.removeLayer(KSA_LAYERS.layerPins);
+        ops.surface.layerControl.removeLayer(KSA_LAYERS.layerPins); 
       }
       
       // set launchsite icon
@@ -767,17 +767,17 @@ function vesselContentUpdate(update) {
       if (data.length > 3) launchAltitude = "<br>" + data[3] + "km ASL";
       
       // place the marker and build the information window for it, then center the map on it and create a popup for it
-      launchsiteMarker = L.marker([data[0], data[1]], {icon: launchsiteIcon}).addTo(ops.surface.map);
+      KSA_MAP_CONTROLS.launchsiteMarker = L.marker([data[0], data[1]], {icon: launchsiteIcon}).addTo(ops.surface.map);
       var latlng = { lat: parseInt(data[0]), lng: parseInt(data[1]) };
-      launchsiteMarker.bindPopup(strLaunchIconCaption + data[2] + launchAltitude + "<br>[" + numeral(data[0]).format('0.0000') + "&deg;" + getLatLngCompass(latlng).lat + ", " + numeral(data[1]).format('0.0000') + "&deg;" + getLatLngCompass(latlng).lng + "]" , { closeOnClick: false });
-      if (ops.surface.map.getZoom() <= 3) ops.surface.map.setView(launchsiteMarker.getLatLng(), 3);
-      launchsiteMarker.openPopup();
+      KSA_MAP_CONTROLS.launchsiteMarker.bindPopup(strLaunchIconCaption + data[2] + launchAltitude + "<br>[" + numeral(data[0]).format('0.0000') + "&deg;" + getLatLngCompass(latlng).lat + ", " + numeral(data[1]).format('0.0000') + "&deg;" + getLatLngCompass(latlng).lng + "]" , { closeOnClick: false });
+      if (ops.surface.map.getZoom() <= 3) ops.surface.map.setView(KSA_MAP_CONTROLS.launchsiteMarker.getLatLng(), 3);
+      KSA_MAP_CONTROLS.launchsiteMarker.openPopup();
       
       // close the popup after 5 seconds if this is a past event or a prelaunch state
       // make sure to reset the timeout in case the page has been loaded with new data before the 5s expire
-      clearTimeout(mapMarkerTimeout);
+      clearTimeout(KSA_TIMERS.mapMarkerTimeout);
       if (ops.currentVessel.CraftData.pastEvent || strLaunchIconCaption) {
-        mapMarkerTimeout = setTimeout(function () { if (launchsiteMarker) launchsiteMarker.closePopup(); }, 5000);
+        KSA_TIMERS.mapMarkerTimeout = setTimeout(function () { if (KSA_MAP_CONTROLS.launchsiteMarker) KSA_MAP_CONTROLS.launchsiteMarker.closePopup(); }, 5000);
       }
     }
 
@@ -793,8 +793,8 @@ function vesselContentUpdate(update) {
     if (!isMissionEnded() && !ops.currentVessel.CraftData.pastEvent && ops.surface.Data && ops.currentVessel.Orbit.Eph) {
 
       // remove any previous markers
-      if (launchsiteMarker) ops.surface.map.removeLayer(launchsiteMarker);
-      launchsiteMarker = null;
+      if (KSA_MAP_CONTROLS.launchsiteMarker) ops.surface.map.removeLayer(KSA_MAP_CONTROLS.launchsiteMarker);
+      KSA_MAP_CONTROLS.launchsiteMarker = null;
       showMap();
 
       var isPlottable = false;
@@ -815,7 +815,7 @@ function vesselContentUpdate(update) {
       else if (update && (ops.currentVessel.CraftData.prevContent != ops.currentVessel.CraftData.Content) || (ops.currentVesselPlot.eph != ops.currentVessel.Orbit.Eph)) renderMapData(update);
 
       // if there was a paused calculation, we need to resume it
-      else if (!update && strPausedVesselCalculation == ops.currentVessel.Catalog.DB) renderMapData(update);
+      else if (!update && KSA_CALCULATIONS.strPausedVesselCalculation == ops.currentVessel.Catalog.DB) renderMapData(update);
 
       // no call made to renderMapData means if the dialog is open we don't need it
       else $("#mapDialog").dialog("close");
@@ -948,7 +948,7 @@ function showInfoDialog() {
 
 // provides full details for all vessel parts, ensures the parts catalog is loaded
 function assignPartInfo() {
-  if (!partsCatalog.length) return setTimeout(assignPartInfo, 100);
+  if (!KSA_CATALOGS.partsCatalog.length) return setTimeout(assignPartInfo, 100);
   
   // Clean up old part tooltips before creating new ones
   try {
@@ -958,7 +958,7 @@ function assignPartInfo() {
   }
   
   $(".imgmap").each(function() {
-    var part = partsCatalog.find(o => o.Part === $(this).attr("id"));
+    var part = KSA_CATALOGS.partsCatalog.find(o => o.Part === $(this).attr("id"));
 
     // behavior of tooltips depends on the device
     if (is_touch_device()) showOpt = 'click';
@@ -1073,13 +1073,13 @@ function updateVesselData(vessel) {
 // following functions perform parsing on data strings
 function getVesselImage() {
   if (!ops.currentVessel.CraftData.CraftImg) return "nadaOp.png";
-  else return ops.currentVessel.CraftData.CraftImg.split("|")[vesselRotationIndex].split("~")[0];
+  else return ops.currentVessel.CraftData.CraftImg.split("|")[KSA_UI_STATE.vesselRotationIndex].split("~")[0];
 }
 function getPartsHTML() {
   if (!ops.currentVessel.CraftData.CraftImg) return null;
   else {
-    if (ops.currentVessel.CraftData.CraftImg.split("|")[vesselRotationIndex].split("~")[3] != "null") {
-      return ops.currentVessel.CraftData.CraftImg.split("|")[vesselRotationIndex].split("~")[3];
+    if (ops.currentVessel.CraftData.CraftImg.split("|")[KSA_UI_STATE.vesselRotationIndex].split("~")[3] != "null") {
+      return ops.currentVessel.CraftData.CraftImg.split("|")[KSA_UI_STATE.vesselRotationIndex].split("~")[3];
     } else return null;
   }
 }
@@ -1147,7 +1147,7 @@ function setupStreamingAscent() {
   // make sure the map is small and don't let it go large
   if (ops.pageType == "vessel") {
     lowerContent();
-    mapResizeButton.disable();
+    KSA_MAP_CONTROLS.mapResizeButton.disable();
   }
 
   // kill all spinners
@@ -1397,18 +1397,18 @@ function setupStreamingAscent() {
   showMap();
 
   // remove any markers that might already be placed
-  if (launchsiteMarker) ops.surface.map.removeLayer(launchsiteMarker);
-  if (vesselMarker) ops.surface.map.removeLayer(vesselMarker);
-  if (vesselHorizon.vessel) ops.surface.map.removeLayer(vesselHorizon.vessel); vesselHorizon.vessel = null;
-  if (vesselHorizon.eastWest) ops.surface.map.removeLayer(vesselHorizon.eastWest); vesselHorizon.eastWest = null;
-  if (vesselHorizon.northSouth) ops.surface.map.removeLayer(vesselHorizon.northSouth); vesselHorizon.northSouth = null;
+  if (KSA_MAP_CONTROLS.launchsiteMarker) ops.surface.map.removeLayer(KSA_MAP_CONTROLS.launchsiteMarker);
+  if (KSA_MAP_CONTROLS.vesselMarker) ops.surface.map.removeLayer(KSA_MAP_CONTROLS.vesselMarker);
+  if (KSA_MAP_CONTROLS.vesselHorizon.vessel) ops.surface.map.removeLayer(KSA_MAP_CONTROLS.vesselHorizon.vessel); KSA_MAP_CONTROLS.vesselHorizon.vessel = null;
+  if (KSA_MAP_CONTROLS.vesselHorizon.eastWest) ops.surface.map.removeLayer(KSA_MAP_CONTROLS.vesselHorizon.eastWest); KSA_MAP_CONTROLS.vesselHorizon.eastWest = null;
+  if (KSA_MAP_CONTROLS.vesselHorizon.northSouth) ops.surface.map.removeLayer(KSA_MAP_CONTROLS.vesselHorizon.northSouth); KSA_MAP_CONTROLS.vesselHorizon.northSouth = null;
 
   // place the craft marker 
-  vesselIcon = L.icon({iconUrl: 'button_vessel_' + currType(ops.currentVessel.Catalog.Type) + '.png', iconSize: [16, 16]});
-  vesselMarker = L.marker([ops.ascentData.telemetry[ops.activeAscentFrame.ascentIndex].Lat, ops.ascentData.telemetry[ops.activeAscentFrame.ascentIndex].Lon], {icon: vesselIcon, zIndexOffset: 100, interactive: false}).addTo(ops.surface.map);
+  KSA_MAP_ICONS.vesselIcon = L.icon({iconUrl: 'button_vessel_' + currType(ops.currentVessel.Catalog.Type) + '.png', iconSize: [16, 16]});
+  KSA_MAP_CONTROLS.vesselMarker = L.marker([ops.ascentData.telemetry[ops.activeAscentFrame.ascentIndex].Lat, ops.ascentData.telemetry[ops.activeAscentFrame.ascentIndex].Lon], {icon: KSA_MAP_ICONS.vesselIcon, zIndexOffset: 100, interactive: false}).addTo(ops.surface.map);
   
   // focus in on the vessel position
-  ops.surface.map.setView(vesselMarker.getLatLng(), 9);
+  ops.surface.map.setView(KSA_MAP_CONTROLS.vesselMarker.getLatLng(), 9);
 
   // build surface plot up to where things are if needed
   rebuildAscentTrack();
@@ -1421,15 +1421,15 @@ function ascentEnd() {
   $("#infoTitle").css("cursor", "pointer");
 
   // re-enable map controls
-  if (mapResizeButton) mapResizeButton.enable();
+  if (KSA_MAP_CONTROLS.mapResizeButton) KSA_MAP_CONTROLS.mapResizeButton.enable();
 
   // save ascent FPS cookie
   if (checkCookies() && ops.activeAscentFrame.FPS) setCookie("ascentFPS", ops.activeAscentFrame.FPS, true);
 
   // interpolation function timeout handle nulled
-  if (ascentInterpTimeout) {
-    clearTimeout(ascentInterpTimeout);
-    ascentInterpTimeout = null;
+  if (KSA_TIMERS.ascentInterpTimeout) {
+    clearTimeout(KSA_TIMERS.ascentInterpTimeout);
+    KSA_TIMERS.ascentInterpTimeout = null;
   }
 
   // pause ascent so a return to the data has it static
@@ -1440,10 +1440,10 @@ function ascentEnd() {
 
     // clear out the ascent track and vessel marker
     clearAscentTracks();
-    if (vesselMarker) ops.surface.map.removeLayer(vesselMarker);
-    if (vesselHorizon.vessel) ops.surface.map.removeLayer(vesselHorizon.vessel); vesselHorizon.vessel = null;
-    if (vesselHorizon.eastWest) ops.surface.map.removeLayer(vesselHorizon.eastWest); vesselHorizon.eastWest = null;
-    if (vesselHorizon.northSouth) ops.surface.map.removeLayer(vesselHorizon.northSouth); vesselHorizon.northSouth = null;
+    if (KSA_MAP_CONTROLS.vesselMarker) ops.surface.map.removeLayer(KSA_MAP_CONTROLS.vesselMarker);
+    if (KSA_MAP_CONTROLS.vesselHorizon.vessel) ops.surface.map.removeLayer(KSA_MAP_CONTROLS.vesselHorizon.vessel); KSA_MAP_CONTROLS.vesselHorizon.vessel = null;
+    if (KSA_MAP_CONTROLS.vesselHorizon.eastWest) ops.surface.map.removeLayer(KSA_MAP_CONTROLS.vesselHorizon.eastWest); KSA_MAP_CONTROLS.vesselHorizon.eastWest = null;
+    if (KSA_MAP_CONTROLS.vesselHorizon.northSouth) ops.surface.map.removeLayer(KSA_MAP_CONTROLS.vesselHorizon.northSouth); KSA_MAP_CONTROLS.vesselHorizon.northSouth = null;
 
     // hide the fields that are now unused
     $("#dataField13").fadeOut();
@@ -1542,12 +1542,12 @@ function updateAscentData(clamp) {
 
     // update the surface plotting if there is one
     // otherwise redraw the plot, which won't happen until the vessel clears a box around KSC
-    if (ascentTracks.length) updateSurfacePlot();
+    if (KSA_CATALOGS.ascentTracks.length) updateSurfacePlot();
     else rebuildAscentTrack();
 
   // otherwise, use the delta values to update towards the next clamp
   } else {
-    interpStart = new Date().getTime();
+    KSA_TIMERS.interpStart = new Date().getTime();
     ops.activeAscentFrame.velocity += ops.activeAscentFrame.velocityDelta;
     ops.activeAscentFrame.throttle += ops.activeAscentFrame.throttleDelta;
     ops.activeAscentFrame.thrust += ops.activeAscentFrame.thrustDelta;
@@ -1679,27 +1679,26 @@ function updateAscentData(clamp) {
   $("#playbackTime").html(formatTime(ops.ascentData.telemetry.length-ops.activeAscentFrame.ascentIndex-1, false, "") + "/" + formatTime(ops.ascentData.telemetry.length-1, false, ""));
 
   // move the vessel icon
-  vesselMarker.setLatLng([ops.activeAscentFrame.lat, ops.activeAscentFrame.lon]);
+  KSA_MAP_CONTROLS.vesselMarker.setLatLng([ops.activeAscentFrame.lat, ops.activeAscentFrame.lon]);
 
   // if the vessel is outside the view but not KSC, shimmy the map over
-  if (!ops.surface.map.getBounds().contains(vesselMarker.getLatLng()) && ops.surface.map.getBounds().contains(srfLocations["KSC"])) {
-    ops.surface.map.panInside(vesselMarker.getLatLng()); 
+  if (!ops.surface.map.getBounds().contains(KSA_MAP_CONTROLS.vesselMarker.getLatLng()) && ops.surface.map.getBounds().contains(KSA_LOCATIONS.srfLocations["KSC"])) {
+    ops.surface.map.panInside(KSA_MAP_CONTROLS.vesselMarker.getLatLng()); 
   }
 
   // if the map moves off KSC, widen the view
-  if (!ops.surface.map.getBounds().contains(srfLocations["KSC"])) {
-    ops.surface.map.fitBounds(L.latLngBounds(srfLocations["KSC"], vesselMarker.getLatLng())); 
+  if (!ops.surface.map.getBounds().contains(KSA_LOCATIONS.srfLocations["KSC"])) {
+    ops.surface.map.fitBounds(L.latLngBounds(KSA_LOCATIONS.srfLocations["KSC"], KSA_MAP_CONTROLS.vesselMarker.getLatLng())); 
   }
 
   // if we are not paused then we need to call ourselves again to keep things going
   if (!ops.ascentData.isPaused && ops.ascentData.active) {
     
     // get the time it took us to perform this function
-    var diff = new Date().getTime() - interpStart;
+    var diff = new Date().getTime() - KSA_TIMERS.interpStart;
 
     // call ourselves again at the proper FPS interval, taking into account the time we just used up
-    ascentInterpTimeout = setTimeout(updateAscentData, (1000/ops.activeAscentFrame.FPS) - diff);
-    KSA_TIMERS.ascentInterpTimeout = ascentInterpTimeout;
+    KSA_TIMERS.ascentInterpTimeout = setTimeout(updateAscentData, (1000/ops.activeAscentFrame.FPS) - diff);
     ops.activeAscentFrame.interpCount++;
   }
 
@@ -1748,9 +1747,9 @@ function seekFore(amount) {
     ops.activeAscentFrame.ascentIndex = ops.ascentData.telemetry.length-1;
 
     // null the interpolation timer
-    if (ascentInterpTimeout) {
-      clearTimeout(ascentInterpTimeout);
-      ascentInterpTimeout = null;
+    if (KSA_TIMERS.ascentInterpTimeout) {
+      clearTimeout(KSA_TIMERS.ascentInterpTimeout);
+      KSA_TIMERS.ascentInterpTimeout = null;
     }
 
     // one last surface track update
@@ -1847,63 +1846,62 @@ function updateSurfacePlot(index) {
   if (ops.ascentData.telemetry[index].Phase) {
 
     // choose the next color and start a new line
-    ascentColorsIndex++;
-    if (ascentColorsIndex == surfacePathColors.length) ascentColorsIndex = 0;
-    ascentTracks.push(L.polyline([], {smoothFactor: .25, clickable: true, color: surfacePathColors[ascentColorsIndex], weight: 2, opacity: 1}).addTo(ops.surface.map));
-    ascentTracks[ascentTracks.length-1].addLatLng([ops.ascentData.telemetry[index].Lat, ops.ascentData.telemetry[index].Lon]);
-    ascentTracks[ascentTracks.length-1]._myId = "<center>" + ops.ascentData.telemetry[index].Phase + "</center>";
-    ascentTracks[ascentTracks.length-1].on('mouseover mousemove', function(e) {
-      ascentPopup = new L.Rrose({ offset: new L.Point(0,-1), closeButton: false, autoPan: false });
-      ascentPopup.setLatLng(e.latlng);
-      ascentPopup.setContent(e.target._myId);
-      ascentPopup.openOn(ops.surface.map);
+    KSA_UI_STATE.ascentColorsIndex++;
+    if (KSA_UI_STATE.ascentColorsIndex == KSA_COLORS.surfacePathColors.length) KSA_UI_STATE.ascentColorsIndex = 0;
+    KSA_CATALOGS.ascentTracks.push(L.polyline([], {smoothFactor: .25, clickable: true, color: KSA_COLORS.surfacePathColors[KSA_UI_STATE.ascentColorsIndex], weight: 2, opacity: 1}).addTo(ops.surface.map));
+    KSA_CATALOGS.ascentTracks[KSA_CATALOGS.ascentTracks.length-1].addLatLng([ops.ascentData.telemetry[index].Lat, ops.ascentData.telemetry[index].Lon]);
+    KSA_CATALOGS.ascentTracks[KSA_CATALOGS.ascentTracks.length-1]._myId = "<center>" + ops.ascentData.telemetry[index].Phase + "</center>";
+    KSA_CATALOGS.ascentTracks[KSA_CATALOGS.ascentTracks.length-1].on('mouseover mousemove', function(e) {
+      KSA_MAP_CONTROLS.ascentPopup = new L.Rrose({ offset: new L.Point(0,-1), closeButton: false, autoPan: false });
+      KSA_MAP_CONTROLS.ascentPopup.setLatLng(e.latlng);
+      KSA_MAP_CONTROLS.ascentPopup.setContent(e.target._myId);
+      KSA_MAP_CONTROLS.ascentPopup.openOn(ops.surface.map);
     });
-    ascentTracks[ascentTracks.length-1].on('mouseout', function(e) {
-      if (ascentPopup) { ops.surface.map.closePopup(ascentPopup); }
-      ascentPopup = null;
+    KSA_CATALOGS.ascentTracks[KSA_CATALOGS.ascentTracks.length-1].on('mouseout', function(e) {
+      if (KSA_MAP_CONTROLS.ascentPopup) { ops.surface.map.closePopup(KSA_MAP_CONTROLS.ascentPopup); }
+      KSA_MAP_CONTROLS.ascentPopup = null;
     });
 
     // if there already existed a line, extend it to the start if the new line
-    if (ascentTracks.length > 1) ascentTracks[ascentTracks.length-2].addLatLng([ops.ascentData.telemetry[index].Lat, ops.ascentData.telemetry[index].Lon]);
+    if (KSA_CATALOGS.ascentTracks.length > 1) KSA_CATALOGS.ascentTracks[KSA_CATALOGS.ascentTracks.length-2].addLatLng([ops.ascentData.telemetry[index].Lat, ops.ascentData.telemetry[index].Lon]);
   } 
   
   // if this isn't a new phase, continue the existing line
-  else if (ascentTracks.length) ascentTracks[ascentTracks.length-1].addLatLng([ops.ascentData.telemetry[index].Lat, ops.ascentData.telemetry[index].Lon]);
-
+  else if (KSA_CATALOGS.ascentTracks.length) KSA_CATALOGS.ascentTracks[KSA_CATALOGS.ascentTracks.length-1].addLatLng([ops.ascentData.telemetry[index].Lat, ops.ascentData.telemetry[index].Lon]);
   // add a new marker if one exists
   if (ops.ascentData.telemetry[index].EventMark) {
     var labelIcon = L.icon({
       iconUrl: 'label.png',
       iconSize: [5, 5],
     });
-    ascentMarks.push(L.marker([ops.ascentData.telemetry[index].Lat, ops.ascentData.telemetry[index].Lon], {icon: labelIcon}).addTo(ops.surface.map));
-    ascentMarks[ascentMarks.length-1]._myId = ops.ascentData.telemetry[index].EventMark + ";" + ops.ascentData.telemetry[index].Lat + ";" + ops.ascentData.telemetry[index].Lon;
-    ascentMarks[ascentMarks.length-1].on('mouseover mousemove', function(e) {
+    KSA_CATALOGS.ascentMarks.push(L.marker([ops.ascentData.telemetry[index].Lat, ops.ascentData.telemetry[index].Lon], {icon: labelIcon}).addTo(ops.surface.map));
+    KSA_CATALOGS.ascentMarks[KSA_CATALOGS.ascentMarks.length-1]._myId = ops.ascentData.telemetry[index].EventMark + ";" + ops.ascentData.telemetry[index].Lat + ";" + ops.ascentData.telemetry[index].Lon;
+    KSA_CATALOGS.ascentMarks[KSA_CATALOGS.ascentMarks.length-1].on('mouseover mousemove', function(e) {
       data = e.target._myId.split(";")
-      ascentPopup = new L.Rrose({ offset: new L.Point(0,-1), closeButton: false, autoPan: false });
-      ascentPopup.setLatLng([data[1], data[2]]);
-      ascentPopup.setContent("<center>" + data[0] + "</center>");
-      ascentPopup.openOn(ops.surface.map);
+      KSA_MAP_CONTROLS.ascentPopup = new L.Rrose({ offset: new L.Point(0,-1), closeButton: false, autoPan: false });
+      KSA_MAP_CONTROLS.ascentPopup.setLatLng([data[1], data[2]]);
+      KSA_MAP_CONTROLS.ascentPopup.setContent("<center>" + data[0] + "</center>");
+      KSA_MAP_CONTROLS.ascentPopup.openOn(ops.surface.map);
     });
-    ascentMarks[ascentMarks.length-1].on('mouseout', function(e) {
-      if (ascentPopup) { ops.surface.map.closePopup(ascentPopup); }
-      ascentPopup = null;
+    KSA_CATALOGS.ascentMarks[KSA_CATALOGS.ascentMarks.length-1].on('mouseout', function(e) {
+      if (KSA_MAP_CONTROLS.ascentPopup) { ops.surface.map.closePopup(KSA_MAP_CONTROLS.ascentPopup); }
+      KSA_MAP_CONTROLS.ascentPopup = null;
     });
   }
 }
 
 function clearAscentTracks() {
-  if (ascentTracks.length) {
-    ascentTracks.forEach(function(track) {
+  if (KSA_CATALOGS.ascentTracks.length) {
+    KSA_CATALOGS.ascentTracks.forEach(function(track) {
       ops.surface.map.removeLayer(track);
     });
   }
-  if (ascentMarks.length) {
-    ascentMarks.forEach(function(mark) {
+  if (KSA_CATALOGS.ascentMarks.length) {
+    KSA_CATALOGS.ascentMarks.forEach(function(mark) {
       ops.surface.map.removeLayer(mark);
     });
   }
-  ascentTracks.length = 0;
-  ascentMarks.length = 0;
-  ascentColorsIndex = -1;
+  KSA_CATALOGS.ascentTracks.length = 0;
+  KSA_CATALOGS.ascentMarks.length = 0;
+  KSA_UI_STATE.ascentColorsIndex = -1;
 }

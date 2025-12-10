@@ -53,23 +53,23 @@ function loadEventsAJAX(xhttp) {
                                    time: finalLaunchTime });
   
       // now we need to loop through the event listing again to find the next launch
-      strCurrentLaunchVessel = "";
+      KSA_CALCULATIONS.strCurrentLaunchVessel = "";
       var firstLaunchTime = 9999999999;
       launchEventList.forEach(function(vessel) {
   
         // decide if this vessel still has yet to launch and is launching first
         // be sure to compare to final launch time in the event that the launch was moved up and this time is later but now expired
-        if (strCurrentLaunchVessel != vessel.db && vessel.LaunchTime < firstLaunchTime && vessel.LaunchTime > currUT() && vesselFinalLaunchTimes.find(o => o.name === vessel.db).time >= vessel.LaunchTime) {
-          strCurrentLaunchVessel = vessel.db;
+        if (KSA_CALCULATIONS.strCurrentLaunchVessel != vessel.db && vessel.LaunchTime < firstLaunchTime && vessel.LaunchTime > currUT() && vesselFinalLaunchTimes.find(o => o.name === vessel.db).time >= vessel.LaunchTime) {
+          KSA_CALCULATIONS.strCurrentLaunchVessel = vessel.db;
           firstLaunchTime = vessel.LaunchTime;
         }
       });
   
       // find the current launch event attributed to the launch vessel, if there is one that still hasn't launched
       var launchData = null;
-      if (strCurrentLaunchVessel.length) {
+      if (KSA_CALCULATIONS.strCurrentLaunchVessel.length) {
         launchEventList.forEach(function(vessel) {
-          if (vessel.UT <= currUT() && vessel.db == strCurrentLaunchVessel && 
+          if (vessel.UT <= currUT() && vessel.db == KSA_CALCULATIONS.strCurrentLaunchVessel && 
           (vessel.LaunchTime > currUT() || vessel.LaunchTime == vessel.UT))   // also check that this is a hold
           launchData = vessel;
         });
@@ -78,7 +78,7 @@ function loadEventsAJAX(xhttp) {
   
       // find the next update attributed to the launch vessel
       launchEventList.forEach(function(vessel) {
-        if (vessel.UT > currUT() && vessel.db == strCurrentLaunchVessel && ops.updatesList.length == ops.updatesListSize) ops.updatesList.push({ type: "event", UT: vessel.UT });
+        if (vessel.UT > currUT() && vessel.db == KSA_CALCULATIONS.strCurrentLaunchVessel && ops.updatesList.length == ops.updatesListSize) ops.updatesList.push({ type: "event", UT: vessel.UT });
       });
   
       // if we didn't find a future update for the current launch vehicle, try to find any future update
@@ -112,7 +112,7 @@ function loadEventsAJAX(xhttp) {
     if (maneuvers[0] != "null") {
   
       // to be completed once the launch selection works as intended
-      strCurrentManeuverVessel = "";
+      KSA_CALCULATIONS.strCurrentManeuverVessel = "";
   
     } else writeManeuverinfo();
     
@@ -126,9 +126,9 @@ function loadEventsAJAX(xhttp) {
   function writeLaunchInfo(data, isAscentActive = false) {
     var size = w2utils.getSize("#launch", 'height');
     var currHTML = $("#launch").html();
-    if (launchRefreshTimeout) {
-      clearTimeout(launchRefreshTimeout);
-      launchRefreshTimeout = null;
+    if (KSA_TIMERS.launchRefreshTimeout) {
+      clearTimeout(KSA_TIMERS.launchRefreshTimeout);
+      KSA_TIMERS.launchRefreshTimeout = null;
     }
     if (data) {
       var strHTML = "<strong>Next Launch</strong><br>";
@@ -138,17 +138,17 @@ function loadEventsAJAX(xhttp) {
       if (isAscentActive) {
         strHTML += "<span id='launchTime'>" + UTtoDateTime(data.LaunchTime, true, false) + "</span><br>"
         strHTML += "<span id='launchCountdown'>LIFTOFF!!</span>";
-        launchCountdown = "null";
+        KSA_CALCULATIONS.launchCountdown = "null";
       } else if (data.LaunchTime != data.UT) {
         strHTML += "<span id='launchTime'>" + UTtoDateTime(data.LaunchTime, true, false) + "</span><br>"
         strHTML += "<span id='launchCountdown'>" + formatTime(data.LaunchTime - currUT()) + "</span>";
-        launchCountdown = data.LaunchTime;
+        KSA_CALCULATIONS.launchCountdown = data.LaunchTime;
       } else {
         strHTML += "<span id='launchTime'>COUNTDOWN HOLD</span><br><span id='launchCountdown'>Awaiting new L-0 time</span>";
-        launchCountdown = "null";
+        KSA_CALCULATIONS.launchCountdown = "null";
   
         // if we are actively viewing the vessel, update the launch text
-        if (ops.currentVessel && ops.currentVessel.Catalog.DB == strCurrentLaunchVessel && ops.pageType == "vessel") {
+        if (ops.currentVessel && ops.currentVessel.Catalog.DB == KSA_CALCULATIONS.strCurrentLaunchVessel && ops.pageType == "vessel") {
           flashUpdate("#dataField0", "#77C6FF", "#FFF");
           $("#dataField0").html("<b>" + ops.currentVessel.CraftData.MissionStartTerm + ":</b><span style='cursor:help' class='tip-update' data-tipped-options=\"inline: 'metTip', maxWidth: 300\"> <u>To Be Determined</u>");
           $("#metTip").html("launch time currently being assessed");
@@ -171,7 +171,7 @@ function loadEventsAJAX(xhttp) {
       $("#eventBox").css("height", (37 + size) + "px");
       $('#menuBox').css("height", (ops.maxMenuHeight - w2utils.getSize("#eventBox", 'height')) + "px"); 
       setTimeout(function() { 
-        if (isMenuDataLoaded) {
+        if (KSA_UI_STATE.isMenuDataLoaded) {
           w2ui['menu'].refresh();
           if (w2ui['menu'].find({selected: true}).length) w2ui['menu'].scrollIntoView(w2ui['menu'].find({selected: true})[0].id);
         }
@@ -180,7 +180,7 @@ function loadEventsAJAX(xhttp) {
     
     // if the menu data is already loaded this was a refresh, so highlight the box and activate the links
     // also check if any change has been made to the contents
-    if (isMenuDataLoaded && data && currHTML != $("#launch").html()) {
+    if (KSA_UI_STATE.isMenuDataLoaded && data && currHTML != $("#launch").html()) {
       flashUpdate("#launch", "#FF0000", "#77C6FF");
       activateEventLinks();
     }
@@ -189,18 +189,18 @@ function loadEventsAJAX(xhttp) {
   function writeManeuverinfo(data) {
     var size = w2utils.getSize("#maneuver", 'height');
     var currHTML = $("#maneuver").html();
-    if (maneuverRefreshTimeout) {
-      clearTimeout(maneuverRefreshTimeout);
-      maneuverRefreshTimeout = null;
+    if (KSA_TIMERS.maneuverRefreshTimeout) {
+      clearTimeout(KSA_TIMERS.maneuverRefreshTimeout);
+      KSA_TIMERS.maneuverRefreshTimeout = null;
     }
     if (data) {
       var fields = data.split(";");
       strHTML = "<strong>Next Maneuver</strong><br>";
       strHTML += "<span id='manueverLink' db='" + fields[2] + "'>" + wrapText(150, fields[3], 16) + "</span><br>";
-      strCurrentManeuverVessel = fields[2];
+      KSA_CALCULATIONS.strCurrentManeuverVessel = fields[2];
       strHTML += "<span id='maneuverTime'>" + UTtoDateTime(parseFloat(fields[1]), true, false) + "</span><br>"
       strHTML += "<span id='maneuverCountdown'>" + formatTime(parseFloat(fields[1]) - (currUT())) + "</span>";
-      maneuverCountdown = parseFloat(data[1]);
+      KSA_CALCULATIONS.maneuverCountdown = parseFloat(data[1]);
       $("#maneuver").html(strHTML);
       
       // add an info tooltip
@@ -212,7 +212,7 @@ function loadEventsAJAX(xhttp) {
       $("#eventBox").css("height", (37 + size) + "px");
       $('#menuBox').css("height", (ops.maxMenuHeight - w2utils.getSize("#eventBox", 'height')) + "px"); 
       setTimeout(function() { 
-        if (isMenuDataLoaded) {
+        if (KSA_UI_STATE.isMenuDataLoaded) {
           w2ui['menu'].refresh();
           if (w2ui['menu'].find({selected: true}).length) w2ui['menu'].scrollIntoView(w2ui['menu'].find({selected: true})[0].id);
         }
@@ -221,7 +221,7 @@ function loadEventsAJAX(xhttp) {
     
     // if the menu data is already loaded this was a refresh, so highlight the box and activate the links
     // also check if any change has been made to the contents
-    if (isMenuDataLoaded && data && currHTML != $("#maneuver").html()) {
+    if (KSA_UI_STATE.isMenuDataLoaded && data && currHTML != $("#maneuver").html()) {
       flashUpdate("#maneuver", "#FF0000", "#77C6FF");
       activateEventLinks();
     }

@@ -27,12 +27,12 @@ function initializeMap() {
   });
   
   // define the icons for the various layer markers and events
-  flagIcon = L.icon({
+  KSA_MAP_ICONS.flagIcon = L.icon({
     iconUrl: 'button_vessel_flag.png',
     iconSize: [16, 16],
     iconAnchor: [6,21] 
   });
-  POIIcon = L.icon({
+  KSA_MAP_ICONS.POIIcon = L.icon({
     popupAnchor: [0, -43], 
     iconUrl: 'poi.png', 
     iconSize: [30, 40], 
@@ -41,7 +41,7 @@ function initializeMap() {
     shadowSize: [35, 16], 
     shadowAnchor: [10, 12]
   });
-  anomalyIcon = L.icon({
+  KSA_MAP_ICONS.anomalyIcon = L.icon({
     popupAnchor: [0, -43], 
     iconUrl: 'anomaly.png', 
     iconSize: [30, 40], 
@@ -50,7 +50,7 @@ function initializeMap() {
     shadowSize: [35, 16], 
     shadowAnchor: [10, 12]
   });
-  airportIcon = L.icon({
+  KSA_MAP_ICONS.airportIcon = L.icon({
     popupAnchor: [0, -43], 
     iconUrl: 'airport.png', 
     iconSize: [30, 40], 
@@ -59,7 +59,7 @@ function initializeMap() {
     shadowSize: [35, 16], 
     shadowAnchor: [10, 12]
   });
-  omniIcon = L.icon({
+  KSA_MAP_ICONS.omniIcon = L.icon({
     popupAnchor: [0, -43], 
     iconUrl: 'pinOmni.png', 
     iconSize: [30, 40], 
@@ -68,7 +68,7 @@ function initializeMap() {
     shadowSize: [35, 16], 
     shadowAnchor: [10, 12]
   });
-  dishIcon = L.icon({
+  KSA_MAP_ICONS.dishIcon = L.icon({
     popupAnchor: [0, -43], 
     iconUrl: 'pinDish.png', 
     iconSize: [30, 40], 
@@ -77,38 +77,38 @@ function initializeMap() {
     shadowSize: [35, 16], 
     shadowAnchor: [10, 12]
   });
-  labelIcon = L.icon({
+  KSA_MAP_ICONS.labelIcon = L.icon({
     iconUrl: 'label.png',
     iconSize: [10, 10],
   });
-  sunIcon = L.icon({
+  KSA_MAP_ICONS.sunIcon = L.icon({
     iconUrl: 'sun.png',
     iconSize: [16, 16],
     iconAnchor: [8, 8]
   });
-  apIcon = L.icon({
+  KSA_MAP_ICONS.apIcon = L.icon({
     iconUrl: 'ap.png',
     iconSize: [16, 16],
     iconAnchor: [8, 18],
     popupAnchor: [0, -4]
   });
-  peIcon = L.icon({
+  KSA_MAP_ICONS.peIcon = L.icon({
     iconUrl: 'pe.png',
     iconSize: [16, 16],
     iconAnchor: [8, 18],
     popupAnchor: [0, -4]
   });
-  soiExitIcon = L.icon({
+  KSA_MAP_ICONS.soiExitIcon = L.icon({
     iconUrl: 'soiexit.png',
     iconSize: [16, 12],
     iconAnchor: [9, 6]
   });
-  soiEntryIcon = L.icon({
+  KSA_MAP_ICONS.soiEntryIcon = L.icon({
     iconUrl: 'soientry.png',
     iconSize: [16, 12],
     iconAnchor: [9, 6]
   });
-  nodeIcon = L.icon({
+  KSA_MAP_ICONS.nodeIcon = L.icon({
     iconUrl: 'node.png',
     iconSize: [16, 16],
     iconAnchor: [8, 8]
@@ -116,14 +116,14 @@ function initializeMap() {
 
   // do not allow the user to close or resize the map when it is in fullscreen
   ops.surface.map.on('enterFullscreen', function() {
-    if (mapCloseButton) mapCloseButton.disable();
-    if (mapResizeButton) mapResizeButton.disable();
-    isMapFullscreen = true;
+    if (KSA_MAP_CONTROLS.mapCloseButton) KSA_MAP_CONTROLS.mapCloseButton.disable();
+    if (KSA_MAP_CONTROLS.mapResizeButton) KSA_MAP_CONTROLS.mapResizeButton.disable();
+    KSA_UI_STATE.isMapFullscreen = true;
   });
   ops.surface.map.on('exitFullscreen', function() {
-    if (mapCloseButton) mapCloseButton.enable();
-    if (mapResizeButton) mapResizeButton.enable();
-    isMapFullscreen = false;
+    if (KSA_MAP_CONTROLS.mapCloseButton) KSA_MAP_CONTROLS.mapCloseButton.enable();
+    if (KSA_MAP_CONTROLS.mapResizeButton) KSA_MAP_CONTROLS.mapResizeButton.enable();
+    KSA_UI_STATE.isMapFullscreen = false;
   });
   
   // show controls only when the cursor is over the map, unless this is a touch device
@@ -189,18 +189,18 @@ function loadMap(map) {
 
     // we don't need to fully reload the data but we do need to still do these things
     if (getParameterByName("flt") && ops.pageType == "body") {
-      flightsToLoad = getQueryParams("flt");
+      KSA_CALCULATIONS.flightsToLoad = getQueryParams("flt");
       do {
-        var flight = flightsToLoad.shift();
-        if (!fltPaths || (fltPaths && !fltPaths.find(o => o.id === flight))) {
-          surfaceTracksDataLoad.fltTrackDataLoad = L.layerGroup();
+        var flight = KSA_CALCULATIONS.flightsToLoad.shift();
+        if (!KSA_CATALOGS.fltPaths || (KSA_CATALOGS.fltPaths && !KSA_CATALOGS.fltPaths.find(o => o.id === flight))) {
+          KSA_LAYERS.surfaceTracksDataLoad.fltTrackDataLoad = L.layerGroup();
           ops.surface.layerControl._expand();
           ops.surface.layerControl.options.collapsed = false;
-          ops.surface.layerControl.addOverlay(surfaceTracksDataLoad.fltTrackDataLoad, "<i class='fa fa-cog fa-spin'></i> Loading Data...", "Flight Tracks");
+          ops.surface.layerControl.addOverlay(KSA_LAYERS.surfaceTracksDataLoad.fltTrackDataLoad, "<i class='fa fa-cog fa-spin'></i> Loading Data...", "Flight Tracks");
           loadDB("loadFltData.asp?data=" + flight, loadFltDataAJAX);
           break;
         }
-      } while (flightsToLoad.length);
+      } while (KSA_CALCULATIONS.flightsToLoad.length);
       showMap();
     }
     return;
@@ -215,7 +215,7 @@ function loadMap(map) {
   // call up the map data to load & terminate any orbital calculations
   loadDB("loadMapData.asp?map=" + map + "&UT=" + currUT(), loadMapDataAJAX);
   ops.surface.isLoading = true;
-  isOrbitRenderTerminated = true;
+  KSA_UI_STATE.isOrbitRenderTerminated = true;
 }
 
 function loadMapDataAJAX(xhttp) {
@@ -287,7 +287,7 @@ function loadMapDataAJAX(xhttp) {
     var layerLabels = L.layerGroup();
     labelData.forEach(function(item) {
       var label = item.split(";");
-      labelMarker = L.marker([label[0],label[1]], { icon: labelIcon, zIndexOffset: 100 }).bindTooltip(label[2], { direction: 'top', offset: [0,-10] });
+      labelMarker = L.marker([label[0],label[1]], { icon: KSA_MAP_ICONS.labelIcon, zIndexOffset: 100 }).bindTooltip(label[2], { direction: 'top', offset: [0,-10] });
       layerLabels.addLayer(labelMarker);
       labelMarker._myId = -1;
       
@@ -307,7 +307,7 @@ function loadMapDataAJAX(xhttp) {
     var layerFlags = L.layerGroup();
     flagData.forEach(function(item) {
       var flag = item.split(";");
-      flagMarker = L.marker([flag[0],flag[1]], { icon: flagIcon, zIndexOffset: 100 });
+      flagMarker = L.marker([flag[0],flag[1]], { icon: KSA_MAP_ICONS.flagIcon, zIndexOffset: 100 });
       if (flag[4] == 'null') var strCrew = "";
       else var strCrew = flag[4] + "<br />";
       if (flag[8] == 'null') var strLink = "<span class='fauxLink' onclick=\"swapContent('vessel','" + flag[7] + "')\">View Vessel</span>";
@@ -333,7 +333,7 @@ function loadMapDataAJAX(xhttp) {
     var layerPOI = L.layerGroup();
     POIData.forEach(function(item) {
       var POI = item.split(";");
-      POIMarker = L.marker([POI[0],POI[1]], { icon: POIIcon, zIndexOffset: 100 });
+      POIMarker = L.marker([POI[0],POI[1]], { icon: KSA_MAP_ICONS.POIIcon, zIndexOffset: 100 });
       strHTML = "<b>" + POI[3] + "</b><br>" + numeral(POI[2]/1000).format('0.000') + " km";
       if (POI[4] != "null") strHTML += "<p>" + POI[4] + "</p>";
       POIMarker.bindPopup(strHTML, { autoClose: false });
@@ -353,7 +353,7 @@ function loadMapDataAJAX(xhttp) {
     var layerAnomalies = L.layerGroup();
     anomalyData.forEach(function(item) {
       var anomaly = item.split(";");
-      anomalyMarker = L.marker([anomaly[0],anomaly[1]], { icon: anomalyIcon, zIndexOffset: 100 });
+      anomalyMarker = L.marker([anomaly[0],anomaly[1]], { icon: KSA_MAP_ICONS.anomalyIcon, zIndexOffset: 100 });
       strHTML = "<b>";
       if (anomaly[3] != "null") strHTML += anomaly[3];
       else strHTML += "Unknown Anomaly";
@@ -373,8 +373,8 @@ function loadMapDataAJAX(xhttp) {
     var layerGrndStn = L.layerGroup();
     grndData.forEach(function(item) {
       var station = item.split(";");
-      if (station[4] == "0") grndMarker = L.marker([station[0],station[1]], { icon: dishIcon, zIndexOffset: 100 });
-      else grndMarker = L.marker([station[0],station[1]], { icon: omniIcon, zIndexOffset: 100 });
+      if (station[4] == "0") grndMarker = L.marker([station[0],station[1]], { icon: KSA_MAP_ICONS.dishIcon, zIndexOffset: 100 });
+      else grndMarker = L.marker([station[0],station[1]], { icon: KSA_MAP_ICONS.omniIcon, zIndexOffset: 100 });
       strHTML = "<b>";
       strHTML += station[3];
       strHTML += "</b><br>Altitude: " + numeral(station[2]/1000).format('0.000') + " km";
@@ -425,7 +425,7 @@ function loadMapDataAJAX(xhttp) {
     var layerAirports = L.layerGroup();
     aptData.forEach(function(item) {
       var airport = item.split(";");
-      aptMarker = L.marker([airport[0],airport[1]], { icon: airportIcon, zIndexOffset: 100 });
+      aptMarker = L.marker([airport[0],airport[1]], { icon: KSA_MAP_ICONS.airportIcon, zIndexOffset: 100 });
       strHTML = "<b>";
       strHTML += airport[3];
       strHTML += "</b><br>Altitude: " + numeral(airport[2]/1000).format('0.000') + " km";
@@ -440,12 +440,11 @@ function loadMapDataAJAX(xhttp) {
   }
 
   // if this is a different map than any orbit data already loaded, dump the other data
-  if (bodyPaths.bodyName && bodyPaths.bodyName != ops.surface.Data.Name) {
-    bodyPaths.bodyName = ops.surface.Data.Name;
+  if (KSA_CATALOGS.bodyPaths.bodyName && KSA_CATALOGS.bodyPaths.bodyName != ops.surface.Data.Name) {
+    KSA_CATALOGS.bodyPaths.bodyName = ops.surface.Data.Name;
 
   // TODO - have to remove any layers that have already been created
-  } else if (!bodyPaths.bodyName) bodyPaths.bodyName = ops.surface.Data.Name;
-
+  } else if (!KSA_CATALOGS.bodyPaths.bodyName) KSA_CATALOGS.bodyPaths.bodyName = ops.surface.Data.Name;
   // load surface track data for any vessels and moons in orbit around this body
   // this is dependent on ops catalog data so needs to be in its own function
   loadSurfaceTracks();
@@ -459,13 +458,13 @@ function loadMapDataAJAX(xhttp) {
     if (sunLon < -180) sunLon += 360;
     
     // place the sun marker
-    sunMarker = L.marker([sunLat,sunLon], { icon: sunIcon, clickable: false });
-    layerSolar.addLayer(sunMarker);
+    KSA_MAP_CONTROLS.sunMarker = L.marker([sunLat,sunLon], { icon: KSA_MAP_ICONS.sunIcon, clickable: false });
+    KSA_LAYERS.layerSolar.addLayer(KSA_MAP_CONTROLS.sunMarker);
     
     // add to the layer selection control
-    ops.surface.layerControl.addOverlay(layerSolar, "<i class='fas fa-sun' style='color: #FFD800'></i> Sun/Terminator", "Ground Markers");
+    ops.surface.layerControl.addOverlay(KSA_LAYERS.layerSolar, "<i class='fas fa-sun' style='color: #FFD800'></i> Sun/Terminator", "Ground Markers");
     if (getParameterByName("layers").includes("sun") || getParameterByName("layers").includes("terminator")) {
-      layerSolar.addTo(ops.surface.map);
+      KSA_LAYERS.layerSolar.addTo(ops.surface.map);
     }
   }
 
@@ -489,7 +488,7 @@ function loadMapDataAJAX(xhttp) {
   
   // load map pin(s) and caption(s)?
   if (getParameterByName("loc")) {
-    layerPins = L.featureGroup();
+    KSA_LAYERS.layerPins = L.featureGroup();
     var isMultiple = false;
     var pin;
     
@@ -504,14 +503,14 @@ function loadMapDataAJAX(xhttp) {
       } else {
         pin = L.marker([mapLocation[0], mapLocation[1]], { clickable: false });
       }
-      layerPins.addLayer(pin);
+      KSA_LAYERS.layerPins.addLayer(pin);
       pin._myId = -1;
     });
 
     // place the pins and size the map to show them all
-    layerPins.addTo(ops.surface.map);
-    ops.surface.layerControl.addOverlay(layerPins, "<img src='defPin.png' style='width: 10px; height: 14px; vertical-align: 1px;'> Custom Pins", "Ground Markers");
-    ops.surface.map.fitBounds(layerPins.getBounds());
+    KSA_LAYERS.layerPins.addTo(ops.surface.map);
+    ops.surface.layerControl.addOverlay(KSA_LAYERS.layerPins, "<img src='defPin.png' style='width: 10px; height: 14px; vertical-align: 1px;'> Custom Pins", "Ground Markers");
+    ops.surface.map.fitBounds(KSA_LAYERS.layerPins.getBounds());
     
     // if only one marker was placed, open its popup and zoom back out
     if (!isMultiple) {
@@ -523,19 +522,19 @@ function loadMapDataAJAX(xhttp) {
   
   // load flight paths, taking into account they may already be loaded
   if (getParameterByName("flt") && ops.pageType == "body") {
-    flightsToLoad = getQueryParams("flt");
+    KSA_CALCULATIONS.flightsToLoad = getQueryParams("flt");
     do {
-      var flight = flightsToLoad.shift();
-      if (!fltPaths || (fltPaths && !fltPaths.find(o => o.id === flight))) {
-        surfaceTracksDataLoad.fltTrackDataLoad = L.layerGroup();
+      var flight = KSA_CALCULATIONS.flightsToLoad.shift();
+      if (!KSA_CATALOGS.fltPaths || (KSA_CATALOGS.fltPaths && !KSA_CATALOGS.fltPaths.find(o => o.id === flight))) {
+        KSA_LAYERS.surfaceTracksDataLoad.fltTrackDataLoad = L.layerGroup();
         ops.surface.layerControl._expand();
         ops.surface.layerControl.options.collapsed = false;
-        ops.surface.layerControl.addOverlay(surfaceTracksDataLoad.fltTrackDataLoad, "<i class='fa fa-cog fa-spin'></i> Loading Data...", "Flight Tracks");
+        ops.surface.layerControl.addOverlay(KSA_LAYERS.surfaceTracksDataLoad.fltTrackDataLoad, "<i class='fa fa-cog fa-spin'></i> Loading Data...", "Flight Tracks");
         loadDB("loadFltData.asp?data=" + flight, loadFltDataAJAX);
-        strFltTrackLoading = flight;
+        KSA_UI_STATE.strFltTrackLoading = flight;
         break;
       }
-    } while (flightsToLoad.length);
+    } while (KSA_CALCULATIONS.flightsToLoad.length);
     showMap();
   }
   
@@ -560,9 +559,9 @@ function loadFltDataAJAX(xhttp) {
   fltData.forEach(function(dataPoint) { if (dataPoint.ASL > altMax) altMax = dataPoint.ASL });
   
   // make sure we don't overstep bounds on the color index
-  if (fltPaths.length >= surfacePathColors.length) var colorIndex = fltPaths.length - (surfacePathColors.length * (Math.floor(fltPaths.length/surfacePathColors.length)));
-  else var colorIndex = fltPaths.length;
-  fltPaths.push({ info: fltInfo,
+  if (KSA_CATALOGS.fltPaths.length >= KSA_COLORS.surfacePathColors.length) var colorIndex = KSA_CATALOGS.fltPaths.length - (KSA_COLORS.surfacePathColors.length * (Math.floor(KSA_CATALOGS.fltPaths.length/KSA_COLORS.surfacePathColors.length)));
+  else var colorIndex = KSA_CATALOGS.fltPaths.length;
+  KSA_CATALOGS.fltPaths.push({ info: fltInfo,
                   fltData: fltData,
                   layer: L.featureGroup(),
                   pins: [],
@@ -570,55 +569,55 @@ function loadFltDataAJAX(xhttp) {
                   id: xhttp.responseText.split("^")[2],
                   deleted: false,
                   elev: false,
-                  color: surfacePathColors[colorIndex],
-                  index: fltPaths.length,
+                  color: KSA_COLORS.surfacePathColors[colorIndex],
+                  index: KSA_CATALOGS.fltPaths.length,
                   minASL: altMin/1000,
                   maxASL: altMax/1000
                 });
   
   // make sure that if a layer is hidden the current popup is too if that belongs to the layer
-  fltPaths[fltPaths.length-1].layer._myId = fltPaths[fltPaths.length-1].info.Title;
-  fltPaths[fltPaths.length-1].layer.on('remove', function(e) {
-    if (flightPositionPopup.getContent() && flightPositionPopup.getContent().includes(e.target._myId)) ops.surface.map.closePopup(flightPositionPopup);
+  KSA_CATALOGS.fltPaths[KSA_CATALOGS.fltPaths.length-1].layer._myId = KSA_CATALOGS.fltPaths[KSA_CATALOGS.fltPaths.length-1].info.Title;
+  KSA_CATALOGS.fltPaths[KSA_CATALOGS.fltPaths.length-1].layer.on('remove', function(e) {
+    if (KSA_MAP_CONTROLS.flightPositionPopup.getContent() && KSA_MAP_CONTROLS.flightPositionPopup.getContent().includes(e.target._myId)) ops.surface.map.closePopup(KSA_MAP_CONTROLS.flightPositionPopup);
   });
 
   // draw the ground track
-  renderFltPath(fltPaths.length-1);
+  renderFltPath(KSA_CATALOGS.fltPaths.length-1);
   
   // delete the loading layer and add the flight path layer to the control and the map
-  ops.surface.layerControl.removeLayer(surfaceTracksDataLoad.fltTrackDataLoad);
-  ops.surface.layerControl.addOverlay(fltPaths[fltPaths.length-1].layer, "<i class='fa fa-minus' style='color: " + fltPaths[fltPaths.length-1].color + "'></i> " + fltPaths[fltPaths.length-1].info.Title, "Flight Tracks");
-  fltPaths[fltPaths.length-1].layer.addTo(ops.surface.map)
+  ops.surface.layerControl.removeLayer(KSA_LAYERS.surfaceTracksDataLoad.fltTrackDataLoad);
+  ops.surface.layerControl.addOverlay(KSA_CATALOGS.fltPaths[KSA_CATALOGS.fltPaths.length-1].layer, "<i class='fa fa-minus' style='color: " + KSA_CATALOGS.fltPaths[KSA_CATALOGS.fltPaths.length-1].color + "'></i> " + KSA_CATALOGS.fltPaths[KSA_CATALOGS.fltPaths.length-1].info.Title, "Flight Tracks");
+  KSA_CATALOGS.fltPaths[KSA_CATALOGS.fltPaths.length-1].layer.addTo(ops.surface.map)
   
   // get more flight data?
-  if (flightsToLoad) {
-    if (flightsToLoad.length) {
-      surfaceTracksDataLoad.fltTrackDataLoad = L.layerGroup();
-      ops.surface.layerControl.addOverlay(surfaceTracksDataLoad.fltTrackDataLoad, "<i class='fa fa-cog fa-spin'></i> Loading Data...", "Flight Tracks");
-      var strFlightName = flightsToLoad.shift();
+  if (KSA_CALCULATIONS.flightsToLoad) {
+    if (KSA_CALCULATIONS.flightsToLoad.length) {
+      KSA_LAYERS.surfaceTracksDataLoad.fltTrackDataLoad = L.layerGroup();
+      ops.surface.layerControl.addOverlay(KSA_LAYERS.surfaceTracksDataLoad.fltTrackDataLoad, "<i class='fa fa-cog fa-spin'></i> Loading Data...", "Flight Tracks");
+      var strFlightName = KSA_CALCULATIONS.flightsToLoad.shift();
       loadDB("loadFltData.asp?data=" + strFlightName, loadFltDataAJAX);
-      strFltTrackLoading = strFlightName;
+      KSA_UI_STATE.strFltTrackLoading = strFlightName;
   
     // done with data load?
     } else {
-      surfaceTracksDataLoad.fltTrackDataLoad = null;
-      flightsToLoad = null;
+      KSA_LAYERS.surfaceTracksDataLoad.fltTrackDataLoad = null;
+      KSA_CALCULATIONS.flightsToLoad = null;
       checkDataLoad();
       
       // if there was only one track...
-      if (fltPaths.length == 1) {
+      if (KSA_CATALOGS.fltPaths.length == 1) {
 
         // select it in the menu
-        selectMenuItem(fltPaths[0].id);
+        selectMenuItem(KSA_CATALOGS.fltPaths[0].id);
 
         // check for in-progress flight
-        if (!inFlight(fltPaths[0])) {
+        if (!inFlight(KSA_CATALOGS.fltPaths[0])) {
 
           // if there are more than two layers the plot wraps around the meridian so just show the whole map
           // otherwise zoom in to fit the size of the plot
           // https://stackoverflow.com/questions/5223/length-of-a-javascript-object
-          if (Object.keys(fltPaths[0].layer._layers).length > 1) ops.surface.map.setView([0,0], 1);
-          else ops.surface.map.fitBounds(Object.values(fltPaths[0].layer._layers)[0]._bounds);
+          if (Object.keys(KSA_CATALOGS.fltPaths[0].layer._layers).length > 1) ops.surface.map.setView([0,0], 1);
+          else ops.surface.map.fitBounds(Object.values(KSA_CATALOGS.fltPaths[0].layer._layers)[0]._bounds);
         }
       // multiple tracks...
       } else {
@@ -632,7 +631,7 @@ function loadFltDataAJAX(xhttp) {
         // get the combined bounds of all the plots
         var isDblPlotted = false;
         var groupBounds = null;
-        fltPaths.forEach(function(item) {
+        KSA_CATALOGS.fltPaths.forEach(function(item) {
           
           // if there are more than two layers the plot wraps around the meridian
           if (Object.keys(item.layer._layers).length > 1) isDblPlotted = true;
@@ -650,17 +649,17 @@ function loadFltDataAJAX(xhttp) {
   } else {
 
     // check for in-progress flight
-    if (!inFlight(fltPaths[fltPaths.length-1])) {
+    if (!inFlight(KSA_CATALOGS.fltPaths[KSA_CATALOGS.fltPaths.length-1])) {
 
       // zoom out to the full map if the new plot jumps the meridian otherwise fit its bounds
-      if (Object.keys(fltPaths[fltPaths.length-1].layer._layers).length > 1) ops.surface.map.setView([0,0], 1);
-      else ops.surface.map.fitBounds(Object.values(fltPaths[fltPaths.length-1].layer._layers)[0]._bounds);
+      if (Object.keys(KSA_CATALOGS.fltPaths[KSA_CATALOGS.fltPaths.length-1].layer._layers).length > 1) ops.surface.map.setView([0,0], 1);
+      else ops.surface.map.fitBounds(Object.values(KSA_CATALOGS.fltPaths[KSA_CATALOGS.fltPaths.length-1].layer._layers)[0]._bounds);
     }
 
-    surfaceTracksDataLoad.fltTrackDataLoad = null;
+    KSA_LAYERS.surfaceTracksDataLoad.fltTrackDataLoad = null;
     checkDataLoad();
   }
-  if (strFltTrackLoading) strFltTrackLoading = null;
+  if (KSA_CALCULATIONS.strFltTrackLoading) KSA_CALCULATIONS.strFltTrackLoading = null;
 }
 
 function renderMapData(updated = false) {
@@ -684,7 +683,7 @@ function renderMapData(updated = false) {
   // or if we have to wait for the GGB to finish loading or if we need to wait for the content area to stop moving
   if ((!ops.currentVessel && ops.pageType == "vessel") || 
       (ops.surface.layerControl && !ops.surface.layerControl.options.collapsed) ||
-      !isGGBAppletLoaded || isContentMoving) {
+      !KSA_UI_STATE.isGGBAppletLoaded || KSA_UI_STATE.isContentMoving) {
     
     // but wait! if this call was made during an orbital data update, ignore the map layer control being open, we need to cancel & restart
     if (!updated) return setTimeout(renderMapData, 150);
@@ -699,46 +698,46 @@ function renderMapData(updated = false) {
     var latlng = { lat: parseFloat(ops.currentVessel.Orbit.SOIEvent.split(";")[3]), 
                    lng: parseFloat(ops.currentVessel.Orbit.SOIEvent.split(";")[4]) };
     if (ops.currentVessel.Orbit.SOIEvent.split(";")[1] == "entry") {
-      ops.currentVesselPlot.events.soiEntry.marker = L.marker([latlng.lat, latlng.lng], { icon: soiEntryIcon }).addTo(ops.surface.map);
+      ops.currentVesselPlot.events.soiEntry.marker = L.marker([latlng.lat, latlng.lng], { icon: KSA_MAP_ICONS.soiEntryIcon }).addTo(ops.surface.map);
       ops.currentVesselPlot.events.soiEntry.marker.bindPopup("<center>" + UTtoDateTime(parseInt(ops.currentVessel.Orbit.SOIEvent.split(";")[0])).split("@")[1] + " UTC <br>Telemetry data invalid due to " + ops.currentVessel.Orbit.SOIEvent.split(";")[2] + "<br>Please stand by for update</center>", { autoClose: false });
       ops.surface.map.setView(ops.currentVesselPlot.events.soiEntry.marker.getLatLng(), 3);
       ops.currentVesselPlot.events.soiEntry.marker.openPopup();
     } else if (ops.currentVessel.Orbit.SOIEvent.split(";")[1] == "exit") {
-      ops.currentVesselPlot.events.soiExit.marker = L.marker([latlng.lat, latlng.lng], { icon: soiExitIcon }).addTo(ops.surface.map);
+      ops.currentVesselPlot.events.soiExit.marker = L.marker([latlng.lat, latlng.lng], { icon: KSA_MAP_ICONS.soiExitIcon }).addTo(ops.surface.map);
       ops.currentVesselPlot.events.soiExit.marker.bindPopup("<center>" + UTtoDateTime(parseInt(ops.currentVessel.Orbit.SOIEvent.split(";")[0])).split("@")[1] + " UTC <br>Telemetry data invalid due to " + ops.currentVessel.Orbit.SOIEvent.split(";")[2] + "<br>Please stand by for update</center>", { autoClose: false });
       ops.surface.map.setView(ops.currentVesselPlot.events.soiExit.marker.getLatLng(), 3);
       ops.currentVesselPlot.events.soiExit.marker.openPopup();
     }
 
   // if there is a paused calculation we are returning to, then just resume calling the orbital batch
-  } else if (strPausedVesselCalculation == ops.currentVessel.Catalog.DB) {
+  } else if (KSA_CALCULATIONS.strPausedVesselCalculation == ops.currentVessel.Catalog.DB) {
     
     // re-show the progress dialog for current state of calculation
     $("#mapDialog").dialog( "option", "title", "Calculating Orbit #" + ops.currentVesselPlot.obtData.length+1 + " of " + ops.currentVesselPlot.numOrbitRenders);
     $("#mapDialog").dialog( "option", "buttons", [{
       text: "Cancel and Display",
       click: function() { 
-        isOrbitRenderCancelled = true;
+        KSA_UI_STATE.isOrbitRenderCancelled = true;
       }
     }]);
-    $(".ui-progressbar-value").css("background-color", vesselOrbitColors[ops.currentVesselPlot.obtData.length]);
+    $(".ui-progressbar-value").css("background-color", KSA_COLORS.vesselOrbitColors[ops.currentVesselPlot.obtData.length]);
     $("#dialogTxt").hide();
-    $("#progressbar").progressbar("value", (orbitDataCalc.length/ops.currentVessel.Orbit.OrbitalPeriod)*100);
+    $("#progressbar").progressbar("value", (KSA_CALCULATIONS.orbitDataCalc.length/ops.currentVessel.Orbit.OrbitalPeriod)*100);
     $("#progressbar").fadeIn();
     $("#mapDialog").dialog("open");
   
     // reset the load state of the map
     ops.surface.layerControl._expand();
     ops.surface.layerControl.options.collapsed = false;
-    surfaceTracksDataLoad.obtTrackDataLoad = L.layerGroup();
-    ops.surface.layerControl.addOverlay(surfaceTracksDataLoad.obtTrackDataLoad, "<i class='fa fa-cog fa-spin'></i> Loading Data...", "Orbital Tracks");
-    strPausedVesselCalculation = null;
-    isOrbitRenderTerminated = false;
+    KSA_LAYERS.surfaceTracksDataLoad.obtTrackDataLoad = L.layerGroup();
+    ops.surface.layerControl.addOverlay(KSA_LAYERS.surfaceTracksDataLoad.obtTrackDataLoad, "<i class='fa fa-cog fa-spin'></i> Loading Data...", "Orbital Tracks");
+    KSA_CALCULATIONS.strPausedVesselCalculation = null;
+    KSA_UI_STATE.isOrbitRenderTerminated = false;
     orbitalCalc(renderVesselOrbit, ops.currentVessel.Orbit);
 
   // otherwise we need to calculate surface tracks for a single vessel
   } else if (ops.pageType == "vessel") {
-    if (updated) isOrbitRenderTerminated = true;
+    if (updated) KSA_UI_STATE.isOrbitRenderTerminated = true;
 
     // if 3 orbits are longer than 100,000s we need to inform the user that this could take a while
     if ((ops.currentVessel.Orbit.OrbitalPeriod * 3) > 100000) {
@@ -760,15 +759,15 @@ function renderMapData(updated = false) {
       $("#progressbar").hide();
 
       // gives time for any map buttons to hide
-      mapDialogDelay = setTimeout(function() { 
+      KSA_TIMERS.mapDialogDelay = setTimeout(function() { 
         $("#mapDialog").dialog("open"); 
-        mapDialogDelay = null;
+        KSA_TIMERS.mapDialogDelay = null;
       }, 1000);
       
     } else {
 
       // check if another vessel rendering was interrupted and be sure the user wants to continue
-      if (strPausedVesselCalculation) {
+      if (KSA_CALCULATIONS.strPausedVesselCalculation) {
         $("#mapDialog").dialog( "option", "buttons", [{
           text: "Proceed",
           click: function() { 
@@ -777,7 +776,7 @@ function renderMapData(updated = false) {
         },{
           text: "Return",
           click: function() { 
-            swapContent("vessel", strPausedVesselCalculation);
+            swapContent("vessel", KSA_CALCULATIONS.strPausedVesselCalculation);
           }
         }]);
         $("#mapDialog").dialog( "option", "title", "Calculation Notice");
@@ -786,9 +785,9 @@ function renderMapData(updated = false) {
         $("#progressbar").hide();
   
         // gives time for any map buttons to hide
-        mapDialogDelay = setTimeout(function() { 
+        KSA_TIMERS.mapDialogDelay = setTimeout(function() { 
           $("#mapDialog").dialog("open"); 
-          mapDialogDelay = null;
+          KSA_TIMERS.mapDialogDelay = null;
         }, 1000);
       } else beginOrbitalCalc();
     }
@@ -803,15 +802,15 @@ function beginOrbitalCalc(numOrbitRenders = 3) {
 
   // if there are surface orbits being calculated, we need to cancel that first
   // just give enough time for the orbital function to call itself again and cancel the batch
-  if (!isOrbitRenderTerminated && bodyPaths.paths.length && bodyPaths.paths.find(o => o.isCalculating === true)) {
-    isOrbitRenderTerminated = true;
+  if (!KSA_UI_STATE.isOrbitRenderTerminated && KSA_CATALOGS.bodyPaths.paths.length && KSA_CATALOGS.bodyPaths.paths.find(o => o.isCalculating === true)) {
+    KSA_UI_STATE.isOrbitRenderTerminated = true;
     setTimeout(beginOrbitalCalc, 15, numOrbitRenders);
     return;
   }
 
   clearSurfacePlots();
-  surfaceTracksDataLoad.obtTrackDataLoad = null;
-  strPausedVesselCalculation = null;
+  KSA_LAYERS.surfaceTracksDataLoad.obtTrackDataLoad = null;
+  KSA_CALCULATIONS.strPausedVesselCalculation = null;
 
   if (ops.currentVesselPlot) ops.currentVesselPlot.obtData.length = 0;
   ops.currentVesselPlot = {
@@ -828,29 +827,29 @@ function beginOrbitalCalc(numOrbitRenders = 3) {
     eph: ops.currentVessel.Orbit.Eph
   };
 
-  isOrbitRenderCancelled = false;
-  isOrbitRenderTerminated = false;
+  KSA_UI_STATE.isOrbitRenderCancelled = false;
+  KSA_UI_STATE.isOrbitRenderTerminated = false;
   ops.currentVesselPlot.numOrbitRenders = numOrbitRenders;
   $("#mapDialog").dialog( "option", "title", "Calculating Orbit #1 of " + ops.currentVesselPlot.numOrbitRenders);
   $("#mapDialog").dialog( "option", "buttons", [{
     text: "Cancel and Display",
-    click: function() { 
-      isOrbitRenderCancelled = true;
+    click: function() {
+      KSA_UI_STATE.isOrbitRenderCancelled = true;
     }
   }]);
-  $(".ui-progressbar-value").css("background-color", vesselOrbitColors[ops.currentVesselPlot.obtData.length]);
+  $(".ui-progressbar-value").css("background-color", KSA_COLORS.vesselOrbitColors[ops.currentVesselPlot.obtData.length]);
   $("#dialogTxt").hide();
   $("#progressbar").progressbar("value", 0);
   $("#progressbar").fadeIn();
   $("#mapDialog").dialog("open");
   ops.surface.layerControl._expand();
   ops.surface.layerControl.options.collapsed = false;
-  surfaceTracksDataLoad.obtTrackDataLoad = L.layerGroup();
-  ops.surface.layerControl.addOverlay(surfaceTracksDataLoad.obtTrackDataLoad, "<i class='fa fa-cog fa-spin'></i> Loading Data...", "Orbital Tracks");
+  KSA_LAYERS.surfaceTracksDataLoad.obtTrackDataLoad = L.layerGroup();
+  ops.surface.layerControl.addOverlay(KSA_LAYERS.surfaceTracksDataLoad.obtTrackDataLoad, "<i class='fa fa-cog fa-spin'></i> Loading Data...", "Orbital Tracks");
   
   // set the current UT from which the orbital data will be propagated forward
-  obtCalcUT = currUT();
-  orbitDataCalc.length = 0;
+  KSA_CALCULATIONS.obtCalcUT = currUT();
+  KSA_CALCULATIONS.orbitDataCalc.length = 0;
   orbitalCalc(renderVesselOrbit, ops.currentVessel.Orbit);
 }
 
@@ -859,16 +858,16 @@ function renderVesselOrbit() {
 
   // we have completed a batch of calculations, store the data
   ops.currentVesselPlot.obtData.push({
-    orbit: orbitDataCalc.slice(0),
+    orbit: KSA_CALCULATIONS.orbitDataCalc.slice(0),
     layer: L.featureGroup(),
-    startUT: obtCalcUT-orbitDataCalc.length,
-    endUT: obtCalcUT
+    startUT: KSA_CALCULATIONS.obtCalcUT-KSA_CALCULATIONS.orbitDataCalc.length,
+    endUT: KSA_CALCULATIONS.obtCalcUT
   });
 
   // get the times we'll reach Ap and Pe along this orbit if we haven't already done so
   if (!ops.currentVesselPlot.events.ap.marker || !ops.currentVesselPlot.events.pe.marker) {
     var n = Math.sqrt(ops.bodyCatalog.find(o => o.selected === true).Gm/(Math.pow(Math.abs(ops.currentVessel.Orbit.SMA),3)));
-    var newMean = toMeanAnomaly(Math.radians(ops.currentVessel.Orbit.TrueAnom), ops.currentVessel.Orbit.Eccentricity) + n * ((obtCalcUT-orbitDataCalc.length) - ops.currentVessel.Orbit.Eph);
+    var newMean = toMeanAnomaly(Math.radians(ops.currentVessel.Orbit.TrueAnom), ops.currentVessel.Orbit.Eccentricity) + n * ((KSA_CALCULATIONS.obtCalcUT-KSA_CALCULATIONS.orbitDataCalc.length) - ops.currentVessel.Orbit.Eph);
     if (newMean < 0 || newMean > 2*Math.PI) {
       newMean = Math.abs(newMean - (2*Math.PI) * Math.floor(newMean / (2*Math.PI)));
     }
@@ -880,24 +879,24 @@ function renderVesselOrbit() {
     if (peTime <= 0) peTime += Math.round(ops.currentVessel.Orbit.OrbitalPeriod);
     
     // stash away the times but convert them to UT instead of seconds from the start of this orbit
-    ops.currentVesselPlot.events.pe.UT = peTime + (obtCalcUT-orbitDataCalc.length);
-    ops.currentVesselPlot.events.ap.UT = apTime + (obtCalcUT-orbitDataCalc.length);
+    ops.currentVesselPlot.events.pe.UT = peTime + (KSA_CALCULATIONS.obtCalcUT-KSA_CALCULATIONS.orbitDataCalc.length);
+    ops.currentVesselPlot.events.ap.UT = apTime + (KSA_CALCULATIONS.obtCalcUT-KSA_CALCULATIONS.orbitDataCalc.length);
     
     // configure the Ap/Pe icons, ensuring that enough orbit has been plotted to display them
-    if (!ops.currentVesselPlot.events.ap.marker && apTime < orbitDataCalc.length) { 
+    if (!ops.currentVesselPlot.events.ap.marker && apTime < KSA_CALCULATIONS.orbitDataCalc.length) { 
 
       // add the marker, assign its information popup and give it a callback for instant update when opened, then add it to the current layer
-      ops.currentVesselPlot.events.ap.marker = L.marker(orbitDataCalc[apTime].latlng, {icon: apIcon}); 
-      var strTimeDate = UTtoDateTime(obtCalcUT-orbitDataCalc.length + apTime);
+      ops.currentVesselPlot.events.ap.marker = L.marker(KSA_CALCULATIONS.orbitDataCalc[apTime].latlng, {icon: KSA_MAP_ICONS.apIcon}); 
+      var strTimeDate = UTtoDateTime(KSA_CALCULATIONS.obtCalcUT-KSA_CALCULATIONS.orbitDataCalc.length + apTime);
       ops.currentVesselPlot.events.ap.marker.bindPopup("<center>Time to Apoapsis<br><span id='apTime'>" + formatTime(apTime) + "</span><br><span id='apDate'>" + strTimeDate.split("@")[0] + '<br>' + strTimeDate.split("@")[1] + "</span> UTC</center>", { autoClose: false });
       ops.currentVesselPlot.events.ap.marker.on('click', function(e) {
         $('#apTime').html(formatTime(ops.currentVesselPlot.events.ap.UT - currUT()));
       });
       ops.currentVesselPlot.obtData[ops.currentVesselPlot.obtData.length-1].layer.addLayer(ops.currentVesselPlot.events.ap.marker);
     }
-    if (!ops.currentVesselPlot.events.pe.marker && peTime < orbitDataCalc.length) { 
-      ops.currentVesselPlot.events.pe.marker = L.marker(orbitDataCalc[peTime].latlng, {icon: peIcon}); 
-      var strTimeDate = UTtoDateTime(obtCalcUT-orbitDataCalc.length + peTime);
+    if (!ops.currentVesselPlot.events.pe.marker && peTime < KSA_CALCULATIONS.orbitDataCalc.length) { 
+      ops.currentVesselPlot.events.pe.marker = L.marker(KSA_CALCULATIONS.orbitDataCalc[peTime].latlng, {icon: KSA_MAP_ICONS.peIcon}); 
+      var strTimeDate = UTtoDateTime(KSA_CALCULATIONS.obtCalcUT-KSA_CALCULATIONS.orbitDataCalc.length + peTime);
       ops.currentVesselPlot.events.pe.marker.bindPopup("<center>Time to Periapsis<br><span id='peTime'>" + formatTime(peTime) + "</span><br><span id='peDate'>" + strTimeDate.split("@")[0] + '<br>' + strTimeDate.split("@")[1] + "</span> UTC</center>", { autoClose: false });
       ops.currentVesselPlot.events.pe.marker.on('click', function(e) {
         $('#peTime').html(formatTime(ops.currentVesselPlot.events.pe.UT - currUT()));
@@ -907,11 +906,11 @@ function renderVesselOrbit() {
   }
 
   // does this path terminate in an entry to Kerbin's atmosphere?
-  if (orbitDataCalc[orbitDataCalc.length-1].alt <= 70) {
+  if (KSA_CALCULATIONS.orbitDataCalc[KSA_CALCULATIONS.orbitDataCalc.length-1].alt <= 70) {
 
     // add the marker, assign its information popup and give it a callback for instant update when opened, then add it to the current layer
-    ops.currentVesselPlot.events.soiEntry.UT = obtCalcUT;
-    ops.currentVesselPlot.events.soiEntry.marker = L.marker(orbitDataCalc[orbitDataCalc.length-1].latlng, {icon: soiEntryIcon}); 
+    ops.currentVesselPlot.events.soiEntry.UT = KSA_CALCULATIONS.obtCalcUT;
+    ops.currentVesselPlot.events.soiEntry.marker = L.marker(KSA_CALCULATIONS.orbitDataCalc[KSA_CALCULATIONS.orbitDataCalc.length-1].latlng, {icon: KSA_MAP_ICONS.soiEntryIcon}); 
     var strTimeDate = UTtoDateTime(ops.currentVesselPlot.events.soiEntry.UT);
     ops.currentVesselPlot.events.soiEntry.marker.bindPopup("<center>Time to Atmospheric Entry<br><span id='soiEntryTime'>" + formatTime(ops.currentVesselPlot.events.soiEntry.UT) + "</span><br><span id='soiEntryDate'>" + strTimeDate.split("@")[0] + '<br>' + strTimeDate.split("@")[1] + "</span> UTC</center>", { autoClose: false });
     ops.currentVesselPlot.events.soiEntry.marker.on('click', function(e) {
@@ -921,11 +920,11 @@ function renderVesselOrbit() {
   } 
 
   // does this path terminate in an exit of Kerbin's SOI?
-  else if (orbitDataCalc[orbitDataCalc.length-1].alt >= 83559.2865) {
+  else if (KSA_CALCULATIONS.orbitDataCalc[KSA_CALCULATIONS.orbitDataCalc.length-1].alt >= 83559.2865) {
 
     // add the marker, assign its information popup and give it a callback for instant update when opened, then add it to the current layer
-    ops.currentVesselPlot.events.soiExit.UT = obtCalcUT;
-    ops.currentVesselPlot.events.soiExit.marker = L.marker(orbitDataCalc[orbitDataCalc.length-1].latlng, {icon: soiExitIcon}); 
+    ops.currentVesselPlot.events.soiExit.UT = KSA_CALCULATIONS.obtCalcUT;
+    ops.currentVesselPlot.events.soiExit.marker = L.marker(KSA_CALCULATIONS.orbitDataCalc[KSA_CALCULATIONS.orbitDataCalc.length-1].latlng, {icon: KSA_MAP_ICONS.soiExitIcon}); 
     var strTimeDate = UTtoDateTime(ops.currentVesselPlot.events.soiExit.UT);
     ops.currentVesselPlot.events.soiExit.marker.bindPopup("<center>Time to Kerbin SOI Exit<br><span id='soiExitTime'>" + formatTime(ops.currentVesselPlot.events.soiExit.UT) + "</span><br><span id='soiExitDate'>" + strTimeDate.split("@")[0] + '<br>' + strTimeDate.split("@")[1] + "</span> UTC</center>", { autoClose: false });
     ops.currentVesselPlot.events.soiExit.marker.on('click', function(e) {
@@ -955,28 +954,28 @@ function renderVesselOrbit() {
   ops.currentVesselPlot.obtData[ops.currentVesselPlot.obtData.length-1].layer.addLayer(setupVesselSurfacePath(path, ops.currentVesselPlot.obtData.length-1));
   
   // add the orbital layer to the control and the map
-  ops.surface.layerControl.addOverlay(ops.currentVesselPlot.obtData[ops.currentVesselPlot.obtData.length-1].layer, "<i class='fa fa-minus' style='color: " + vesselOrbitColors[ops.currentVesselPlot.obtData.length-1] + "'></i> Vessel Orbit #" + (ops.currentVesselPlot.obtData.length), "Orbital Tracks");
+  ops.surface.layerControl.addOverlay(ops.currentVesselPlot.obtData[ops.currentVesselPlot.obtData.length-1].layer, "<i class='fa fa-minus' style='color: " + KSA_COLORS.vesselOrbitColors[ops.currentVesselPlot.obtData.length-1] + "'></i> Vessel Orbit #" + (ops.currentVesselPlot.obtData.length), "Orbital Tracks");
   ops.currentVesselPlot.obtData[ops.currentVesselPlot.obtData.length-1].layer.addTo(ops.surface.map)
 
   // delete and re-add the loading layer so it stays below the added paths
-  ops.surface.layerControl.removeLayer(surfaceTracksDataLoad.obtTrackDataLoad);
-  surfaceTracksDataLoad.obtTrackDataLoad = L.layerGroup();
-  ops.surface.layerControl.addOverlay(surfaceTracksDataLoad.obtTrackDataLoad, "<i class='fa fa-cog fa-spin'></i> Loading Data...", "Orbital Tracks");
+  ops.surface.layerControl.removeLayer(KSA_LAYERS.surfaceTracksDataLoad.obtTrackDataLoad);
+  KSA_LAYERS.surfaceTracksDataLoad.obtTrackDataLoad = L.layerGroup();
+  ops.surface.layerControl.addOverlay(KSA_LAYERS.surfaceTracksDataLoad.obtTrackDataLoad, "<i class='fa fa-cog fa-spin'></i> Loading Data...", "Orbital Tracks");
 
   // are there still more orbits to render? Don't continue if the rendering has been cancelled or there are SOI markers present
-  if (ops.currentVesselPlot.numOrbitRenders > ops.currentVesselPlot.obtData.length && !isOrbitRenderCancelled && (!ops.currentVesselPlot.events.soiExit.marker && !ops.currentVesselPlot.events.soiEntry.marker)) { 
+  if (ops.currentVesselPlot.numOrbitRenders > ops.currentVesselPlot.obtData.length && !KSA_UI_STATE.isOrbitRenderCancelled && (!ops.currentVesselPlot.events.soiExit.marker && !ops.currentVesselPlot.events.soiEntry.marker)) { 
     
     // update the dialog box and call another round
-    $(".ui-progressbar-value").css("background-color", vesselOrbitColors[ops.currentVesselPlot.obtData.length]);
+    $(".ui-progressbar-value").css("background-color", KSA_COLORS.vesselOrbitColors[ops.currentVesselPlot.obtData.length]);
     $("#progressbar").progressbar("value", 0);
-    orbitDataCalc.length = 0;
+    KSA_CALCULATIONS.orbitDataCalc.length = 0;
     orbitalCalc(renderVesselOrbit, ops.currentVessel.Orbit); 
     
   // calculation has been completed or cancelled
   } else { 
     
     // warn the user if they cancelled the calculations early before a full orbit was rendered
-    if (ops.currentVesselPlot.obtData[0].orbit.length < ops.currentVessel.Orbit.OrbitalPeriod && isOrbitRenderCancelled) {
+    if (ops.currentVesselPlot.obtData[0].orbit.length < ops.currentVessel.Orbit.OrbitalPeriod && KSA_UI_STATE.isOrbitRenderCancelled) {
       $("#mapDialog").dialog( "option", "title", "Render Notice");
       $("#progressbar").fadeOut();
       $("#dialogTxt").fadeIn();
@@ -990,22 +989,22 @@ function renderVesselOrbit() {
     } else $("#mapDialog").dialog("close");
     
     // done with the loading notice
-    ops.surface.layerControl.removeLayer(surfaceTracksDataLoad.obtTrackDataLoad);
-    surfaceTracksDataLoad.obtTrackDataLoad = null;
+    ops.surface.layerControl.removeLayer(KSA_LAYERS.surfaceTracksDataLoad.obtTrackDataLoad);
+    KSA_LAYERS.surfaceTracksDataLoad.obtTrackDataLoad = null;
     checkDataLoad();
     
     // reset loading flags/triggers
-    strPausedVesselCalculation = null;
-    isOrbitRenderCancelled = false;
-    isOrbitRenderTerminated = false;
+    KSA_CALCULATIONS.strPausedVesselCalculation = null;
+    KSA_UI_STATE.isOrbitRenderCancelled = false;
+    KSA_UI_STATE.isOrbitRenderTerminated = false;
 
     // place the craft marker and assign its popup
-    vesselIcon = L.icon({iconUrl: 'button_vessel_' + currType(ops.currentVessel.Catalog.Type) + '.png', iconSize: [16, 16]});
-    vesselMarker = L.marker(ops.currentVesselPlot.obtData[0].orbit[0].latlng, {icon: vesselIcon, zIndexOffset: 100}).addTo(ops.surface.map);
-    vesselMarker.bindPopup("Lat: <span id='lat'>-000.0000&deg;S</span><br>Lng: <span id='lng'>-000.0000&deg;W</span><br>Alt: <span id='alt'>000,000.000km</span><br>Vel: <span id='vel'>000,000.000km/s</span>", {autoClose: false, keepInView: false, autoPan: false});
+    KSA_MAP_ICONS.vesselIcon = L.icon({iconUrl: 'button_vessel_' + currType(ops.currentVessel.Catalog.Type) + '.png', iconSize: [16, 16]});
+    KSA_MAP_CONTROLS.vesselMarker = L.marker(ops.currentVesselPlot.obtData[0].orbit[0].latlng, {icon: KSA_MAP_ICONS.vesselIcon, zIndexOffset: 100}).addTo(ops.surface.map);
+    KSA_MAP_CONTROLS.vesselMarker.bindPopup("Lat: <span id='lat'>-000.0000&deg;S</span><br>Lng: <span id='lng'>-000.0000&deg;W</span><br>Alt: <span id='alt'>000,000.000km</span><br>Vel: <span id='vel'>000,000.000km/s</span>", {autoClose: false, keepInView: false, autoPan: false});
 
     // set up a listener for popup events so we can immediately update the information and not have to wait for the next tick event
-    vesselMarker.on('popupopen', function(e) {
+    KSA_MAP_CONTROLS.vesselMarker.on('popupopen', function(e) {
       var now = getPlotIndex();
       var cardinal = getLatLngCompass(ops.currentVesselPlot.obtData[now.obtNum].orbit[now.index].latlng);
       $('#lat').html(numeral(ops.currentVesselPlot.obtData[now.obtNum].orbit[now.index].latlng.lat).format('0.0000') + "&deg;" + cardinal.lat);
@@ -1015,20 +1014,20 @@ function renderVesselOrbit() {
     });
     
     // focus in on the vessel position
-    ops.surface.map.setView(vesselMarker.getLatLng(), 3);
+    ops.surface.map.setView(KSA_MAP_CONTROLS.vesselMarker.getLatLng(), 3);
     
     // open the vessel popup then hide it after 5s
-    if (!vesselMarker.getPopup().isOpen()) {
-      vesselMarker.openPopup();
-      setTimeout(function() { if (vesselMarker) vesselMarker.closePopup(); }, 5000);
+    if (!KSA_MAP_CONTROLS.vesselMarker.getPopup().isOpen()) {
+      KSA_MAP_CONTROLS.vesselMarker.openPopup();
+      setTimeout(function() { if (KSA_MAP_CONTROLS.vesselMarker) KSA_MAP_CONTROLS.vesselMarker.closePopup(); }, 5000);
     }
 
     // check if we should resume calculation on body paths
-    if (bodyPaths.paths.length) {
-      var currObj = bodyPaths.paths.find(o => o.isCalculating === true);
+    if (KSA_CATALOGS.bodyPaths.paths.length) {
+      var currObj = KSA_CATALOGS.bodyPaths.paths.find(o => o.isCalculating === true);
       if (currObj) {
-        obtCalcUT = currUT();
-        orbitDataCalc.length = 0;
+        KSA_CALCULATIONS.obtCalcUT = currUT();
+        KSA_CALCULATIONS.orbitDataCalc.length = 0;
         if (currObj.orbit.OrbitalPeriod > 86400) orbitalCalc(renderBodyOrbit, currObj.orbit, 500, 86400);
         else orbitalCalc(renderBodyOrbit, currObj.orbit, 500);
       }
@@ -1041,13 +1040,13 @@ function renderVesselOrbit() {
 // orbital period self-assigned to keep from having to call the catalog for this information
 function orbitalCalc(callback, orbit, batchCount = 1000, limit) {
   if (!limit) limit = orbit.OrbitalPeriod;
-  if (isOrbitRenderTerminated) return;
+  if (KSA_UI_STATE.isOrbitRenderTerminated) return;
   var bAltLimit = false;
 
   // update the dialog title with the current date & time being calculated
   if ($("#mapDialog").dialog("isOpen") && $("#mapDialog").dialog("option").title != "Render Notice") {
     var strDialogTitle = "Calculating Orbit #" + (ops.currentVesselPlot.obtData.length + 1) + " of " + ops.currentVesselPlot.numOrbitRenders + " - ";
-    strDialogTitle += UTtoDateTime(obtCalcUT, true);
+    strDialogTitle += UTtoDateTime(KSA_CALCULATIONS.obtCalcUT, true);
     $("#mapDialog").dialog("option", "title", strDialogTitle);
   }
 
@@ -1070,7 +1069,7 @@ function orbitalCalc(callback, orbit, batchCount = 1000, limit) {
     
     // adjust for motion since the time of this orbit
     var n = Math.sqrt(gmu/(Math.pow(Math.abs(orbit.SMA),3)));
-    var newMean = mean + n * (obtCalcUT - orbit.Eph);
+    var newMean = mean + n * (KSA_CALCULATIONS.obtCalcUT - orbit.Eph);
 
     ////////////////
     // solveKepler()
@@ -1216,7 +1215,7 @@ function orbitalCalc(callback, orbit, batchCount = 1000, limit) {
     // abs(mod(real(Angle),2*pi));
     // javascript has a modulo operator, but it doesn't work the way we need. Or something
     // so using the mod() function implementation from Math.js: x - y * floor(x / y)
-    var angle = rotInit + bodySpinRate*obtCalcUT;
+    var angle = rotInit + bodySpinRate*KSA_CALCULATIONS.obtCalcUT;
     var spinAngle = Math.abs(angle - (2*Math.PI) * Math.floor(angle / (2*Math.PI)));
 
     //////////////////////////////////////
@@ -1253,14 +1252,14 @@ function orbitalCalc(callback, orbit, batchCount = 1000, limit) {
     if (longitude >= 180) longitude -= 360;
     
     // store all the derived values and advance to the next second
-    orbitDataCalc.push({latlng: {lat: latitude, lng: longitude}, alt: alt, vel: vel});
-    obtCalcUT++;
+    KSA_CALCULATIONS.orbitDataCalc.push({latlng: {lat: latitude, lng: longitude}, alt: alt, vel: vel});
+    KSA_CALCULATIONS.obtCalcUT++;
     
     // update the progress bar - will only show if loading data for a single vessel
-    if ($("#mapDialog").dialog("isOpen")) $('#progressbar').progressbar("value", (orbitDataCalc.length/limit)*100);
+    if ($("#mapDialog").dialog("isOpen")) $('#progressbar').progressbar("value", (KSA_CALCULATIONS.orbitDataCalc.length/limit)*100);
     
     // exit the batch prematurely if we've reached the end of the calculation period
-    if (orbitDataCalc.length >= limit) break; 
+    if (KSA_CALCULATIONS.orbitDataCalc.length >= limit) break; 
 
     // exit the batch prematurely if we've hit Kerbin's atmosphere
     if (alt <= 70) { 
@@ -1277,11 +1276,11 @@ function orbitalCalc(callback, orbit, batchCount = 1000, limit) {
   
   // let the callback know if we've completed all orbital calculations, or cancel out if requested by the user
   // or if an altitude was breached
-  if (orbitDataCalc.length >= limit || isOrbitRenderCancelled || bAltLimit) {
+  if (KSA_CALCULATIONS.orbitDataCalc.length >= limit || KSA_UI_STATE.isOrbitRenderCancelled || bAltLimit) {
     callback();
     
   // just exit and don't call anything if the calculations have been paused by switching away from the vessel
-  } else if (strPausedVesselCalculation) {
+  } else if (KSA_CALCULATIONS.strPausedVesselCalculation) {
     return;
     
   // otherwise call ourselves again for more calculations, with a small timeout to let other things happen
@@ -1289,8 +1288,8 @@ function orbitalCalc(callback, orbit, batchCount = 1000, limit) {
 }
 
 function addMapResizeButton() {
-  if (!mapResizeButton) {
-    mapResizeButton = L.easyButton({
+  if (!KSA_MAP_CONTROLS.mapResizeButton) {
+    KSA_MAP_CONTROLS.mapResizeButton = L.easyButton({
       states: [{
         stateName: 'raise',
         icon: 'fa-arrow-up',
@@ -1313,14 +1312,14 @@ function addMapResizeButton() {
   }
 }
 function removeMapResizeButton() {
-  if (mapResizeButton) {
-    ops.surface.map.removeControl(mapResizeButton);
-    mapResizeButton = null;
+  if (KSA_MAP_CONTROLS.mapResizeButton) {
+    ops.surface.map.removeControl(KSA_MAP_CONTROLS.mapResizeButton);
+    KSA_MAP_CONTROLS.mapResizeButton = null;
   }
 }
 function addMapViewButton() {
-  if (!mapViewButton) {
-    mapViewButton = L.easyButton({
+  if (!KSA_MAP_CONTROLS.mapViewButton) {
+    KSA_MAP_CONTROLS.mapViewButton = L.easyButton({
       states: [{
         stateName: 'global',
         icon: 'fa-globe',
@@ -1333,10 +1332,10 @@ function addMapViewButton() {
         }
       }]
     }).addTo(ops.surface.map);
-  } else ops.surface.map.addControl(mapViewButton);
+  } else ops.surface.map.addControl(KSA_MAP_CONTROLS.mapViewButton);
 }
 function removeMapViewButton() {
-  if (mapViewButton) ops.surface.map.removeControl(mapViewButton);
+  if (KSA_MAP_CONTROLS.mapViewButton) ops.surface.map.removeControl(KSA_MAP_CONTROLS.mapViewButton);
 }
 function removeVesselMapButtons() {
   removeMapResizeButton();
@@ -1345,8 +1344,8 @@ function removeVesselMapButtons() {
 
 // these buttons will go on both vessel and body maps
 function addMapRefreshButton() {
-  if (!mapRefreshButton) {
-    mapRefreshButton = L.easyButton({
+  if (!KSA_MAP_CONTROLS.mapRefreshButton) {
+    KSA_MAP_CONTROLS.mapRefreshButton = L.easyButton({
       states: [{
         stateName: 'refresh',
         icon: 'fa-undo',
@@ -1359,14 +1358,14 @@ function addMapRefreshButton() {
   }
 }
 function removeMapRefreshButton() {
-  if (mapRefreshButton) {
-    ops.surface.map.removeControl(mapRefreshButton);
-    mapRefreshButton = null;
+  if (KSA_MAP_CONTROLS.mapRefreshButton) {
+    ops.surface.map.removeControl(KSA_MAP_CONTROLS.mapRefreshButton);
+    KSA_MAP_CONTROLS.mapRefreshButton = null;
   }
 }
 function addMapCloseButton() {
-  if (!mapCloseButton) {
-    mapCloseButton = L.easyButton({
+  if (!KSA_MAP_CONTROLS.mapCloseButton) {
+    KSA_MAP_CONTROLS.mapCloseButton = L.easyButton({
       states: [{
         stateName: 'raise',
         icon: 'fa-times',
@@ -1379,14 +1378,14 @@ function addMapCloseButton() {
   }
 }
 function removeMapCloseButton() {
-  if (mapCloseButton) {
-    ops.surface.map.removeControl(mapCloseButton);
-    mapCloseButton = null;
+  if (KSA_MAP_CONTROLS.mapCloseButton) {
+    ops.surface.map.removeControl(KSA_MAP_CONTROLS.mapCloseButton);
+    KSA_MAP_CONTROLS.mapCloseButton = null;
   }
 }
 
 function showMap() {
-  if (!isMapShown) {
+  if (!KSA_UI_STATE.isMapShown) {
     setTimeout(function() { ops.surface.map.invalidateSize(); }, 500);
 
     // what type of page are we showing the map for?
@@ -1401,7 +1400,7 @@ function showMap() {
       redrawFlightPlots();
       $("#contentHeader").html(ops.bodyCatalog.find(o => o.selected === true).Body);
       document.title = "KSA Operations Tracker - " + ops.bodyCatalog.find(o => o.selected === true).Body;
-      if (launchsiteMarker) ops.surface.map.removeLayer(launchsiteMarker);
+      if (KSA_MAP_CONTROLS.launchsiteMarker) ops.surface.map.removeLayer(KSA_MAP_CONTROLS.launchsiteMarker);
       $(".leaflet-top").fadeIn();
       $(".leaflet-bottom.leaflet-left").fadeIn();
     } else if (ops.pageType == "vessel") {
@@ -1410,24 +1409,24 @@ function showMap() {
 
     $("#map").css("visibility", "visible");
     $("#map").fadeIn();
-    isMapShown = true;
+    KSA_UI_STATE.isMapShown = true;
   }
 }
 
 function hideMap() {
-  if (isMapShown) {
+  if (KSA_UI_STATE.isMapShown) {
     if ($("#map").css("visibility") != "hidden") $("#map").fadeOut();
     $("#mapDialog").dialog("close");
     $("#aircraftAltitudeKey").fadeOut();
     removeMapRefreshButton();
-    if (!isGGBAppletRefreshing && ops.pageType == "body") {
+    if (!KSA_UI_STATE.isGGBAppletRefreshing && ops.pageType == "body") {
       $("#figureOptions").fadeIn();
       if (!$("#asteroid-filter").prop("disabled") || !$("#debris-filter").prop("disabled") || !$("#probe-filter").prop("disabled") || !$("#ship-filter").prop("disabled") || !$("#station-filter").prop("disabled")) $("#vesselOrbitTypes").fadeIn();
       $("#figure").fadeIn();
       $("#contentHeader").html(ops.bodyCatalog.find(o => o.selected === true).Body + " System");
       document.title = "KSA Operations Tracker - " + ops.bodyCatalog.find(o => o.selected === true).Body + " System";
     }
-    isMapShown = false;
+    KSA_UI_STATE.isMapShown = false;
   }
 }
 
@@ -1494,14 +1493,14 @@ function getDataPointObject(obj, target) {
 function setupFlightSurfacePath(path, index, startIndex, length) {
 
   // we are rendering a hotline showing elevation changes
-  if (fltPaths[index].elev) {
+  if (KSA_CATALOGS.fltPaths[index].elev) {
     var srfTrack = L.hotline(path, {
       smoothFactor: 1.75, 
       clickable: true, 
       weight: 3, 
       outlineWidth: 1,
-      min: fltPaths[index].minASL,
-      max: fltPaths[index].maxASL,
+      min: KSA_CATALOGS.fltPaths[index].minASL,
+      max: KSA_CATALOGS.fltPaths[index].maxASL,
       palette: {
         0.0: '#267F00',
         0.125: '#00FF21',
@@ -1521,7 +1520,7 @@ function setupFlightSurfacePath(path, index, startIndex, length) {
     var srfTrack = L.polyline(path, {
       smoothFactor: 1.75, 
       clickable: true, 
-      color: fltPaths[index].color, 
+      color: KSA_CATALOGS.fltPaths[index].color, 
       weight: 3, 
       opacity: 1
     });
@@ -1534,47 +1533,47 @@ function setupFlightSurfacePath(path, index, startIndex, length) {
   
   // show the time and data for this position
   srfTrack.on('mouseover mousemove', function(e) {
-    if (!flightPositionPopup.isOpen()) {
+    if (!KSA_MAP_CONTROLS.flightPositionPopup.isOpen()) {
       flightTrackHover(e);
     }
   });
   
   // remove the mouseover popup
   srfTrack.on('mouseout', function(e) {
-    if (timePopup) ops.surface.map.closePopup(timePopup);
-    timePopup = null;
+    if (KSA_MAP_CONTROLS.timePopup) ops.surface.map.closePopup(KSA_MAP_CONTROLS.timePopup);
+    KSA_MAP_CONTROLS.timePopup = null;
   });
   
   // when clicking along this line, display the mission data info
   srfTrack.on('click', function(e) {
-    if (flightPositionPopup.isOpen()) {
-      ops.surface.map.closePopup(flightPositionPopup);
+    if (KSA_MAP_CONTROLS.flightPositionPopup.isOpen()) {
+      ops.surface.map.closePopup(KSA_MAP_CONTROLS.flightPositionPopup);
       flightTrackHover(e);
       return;
     }
     var indexFlt = parseInt(e.target._myId.split(",")[1]);
-    w2ui['menu'].select(fltPaths[indexFlt].id);
-    w2ui['menu'].expandParents(fltPaths[indexFlt].id);
-    w2ui['menu'].scrollIntoView(fltPaths[indexFlt].id);
+    w2ui['menu'].select(KSA_CATALOGS.fltPaths[indexFlt].id);
+    w2ui['menu'].expandParents(KSA_CATALOGS.fltPaths[indexFlt].id);
+    w2ui['menu'].scrollIntoView(KSA_CATALOGS.fltPaths[indexFlt].id);
 
     // fill, position and display the popup
     var strNewHtml = "<span id='fltTimelineData'>";
-    strNewHtml += timePopup.getContent().replace("<p>Click for additional options</p>", "");
+    strNewHtml += KSA_MAP_CONTROLS.timePopup.getContent().replace("<p>Click for additional options</p>", "");
     strNewHtml += "</span><p><center><button id='prevFltData' onclick='prevFltData()' class='flightTimelineButton'>&lt;&lt;</button> <button id='prevFltDataOnce' onclick='prevFltDataOnce()' class='flightTimelineButton'>&lt;</button> <b>Timeline Controls</b><sup><a href='https://github.com/KSAMissionCtrl/OpsTracker/wiki/Surface-Map#timeline-playback' target='_blank' style='text-decoration: none'>(?)</a></sup> <button id='nextFltDataOnce' onclick='nextFltDataOnce()' class='flightTimelineButton'>&gt;</button> <button id='nextFltData' onclick='nextFltData()' class='flightTimelineButton'>&gt;&gt;</button>";
     strNewHtml += "<br><span class='fauxLink' onclick='missionInfoDlg(" + indexFlt + ")'>Mission Info</span> | ";
     strNewHtml += "<span class='fauxLink' onclick='removeFltPath(" + indexFlt + ")'>Remove Track</span> | <span class='fauxLink' onclick='fltElev(" + indexFlt + ")'>";
-    if (fltPaths[index].elev) strNewHtml += "Hide Altitude";
+    if (KSA_CATALOGS.fltPaths[index].elev) strNewHtml += "Hide Altitude";
     else strNewHtml += "Show Altitude";
     strNewHtml += "</span></center></p>";
-    flightPositionPopup.setContent(strNewHtml);
-    flightPositionPopup.setLatLng(e.latlng);
-    flightPositionPopup.openOn(ops.surface.map);
+    KSA_MAP_CONTROLS.flightPositionPopup.setContent(strNewHtml);
+    KSA_MAP_CONTROLS.flightPositionPopup.setLatLng(e.latlng);
+    KSA_MAP_CONTROLS.flightPositionPopup.openOn(ops.surface.map);
     ops.surface.map.setView(e.latlng);
-    ops.surface.map.closePopup(timePopup);
-    timePopup = null;
+    ops.surface.map.closePopup(KSA_MAP_CONTROLS.timePopup);
+    KSA_MAP_CONTROLS.timePopup = null;
 
     // save the index for later
-    currentFlightIndex = indexFlt;
+    KSA_CALCULATIONS.currentFlightIndex = indexFlt;
   });
   
   return srfTrack;
@@ -1582,38 +1581,38 @@ function setupFlightSurfacePath(path, index, startIndex, length) {
 
 // take care of all the details that need to be applied to a vessel's surface track as this needs to be done in two separate places
 function setupVesselSurfacePath(path, obtIndex) {
-  var srfTrack = L.polyline(path, { smoothFactor: 1.25, clickable: true, color: vesselOrbitColors[obtIndex], weight: 3, opacity: 1 });
+  var srfTrack = L.polyline(path, { smoothFactor: 1.25, clickable: true, color: KSA_COLORS.vesselOrbitColors[obtIndex], weight: 3, opacity: 1 });
   
   // save the orbit index of this line to make it faster when searching for a data point by not having to look at all 3 orbits
   srfTrack._myId = obtIndex;
   
   // show the time and orbit for this position
   srfTrack.on('mouseover mousemove', function(e) {
-    if (timePopup) ops.surface.map.closePopup(timePopup);
-    timePopup = new L.Rrose({ offset: new L.Point(0,-1), closeButton: false, autoPan: false });
-    timePopup.setLatLng(e.latlng);
+    if (KSA_MAP_CONTROLS.timePopup) ops.surface.map.closePopup(KSA_MAP_CONTROLS.timePopup);
+    KSA_MAP_CONTROLS.timePopup = new L.Rrose({ offset: new L.Point(0,-1), closeButton: false, autoPan: false });
+    KSA_MAP_CONTROLS.timePopup.setLatLng(e.latlng);
     var strTimeDate = UTtoDateTime(ops.currentVesselPlot.obtData[e.target._myId].startUT + getDataPoint(e.target._myId, e.latlng));
-    timePopup.setContent("<center>Orbit #" + (e.target._myId+1) + "<br>" + strTimeDate.split("@")[0] + "<br>" + strTimeDate.split("@")[1] + " UTC</center>");
-    timePopup.openOn(ops.surface.map);
+    KSA_MAP_CONTROLS.timePopup.setContent("<center>Orbit #" + (e.target._myId+1) + "<br>" + strTimeDate.split("@")[0] + "<br>" + strTimeDate.split("@")[1] + " UTC</center>");
+    KSA_MAP_CONTROLS.timePopup.openOn(ops.surface.map);
   });
   
   // remove the mouseover popup
   srfTrack.on('mouseout', function(e) {
-    if (timePopup) ops.surface.map.closePopup(timePopup);
-    timePopup = null;
+    if (KSA_MAP_CONTROLS.timePopup) ops.surface.map.closePopup(KSA_MAP_CONTROLS.timePopup);
+    KSA_MAP_CONTROLS.timePopup = null;
   });
   
   // when clicking along this line, find the nearest data point to display for the user
   srfTrack.on('click', function(e) {
-    ops.surface.map.closePopup(timePopup);
-    timePopup = null;
+    ops.surface.map.closePopup(KSA_MAP_CONTROLS.timePopup);
+    KSA_MAP_CONTROLS.timePopup = null;
     var index = getDataPoint(e.target._myId, e.latlng);
     var cardinal = getLatLngCompass(ops.currentVesselPlot.obtData[e.target._myId].orbit[index].latlng);
       
     // compose the popup HTML and place it on the cursor location then display it
-    vesselPositionPopup.setLatLng(ops.currentVesselPlot.obtData[e.target._myId].orbit[index].latlng);
-    vesselPositionPopup.setContent(UTtoDateTime(ops.currentVesselPlot.obtData[e.target._myId].startUT + index) + ' UTC<br>Latitude: ' + numeral(ops.currentVesselPlot.obtData[e.target._myId].orbit[index].latlng.lat).format('0.0000') + '&deg;' + cardinal.lat + '<br>Longitude: ' + numeral(ops.currentVesselPlot.obtData[e.target._myId].orbit[index].latlng.lng).format('0.0000') + '&deg;' + cardinal.lng + '<br>Altitude: ' + numeral(ops.currentVesselPlot.obtData[e.target._myId].orbit[index].alt).format('0,0.000') + " km<br>Velocity: " + numeral(ops.currentVesselPlot.obtData[e.target._myId].orbit[index].vel).format('0,0.000') + " km/s");
-    vesselPositionPopup.openOn(ops.surface.map);
+    KSA_MAP_CONTROLS.vesselPositionPopup.setLatLng(ops.currentVesselPlot.obtData[e.target._myId].orbit[index].latlng);
+    KSA_MAP_CONTROLS.vesselPositionPopup.setContent(UTtoDateTime(ops.currentVesselPlot.obtData[e.target._myId].startUT + index) + ' UTC<br>Latitude: ' + numeral(ops.currentVesselPlot.obtData[e.target._myId].orbit[index].latlng.lat).format('0.0000') + '&deg;' + cardinal.lat + '<br>Longitude: ' + numeral(ops.currentVesselPlot.obtData[e.target._myId].orbit[index].latlng.lng).format('0.0000') + '&deg;' + cardinal.lng + '<br>Altitude: ' + numeral(ops.currentVesselPlot.obtData[e.target._myId].orbit[index].alt).format('0,0.000') + " km<br>Velocity: " + numeral(ops.currentVesselPlot.obtData[e.target._myId].orbit[index].vel).format('0,0.000') + " km/s");
+    KSA_MAP_CONTROLS.vesselPositionPopup.openOn(ops.surface.map);
   });
   
   return srfTrack;
@@ -1640,13 +1639,13 @@ function clearSurfacePlots() {
     for (var event in ops.currentVesselPlot.events) {
       if (ops.currentVesselPlot.events[event].marker) ops.surface.map.removeLayer(ops.currentVesselPlot.events[event].marker);
     }
-    if (vesselMarker) ops.surface.map.removeLayer(vesselMarker);
-    if (vesselHorizon.vessel) ops.surface.map.removeLayer(vesselHorizon.vessel); vesselHorizon.vessel = null;
-    if (vesselHorizon.eastWest) ops.surface.map.removeLayer(vesselHorizon.eastWest); vesselHorizon.eastWest = null;
-    if (vesselHorizon.northSouth) ops.surface.map.removeLayer(vesselHorizon.northSouth); vesselHorizon.northSouth = null;
+    if (KSA_MAP_CONTROLS.vesselMarker) ops.surface.map.removeLayer(KSA_MAP_CONTROLS.vesselMarker);
+    if (KSA_MAP_CONTROLS.vesselHorizon.vessel) ops.surface.map.removeLayer(KSA_MAP_CONTROLS.vesselHorizon.vessel); KSA_MAP_CONTROLS.vesselHorizon.vessel = null;
+    if (KSA_MAP_CONTROLS.vesselHorizon.eastWest) ops.surface.map.removeLayer(KSA_MAP_CONTROLS.vesselHorizon.eastWest); KSA_MAP_CONTROLS.vesselHorizon.eastWest = null;
+    if (KSA_MAP_CONTROLS.vesselHorizon.northSouth) ops.surface.map.removeLayer(KSA_MAP_CONTROLS.vesselHorizon.northSouth); KSA_MAP_CONTROLS.vesselHorizon.northSouth = null;
   }
-  if (fltPaths.length) {
-    fltPaths.forEach(function(path) {
+  if (KSA_CATALOGS.fltPaths.length) {
+    KSA_CATALOGS.fltPaths.forEach(function(path) {
       ops.surface.layerControl.removeLayer(path.layer); 
       ops.surface.map.removeLayer(path.layer);
       
@@ -1657,8 +1656,8 @@ function clearSurfacePlots() {
       });
     });
   }
-  if (bodyPaths.layers.length) {
-    bodyPaths.layers.forEach(function(layer) {
+  if (KSA_CATALOGS.bodyPaths.layers.length) {
+    KSA_CATALOGS.bodyPaths.layers.forEach(function(layer) {
       if (layer.group) {
         ops.surface.layerControl.removeLayer(layer.group);
         ops.surface.map.removeLayer(layer.group);
@@ -1671,7 +1670,7 @@ removeMapRefreshButton();
 // puts an existing plot of vessel orbits back onto the map
 function redrawVesselPlots() {
   ops.currentVesselPlot.obtData.forEach(function(item, index) { 
-    ops.surface.layerControl.addOverlay(item.layer, "<i class='fa fa-minus' style='color: " + vesselOrbitColors[index] + "'></i> Vessel Orbit #" + (index+1), "Orbital Tracks");
+    ops.surface.layerControl.addOverlay(item.layer, "<i class='fa fa-minus' style='color: " + KSA_COLORS.vesselOrbitColors[index] + "'></i> Vessel Orbit #" + (index+1), "Orbital Tracks");
     item.layer.addTo(ops.surface.map);
   });
   for (var event in ops.currentVesselPlot.events) {
@@ -1683,30 +1682,30 @@ function redrawVesselPlots() {
       if (index) ops.currentVesselPlot.obtData[index.obtNum].layer.addLayer(event.marker);
     }
   }
-  if (vesselMarker) {
-    vesselMarker.addTo(ops.surface.map);
+  if (KSA_MAP_CONTROLS.vesselMarker) {
+    KSA_MAP_CONTROLS.vesselMarker.addTo(ops.surface.map);
     
     // open the vessel popup then hide it after 5s
-    ops.surface.map.setView(vesselMarker.getLatLng(), 3); 
-    if (!vesselMarker.getPopup().isOpen()) {
-      vesselMarker.openPopup();
-      setTimeout(function() { vesselMarker.closePopup(); }, 5000);
+    ops.surface.map.setView(KSA_MAP_CONTROLS.vesselMarker.getLatLng(), 3); 
+    if (!KSA_MAP_CONTROLS.vesselMarker.getPopup().isOpen()) {
+      KSA_MAP_CONTROLS.vesselMarker.openPopup();
+      setTimeout(function() { KSA_MAP_CONTROLS.vesselMarker.closePopup(); }, 5000);
     }
-    if (vesselHorizon.vessel) vesselHorizon.vessel.addTo(ops.surface.map); vesselHorizon.vessel = null;
-    if (vesselHorizon.eastWest) vesselHorizon.eastWest.addTo(ops.surface.map); vesselHorizon.eastWest = null;
-    if (vesselHorizon.northSouth) vesselHorizon.northSouth.addTo(ops.surface.map); vesselHorizon.northSouth = null;
+    if (KSA_MAP_CONTROLS.vesselHorizon.vessel) KSA_MAP_CONTROLS.vesselHorizon.vessel.addTo(ops.surface.map); KSA_MAP_CONTROLS.vesselHorizon.vessel = null;
+    if (KSA_MAP_CONTROLS.vesselHorizon.eastWest) KSA_MAP_CONTROLS.vesselHorizon.eastWest.addTo(ops.surface.map); KSA_MAP_CONTROLS.vesselHorizon.eastWest = null;
+    if (KSA_MAP_CONTROLS.vesselHorizon.northSouth) KSA_MAP_CONTROLS.vesselHorizon.northSouth.addTo(ops.surface.map); KSA_MAP_CONTROLS.vesselHorizon.northSouth = null;
   }
   ops.surface.map.invalidateSize();
 }
 
 // puts any existing plots of flights back onto the map
 function redrawFlightPlots() {
-  if (fltPaths.length) {
-    fltPaths.forEach(function(path, index) {
+  if (KSA_CATALOGS.fltPaths.length) {
+    KSA_CATALOGS.fltPaths.forEach(function(path, index) {
       if (!path.deleted) {
-        if (index >= surfacePathColors.length) var colorIndex = index - (surfacePathColors.length * (Math.floor(index/surfacePathColors.length)));
+        if (index >= KSA_COLORS.surfacePathColors.length) var colorIndex = index - (KSA_COLORS.surfacePathColors.length * (Math.floor(index/KSA_COLORS.surfacePathColors.length)));
         else var colorIndex = index;
-        ops.surface.layerControl.addOverlay(path.layer, "<i class='fa fa-minus' style='color: " + surfacePathColors[colorIndex] + "'></i> " + path.info.Title, "Flight Tracks");
+        ops.surface.layerControl.addOverlay(path.layer, "<i class='fa fa-minus' style='color: " + KSA_COLORS.surfacePathColors[colorIndex] + "'></i> " + path.info.Title, "Flight Tracks");
         path.layer.addTo(ops.surface.map)
         if (path.elev) $("#aircraftAltitudeKey").fadeIn();
       }
@@ -1718,7 +1717,7 @@ function redrawFlightPlots() {
 // checks data object and if anything is not nulled out it skips the rest of the function, which would end the loading
 function checkDataLoad() {
   var isDataLoading = false;
-  Object.entries(surfaceTracksDataLoad).forEach(function(items) {
+  Object.entries(KSA_LAYERS.surfaceTracksDataLoad).forEach(function(items) {
     if (items[1]) isDataLoading = true;
   });
   if (!isDataLoading) {
@@ -1729,41 +1728,41 @@ function checkDataLoad() {
 
 // places a pin or group of pins when a link is clicked in a flight path mission data window
 function popupMarkerOpen(indexFlt, linkNum) {
-  ops.surface.map.closePopup(flightPositionPopup);
+  ops.surface.map.closePopup(KSA_MAP_CONTROLS.flightPositionPopup);
 
-  for (pinIndex=0; pinIndex<fltPaths[indexFlt].pins[linkNum].Group.length; pinIndex++) {
+  for (pinIndex=0; pinIndex<KSA_CATALOGS.fltPaths[indexFlt].pins[linkNum].Group.length; pinIndex++) {
   
     // don't create this pin if it is already created
-    if (!fltPaths[indexFlt].pins[linkNum].Group[pinIndex].pin) {
-      fltPaths[indexFlt].pins[linkNum].Group[pinIndex].pin = L.marker([fltPaths[indexFlt].pins[linkNum].Group[pinIndex].lat, fltPaths[indexFlt].pins[linkNum].Group[pinIndex].lng]).bindPopup(decodeURI(fltPaths[indexFlt].pins[linkNum].Group[pinIndex].html, {autoClose: false}) + "<p><center><span onclick='popupMarkerClose(" + indexFlt + "," + linkNum + "," + pinIndex + ")' style='color: blue; cursor: pointer;'>Remove Pin</span></center></p>", {closeButton: true}).addTo(ops.surface.map);
-      fltPaths[indexFlt].layer.addLayer(fltPaths[indexFlt].pins[linkNum].Group[pinIndex].pin);
+    if (!KSA_CATALOGS.fltPaths[indexFlt].pins[linkNum].Group[pinIndex].pin) {
+      KSA_CATALOGS.fltPaths[indexFlt].pins[linkNum].Group[pinIndex].pin = L.marker([KSA_CATALOGS.fltPaths[indexFlt].pins[linkNum].Group[pinIndex].lat, KSA_CATALOGS.fltPaths[indexFlt].pins[linkNum].Group[pinIndex].lng]).bindPopup(decodeURI(KSA_CATALOGS.fltPaths[indexFlt].pins[linkNum].Group[pinIndex].html, {autoClose: false}) + "<p><center><span onclick='popupMarkerClose(" + indexFlt + "," + linkNum + "," + pinIndex + ")' style='color: blue; cursor: pointer;'>Remove Pin</span></center></p>", {closeButton: true}).addTo(ops.surface.map);
+      KSA_CATALOGS.fltPaths[indexFlt].layer.addLayer(KSA_CATALOGS.fltPaths[indexFlt].pins[linkNum].Group[pinIndex].pin);
       
       // if there is just one pin, open the popup
-      if (fltPaths[indexFlt].pins[linkNum].Group.length == 1) fltPaths[indexFlt].pins[linkNum].Group[pinIndex].pin.openPopup();
+      if (KSA_CATALOGS.fltPaths[indexFlt].pins[linkNum].Group.length == 1) KSA_CATALOGS.fltPaths[indexFlt].pins[linkNum].Group[pinIndex].pin.openPopup();
       
     // if the pin is already created, open the popup
-    } else fltPaths[indexFlt].pins[linkNum].Group[pinIndex].pin.openPopup();
+    } else KSA_CATALOGS.fltPaths[indexFlt].pins[linkNum].Group[pinIndex].pin.openPopup();
   }
 }
 
 // removes a single pin when user clicks link in pin popup
 function popupMarkerClose(indexFlt, linkNum, pinIndex) {
-  fltPaths[indexFlt].layer.removeLayer(fltPaths[indexFlt].pins[linkNum].Group[pinIndex].pin);
-  fltPaths[indexFlt].pins[linkNum].Group[pinIndex].pin = null;
+  KSA_CATALOGS.fltPaths[indexFlt].layer.removeLayer(KSA_CATALOGS.fltPaths[indexFlt].pins[linkNum].Group[pinIndex].pin);
+  KSA_CATALOGS.fltPaths[indexFlt].pins[linkNum].Group[pinIndex].pin = null;
 }
 
 // removes a single flight path, but doesn't actually delete it in case the request for it is made again
 function removeFltPath(index) {
-  if (flightPositionPopup.isOpen()) ops.surface.map.closePopup(flightPositionPopup);
-  ops.surface.layerControl.removeLayer(fltPaths[index].layer);
-  ops.surface.map.removeLayer(fltPaths[index].layer);
+  if (KSA_MAP_CONTROLS.flightPositionPopup.isOpen()) ops.surface.map.closePopup(KSA_MAP_CONTROLS.flightPositionPopup);
+  ops.surface.layerControl.removeLayer(KSA_CATALOGS.fltPaths[index].layer);
+  ops.surface.map.removeLayer(KSA_CATALOGS.fltPaths[index].layer);
 
-  fltPaths[index].pins.forEach(function(pin) {
+  KSA_CATALOGS.fltPaths[index].pins.forEach(function(pin) {
     pin.Group.forEach(function(marker) {
       if (marker.pin) ops.surface.map.removeLayer(marker.pin);
     });
   });
-  fltPaths[index].deleted = true;
+  KSA_CATALOGS.fltPaths[index].deleted = true;
 }
 
 // copies the current location of the mouse cursor to the clipboard
@@ -1796,49 +1795,49 @@ function coordCopy(context) {
 function fltElev(index, checkOtherDataDisplayed = true) {
 
   // cancel any timeline playing since we have to destroy and redraw the line
-  if (flightTimelineInterval) clearInterval(flightTimelineInterval);
+  if (KSA_TIMERS.flightTimelineInterval) clearInterval(KSA_TIMERS.flightTimelineInterval);
 
   // there can only be one, so if another path is showing elevation data, return it to normal
   if (checkOtherDataDisplayed) {
-    var elevPath = fltPaths.find(o => o.elev === true);
+    var elevPath = KSA_CATALOGS.fltPaths.find(o => o.elev === true);
     if (elevPath && elevPath.index != index) fltElev(elevPath.index, false);
   }
 
   // toggle the state of our elevation display
-  fltPaths[index].elev = !fltPaths[index].elev;
+  KSA_CATALOGS.fltPaths[index].elev = !KSA_CATALOGS.fltPaths[index].elev;
 
   // remove the current path and reset for a new one
   removeFltPath(index);
-  fltPaths[index].deleted = false;
-  fltPaths[index].layer = L.featureGroup();
+  KSA_CATALOGS.fltPaths[index].deleted = false;
+  KSA_CATALOGS.fltPaths[index].layer = L.featureGroup();
 
   // redraw the flight path and add it back to the layer control
   // the icon used depends on whether elevation is shown or not
   renderFltPath(index);
-  if (fltPaths[index].elev) {
-    ops.surface.layerControl.addOverlay(fltPaths[index].layer, "<i class='far fa-chart-bar'></i>" + fltPaths[index].info.Title, "Flight Tracks");
-    $("#alt1").html("&nbsp;" + numeral(fltPaths[index].minASL).format('0.000') + " - " + numeral(fltPaths[index].maxASL*0.125).format('0.000') + " km");
-    $("#alt2").html("&nbsp;" + numeral(fltPaths[index].maxASL*0.125).format('0.000') + " - " + numeral(fltPaths[index].maxASL*0.25).format('0.000') + " km");
-    $("#alt3").html("&nbsp;" + numeral(fltPaths[index].maxASL*0.25).format('0.000') + " - " + numeral(fltPaths[index].maxASL*0.375).format('0.000') + " km");
-    $("#alt4").html("&nbsp;" + numeral(fltPaths[index].maxASL*0.375).format('0.000') + " - " + numeral(fltPaths[index].maxASL*0.5).format('0.000') + " km");
-    $("#alt5").html("&nbsp;" + numeral(fltPaths[index].maxASL*0.5).format('0.000') + " - " + numeral(fltPaths[index].maxASL*0.625).format('0.000') + " km");
-    $("#alt6").html("&nbsp;" + numeral(fltPaths[index].maxASL*0.625).format('0.000') + " - " + numeral(fltPaths[index].maxASL*0.75).format('0.000') + " km");
-    $("#alt7").html("&nbsp;" + numeral(fltPaths[index].maxASL*0.75).format('0.000') + " - " + numeral(fltPaths[index].maxASL*0.875).format('0.000') + " km");
-    $("#alt8").html("&nbsp;" + numeral(fltPaths[index].maxASL*0.875).format('0.000') + " - " + numeral(fltPaths[index].maxASL).format('0.000') + " km");
-    $("#alt9").html("&nbsp;" + numeral(fltPaths[index].maxASL).format('0.000') + " km");
+  if (KSA_CATALOGS.fltPaths[index].elev) {
+    ops.surface.layerControl.addOverlay(KSA_CATALOGS.fltPaths[index].layer, "<i class='far fa-chart-bar'></i>" + KSA_CATALOGS.fltPaths[index].info.Title, "Flight Tracks");
+    $("#alt1").html("&nbsp;" + numeral(KSA_CATALOGS.fltPaths[index].minASL).format('0.000') + " - " + numeral(KSA_CATALOGS.fltPaths[index].maxASL*0.125).format('0.000') + " km");
+    $("#alt2").html("&nbsp;" + numeral(KSA_CATALOGS.fltPaths[index].maxASL*0.125).format('0.000') + " - " + numeral(KSA_CATALOGS.fltPaths[index].maxASL*0.25).format('0.000') + " km");
+    $("#alt3").html("&nbsp;" + numeral(KSA_CATALOGS.fltPaths[index].maxASL*0.25).format('0.000') + " - " + numeral(KSA_CATALOGS.fltPaths[index].maxASL*0.375).format('0.000') + " km");
+    $("#alt4").html("&nbsp;" + numeral(KSA_CATALOGS.fltPaths[index].maxASL*0.375).format('0.000') + " - " + numeral(KSA_CATALOGS.fltPaths[index].maxASL*0.5).format('0.000') + " km");
+    $("#alt5").html("&nbsp;" + numeral(KSA_CATALOGS.fltPaths[index].maxASL*0.5).format('0.000') + " - " + numeral(KSA_CATALOGS.fltPaths[index].maxASL*0.625).format('0.000') + " km");
+    $("#alt6").html("&nbsp;" + numeral(KSA_CATALOGS.fltPaths[index].maxASL*0.625).format('0.000') + " - " + numeral(KSA_CATALOGS.fltPaths[index].maxASL*0.75).format('0.000') + " km");
+    $("#alt7").html("&nbsp;" + numeral(KSA_CATALOGS.fltPaths[index].maxASL*0.75).format('0.000') + " - " + numeral(KSA_CATALOGS.fltPaths[index].maxASL*0.875).format('0.000') + " km");
+    $("#alt8").html("&nbsp;" + numeral(KSA_CATALOGS.fltPaths[index].maxASL*0.875).format('0.000') + " - " + numeral(KSA_CATALOGS.fltPaths[index].maxASL).format('0.000') + " km");
+    $("#alt9").html("&nbsp;" + numeral(KSA_CATALOGS.fltPaths[index].maxASL).format('0.000') + " km");
     $("#aircraftAltitudeKey").fadeIn();
   } else {
-    ops.surface.layerControl.addOverlay(fltPaths[index].layer, "<i class='fa fa-minus' style='color: " + fltPaths[index].color + "'></i> " + fltPaths[index].info.Title, "Flight Tracks");
+    ops.surface.layerControl.addOverlay(KSA_CATALOGS.fltPaths[index].layer, "<i class='fa fa-minus' style='color: " + KSA_CATALOGS.fltPaths[index].color + "'></i> " + KSA_CATALOGS.fltPaths[index].info.Title, "Flight Tracks");
     if (checkOtherDataDisplayed) $("#aircraftAltitudeKey").fadeOut();
   }
-  fltPaths[index].layer.addTo(ops.surface.map)
+  KSA_CATALOGS.fltPaths[index].layer.addTo(ops.surface.map)
 }
 
 // plots out the various lat,lng points onto the surface map
 function renderFltPath(pathIndex) {
   var path = [];
   var startIndex = 0;
-  fltPaths[pathIndex].fltData.forEach(function(position, index) {
+  KSA_CATALOGS.fltPaths[pathIndex].fltData.forEach(function(position, index) {
   
     // detect if we've crossed off the edge of the map and need to cut the path
     // compare this lng to the prev and if it changed from negative to positive or vice versa, we hit the edge  
@@ -1847,43 +1846,43 @@ function renderFltPath(pathIndex) {
     
       // time to cut this path off and create a surface track to setup
       // add this path to the layer and reset to start building a new path
-      fltPaths[pathIndex].layer.addLayer(setupFlightSurfacePath(path, pathIndex, startIndex, path.length));
+      KSA_CATALOGS.fltPaths[pathIndex].layer.addLayer(setupFlightSurfacePath(path, pathIndex, startIndex, path.length));
       path.length = 0;
       startIndex = index;
     }
 
     // data required depends on whether elevation is being shown or not
-    if (fltPaths[pathIndex].elev) path.push([position.Lat, position.Lng, position.ASL/1000]);
+    if (KSA_CATALOGS.fltPaths[pathIndex].elev) path.push([position.Lat, position.Lng, position.ASL/1000]);
     else path.push({lat: position.Lat, lng: position.Lng});
   });
-  fltPaths[pathIndex].layer.addLayer(setupFlightSurfacePath(path, pathIndex, startIndex, path.length));
+  KSA_CATALOGS.fltPaths[pathIndex].layer.addLayer(setupFlightSurfacePath(path, pathIndex, startIndex, path.length));
 }
 
 // opens a modal dialog box that holds the mission information
 function missionInfoDlg(indexFlt) {
 
   // compose the dialog HTML?    
-  if (!fltPaths[indexFlt].html) {
+  if (!KSA_CATALOGS.fltPaths[indexFlt].html) {
 
     var strHTML = "<table style='border: 0px; border-collapse: collapse;'><tr><td style='vertical-align: top; width: 256px;'>";
-    strHTML += "<img src='" + fltPaths[indexFlt].info.Img + "' width='256px'></td>";
+    strHTML += "<img src='" + KSA_CATALOGS.fltPaths[indexFlt].info.Img + "' width='256px'></td>";
     strHTML += "<td style='vertical-align: top;'>";
     
     // see if there is a marker link in the description
-    if (fltPaths[indexFlt].info.Desc.indexOf("loc=") >= 0) {
+    if (KSA_CATALOGS.fltPaths[indexFlt].info.Desc.indexOf("loc=") >= 0) {
       
       // cut up to the link
-      strHTML += fltPaths[indexFlt].info.Desc.slice(0, fltPaths[indexFlt].info.Desc.indexOf("<a"));
+      strHTML += KSA_CATALOGS.fltPaths[indexFlt].info.Desc.slice(0, KSA_CATALOGS.fltPaths[indexFlt].info.Desc.indexOf("<a"));
       
       // extract the popup data, checking for multiple links
       var charLinkIndex = 0;
-      for (linkNum=0; linkNum<fltPaths[indexFlt].info.Desc.match(/<a/g).length; linkNum++) {
+      for (linkNum=0; linkNum<KSA_CATALOGS.fltPaths[indexFlt].info.Desc.match(/<a/g).length; linkNum++) {
         
         // push a new pin group to the list
-        fltPaths[indexFlt].pins.push({Group: []});
+        KSA_CATALOGS.fltPaths[indexFlt].pins.push({Group: []});
         
         // get the full link text
-        var linkStr = fltPaths[indexFlt].info.Desc.slice(fltPaths[indexFlt].info.Desc.indexOf("<a", charLinkIndex), fltPaths[indexFlt].info.Desc.indexOf('">', charLinkIndex));
+        var linkStr = KSA_CATALOGS.fltPaths[indexFlt].info.Desc.slice(KSA_CATALOGS.fltPaths[indexFlt].info.Desc.indexOf("<a", charLinkIndex), KSA_CATALOGS.fltPaths[indexFlt].info.Desc.indexOf('">', charLinkIndex));
 
         // iterate through all the pins
         var charPinIndex = 0;
@@ -1892,43 +1891,43 @@ function missionInfoDlg(indexFlt) {
           // get the pin from the link
           // this works except for the last pin
           if (pinNum < linkStr.match(/loc=/g).length-1) {
-            var pinData = fltPaths[indexFlt].info.Desc.slice(fltPaths[indexFlt].info.Desc.indexOf("loc=", charLinkIndex + charPinIndex)+4, fltPaths[indexFlt].info.Desc.indexOf('&amp', fltPaths[indexFlt].info.Desc.indexOf("loc=", charLinkIndex + charPinIndex))).split(",");
+            var pinData = KSA_CATALOGS.fltPaths[indexFlt].info.Desc.slice(KSA_CATALOGS.fltPaths[indexFlt].info.Desc.indexOf("loc=", charLinkIndex + charPinIndex)+4, KSA_CATALOGS.fltPaths[indexFlt].info.Desc.indexOf('&amp', KSA_CATALOGS.fltPaths[indexFlt].info.Desc.indexOf("loc=", charLinkIndex + charPinIndex))).split(",");
           } else {
-            var pinData = fltPaths[indexFlt].info.Desc.slice(fltPaths[indexFlt].info.Desc.indexOf("loc=", charLinkIndex + charPinIndex)+4, fltPaths[indexFlt].info.Desc.indexOf('"', fltPaths[indexFlt].info.Desc.indexOf("loc=", charLinkIndex + charPinIndex))).split(",");
+            var pinData = KSA_CATALOGS.fltPaths[indexFlt].info.Desc.slice(KSA_CATALOGS.fltPaths[indexFlt].info.Desc.indexOf("loc=", charLinkIndex + charPinIndex)+4, KSA_CATALOGS.fltPaths[indexFlt].info.Desc.indexOf('"', KSA_CATALOGS.fltPaths[indexFlt].info.Desc.indexOf("loc=", charLinkIndex + charPinIndex))).split(",");
           }
           
           // push the data to the group
-          fltPaths[indexFlt].pins[linkNum].Group.push({lat: pinData[0],
+          KSA_CATALOGS.fltPaths[indexFlt].pins[linkNum].Group.push({lat: pinData[0],
                                                       lng: pinData[1],
                                                       html: pinData[2],
                                                       pin: null});
                                                                               
           // set the index so we search past the previous location
-          charPinIndex = fltPaths[indexFlt].info.Desc.indexOf("loc=", charLinkIndex + charPinIndex)+4;
+          charPinIndex = KSA_CATALOGS.fltPaths[indexFlt].info.Desc.indexOf("loc=", charLinkIndex + charPinIndex)+4;
         }
 
         // set the link name
-        strHTML += "<span onclick='popupMarkerOpen(" + indexFlt + "," + linkNum + ")' style='color: blue; cursor: pointer'>" + fltPaths[indexFlt].info.Desc.slice(fltPaths[indexFlt].info.Desc.indexOf('">', charLinkIndex)+2, fltPaths[indexFlt].info.Desc.indexOf('</a>', charLinkIndex)) + "</span>";
+        strHTML += "<span onclick='popupMarkerOpen(" + indexFlt + "," + linkNum + ")' style='color: blue; cursor: pointer'>" + KSA_CATALOGS.fltPaths[indexFlt].info.Desc.slice(KSA_CATALOGS.fltPaths[indexFlt].info.Desc.indexOf('">', charLinkIndex)+2, KSA_CATALOGS.fltPaths[indexFlt].info.Desc.indexOf('</a>', charLinkIndex)) + "</span>";
         
         // set the index so we search past the previous link
-        charLinkIndex = fltPaths[indexFlt].info.Desc.indexOf("</a>", charLinkIndex)+4;
+        charLinkIndex = KSA_CATALOGS.fltPaths[indexFlt].info.Desc.indexOf("</a>", charLinkIndex)+4;
           
         // if we're going around for more links, get the text between this and the next one
-        if (fltPaths[indexFlt].info.Desc.match(/<a/g).length > 1) {
-          strHTML += fltPaths[indexFlt].info.Desc.slice(charLinkIndex, fltPaths[indexFlt].info.Desc.indexOf("<a", charLinkIndex));
+        if (KSA_CATALOGS.fltPaths[indexFlt].info.Desc.match(/<a/g).length > 1) {
+          strHTML += KSA_CATALOGS.fltPaths[indexFlt].info.Desc.slice(charLinkIndex, KSA_CATALOGS.fltPaths[indexFlt].info.Desc.indexOf("<a", charLinkIndex));
         }
       }
         
       // get the rest of the text
-      strHTML += fltPaths[indexFlt].info.Desc.slice(charLinkIndex, fltPaths[indexFlt].info.Desc.length);
-    } else strHTML += fltPaths[indexFlt].info.Desc;
-    strHTML += "<p><a href='" + fltPaths[indexFlt].info.Report + "' target='_blank'>Mission Report</a></td></tr></table>";
-    fltPaths[indexFlt].html = strHTML;
+      strHTML += KSA_CATALOGS.fltPaths[indexFlt].info.Desc.slice(charLinkIndex, KSA_CATALOGS.fltPaths[indexFlt].info.Desc.length);
+    } else strHTML += KSA_CATALOGS.fltPaths[indexFlt].info.Desc;
+    strHTML += "<p><a href='" + KSA_CATALOGS.fltPaths[indexFlt].info.Report + "' target='_blank'>Mission Report</a></td></tr></table>";
+    KSA_CATALOGS.fltPaths[indexFlt].html = strHTML;
   }
   
   // setup and display the dialog
   $("#mapDialog").dialog("option", "modal", true);
-  $("#mapDialog").dialog("option", "title", fltPaths[indexFlt].info.Title);
+  $("#mapDialog").dialog("option", "title", KSA_CATALOGS.fltPaths[indexFlt].info.Title);
   $("#mapDialog").dialog( "option", "buttons", [{
     text: "Close",
     click: function() { 
@@ -1938,19 +1937,19 @@ function missionInfoDlg(indexFlt) {
   }]);
   $("#progressbar").fadeOut();
   $("#dialogTxt").fadeIn();
-  $("#dialogTxt").html(fltPaths[indexFlt].html);
+  $("#dialogTxt").html(KSA_CATALOGS.fltPaths[indexFlt].html);
   $("#mapDialog").dialog("open");
 
   // inform the user they have to exit fullscreen if it is enabled
-  if (isMapFullscreen) {
-    flightPositionPopup.setContent("Please press Esc key<br>to exit fullscreen mode!");
-    setTimeout(function() { ops.surface.map.closePopup(flightPositionPopup); }, 3000);
+  if (KSA_UI_STATE.isMapFullscreen) {
+    KSA_MAP_CONTROLS.flightPositionPopup.setContent("Please press Esc key<br>to exit fullscreen mode!");
+    setTimeout(function() { ops.surface.map.closePopup(KSA_MAP_CONTROLS.flightPositionPopup); }, 3000);
   }
 }
 
 // functions to control the playback of flight data
 function prevFltData() {
-  clearInterval(flightTimelineInterval);
+  clearInterval(KSA_TIMERS.flightTimelineInterval);
 
   // stop the playback
   if ($("#prevFltData").html().includes("X")) {
@@ -1958,8 +1957,7 @@ function prevFltData() {
     
   // otherwise start the playback
   } else {
-    flightTimelineInterval = setInterval(prevFltDataOnce, 1000);
-    KSA_TIMERS.flightTimelineInterval = flightTimelineInterval;
+    KSA_TIMERS.flightTimelineInterval = setInterval(prevFltDataOnce, 1000);
     prevFltDataOnce();
     $("#prevFltData").html("XX");
     $("#nextFltData").html(">>");
@@ -1970,26 +1968,26 @@ function prevFltDataOnce() {
   $("#nextFltDataOnce").prop("disabled", false);
 
   // cancel if the popup is closed
-  if (!flightPositionPopup.isOpen() && flightTimelineInterval) clearInterval(flightTimelineInterval);
+  if (!KSA_MAP_CONTROLS.flightPositionPopup.isOpen() && KSA_TIMERS.flightTimelineInterval) clearInterval(KSA_TIMERS.flightTimelineInterval);
 
   // check if we hit the beginning
-  if (currentFlightTimelineIndex <= 0) {
-    if (flightTimelineInterval) clearInterval(flightTimelineInterval);
+  if (KSA_CALCULATIONS.currentFlightTimelineIndex <= 0) {
+    if (KSA_TIMERS.flightTimelineInterval) clearInterval(KSA_TIMERS.flightTimelineInterval);
     $("#prevFltData").prop("disabled", true);
     $("#prevFltData").html("<<");
     $("#prevFltDataOnce").prop("disabled", true);
     return;
   }
-  currentFlightTimelineIndex--;
+  KSA_CALCULATIONS.currentFlightTimelineIndex--;
 
   // update the popup
-  var latlngData = { lat: fltPaths[currentFlightIndex].fltData[currentFlightTimelineIndex].Lat, lng: fltPaths[currentFlightIndex].fltData[currentFlightTimelineIndex].Lng };
-  flightPositionPopup.setLatLng(latlngData);
+  var latlngData = { lat: KSA_CATALOGS.fltPaths[KSA_CALCULATIONS.currentFlightIndex].fltData[KSA_CALCULATIONS.currentFlightTimelineIndex].Lat, lng: KSA_CATALOGS.fltPaths[KSA_CALCULATIONS.currentFlightIndex].fltData[KSA_CALCULATIONS.currentFlightTimelineIndex].Lng };
+  KSA_MAP_CONTROLS.flightPositionPopup.setLatLng(latlngData);
   ops.surface.map.setView(latlngData);
-  $("#fltTimelineData").html(UTtoDateTime(fltPaths[currentFlightIndex].fltData[currentFlightTimelineIndex].UT) + ' UTC<br>Latitude: ' + numeral(fltPaths[currentFlightIndex].fltData[currentFlightTimelineIndex].Lat).format('0.0000') + '&deg;' + getLatLngCompass(latlngData).lat + '<br>Longitude: ' + numeral(fltPaths[currentFlightIndex].fltData[currentFlightTimelineIndex].Lng).format('0.0000') + '&deg;' + getLatLngCompass(latlngData).lng + '<br>Altitude ASL: ' + numeral(fltPaths[currentFlightIndex].fltData[currentFlightTimelineIndex].ASL/1000).format('0,0.000') + ' km<br>Altitude AGL: ' + numeral(fltPaths[currentFlightIndex].fltData[currentFlightTimelineIndex].AGL/1000).format('0,0.000') + " km<br>Velocity: " + numeral(fltPaths[currentFlightIndex].fltData[currentFlightTimelineIndex].Spd).format('0,0.000') + " m/s" + '<br>Distance from KSC: ' + numeral(fltPaths[currentFlightIndex].fltData[currentFlightTimelineIndex].Dist/1000).format('0,0.000') + " km");
+  $("#fltTimelineData").html(UTtoDateTime(KSA_CATALOGS.fltPaths[KSA_CALCULATIONS.currentFlightIndex].fltData[KSA_CALCULATIONS.currentFlightTimelineIndex].UT) + ' UTC<br>Latitude: ' + numeral(KSA_CATALOGS.fltPaths[KSA_CALCULATIONS.currentFlightIndex].fltData[KSA_CALCULATIONS.currentFlightTimelineIndex].Lat).format('0.0000') + '&deg;' + getLatLngCompass(latlngData).lat + '<br>Longitude: ' + numeral(KSA_CATALOGS.fltPaths[KSA_CALCULATIONS.currentFlightIndex].fltData[KSA_CALCULATIONS.currentFlightTimelineIndex].Lng).format('0.0000') + '&deg;' + getLatLngCompass(latlngData).lng + '<br>Altitude ASL: ' + numeral(KSA_CATALOGS.fltPaths[KSA_CALCULATIONS.currentFlightIndex].fltData[KSA_CALCULATIONS.currentFlightTimelineIndex].ASL/1000).format('0,0.000') + ' km<br>Altitude AGL: ' + numeral(KSA_CATALOGS.fltPaths[KSA_CALCULATIONS.currentFlightIndex].fltData[KSA_CALCULATIONS.currentFlightTimelineIndex].AGL/1000).format('0,0.000') + " km<br>Velocity: " + numeral(KSA_CATALOGS.fltPaths[KSA_CALCULATIONS.currentFlightIndex].fltData[KSA_CALCULATIONS.currentFlightTimelineIndex].Spd).format('0,0.000') + " m/s" + '<br>Distance from KSC: ' + numeral(KSA_CATALOGS.fltPaths[KSA_CALCULATIONS.currentFlightIndex].fltData[KSA_CALCULATIONS.currentFlightTimelineIndex].Dist/1000).format('0,0.000') + " km");
 }
 function nextFltData() {
-  clearInterval(flightTimelineInterval);
+  clearInterval(KSA_TIMERS.flightTimelineInterval);
 
   // stop the playback
   if ($("#nextFltData").html().includes("X")) {
@@ -1997,8 +1995,7 @@ function nextFltData() {
     
   // otherwise start the playback
   } else {
-    flightTimelineInterval = setInterval(nextFltDataOnce, 1000);
-    KSA_TIMERS.flightTimelineInterval = flightTimelineInterval;
+    KSA_TIMERS.flightTimelineInterval = setInterval(nextFltDataOnce, 1000);
     nextFltDataOnce();
     $("#nextFltData").html("XX");
     $("#prevFltData").html("<<");
@@ -2009,28 +2006,28 @@ function nextFltDataOnce() {
   $("#prevFltDataOnce").prop("disabled", false);
 
   // cancel if the popup is closed
-  if (!flightPositionPopup.isOpen() && flightTimelineInterval) clearInterval(flightTimelineInterval);
+  if (!KSA_MAP_CONTROLS.flightPositionPopup.isOpen() && KSA_TIMERS.flightTimelineInterval) clearInterval(KSA_TIMERS.flightTimelineInterval);
 
   // check if we hit the end
-  if (currentFlightTimelineIndex >= fltPaths[currentFlightIndex].fltData.length-1) {
-    if (flightTimelineInterval) clearInterval(flightTimelineInterval);
+  if (KSA_CALCULATIONS.currentFlightTimelineIndex >= KSA_CATALOGS.fltPaths[KSA_CALCULATIONS.currentFlightIndex].fltData.length-1) {
+    if (KSA_TIMERS.flightTimelineInterval) clearInterval(KSA_TIMERS.flightTimelineInterval);
     $("#nextFltData").prop("disabled", true);
     $("#nextFltData").html(">>");
     $("#nextFltDataOnce").prop("disabled", true);
     return;
   }
-  currentFlightTimelineIndex++;
+  KSA_CALCULATIONS.currentFlightTimelineIndex++;
 
   // update the popup
-  var latlngData = { lat: fltPaths[currentFlightIndex].fltData[currentFlightTimelineIndex].Lat, lng: fltPaths[currentFlightIndex].fltData[currentFlightTimelineIndex].Lng };
-  flightPositionPopup.setLatLng(latlngData);
+  var latlngData = { lat: KSA_CATALOGS.fltPaths[KSA_CALCULATIONS.currentFlightIndex].fltData[KSA_CALCULATIONS.currentFlightTimelineIndex].Lat, lng: KSA_CATALOGS.fltPaths[KSA_CALCULATIONS.currentFlightIndex].fltData[KSA_CALCULATIONS.currentFlightTimelineIndex].Lng };
+  KSA_MAP_CONTROLS.flightPositionPopup.setLatLng(latlngData);
   ops.surface.map.setView(latlngData);
-  $("#fltTimelineData").html(UTtoDateTime(fltPaths[currentFlightIndex].fltData[currentFlightTimelineIndex].UT) + ' UTC<br>Latitude: ' + numeral(fltPaths[currentFlightIndex].fltData[currentFlightTimelineIndex].Lat).format('0.0000') + '&deg;' + getLatLngCompass(latlngData).lat + '<br>Longitude: ' + numeral(fltPaths[currentFlightIndex].fltData[currentFlightTimelineIndex].Lng).format('0.0000') + '&deg;' + getLatLngCompass(latlngData).lng + '<br>Altitude ASL: ' + numeral(fltPaths[currentFlightIndex].fltData[currentFlightTimelineIndex].ASL/1000).format('0,0.000') + ' km<br>Altitude AGL: ' + numeral(fltPaths[currentFlightIndex].fltData[currentFlightTimelineIndex].AGL/1000).format('0,0.000') + " km<br>Velocity: " + numeral(fltPaths[currentFlightIndex].fltData[currentFlightTimelineIndex].Spd).format('0,0.000') + " m/s" + '<br>Distance from KSC: ' + numeral(fltPaths[currentFlightIndex].fltData[currentFlightTimelineIndex].Dist/1000).format('0,0.000') + " km");
+  $("#fltTimelineData").html(UTtoDateTime(KSA_CATALOGS.fltPaths[KSA_CALCULATIONS.currentFlightIndex].fltData[KSA_CALCULATIONS.currentFlightTimelineIndex].UT) + ' UTC<br>Latitude: ' + numeral(KSA_CATALOGS.fltPaths[KSA_CALCULATIONS.currentFlightIndex].fltData[KSA_CALCULATIONS.currentFlightTimelineIndex].Lat).format('0.0000') + '&deg;' + getLatLngCompass(latlngData).lat + '<br>Longitude: ' + numeral(KSA_CATALOGS.fltPaths[KSA_CALCULATIONS.currentFlightIndex].fltData[KSA_CALCULATIONS.currentFlightTimelineIndex].Lng).format('0.0000') + '&deg;' + getLatLngCompass(latlngData).lng + '<br>Altitude ASL: ' + numeral(KSA_CATALOGS.fltPaths[KSA_CALCULATIONS.currentFlightIndex].fltData[KSA_CALCULATIONS.currentFlightTimelineIndex].ASL/1000).format('0,0.000') + ' km<br>Altitude AGL: ' + numeral(KSA_CATALOGS.fltPaths[KSA_CALCULATIONS.currentFlightIndex].fltData[KSA_CALCULATIONS.currentFlightTimelineIndex].AGL/1000).format('0,0.000') + " km<br>Velocity: " + numeral(KSA_CATALOGS.fltPaths[KSA_CALCULATIONS.currentFlightIndex].fltData[KSA_CALCULATIONS.currentFlightTimelineIndex].Spd).format('0,0.000') + " m/s" + '<br>Distance from KSC: ' + numeral(KSA_CATALOGS.fltPaths[KSA_CALCULATIONS.currentFlightIndex].fltData[KSA_CALCULATIONS.currentFlightTimelineIndex].Dist/1000).format('0,0.000') + " km");
 }
 
 // load surface track data for any vessels and moons in orbit around this body
 function loadSurfaceTracks() {
-  bodyPaths.paths.length = 0;
+  KSA_CATALOGS.bodyPaths.paths.length = 0;
 
   // dependent on ops and body catalog data so call back if it's not all loaded yet
   if (!ops.bodyCatalog.length || (!ops.updateData.length || (ops.updateData.length && ops.updateData.find(o => o.isLoading === true)))) {
@@ -2039,11 +2036,11 @@ function loadSurfaceTracks() {
   }
 
   // does this body have any moons? If so, add them to the list
-  var bodyData = ops.bodyCatalog.find(o => o.Body === bodyPaths.bodyName);
+  var bodyData = ops.bodyCatalog.find(o => o.Body === KSA_CATALOGS.bodyPaths.bodyName);
   if (bodyData.Moons) {
     bodyData.Moons.split(",").forEach(function(item) {
       moonData = ops.bodyCatalog.find(o => o.Body === item.trim());
-      bodyPaths.paths.push({
+      KSA_CATALOGS.bodyPaths.paths.push({
         name: item.trim(),
         orbit: {
           Arg: moonData.Arg,
@@ -2056,7 +2053,7 @@ function loadSurfaceTracks() {
           TrueAnom: moonData.TrueAnom
         },
         obtData: null,
-        index: bodyPaths.paths.length,
+        index: KSA_CATALOGS.bodyPaths.paths.length,
         isVessel: false,
         isCalculated: false,
         isCalculating: false,
@@ -2065,7 +2062,7 @@ function loadSurfaceTracks() {
         type: "moon"
       });
     });
-    bodyPaths.layers.push({
+    KSA_CATALOGS.bodyPaths.layers.push({
       type: "moon",
       group: null,
       isLoaded: false
@@ -2075,7 +2072,7 @@ function loadSurfaceTracks() {
   // search the menu for any vessels within the current map SOI
   ops.activeVessels.forEach(function(item) {
     if (item.bodyRef == bodyData.ID) {
-      bodyPaths.paths.push({
+      KSA_CATALOGS.bodyPaths.paths.push({
         name: item.db,
         orbit: {
           Arg: 0,
@@ -2088,7 +2085,7 @@ function loadSurfaceTracks() {
           TrueAnom: 0
         },
         obtData: null,
-        index: bodyPaths.paths.length,
+        index: KSA_CATALOGS.bodyPaths.paths.length,
         isVessel: true,
         isCalculated: false,
         isCalculating: false,
@@ -2096,8 +2093,8 @@ function loadSurfaceTracks() {
         isSelected: false,
         type: item.type
       });
-      if (!bodyPaths.layers.find(o => o.type === item.type)) {
-        bodyPaths.layers.push({
+      if (!KSA_CATALOGS.bodyPaths.layers.find(o => o.type === item.type)) {
+        KSA_CATALOGS.bodyPaths.layers.push({
           type: item.type,
           group: null,
           isLoaded: false
@@ -2107,32 +2104,32 @@ function loadSurfaceTracks() {
   });
 
   // if this body has vessels or moons that need rendering then get it done
-  if (bodyPaths.paths.length) calculateSurfaceTracks(bodyPaths.paths[0].name, bodyPaths.paths[0].type);
+  if (KSA_CATALOGS.bodyPaths.paths.length) calculateSurfaceTracks(KSA_CATALOGS.bodyPaths.paths[0].name, KSA_CATALOGS.bodyPaths.paths[0].type);
 }
 
 // run through all surface tracks that need to be calculated for any body
 function calculateSurfaceTracks(currentName, currentType) {
 
   // setup the layer control to show data load in progress only if we're looking at a body page
-  if (!surfaceTracksDataLoad.bodiesTrackDataLoad && ops.pageType == "body") {
+  if (!KSA_LAYERS.surfaceTracksDataLoad.bodiesTrackDataLoad && ops.pageType == "body") {
     ops.surface.layerControl._expand();
     ops.surface.layerControl.options.collapsed = false;
-    bodyPaths.layers.forEach(function(layer) {
+    KSA_CATALOGS.bodyPaths.layers.forEach(function(layer) {
       if (layer.isLoaded) {
         var strType = capitalizeFirstLetter(layer.type);
         if (!strType.endsWith("s")) strType += "s";
         ops.surface.layerControl.addOverlay(layer.group, "<img src='icon_" + layer.type + ".png' style='width: 15px;'> " + strType, "Orbital Tracks");
       }
     });
-    surfaceTracksDataLoad.bodiesTrackDataLoad = L.layerGroup();
-    ops.surface.layerControl.addOverlay(surfaceTracksDataLoad.bodiesTrackDataLoad, "<i class='fa fa-cog fa-spin'></i> Loading " + capitalizeFirstLetter(currentType) + " Data...", "Orbital Tracks");
+    KSA_LAYERS.surfaceTracksDataLoad.bodiesTrackDataLoad = L.layerGroup();
+    ops.surface.layerControl.addOverlay(KSA_LAYERS.surfaceTracksDataLoad.bodiesTrackDataLoad, "<i class='fa fa-cog fa-spin'></i> Loading " + capitalizeFirstLetter(currentType) + " Data...", "Orbital Tracks");
   }
 
   // remove the layer entirely if we switched to a vessel page
-  if (surfaceTracksDataLoad.bodiesTrackDataLoad && ops.pageType == "vessel") ops.surface.layerControl.removeLayer(surfaceTracksDataLoad.bodiesTrackDataLoad);
+  if (KSA_LAYERS.surfaceTracksDataLoad.bodiesTrackDataLoad && ops.pageType == "vessel") ops.surface.layerControl.removeLayer(KSA_LAYERS.surfaceTracksDataLoad.bodiesTrackDataLoad);
 
   // get the current object being worked on
-  var currObj = bodyPaths.paths.find(o => o.name === currentName);
+  var currObj = KSA_CATALOGS.bodyPaths.paths.find(o => o.name === currentName);
 
   // if the object is not loaded, we need to send out for data
   if (!currObj.isLoaded) {
@@ -2144,9 +2141,9 @@ function calculateSurfaceTracks(currentName, currentType) {
   // we run a lower batch count since the full surface map has more to interact with and should remain responsive
   // orbits are rendered for one orbital period or 24 hours, whichever is shorter
   if (!currObj.isCalculated && currObj.orbit) {
-    obtCalcUT = currUT();
-    orbitDataCalc.length = 0;
-    isOrbitRenderTerminated = false;
+    KSA_CALCULATIONS.obtCalcUT = currUT();
+    KSA_CALCULATIONS.orbitDataCalc.length = 0;
+    KSA_UI_STATE.isOrbitRenderTerminated = false;
     if (currObj.orbit.OrbitalPeriod > 86400) orbitalCalc(renderBodyOrbit, currObj.orbit, 500, 86400);
     else orbitalCalc(renderBodyOrbit, currObj.orbit, 500);
     currObj.isCalculating = true;
@@ -2155,20 +2152,20 @@ function calculateSurfaceTracks(currentName, currentType) {
 
     // find the next object of the current type to begin loading
     currentName = null;
-    bodyPaths.paths.forEach(function(obj) {
+    KSA_CATALOGS.bodyPaths.paths.forEach(function(obj) {
       if (obj.type == currentType && !obj.isCalculated) currentName = obj.name;
     });
     if (!currentName) {
 
       // show the current group we were loading?
       // the group only has an object if an orbit completed calculation for it
-      var currLayer = bodyPaths.layers.find(o => o.type === currentType)
+      var currLayer = KSA_CATALOGS.bodyPaths.layers.find(o => o.type === currentType)
       if (currLayer.group) {
         currLayer.isLoaded = true;
         if (ops.pageType == "body") {
-          if (surfaceTracksDataLoad.bodiesTrackDataLoad) {
-            ops.surface.layerControl.removeLayer(surfaceTracksDataLoad.bodiesTrackDataLoad);
-            surfaceTracksDataLoad.bodiesTrackDataLoad = L.layerGroup();
+          if (KSA_LAYERS.surfaceTracksDataLoad.bodiesTrackDataLoad) {
+            ops.surface.layerControl.removeLayer(KSA_LAYERS.surfaceTracksDataLoad.bodiesTrackDataLoad);
+            KSA_LAYERS.surfaceTracksDataLoad.bodiesTrackDataLoad = L.layerGroup();
           }
           var strType = capitalizeFirstLetter(currentType);
           if (!strType.endsWith("s")) strType += "s";
@@ -2177,7 +2174,7 @@ function calculateSurfaceTracks(currentName, currentType) {
       }
 
       // look for a new type of object to load
-      bodyPaths.paths.forEach(function(obj) {
+      KSA_CATALOGS.bodyPaths.paths.forEach(function(obj) {
         if (!currentName && obj.type != currentType && !obj.isCalculated) {
           currentName = obj.name;
           currentType = obj.type;
@@ -2187,19 +2184,19 @@ function calculateSurfaceTracks(currentName, currentType) {
       // if we found a new object, start a new loading layer otherwise we are done
       if (currentName) {
         if (ops.pageType == "body") {
-          if (surfaceTracksDataLoad.bodiesTrackDataLoad) {
-            ops.surface.layerControl.removeLayer(surfaceTracksDataLoad.bodiesTrackDataLoad);
-            surfaceTracksDataLoad.bodiesTrackDataLoad = L.layerGroup();
+          if (KSA_LAYERS.surfaceTracksDataLoad.bodiesTrackDataLoad) {
+            ops.surface.layerControl.removeLayer(KSA_LAYERS.surfaceTracksDataLoad.bodiesTrackDataLoad);
+            KSA_LAYERS.surfaceTracksDataLoad.bodiesTrackDataLoad = L.layerGroup();
           }
-          ops.surface.layerControl.addOverlay(surfaceTracksDataLoad.bodiesTrackDataLoad, "<i class='fa fa-cog fa-spin'></i> Loading " + capitalizeFirstLetter(currentType) + " Data...", "Orbital Tracks");
+          ops.surface.layerControl.addOverlay(KSA_LAYERS.surfaceTracksDataLoad.bodiesTrackDataLoad, "<i class='fa fa-cog fa-spin'></i> Loading " + capitalizeFirstLetter(currentType) + " Data...", "Orbital Tracks");
         }
       } else {
-        if (surfaceTracksDataLoad.bodiesTrackDataLoad) {
-          ops.surface.layerControl.removeLayer(surfaceTracksDataLoad.bodiesTrackDataLoad);
-          surfaceTracksDataLoad.bodiesTrackDataLoad = null;
+        if (KSA_LAYERS.surfaceTracksDataLoad.bodiesTrackDataLoad) {
+          ops.surface.layerControl.removeLayer(KSA_LAYERS.surfaceTracksDataLoad.bodiesTrackDataLoad);
+          KSA_LAYERS.surfaceTracksDataLoad.bodiesTrackDataLoad = null;
         }
         checkDataLoad();
-        console.log(bodyPaths)
+        console.log(KSA_CATALOGS.bodyPaths)
         return;
       }
     }
@@ -2213,11 +2210,11 @@ function calculateSurfaceTracks(currentName, currentType) {
 function renderBodyOrbit() {
 
   // add the calculated data to teh current object
-  var currObj = bodyPaths.paths.find(o => o.isCalculating === true);
+  var currObj = KSA_CATALOGS.bodyPaths.paths.find(o => o.isCalculating === true);
   currObj.obtData = {
-    orbit: orbitDataCalc.slice(0),
-    startUT: obtCalcUT-orbitDataCalc.length,
-    endUT: obtCalcUT,
+    orbit: KSA_CALCULATIONS.orbitDataCalc.slice(0),
+    startUT: KSA_CALCULATIONS.obtCalcUT-KSA_CALCULATIONS.orbitDataCalc.length,
+    endUT: KSA_CALCULATIONS.obtCalcUT,
     marker: null,
     pathData: [],
     events: {
@@ -2234,13 +2231,13 @@ function renderBodyOrbit() {
   currObj.isCalculated = true;
 
   // enable this layer for display
-  var currLayer = bodyPaths.layers.find(o => o.type === currObj.type);
+  var currLayer = KSA_CATALOGS.bodyPaths.layers.find(o => o.type === currObj.type);
   if (!currLayer.group) currLayer.group = L.layerGroup();
 
   // get the times we'll reach Ap and Pe along this orbit, if it has any
   if (currObj.orbit.Eccentricity > 0) {
     var n = Math.sqrt(ops.bodyCatalog.find(o => o.selected === true).Gm/(Math.pow(Math.abs(currObj.orbit.SMA),3)));
-    var newMean = toMeanAnomaly(Math.radians(currObj.orbit.TrueAnom), currObj.orbit.Eccentricity) + n * ((obtCalcUT-orbitDataCalc.length) - currObj.orbit.Eph);
+    var newMean = toMeanAnomaly(Math.radians(currObj.orbit.TrueAnom), currObj.orbit.Eccentricity) + n * ((KSA_CALCULATIONS.obtCalcUT-KSA_CALCULATIONS.orbitDataCalc.length) - currObj.orbit.Eph);
     if (newMean < 0 || newMean > 2*Math.PI) {
       newMean = Math.abs(newMean - (2*Math.PI) * Math.floor(newMean / (2*Math.PI)));
     }
@@ -2252,23 +2249,23 @@ function renderBodyOrbit() {
     if (peTime <= 0) peTime += Math.round(currObj.orbit.OrbitalPeriod);
     
     // stash away the times but convert them to UT instead of seconds from the start of this orbit
-    currObj.obtData.events.pe.UT = peTime + (obtCalcUT-orbitDataCalc.length);
-    currObj.obtData.events.ap.UT = apTime + (obtCalcUT-orbitDataCalc.length);
+    currObj.obtData.events.pe.UT = peTime + (KSA_CALCULATIONS.obtCalcUT-KSA_CALCULATIONS.orbitDataCalc.length);
+    currObj.obtData.events.ap.UT = apTime + (KSA_CALCULATIONS.obtCalcUT-KSA_CALCULATIONS.orbitDataCalc.length);
     
     // configure the Ap/Pe icons, ensuring that enough orbit has been plotted to display them
-    if (apTime < orbitDataCalc.length) { 
+    if (apTime < KSA_CALCULATIONS.orbitDataCalc.length) { 
 
       // add the marker, assign its information popup and give it a callback for instant update when opened, then add it to the current layer
-      currObj.obtData.events.ap.marker = L.marker(orbitDataCalc[apTime].latlng, {icon: apIcon}); 
-      var strTimeDate = UTtoDateTime(obtCalcUT-orbitDataCalc.length + apTime);
+      currObj.obtData.events.ap.marker = L.marker(KSA_CALCULATIONS.orbitDataCalc[apTime].latlng, {icon: KSA_MAP_ICONS.apIcon}); 
+      var strTimeDate = UTtoDateTime(KSA_CALCULATIONS.obtCalcUT-KSA_CALCULATIONS.orbitDataCalc.length + apTime);
       currObj.obtData.events.ap.marker.bindPopup("<center>Time to Apoapsis<br><span id='apTimeSurface'>" + formatTime(apTime) + "</span><br><span id='apDateSurface'>" + strTimeDate.split("@")[0] + '<br>' + strTimeDate.split("@")[1] + "</span> UTC</center>", { autoClose: false });
       currObj.obtData.events.ap.marker.on('click', function(e) {
         $('#apTimeSurface').html(formatTime(currObj.obtData.events.ap.UT - currUT()));
       });
     }
-    if (peTime < orbitDataCalc.length) { 
-      currObj.obtData.events.pe.marker = L.marker(orbitDataCalc[peTime].latlng, {icon: peIcon}); 
-      var strTimeDate = UTtoDateTime(obtCalcUT-orbitDataCalc.length + peTime);
+    if (peTime < KSA_CALCULATIONS.orbitDataCalc.length) { 
+      currObj.obtData.events.pe.marker = L.marker(KSA_CALCULATIONS.orbitDataCalc[peTime].latlng, {icon: KSA_MAP_ICONS.peIcon}); 
+      var strTimeDate = UTtoDateTime(KSA_CALCULATIONS.obtCalcUT-KSA_CALCULATIONS.orbitDataCalc.length + peTime);
       currObj.obtData.events.pe.marker.bindPopup("<center>Time to Periapsis<br><span id='peTimeSurface'>" + formatTime(peTime) + "</span><br><span id='peDateSurface'>" + strTimeDate.split("@")[0] + '<br>' + strTimeDate.split("@")[1] + "</span> UTC</center>", { autoClose: false });
       currObj.obtData.events.pe.marker.on('click', function(e) {
         $('#peTimeSurface').html(formatTime(currObj.obtData.events.pe.UT - currUT()));
@@ -2280,11 +2277,11 @@ function renderBodyOrbit() {
   if (currObj.isVessel) {
 
     // does this path terminate in an entry to Kerbin's atmosphere?
-    if (orbitDataCalc[orbitDataCalc.length-1].alt <= 70) {
+    if (KSA_CALCULATIONS.orbitDataCalc[KSA_CALCULATIONS.orbitDataCalc.length-1].alt <= 70) {
 
       // add the marker, assign its information popup and give it a callback for instant update when opened, then add it to the current layer
-      currObj.obtData.events.soiEntry.UT = obtCalcUT;
-      currObj.obtData.events.soiEntry.marker = L.marker(orbitDataCalc[orbitDataCalc.length-1].latlng, {icon: soiEntryIcon}); 
+      currObj.obtData.events.soiEntry.UT = KSA_CALCULATIONS.obtCalcUT;
+      currObj.obtData.events.soiEntry.marker = L.marker(KSA_CALCULATIONS.orbitDataCalc[KSA_CALCULATIONS.orbitDataCalc.length-1].latlng, {icon: KSA_MAP_ICONS.soiEntryIcon}); 
       var strTimeDate = UTtoDateTime(currObj.obtData.events.soiEntry.UT);
       currObj.obtData.events.soiEntry.marker.bindPopup("<center>Time to Atmospheric Entry<br><span id='soiEntryTimeSurface'>" + formatTime(currObj.obtData.events.soiEntry.UT) + "</span><br><span id='soiEntryDateSurface'>" + strTimeDate.split("@")[0] + '<br>' + strTimeDate.split("@")[1] + "</span> UTC</center>", { autoClose: false });
       currObj.obtData.events.soiEntry.marker.on('click', function(e) {
@@ -2294,11 +2291,11 @@ function renderBodyOrbit() {
     } 
 
     // does this path terminate in an exit of Kerbin's SOI?
-    else if (orbitDataCalc[orbitDataCalc.length-1].alt >= 83559.2865) {
+    else if (KSA_CALCULATIONS.orbitDataCalc[KSA_CALCULATIONS.orbitDataCalc.length-1].alt >= 83559.2865) {
 
       // add the marker, assign its information popup and give it a callback for instant update when opened, then add it to the current layer
-      currObj.obtData.events.soiExit.UT = obtCalcUT;
-      currObj.obtData.events.soiExit.marker = L.marker(orbitDataCalc[orbitDataCalc.length-1].latlng, {icon: soiExitIcon}); 
+      currObj.obtData.events.soiExit.UT = KSA_CALCULATIONS.obtCalcUT;
+      currObj.obtData.events.soiExit.marker = L.marker(KSA_CALCULATIONS.orbitDataCalc[KSA_CALCULATIONS.orbitDataCalc.length-1].latlng, {icon: KSA_MAP_ICONS.soiExitIcon}); 
       var strTimeDate = UTtoDateTime(currObj.obtData.events.soiExit.UT);
       currObj.obtData.events.soiExit.marker.bindPopup("<center>Time to Kerbin SOI Exit<br><span id='soiExitTimeSurface'>" + formatTime(currObj.obtData.events.soiExit.UT) + "</span><br><span id='soiExitDateSurface'>" + strTimeDate.split("@")[0] + '<br>' + strTimeDate.split("@")[1] + "</span> UTC</center>", { autoClose: false });
       currObj.obtData.events.soiExit.marker.on('click', function(e) {
@@ -2343,12 +2340,12 @@ function renderBodyOrbit() {
   currObj.obtData.marker.on('popupopen', function(e) {
 
     // get the selected object and the layer it belongs to
-    var obj = bodyPaths.paths.find(o => o.name === e.target._myId);
-    var currLayer = bodyPaths.layers.find(o => o.type === obj.type);
+    var obj = KSA_CATALOGS.bodyPaths.paths.find(o => o.name === e.target._myId);
+    var currLayer = KSA_CATALOGS.bodyPaths.layers.find(o => o.type === obj.type);
 
     // if this object isn't selected that means another one might be, so look for it
     if (!obj.isSelected) {
-      var selectedObj = bodyPaths.paths.find(o => o.isSelected === true);
+      var selectedObj = KSA_CATALOGS.bodyPaths.paths.find(o => o.isSelected === true);
 
       // if another object is selected, hide its popup to unselect it
       if (selectedObj) {
@@ -2371,36 +2368,36 @@ function renderBodyOrbit() {
     var now = currUT() - obj.obtData.startUT;
     var horizonRadius = Math.sqrt((obj.obtData.orbit[now].alt*1000)*((ops.bodyCatalog.find(o => o.selected === true).Radius*1000) * 2 + (obj.obtData.orbit[now].alt*1000)))*10;
     //if (horizonRadius/10 > ops.bodyCatalog.find(o => o.selected === true).Radius*1000) horizonRadius = (ops.bodyCatalog.find(o => o.selected === true).Radius*1000)*10;
-    vesselHorizon.vessel = L.circle(obj.obtData.marker.getLatLng(), { 
+    KSA_MAP_CONTROLS.vesselHorizon.vessel = L.circle(obj.obtData.marker.getLatLng(), { 
       radius: horizonRadius,
       color: "#00ff3c",
       weight: 2,
       interactive: false
     });
-    currLayer.group.addLayer(vesselHorizon.vessel);
-    if (vesselHorizon.vessel.getBounds().getWest() < -180 || vesselHorizon.vessel.getBounds().getEast() > 180) {
+    currLayer.group.addLayer(KSA_MAP_CONTROLS.vesselHorizon.vessel);
+    if (KSA_MAP_CONTROLS.vesselHorizon.vessel.getBounds().getWest() < -180 || KSA_MAP_CONTROLS.vesselHorizon.vessel.getBounds().getEast() > 180) {
       var eastWest = 0;
-      if (vesselHorizon.vessel.getBounds().getWest() < -180) eastWest = 1;
-      else if (vesselHorizon.vessel.getBounds().getEast() > 180) eastWest = -1;
-      vesselHorizon.eastWest = L.circle([obj.obtData.marker.getLatLng().lat, obj.obtData.marker.getLatLng().lng + (360 * eastWest)], { 
+      if (KSA_MAP_CONTROLS.vesselHorizon.vessel.getBounds().getWest() < -180) eastWest = 1;
+      else if (KSA_MAP_CONTROLS.vesselHorizon.vessel.getBounds().getEast() > 180) eastWest = -1;
+      KSA_MAP_CONTROLS.vesselHorizon.eastWest = L.circle([obj.obtData.marker.getLatLng().lat, obj.obtData.marker.getLatLng().lng + (360 * eastWest)], { 
         radius: horizonRadius,
         color: "#00ff3c",
         weight: 2,
         interactive: false
       });
-      currLayer.group.addLayer(vesselHorizon.eastWest);
+      currLayer.group.addLayer(KSA_MAP_CONTROLS.vesselHorizon.eastWest);
     }
-    if (vesselHorizon.vessel.getBounds().getSouth() < -90 || vesselHorizon.vessel.getBounds().getNorth() > 90) {
+    if (KSA_MAP_CONTROLS.vesselHorizon.vessel.getBounds().getSouth() < -90 || KSA_MAP_CONTROLS.vesselHorizon.vessel.getBounds().getNorth() > 90) {
       var northSouth = 0;
-      if (vesselHorizon.vessel.getBounds().getSouth() < -90) northSouth = 1;
-      else if (vesselHorizon.vessel.getBounds().getNorth() > 90) northSouth = -1;
-      vesselHorizon.northSouth = L.circle([obj.obtData.marker.getLatLng().lat + (180 * northSouth), obj.obtData.marker.getLatLng().lng], { 
+      if (KSA_MAP_CONTROLS.vesselHorizon.vessel.getBounds().getSouth() < -90) northSouth = 1;
+      else if (KSA_MAP_CONTROLS.vesselHorizon.vessel.getBounds().getNorth() > 90) northSouth = -1;
+      KSA_MAP_CONTROLS.vesselHorizon.northSouth = L.circle([obj.obtData.marker.getLatLng().lat + (180 * northSouth), obj.obtData.marker.getLatLng().lng], { 
         radius: horizonRadius,
         color: "#00ff3c",
         weight: 2,
         interactive: false
       });
-      currLayer.group.addLayer(vesselHorizon.northSouth);
+      currLayer.group.addLayer(KSA_MAP_CONTROLS.vesselHorizon.northSouth);
     }
 
     // setup the popup
@@ -2411,26 +2408,26 @@ function renderBodyOrbit() {
 
   // de-selects the object
   currObj.obtData.marker.on('popupclose', function(e) {
-    var obj = bodyPaths.paths.find(o => o.name === e.target._myId);
-    var currLayer = bodyPaths.layers.find(o => o.type === obj.type);
+    var obj = KSA_CATALOGS.bodyPaths.paths.find(o => o.name === e.target._myId);
+    var currLayer = KSA_CATALOGS.bodyPaths.layers.find(o => o.type === obj.type);
     if (obj.isVessel) {
       obj.obtData.pathData.forEach(function(path) {
-        path.setStyle({color: orbitColors[obj.type]});
+        path.setStyle({color: KSA_COLORS.orbitColors[obj.type]});
       });
     }
     if (obj.obtData.events.ap.marker) currLayer.group.removeLayer(obj.obtData.events.ap.marker);
     if (obj.obtData.events.pe.marker) currLayer.group.removeLayer(obj.obtData.events.pe.marker);
-    if (vesselHorizon.vessel) {
-      currLayer.group.removeLayer(vesselHorizon.vessel);
-      vesselHorizon.eastWest = vessel;
+    if (KSA_MAP_CONTROLS.vesselHorizon.vessel) {
+      currLayer.group.removeLayer(KSA_MAP_CONTROLS.vesselHorizon.vessel);
+      KSA_MAP_CONTROLS.vesselHorizon.eastWest = vessel;
     }
-    if (vesselHorizon.eastWest) {
-      currLayer.group.removeLayer(vesselHorizon.eastWest);
-      vesselHorizon.eastWest = null;
+    if (KSA_MAP_CONTROLS.vesselHorizon.eastWest) {
+      currLayer.group.removeLayer(KSA_MAP_CONTROLS.vesselHorizon.eastWest);
+      KSA_MAP_CONTROLS.vesselHorizon.eastWest = null;
     }
-    if (vesselHorizon.northSouth) {
-      currLayer.group.removeLayer(vesselHorizon.northSouth);
-      vesselHorizon.northSouth = null;
+    if (KSA_MAP_CONTROLS.vesselHorizon.northSouth) {
+      currLayer.group.removeLayer(KSA_MAP_CONTROLS.vesselHorizon.northSouth);
+      KSA_MAP_CONTROLS.vesselHorizon.northSouth = null;
     }
   });
 
@@ -2443,7 +2440,7 @@ function setupSurfacePath(path, object) {
 
   var strColor = "";
   var currBody = ops.bodyCatalog.find(o => o.Body === object.name);
-  if (object.isVessel) strColor = orbitColors[object.type];
+  if (object.isVessel) strColor = KSA_COLORS.orbitColors[object.type];
   else {
     ops.ggbOrbits.forEach(function(body) {
       if (currBody.Body == ggbApplet.getCaption(body.id + "36")) strColor = ggbApplet.getColor(body.id + "36")
@@ -2456,35 +2453,35 @@ function setupSurfacePath(path, object) {
   
   // show the time and orbit for this position
   srfTrack.on('mouseover mousemove', function(e) {
-    if (timePopup) ops.surface.map.closePopup(timePopup);
-    timePopup = new L.Rrose({ offset: new L.Point(0,-1), closeButton: false, autoPan: false });
-    timePopup.setLatLng(e.latlng);
-    var obj = bodyPaths.paths.find(o => o.name === e.target._myId);
+    if (KSA_MAP_CONTROLS.timePopup) ops.surface.map.closePopup(KSA_MAP_CONTROLS.timePopup);
+    KSA_MAP_CONTROLS.timePopup = new L.Rrose({ offset: new L.Point(0,-1), closeButton: false, autoPan: false });
+    KSA_MAP_CONTROLS.timePopup.setLatLng(e.latlng);
+    var obj = KSA_CATALOGS.bodyPaths.paths.find(o => o.name === e.target._myId);
     var strTimeDate = UTtoDateTime(obj.obtData.startUT + getDataPointObject(obj.obtData, e.latlng));
-    timePopup.setContent("<center>" + strTimeDate.split("@")[0] + "<br>" + strTimeDate.split("@")[1] + " UTC</center>");
-    timePopup.openOn(ops.surface.map);
+    KSA_MAP_CONTROLS.timePopup.setContent("<center>" + strTimeDate.split("@")[0] + "<br>" + strTimeDate.split("@")[1] + " UTC</center>");
+    KSA_MAP_CONTROLS.timePopup.openOn(ops.surface.map);
   });
   
   // remove the mouseover popup
   srfTrack.on('mouseout', function(e) {
-    if (timePopup) ops.surface.map.closePopup(timePopup);
-    timePopup = null;
+    if (KSA_MAP_CONTROLS.timePopup) ops.surface.map.closePopup(KSA_MAP_CONTROLS.timePopup);
+    KSA_MAP_CONTROLS.timePopup = null;
   });
   
   // when clicking along this line, find the nearest data point to display for the user
   srfTrack.on('click', function(e) {
-    ops.surface.map.closePopup(timePopup);
-    timePopup = null;
-    var obj = bodyPaths.paths.find(o => o.name === e.target._myId);
+    ops.surface.map.closePopup(KSA_MAP_CONTROLS.timePopup);
+    KSA_MAP_CONTROLS.timePopup = null;
+    var obj = KSA_CATALOGS.bodyPaths.paths.find(o => o.name === e.target._myId);
     var index = getDataPointObject(obj.obtData, e.latlng);
     var cardinal = getLatLngCompass(obj.obtData.orbit[index].latlng);
       
     // compose the popup HTML and place it on the cursor location then display it
-    vesselPositionPopup.setLatLng(obj.obtData.orbit[index].latlng);
+    KSA_MAP_CONTROLS.vesselPositionPopup.setLatLng(obj.obtData.orbit[index].latlng);
     if (obj.isVessel) var strName = ops.activeVessels.find(o => o.db === e.target._myId).name;
     else var strName = obj.name;
-    vesselPositionPopup.setContent("<h2>" + strName + "</h2>" + UTtoDateTime(obj.obtData.startUT + index) + ' UTC<br>Latitude: ' + numeral(obj.obtData.orbit[index].latlng.lat).format('0.0000') + '&deg;' + cardinal.lat + '<br>Longitude: ' + numeral(obj.obtData.orbit[index].latlng.lng).format('0.0000') + '&deg;' + cardinal.lng + '<br>Altitude: ' + numeral(obj.obtData.orbit[index].alt).format('0,0.000') + " km<br>Velocity: " + numeral(obj.obtData.orbit[index].vel).format('0,0.000') + " km/s");
-    vesselPositionPopup.openOn(ops.surface.map);
+    KSA_MAP_CONTROLS.vesselPositionPopup.setContent("<h2>" + strName + "</h2>" + UTtoDateTime(obj.obtData.startUT + index) + ' UTC<br>Latitude: ' + numeral(obj.obtData.orbit[index].latlng.lat).format('0.0000') + '&deg;' + cardinal.lat + '<br>Longitude: ' + numeral(obj.obtData.orbit[index].latlng.lng).format('0.0000') + '&deg;' + cardinal.lng + '<br>Altitude: ' + numeral(obj.obtData.orbit[index].alt).format('0,0.000') + " km<br>Velocity: " + numeral(obj.obtData.orbit[index].vel).format('0,0.000') + " km/s");
+    KSA_MAP_CONTROLS.vesselPositionPopup.openOn(ops.surface.map);
   });
   
   return srfTrack;
@@ -2492,7 +2489,7 @@ function setupSurfacePath(path, object) {
 
 // store orbital data for active vessels drawn on the map surface
 function loadVesselOrbitAJAX(xhttp, data) {
-  var currObj = bodyPaths.paths.find(o => o.name === data.name);
+  var currObj = KSA_CATALOGS.bodyPaths.paths.find(o => o.name === data.name);
   if (xhttp.responseText.split("*")[1].split("|")[0] != "null") {
     var orbitData = rsToObj(xhttp.responseText.split("*")[1].split("|")[0])
     currObj.orbit.Arg = orbitData.Arg;
@@ -2561,23 +2558,23 @@ function flightTrackHover(e) {
   // traverse the latlon array and get the diff between the current index and the location hovered
   // if it is smaller than the margin, stop. If the entire path is searched, increase the margin and try again
   while (true) {
-    if (Math.abs(fltPaths[indexFlt].fltData[index].Lat - e.latlng.lat) < margin && Math.abs(fltPaths[indexFlt].fltData[index].Lng - e.latlng.lng) < margin) break;
+    if (Math.abs(KSA_CATALOGS.fltPaths[indexFlt].fltData[index].Lat - e.latlng.lat) < margin && Math.abs(KSA_CATALOGS.fltPaths[indexFlt].fltData[index].Lng - e.latlng.lng) < margin) break;
     index++;
     
     // be sure to account for running to the end of the array
-    if (index >= fltPaths[indexFlt].fltData.length) {
+    if (index >= KSA_CATALOGS.fltPaths[indexFlt].fltData.length) {
       index = parseInt(idStr[0]);
       margin += 0.1;
     }
     if (margin > 5) break;
   }
-  currentFlightTimelineIndex = index;
+  KSA_CALCULATIONS.currentFlightTimelineIndex = index;
 
   // compose the popup HTML and place it on the cursor location then display it
-  var cardinal = getLatLngCompass({lat: fltPaths[indexFlt].fltData[index].Lat, lng: fltPaths[indexFlt].fltData[index].Lng});
-  if (timePopup) ops.surface.map.closePopup(timePopup); 
-  timePopup = new L.Rrose({ offset: new L.Point(0,-1), closeButton: false, autoPan: false });
-  timePopup.setLatLng(e.latlng);
-  timePopup.setContent(UTtoDateTime(fltPaths[indexFlt].fltData[index].UT) + ' UTC<br>Latitude: ' + numeral(fltPaths[indexFlt].fltData[index].Lat).format('0.0000') + '&deg;' + cardinal.lat + '<br>Longitude: ' + numeral(fltPaths[indexFlt].fltData[index].Lng).format('0.0000') + '&deg;' + cardinal.lng + '<br>Altitude ASL: ' + numeral(fltPaths[indexFlt].fltData[index].ASL/1000).format('0,0.000') + ' km<br>Altitude AGL: ' + numeral(fltPaths[indexFlt].fltData[index].AGL/1000).format('0,0.000') + " km<br>Velocity: " + numeral(fltPaths[indexFlt].fltData[index].Spd).format('0,0.000') + " m/s" + '<br>Distance from KSC: ' + numeral(fltPaths[indexFlt].fltData[index].Dist/1000).format('0,0.000') + " km<p>Click for additional options</p>");
-  timePopup.openOn(ops.surface.map);
+  var cardinal = getLatLngCompass({lat: KSA_CATALOGS.fltPaths[indexFlt].fltData[index].Lat, lng: KSA_CATALOGS.fltPaths[indexFlt].fltData[index].Lng});
+  if (KSA_MAP_CONTROLS.timePopup) ops.surface.map.closePopup(KSA_MAP_CONTROLS.timePopup); 
+  KSA_MAP_CONTROLS.timePopup = new L.Rrose({ offset: new L.Point(0,-1), closeButton: false, autoPan: false });
+  KSA_MAP_CONTROLS.timePopup.setLatLng(e.latlng);
+  KSA_MAP_CONTROLS.timePopup.setContent(UTtoDateTime(KSA_CATALOGS.fltPaths[indexFlt].fltData[index].UT) + ' UTC<br>Latitude: ' + numeral(KSA_CATALOGS.fltPaths[indexFlt].fltData[index].Lat).format('0.0000') + '&deg;' + cardinal.lat + '<br>Longitude: ' + numeral(KSA_CATALOGS.fltPaths[indexFlt].fltData[index].Lng).format('0.0000') + '&deg;' + cardinal.lng + '<br>Altitude ASL: ' + numeral(KSA_CATALOGS.fltPaths[indexFlt].fltData[index].ASL/1000).format('0,0.000') + ' km<br>Altitude AGL: ' + numeral(KSA_CATALOGS.fltPaths[indexFlt].fltData[index].AGL/1000).format('0,0.000') + " km<br>Velocity: " + numeral(KSA_CATALOGS.fltPaths[indexFlt].fltData[index].Spd).format('0,0.000') + " m/s" + '<br>Distance from KSC: ' + numeral(KSA_CATALOGS.fltPaths[indexFlt].fltData[index].Dist/1000).format('0,0.000') + " km<p>Click for additional options</p>");
+  KSA_MAP_CONTROLS.timePopup.openOn(ops.surface.map);
 }
