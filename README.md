@@ -16,7 +16,7 @@ The following JavaScript libraries are used:
 * [Leaflet.Kerbal](https://gitlab.com/IvanSanchez/Leaflet.Kerbal)
 * [Sylvester](http://sylvester.jcoglan.com/)
 * [Numeral](http://numeraljs.com/)
-* [Tipped](http://www.tippedjs.com/)
+* [Tipped]([http://www.tippedjs.com/](https://github.com/staaky/tipped))
 * [Spin.js](http://fgnass.github.io/spin.js/)
 * [Rrose](http://erictheise.github.io/rrose/)
 * [Leaflet.Fullscreen](https://github.com/brunob/leaflet.fullscreen)
