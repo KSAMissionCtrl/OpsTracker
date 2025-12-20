@@ -43,15 +43,16 @@
   <link rel="stylesheet" href="../lib/Leaflet.LinearMeasurement.css">
   <link rel="stylesheet" href="../lib/leaflet.contextmenu.min.css">
   <link rel="stylesheet" href="styles.css?v=1.0">
+  <link rel="stylesheet" href="../lib/tweet-display.css">
 
-   <!-- allows for use of twitter JS API functions -->
+   <!-- allows for use of X/Twitter JS API functions -->
    <script>window.twttr = (function(d, s, id) {
     var js, fjs = d.getElementsByTagName(s)[0],
       t = window.twttr || {};
     if (d.getElementById(id)) return t;
     js = d.createElement(s);
     js.id = id;
-    js.src = "https://platform.twitter.com/widgets.js";
+    js.src = "https://platform.x.com/widgets.js";
     fjs.parentNode.insertBefore(js, fjs);
   
     t._e = [];
@@ -196,11 +197,11 @@
         <div id='maneuver'><strong>Next Maneuver</strong><br>None Scheduled</div>
       </div>
       
-      <!-- Twitter display -->
+      <!-- Twitter/X display -->
 
-      <div id='twitterBox'><a href="https://twitter.com/KSA_MissionCtrl" class="twitter-follow-button" data-show-count="true">Follow @KSA_MissionCtrl</a><script async src="//platform.twitter.com/widgets.js" charset="utf-8"></script></center>
+      <div id='twitterBox'><a href="https://twitter.com/KSA_MissionCtrl" class="twitter-follow-button" data-show-count="true">Follow @KSA_MissionCtrl</a><script async src="//platform.twitter.com/widgets.js" charset="utf-8"></script>
       <div id='twitterTimelineSelection' style='font-size: 12px'>Source: <strong>KSA Main Feed</strong></div>
-      <div id='twitterTimeline'><a class="twitter-timeline" data-chrome="nofooter noheader" data-height="500" href="https://twitter.com/KSA_MissionCtrl">Loading Tweets...</a> <script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script></div>
+      <div id='twitterTimeline'></div>
       </div>
     </div>
   </div>
@@ -233,6 +234,7 @@
   <script src="../lib/twitTimelineMod.js"></script>
   <script src="../lib/leaflet.contextmenu.min.js"></script>
   <script src="../lib/leaflet.hotline.min.js"></script>
+  <script src="../lib/tweet-display.js"></script>
   <script src="helpFuncs.js"></script>
   <script src="ksaGlobals.js"></script>
   <script src="ksaEventOps.js"></script>

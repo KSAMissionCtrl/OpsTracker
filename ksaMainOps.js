@@ -327,6 +327,12 @@ function setupContent() {
       $("#siteDialog").dialog("open");
     }
   }
+  
+  // Initialize twitter source to use collection system by default
+  // Load after other content to avoid blocking if it's a large dataset
+  setTimeout(function() {
+    swapTwitterSource();
+  }, 500);
 }
 function setupContentDown() {
   setTimeout(function() {
@@ -579,10 +585,29 @@ function swapTwitterSource(swap, source) {
     $("#twitterTimelineSelection").html("Source: <b>KSA Main Feed</b>");
   }
   if (!source) {
-    source = "https://twitter.com/KSA_MissionCtrl";
+    source = "13573";
     ops.twitterSource = source;
   }
-  $("#twitterTimeline").html("<a class='twitter-timeline' data-chrome='nofooter noheader' data-height='500' href='"+ source + "'>Loading Tweets...</a> <script async src='https://platform.twitter.com/widgets.js' charset='utf-8'>");
+  
+  // Determine if source is a URL (old Twitter widget) or a collection ID (new system)
+  if (source.startsWith("http://") || source.startsWith("https://")) {
+    // Old Twitter/X widget system - kept for backward compatibility if needed
+    $("#twitterTimeline").html("<a class='twitter-timeline' data-chrome='nofooter noheader' data-height='500' href='"+ source + "'>Loading Tweets...</a> <script async src='https://platform.x.com/widgets.js' charset='utf-8'>");
+  } else {
+    // New custom tweet display system - source is a collection ID
+    // Determine order based on mission status - ascending if mission ended, descending otherwise
+    var tweetOrder = 'desc';
+    if (ops.currentVessel && isMissionEnded() && source != "13573") {
+      tweetOrder = 'asc';
+    }
+    
+    TweetDisplay.displayTweets({
+      containerId: 'twitterTimeline',
+      collectionFile: source,
+      order: tweetOrder,
+      maxTweets: 50
+    });
+  }
 }
 
 // loads future data for all active vessels and crew so they can be updated without fetch delay
