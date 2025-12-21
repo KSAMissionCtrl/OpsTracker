@@ -192,12 +192,13 @@ function loadMap(map) {
       KSA_CALCULATIONS.flightsToLoad = getQueryParams("flt");
       do {
         var flight = KSA_CALCULATIONS.flightsToLoad.shift();
-        if (!KSA_CATALOGS.fltPaths || (KSA_CATALOGS.fltPaths && !KSA_CATALOGS.fltPaths.find(o => o.id === flight))) {
+        if ((!KSA_CATALOGS.fltPaths || (KSA_CATALOGS.fltPaths && !KSA_CATALOGS.fltPaths.find(o => o.id === flight))) && KSA_UI_STATE.strFltTrackLoading != flight) {
           KSA_LAYERS.surfaceTracksDataLoad.fltTrackDataLoad = L.layerGroup();
           ops.surface.layerControl._expand();
           ops.surface.layerControl.options.collapsed = false;
           ops.surface.layerControl.addOverlay(KSA_LAYERS.surfaceTracksDataLoad.fltTrackDataLoad, "<i class='fa fa-cog fa-spin'></i> Loading Data...", "Flight Tracks");
           loadDB("loadFltData.asp?data=" + flight, loadFltDataAJAX);
+          KSA_UI_STATE.strFltTrackLoading = flight;
           break;
         }
       } while (KSA_CALCULATIONS.flightsToLoad.length);
@@ -525,7 +526,7 @@ function loadMapDataAJAX(xhttp) {
     KSA_CALCULATIONS.flightsToLoad = getQueryParams("flt");
     do {
       var flight = KSA_CALCULATIONS.flightsToLoad.shift();
-      if (!KSA_CATALOGS.fltPaths || (KSA_CATALOGS.fltPaths && !KSA_CATALOGS.fltPaths.find(o => o.id === flight))) {
+      if ((!KSA_CATALOGS.fltPaths || (KSA_CATALOGS.fltPaths && !KSA_CATALOGS.fltPaths.find(o => o.id === flight))) && KSA_UI_STATE.strFltTrackLoading != flight) {
         KSA_LAYERS.surfaceTracksDataLoad.fltTrackDataLoad = L.layerGroup();
         ops.surface.layerControl._expand();
         ops.surface.layerControl.options.collapsed = false;
@@ -585,7 +586,9 @@ function loadFltDataAJAX(xhttp) {
   renderFltPath(KSA_CATALOGS.fltPaths.length-1);
   
   // delete the loading layer and add the flight path layer to the control and the map
-  ops.surface.layerControl.removeLayer(KSA_LAYERS.surfaceTracksDataLoad.fltTrackDataLoad);
+  if (KSA_LAYERS.surfaceTracksDataLoad.fltTrackDataLoad) {
+    ops.surface.layerControl.removeLayer(KSA_LAYERS.surfaceTracksDataLoad.fltTrackDataLoad);
+  }
   ops.surface.layerControl.addOverlay(KSA_CATALOGS.fltPaths[KSA_CATALOGS.fltPaths.length-1].layer, "<i class='fa fa-minus' style='color: " + KSA_CATALOGS.fltPaths[KSA_CATALOGS.fltPaths.length-1].color + "'></i> " + KSA_CATALOGS.fltPaths[KSA_CATALOGS.fltPaths.length-1].info.Title, "Flight Tracks");
   KSA_CATALOGS.fltPaths[KSA_CATALOGS.fltPaths.length-1].layer.addTo(ops.surface.map)
   
@@ -602,6 +605,7 @@ function loadFltDataAJAX(xhttp) {
     } else {
       KSA_LAYERS.surfaceTracksDataLoad.fltTrackDataLoad = null;
       KSA_CALCULATIONS.flightsToLoad = null;
+      KSA_UI_STATE.strFltTrackLoading = null;
       checkDataLoad();
       
       // if there was only one track...
@@ -659,7 +663,7 @@ function loadFltDataAJAX(xhttp) {
     KSA_LAYERS.surfaceTracksDataLoad.fltTrackDataLoad = null;
     checkDataLoad();
   }
-  if (KSA_CALCULATIONS.strFltTrackLoading) KSA_CALCULATIONS.strFltTrackLoading = null;
+  if (KSA_UI_STATE.strFltTrackLoading) KSA_UI_STATE.strFltTrackLoading = null;
 }
 
 function renderMapData(updated = false) {
@@ -1721,7 +1725,9 @@ function checkDataLoad() {
     if (items[1]) isDataLoading = true;
   });
   if (!isDataLoading) {
-    if (!ops.surface.layerControl.options.collapsed && !$('.leaflet-control-layers-expanded').is(":hover")) ops.surface.layerControl._collapse();
+    var layerControlElement = $('.leaflet-control-layers-expanded')[0];
+    var isHovered = layerControlElement && layerControlElement.matches(':hover');
+    if (!ops.surface.layerControl.options.collapsed && !isHovered) ops.surface.layerControl._collapse();
     ops.surface.layerControl.options.collapsed = true;
   }
 }

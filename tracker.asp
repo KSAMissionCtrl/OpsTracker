@@ -220,7 +220,7 @@
   <script src="../lib/spin.min.js"></script>  
   <script src="../lib/jquery.spin.js"></script>
   <script src="../lib/numeral.min.js"></script>
-  <script src="../lib/tipped.js"></script>
+  <script src="../lib/tipped.min.js"></script>
   <script src="../lib/w2ui-1.5.rc1.js"></script>
   <script src="../lib/Control.FullScreen.js"></script>
   <script src="../lib/leaflet.groupedlayercontrol.min.js"></script>
@@ -231,7 +231,6 @@
   <script src="../lib/tile.js"></script>
   <script src="../lib/L.Control.MousePosition.js"></script>
   <script src="../lib/Leaflet.LinearMeasurement.js"></script>
-  <script src="../lib/twitTimelineMod.js"></script>
   <script src="../lib/leaflet.contextmenu.min.js"></script>
   <script src="../lib/leaflet.hotline.min.js"></script>
   <script src="../lib/tweet-display.js"></script>

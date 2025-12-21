@@ -135,7 +135,7 @@ function loadMenuAJAX(xhttp) {
       else if (event.node.img.includes("aircraft") && event.node.parent.id != "inactiveVessels") {
         
         // let the user know only one data load request can be active at a time
-        if (KSA_CALCULATIONS.strFltTrackLoading) {
+        if (KSA_UI_STATE.strFltTrackLoading) {
           $("#mapDialog").dialog( "option", "title", "Data Load Notice");
           $("#progressbar").fadeOut();
           $("#dialogTxt").fadeIn();
@@ -157,14 +157,14 @@ function loadMenuAJAX(xhttp) {
           swapContent("body", "Kerbin-System", event.node.id);
 
           // don't let an accidental double-click load this twice
-          KSA_CALCULATIONS.strFltTrackLoading = event.node.id;
+          KSA_UI_STATE.strFltTrackLoading = event.node.id;
         }
 
         // however if the system is already set to Kerbin, just load the path straight to the map
         else {
 
           // don't try to load this if it is already being loaded
-          if (KSA_CALCULATIONS.strFltTrackLoading != event.node.id) {
+          if (KSA_UI_STATE.strFltTrackLoading != event.node.id) {
 
             // if this isn't the right page type, set it up
             if (ops.pageType != "body") swapContent("body", "Kerbin-System", event.node.id);
@@ -178,7 +178,7 @@ function loadMenuAJAX(xhttp) {
               ops.surface.layerControl.options.collapsed = false;
               ops.surface.layerControl.addOverlay(KSA_LAYERS.surfaceTracksDataLoad.fltTrackDataLoad, "<i class='fa fa-cog fa-spin'></i> Loading Data...", "Flight Tracks");
               loadDB("loadFltData.asp?data=" + event.node.id, loadFltDataAJAX);
-              KSA_CALCULATIONS.strFltTrackLoading = event.node.id;
+              KSA_UI_STATE.strFltTrackLoading = event.node.id;
 
             // if the data already exists...
             } else {

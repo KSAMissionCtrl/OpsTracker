@@ -23,6 +23,8 @@ var TweetDisplay = (function() {
   };
 
   var engageIds = [];
+  var requestCounter = 0;
+  var activeRequests = {};
 
   // Helper: Parse Twitter date format to JavaScript Date
   // Twitter format: "Wed Oct 10 20:19:24 +0000 2018"
@@ -78,7 +80,7 @@ var TweetDisplay = (function() {
 
   // Helper: Load JSON file line by line (tweets.txt format - .json has MIME type issues on server)
   function loadTweetsJson(tweetIds, callback) {
-    var url = config.tweetsPath + 'tweets.txt';
+    var url = config.tweetsPath + 'tweets.json.txt';
     loadTextFile(url, function(err, data) {
       if (err) {
         callback(err, null);
@@ -315,10 +317,20 @@ var TweetDisplay = (function() {
     var order = options.order || config.defaultOrder;
     var maxTweets = options.maxTweets || config.defaultMaxTweets;
 
+    // Generate unique request ID and cancel any previous requests for this container
+    var requestId = ++requestCounter;
+    activeRequests[options.containerId] = requestId;
+
     containerEl.innerHTML = '<div class="tweet-loading">Loading tweets...</div>';
 
     // Load tweet IDs
     loadTextFile(config.tweetsPath + collectionFile + '.txt', function(err, data) {
+      // Check if this request is still active
+      if (activeRequests[options.containerId] !== requestId) {
+        console.log('Tweet request cancelled (superseded by newer request)');
+        return;
+      }
+
       if (err) {
         containerEl.innerHTML = '<p class="tweet-error">No tweets found.</p>';
         console.error(err);
@@ -341,6 +353,9 @@ var TweetDisplay = (function() {
         tweetIds.sort(function(a, b) { return Number(a) - Number(b); });
       }
 
+      // Track total before limiting
+      var totalTweets = tweetIds.length;
+
       // Limit
       if (maxTweets > 0) {
         tweetIds = tweetIds.slice(0, maxTweets);
@@ -348,6 +363,12 @@ var TweetDisplay = (function() {
 
       // Load engage list
       loadTextFile(config.tweetsPath + 'engage.txt', function(engageErr, engageData) {
+        // Check if this request is still active
+        if (activeRequests[options.containerId] !== requestId) {
+          console.log('Tweet request cancelled (superseded by newer request)');
+          return;
+        }
+
         if (!engageErr && engageData) {
           engageIds = engageData.split('\n')
             .map(function(line) { return line.trim(); })
@@ -356,6 +377,12 @@ var TweetDisplay = (function() {
 
         // Load tweets data
         loadTweetsJson(tweetIds, function(tweetsErr, tweetsData) {
+          // Check if this request is still active
+          if (activeRequests[options.containerId] !== requestId) {
+            console.log('Tweet request cancelled (superseded by newer request)');
+            return;
+          }
+
           if (tweetsErr) {
             containerEl.innerHTML = '<p class="tweet-error">Failed to load tweets.</p>';
             console.error(tweetsErr);
@@ -389,6 +416,13 @@ var TweetDisplay = (function() {
             }
 
             html += formatTweet(tweet, isDateBoundary, order);
+          }
+
+          // Only show "View Full Collection" link if tweets were limited
+          if (maxTweets > 0 && totalTweets > maxTweets) {
+            html += '<div style="text-align: center; padding: 5px 0;">';
+            html += '<a href="http://www.kerbalspace.agency/?p=' + collectionFile + '" target="_blank" style="font-size: 16px; color: #1da1f2; text-decoration: none; font-weight: 500;">View Full Collection →</a>';
+            html += '</div>';
           }
 
           html += '</div>';

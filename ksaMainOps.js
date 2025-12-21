@@ -574,6 +574,10 @@ function checkPageUpdate() {
 }
 
 function swapTwitterSource(swap, source) {
+
+  // Ensure source is a string (in case it comes from ASP as a number)
+  if (source) source = String(source);
+  
   if (swap && source) {
     $("#twitterTimelineSelection").html("Source: <span class='fauxLink' onclick=\"swapTwitterSource('" + swap + "')\">KSA Main Feed</span> | <b>" + swap + "</b>");
     ops.twitterSource = source;
@@ -597,7 +601,7 @@ function swapTwitterSource(swap, source) {
     // New custom tweet display system - source is a collection ID
     // Determine order based on mission status - ascending if mission ended, descending otherwise
     var tweetOrder = 'desc';
-    if (ops.currentVessel && isMissionEnded() && source != "13573") {
+    if (swap && (swap == "Mission Feed" && ops.currentVessel && isMissionEnded()) && source != "13573") {
       tweetOrder = 'asc';
     }
     
@@ -605,7 +609,7 @@ function swapTwitterSource(swap, source) {
       containerId: 'twitterTimeline',
       collectionFile: source,
       order: tweetOrder,
-      maxTweets: 50
+      maxTweets: 25
     });
   }
 }

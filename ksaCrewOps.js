@@ -319,7 +319,7 @@ function crewInfoUpdate(update) {
   strBackgrnd += "<p><b>Family Name:</b> " + ops.currentCrew.Background.FamName + "&nbsp;<img src='qmark.png' style='margin-bottom: 10px; left: initial; cursor: help' class='tip' data-tipped-options=\"position: 'right', maxWidth: 135\" title='as a show of global unity, all adult kerbals take the surname of the first planetary leader'></p>";
   
   // rest of the bio stuff
-  strBackgrnd += "<p><b>Specialty:</b> " + sanitizeHTML(ops.currentCrew.Background.Speciality) + "</p><p><b>Hobbies:</b> " + sanitizeHTML(ops.currentCrew.Background.Hobbies) + "</p><p><b>Biography:</b> " + sanitizeHTML(ops.currentCrew.Background.Bio) + "</p><p><b>Service History:</b> " + sanitizeHTML(ops.currentCrew.History.History) + "</p>";
+  strBackgrnd += "<p><b>Specialty:</b> " + sanitizeHTML(ops.currentCrew.Background.Speciality) + "</p><p><b>Hobbies:</b> " + sanitizeHTML(ops.currentCrew.Background.Hobbies) + "</p><p><b>Biography:</b> " + ops.currentCrew.Background.Bio + "</p><p><b>Service History:</b> " + ops.currentCrew.History.History + "</p>";
   $("#infoDialog").html(strBackgrnd);
 }
 

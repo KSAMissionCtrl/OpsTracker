@@ -680,15 +680,12 @@ function vesselHistoryUpdate() {
   });
 
   // fill up the next events
-  var timeStamp = 0;
   ops.currentVessel.History.reverse().forEach(function(item) {
 
     // if this isn't a past event, we don't want the current event (equal to the current UT) to show up
     if (!ops.currentVessel.CraftData.pastEvent && item.UT > ops.currentVessel.CraftData.UT && item.UT < currUT()) {
-      if (timeStamp == 0) timeStamp = -1;
-      else timeStamp = item.UT;
       $("#nextEvent").append($('<option>', {
-        value: timeStamp,
+        value: item.UT,
         text: item.Title
       }));
       $("#nextEvent").prop("disabled", false);
@@ -696,10 +693,8 @@ function vesselHistoryUpdate() {
 
     // otherwise if it's a previous event we do want the most recent event in this list
     } else if (ops.currentVessel.CraftData.pastEvent && item.UT > ops.currentVessel.CraftData.UT && item.UT <= currUT()) {
-      if (timeStamp == 0) timeStamp = -1;
-      else timeStamp = item.UT;
       $("#nextEvent").append($('<option>', {
-        value: timeStamp,
+        value: item.UT,
         text: item.Title
       }));
       $("#nextEvent").prop("disabled", false);
