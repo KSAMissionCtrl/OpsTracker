@@ -298,7 +298,10 @@ function setupContent() {
   // load page content
   var paramUT = null;
   if (getParameterByName("ut")) paramUT = parseInt(getParameterByName("ut"));
-  if (getParameterByName("vessel")) swapContent("vessel", getParameterByName("vessel"), paramUT);
+
+  // support older URLs that still load vessels by db
+  if (getParameterByName("db") && getParameterByName("db") != "bodies") swapContent("vessel", getParameterByName("db"), paramUT);
+  else if (getParameterByName("vessel")) swapContent("vessel", getParameterByName("vessel"), paramUT);
   else if (getParameterByName("body")) swapContent("body", getParameterByName("body"), paramUT);
   else if (getParameterByName("crew")) { 
     if (getParameterByName("crew") == "crewFull") swapContent("crewFull", getParameterByName("crew"));
@@ -454,6 +457,9 @@ function swapContent(newPageType, id, ut, flt) {
       KSA_LAYERS.surfaceTracksDataLoad.bodiesTrackDataLoad = null;
     }
   } else if (ops.pageType == "vessel") {
+  
+    // stop any active ascent playback before leaving the vessel page
+    if (ops.ascentData.active) ascentEnd();
   
     // some elements need to be hidden only if we are not switching to a crew page
     if (newPageType != "crew") {

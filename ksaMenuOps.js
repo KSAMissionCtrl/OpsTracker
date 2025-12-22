@@ -509,12 +509,20 @@ function filterCrewMenu(id) {
       }
     });
   } else if (currOption == "assignment") {
-    ops.crewMenu.sort(function(a,b) { return (a.assignment > b.assignment) ? 1 : ((b.assignment > a.assignment) ? -1 : 0); });
+    ops.crewMenu.sort(function(a,b) { 
+      var aAssign = a.assignment || "Unassigned";
+      var bAssign = b.assignment || "Unassigned";
+      return (aAssign > bAssign) ? 1 : ((bAssign > aAssign) ? -1 : 0);
+    });
     ops.crewMenu.forEach(function(item) {
       if (item.UT <= currUT()) {
         if (item.assignment && !w2ui['menu'].find('crew', { id: item.assignment }).length) {
           w2ui['menu'].add('crew', { id: item.assignment,
                                      text: item.assignment + " (0)",
+                                     img: 'icon-folder' });
+        } else if (!item.assignment && !w2ui['menu'].find('crew', { id: 'Unassigned' }).length) {
+          w2ui['menu'].add('crew', { id: 'Unassigned',
+                                     text: "Unassigned (0)",
                                      img: 'icon-folder' });
         }
       }
@@ -528,6 +536,12 @@ function filterCrewMenu(id) {
                                               img: 'icon-crew' });
           if (item.badged) badgeMenuItem(item.db, true, true);
           updateFolderCount(item.assignment);
+        } else {
+          w2ui['menu'].add('Unassigned', { id: item.db,
+                                     text: "<span>" + item.name + " Kerman</span>",
+                                     img: 'icon-crew' });
+          if (item.badged) badgeMenuItem(item.db, true, true);
+          updateFolderCount('Unassigned');
         }
       }
     });

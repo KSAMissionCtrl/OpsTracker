@@ -3,11 +3,15 @@
 // before insertion into DOM to prevent XSS attacks. Use sanitizeHTML() for any
 // new code that inserts database content into HTML.
 
-function loadVessel(vessel, givenUT) {
+function loadVessel(vessel, givenUT, wasUTExplicit) {
+  // Track whether UT was explicitly provided in the original call
+  // This flag needs to be preserved through recursive setTimeout calls
+  if (wasUTExplicit === undefined) wasUTExplicit = (givenUT && givenUT != currUT());
+  
   if (!givenUT || givenUT < 0) givenUT = currUT();
 
-  // can't continue if menu data hasn't loaded
-  if (!KSA_UI_STATE.isMenuDataLoaded) return setTimeout(loadVessel, 50, vessel, givenUT);
+  // can't continue if menu data hasn't loaded - preserve the wasUTExplicit flag
+  if (!KSA_UI_STATE.isMenuDataLoaded) return setTimeout(loadVessel, 50, vessel, givenUT, wasUTExplicit);
 
   // we can't let anyone jump to a UT later than the current UT
   if (givenUT > currUT() && !getCookie("missionctrl")) givenUT = currUT();
@@ -15,8 +19,8 @@ function loadVessel(vessel, givenUT) {
   // compose the the URL that will appear in the address bar when the history state is updated
   var strURL = "http://www.kerbalspace.agency/Tracker/tracker.asp?vessel=" + vessel;
 
-  // if the UTs don't match then we are being sent to another time and should add it to the URL
-  if (givenUT != currUT()) strURL += "&ut=" + givenUT;
+  // Only add UT to URL if it was explicitly provided
+  if (wasUTExplicit) strURL += "&ut=" + givenUT;
 
   // if this is the first page to load, replace the current history
   if (!history.state) history.replaceState({type: "vessel", id: vessel, UT: givenUT}, document.title, strURL);
@@ -55,6 +59,10 @@ function loadVessel(vessel, givenUT) {
     ops.currentVessel.OrbitalHistory.length = 0;
     ops.currentVessel = null;
   }
+  
+  // clear ascent vessel tracking so ascentEnd() won't trigger a reload for this vessel
+  ops.ascentData.vessel = null;
+  
   loadDB("loadVesselData.asp?db=" + vessel + "&ut=" + givenUT, loadVesselAJAX);
   
   // add vessel-specific buttons to the map
@@ -170,11 +178,11 @@ function loadVesselAJAX(xhttp) {
   if (ops.currentVessel.Catalog.Patches) {
 
     // program patch
-    $("#patches").append("<a target='_blank' href='" + ops.currentVessel.Catalog.Patches.split("|")[0].split(";")[2] + "'><img id='programPatch' class='tipped' data-tipped-options=\"position: 'bottom'\" style='height: 35px;' title=\"<center>Click to view the " + ops.currentVessel.Catalog.Patches.split("|")[0].split(";")[0] + " Program page</center><br /><img style='height: 500px;' src='" + ops.currentVessel.Catalog.Patches.split("|")[0].split(";")[1] + "'>\" src='" + ops.currentVessel.Catalog.Patches.split("|")[0].split(";")[1] + "'></a>&nbsp;");
+    $("#patches").append("<a target='_blank' href='" + ops.currentVessel.Catalog.Patches.split("|")[0].split(";")[2].replace("index.php", "") + "'><img id='programPatch' class='tipped' data-tipped-options=\"position: 'bottom'\" style='height: 35px;' title=\"<center>Click to view the " + ops.currentVessel.Catalog.Patches.split("|")[0].split(";")[0] + " Program page</center><br /><img style='height: 500px;' src='" + ops.currentVessel.Catalog.Patches.split("|")[0].split(";")[1] + "'>\" src='" + ops.currentVessel.Catalog.Patches.split("|")[0].split(";")[1] + "'></a>&nbsp;");
     
     // vessel patch has a URL?
     if (ops.currentVessel.Catalog.Patches.split("|")[1].split(";").length > 2) {
-      $("#patches").append("<a target='_blank' href='" + ops.currentVessel.Catalog.Patches.split("|")[1].split(";")[2] + "'><img id='vesselPatch' class='tipped' data-tipped-options=\"position: 'bottom'\" style='height: 35px; cursor: pointer;' title=\"<center>Click to view the " + ops.currentVessel.Catalog.Patches.split("|")[1].split(";")[0] + " vessel page</center><br /><img style='height: 500px;' src='" + ops.currentVessel.Catalog.Patches.split("|")[1].split(";")[1] + "'>\" src='" + ops.currentVessel.Catalog.Patches.split("|")[1].split(";")[1] + "'></a>&nbsp;");
+      $("#patches").append("<a target='_blank' href='" + ops.currentVessel.Catalog.Patches.split("|")[1].split(";")[2].replace("index.php", "") + "'><img id='vesselPatch' class='tipped' data-tipped-options=\"position: 'bottom'\" style='height: 35px; cursor: pointer;' title=\"<center>Click to view the " + ops.currentVessel.Catalog.Patches.split("|")[1].split(";")[0] + " vessel page</center><br /><img style='height: 500px;' src='" + ops.currentVessel.Catalog.Patches.split("|")[1].split(";")[1] + "'>\" src='" + ops.currentVessel.Catalog.Patches.split("|")[1].split(";")[1] + "'></a>&nbsp;");
     } else {
       $("#patches").append("<img id='vesselPatch' class='tipped' data-tipped-options=\"position: 'bottom'\" style='height: 35px; cursor: help;' title=\"<img style='height: 500px;' src='" + ops.currentVessel.Catalog.Patches.split("|")[1].split(";")[1] + "'>\" src='" + ops.currentVessel.Catalog.Patches.split("|")[1].split(";")[1] + "'>&nbsp;");
     }
@@ -1451,6 +1459,7 @@ function ascentEnd() {
     if (ops.ascentData.vessel == ops.currentVessel.Catalog.DB && ops.pageType == "vessel") loadVessel(ops.currentVessel.Catalog.DB, currUT())
   }
   ops.ascentData.active = false;
+  ops.ascentData.vessel = null;
 }
 
 // interpolate or set the data fields during an active ascent
