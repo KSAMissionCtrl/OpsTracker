@@ -1230,6 +1230,13 @@ function loadOpsDataAJAX(xhttp) {
   // ensure timer accuracy, even catch up if browser slows tab in background
   // http://www.sitepoint.com/creating-accurate-timers-in-javascript/
   var diff = (new Date().getTime() - ops.clock.getTime()) - ops.tickDelta;
+  
+  // if tab was inactive for more than 3 minutes, reload the page to ensure fresh state
+  if (diff > 180000) {
+    window.location.reload();
+    return;
+  }
+  
   ops.tickDelta += 1000;
   setTimeout(tick, 1000 - diff);
 })();

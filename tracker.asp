@@ -23,11 +23,7 @@
   integrity="sha384-50oBUHEmvpQ+1lW4y57PTFmhCaXp0ML5d60M1M7uH2+nqUivzIebhndOJK28anvf" 
   crossorigin="anonymous">
 
-  <!-- CSS stylesheets 
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.6.0/dist/leaflet.css"
-  integrity="sha512-xwE/Az9zrjBIphAcBb3F6JVqxf46+CDLwfLMHloNu6KEQCAWi6HcDUbeOfBIptF7tcCzusKFjFw2yuvEpDL9wQ=="
-  crossorigin=""/>
-  -->
+  <!-- CSS stylesheets -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css"
   integrity="sha512-xodZBNTC5n17Xt2atTPuE1HxjVMSvLVW9ocqUKLsCC5CXdbqCmblAshOMAS6/keqq/sMZMZ19scR4PsZChSR7A=="
   crossorigin=""/>
@@ -205,11 +201,7 @@
       </div>
     </div>
   </div>
-  <!-- JS files 
-  <script src="https://unpkg.com/leaflet@1.6.0/dist/leaflet.js"
-  integrity="sha512-gZwIG9x3wUXg2hdXF6+rVkLF/0Vi9U8D2Ntg4Ga5I5BZpVkVxlJWbSQtXPSiUTtC0TjtGOmxa1AJPuV0CPthew=="
-  crossorigin=""></script>  
-  -->
+  <!-- JS files  -->
   <script src="http://ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js"></script>
   <script src="https://cdn.geogebra.org/apps/deployggb.js"></script>
   <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"
@@ -234,6 +226,7 @@
   <script src="../lib/leaflet.contextmenu.min.js"></script>
   <script src="../lib/leaflet.hotline.min.js"></script>
   <script src="../lib/tweet-display.js"></script>
+  <script src="../lib/L.Polyline.SnakeAnim.js"></script>
   <script src="helpFuncs.js"></script>
   <script src="ksaGlobals.js"></script>
   <script src="ksaEventOps.js"></script>

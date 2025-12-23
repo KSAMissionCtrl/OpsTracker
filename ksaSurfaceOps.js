@@ -623,6 +623,10 @@ function loadFltDataAJAX(xhttp) {
           if (Object.keys(KSA_CATALOGS.fltPaths[0].layer._layers).length > 1) ops.surface.map.setView([0,0], 1);
           else ops.surface.map.fitBounds(Object.values(KSA_CATALOGS.fltPaths[0].layer._layers)[0]._bounds);
         }
+        
+        // Update the URL to include this flight
+        var strURL = "http://www.kerbalspace.agency/Tracker/tracker.asp?body=Kerbin-System&flt=" + KSA_CATALOGS.fltPaths[0].id;
+        history.pushState({type: "body", id: "Kerbin-System"}, document.title, strURL);
       // multiple tracks...
       } else {
 
@@ -652,6 +656,9 @@ function loadFltDataAJAX(xhttp) {
     }
   } else {
 
+    // Select this flight in the menu
+    selectMenuItem(KSA_CATALOGS.fltPaths[KSA_CATALOGS.fltPaths.length-1].id);
+
     // check for in-progress flight
     if (!inFlight(KSA_CATALOGS.fltPaths[KSA_CATALOGS.fltPaths.length-1])) {
 
@@ -659,6 +666,10 @@ function loadFltDataAJAX(xhttp) {
       if (Object.keys(KSA_CATALOGS.fltPaths[KSA_CATALOGS.fltPaths.length-1].layer._layers).length > 1) ops.surface.map.setView([0,0], 1);
       else ops.surface.map.fitBounds(Object.values(KSA_CATALOGS.fltPaths[KSA_CATALOGS.fltPaths.length-1].layer._layers)[0]._bounds);
     }
+
+    // Update the URL to include this flight
+    var strURL = "http://www.kerbalspace.agency/Tracker/tracker.asp?body=Kerbin-System&flt=" + KSA_CATALOGS.fltPaths[KSA_CATALOGS.fltPaths.length-1].id;
+    history.pushState({type: "body", id: "Kerbin-System"}, document.title, strURL);
 
     KSA_LAYERS.surfaceTracksDataLoad.fltTrackDataLoad = null;
     checkDataLoad();
@@ -1568,7 +1579,7 @@ function setupFlightSurfacePath(path, index, startIndex, length) {
     strNewHtml += "<span class='fauxLink' onclick='removeFltPath(" + indexFlt + ")'>Remove Track</span> | <span class='fauxLink' onclick='fltElev(" + indexFlt + ")'>";
     if (KSA_CATALOGS.fltPaths[index].elev) strNewHtml += "Hide Altitude";
     else strNewHtml += "Show Altitude";
-    strNewHtml += "</span></center></p>";
+    strNewHtml += "</span><br><span class='fauxLink' onclick='downloadFlightDataCSV(" + indexFlt + ")'>Download CSV</span> | <span class='fauxLink' onclick='replayFlightPath(" + indexFlt + ")'>Animate Flight</span></center></p>";
     KSA_MAP_CONTROLS.flightPositionPopup.setContent(strNewHtml);
     KSA_MAP_CONTROLS.flightPositionPopup.setLatLng(e.latlng);
     KSA_MAP_CONTROLS.flightPositionPopup.openOn(ops.surface.map);
@@ -2176,6 +2187,11 @@ function calculateSurfaceTracks(currentName, currentType) {
           var strType = capitalizeFirstLetter(currentType);
           if (!strType.endsWith("s")) strType += "s";
           ops.surface.layerControl.addOverlay(currLayer.group, "<img src='icon_" + currentType + ".png' style='width: 15px'> " + strType, "Orbital Tracks");
+          
+          // check if this layer should be automatically selected based on URL parameters
+          if (getParameterByName("layers").includes(currentType) || getParameterByName("layers").includes(strType.toLowerCase())) {
+            currLayer.group.addTo(ops.surface.map);
+          }
         }
       }
 
@@ -2583,4 +2599,234 @@ function flightTrackHover(e) {
   KSA_MAP_CONTROLS.timePopup.setLatLng(e.latlng);
   KSA_MAP_CONTROLS.timePopup.setContent(UTtoDateTime(KSA_CATALOGS.fltPaths[indexFlt].fltData[index].UT) + ' UTC<br>Latitude: ' + numeral(KSA_CATALOGS.fltPaths[indexFlt].fltData[index].Lat).format('0.0000') + '&deg;' + cardinal.lat + '<br>Longitude: ' + numeral(KSA_CATALOGS.fltPaths[indexFlt].fltData[index].Lng).format('0.0000') + '&deg;' + cardinal.lng + '<br>Altitude ASL: ' + numeral(KSA_CATALOGS.fltPaths[indexFlt].fltData[index].ASL/1000).format('0,0.000') + ' km<br>Altitude AGL: ' + numeral(KSA_CATALOGS.fltPaths[indexFlt].fltData[index].AGL/1000).format('0,0.000') + " km<br>Velocity: " + numeral(KSA_CATALOGS.fltPaths[indexFlt].fltData[index].Spd).format('0,0.000') + " m/s" + '<br>Distance from KSC: ' + numeral(KSA_CATALOGS.fltPaths[indexFlt].fltData[index].Dist/1000).format('0,0.000') + " km<p>Click for additional options</p>");
   KSA_MAP_CONTROLS.timePopup.openOn(ops.surface.map);
+}
+
+// download the entire flight path data as CSV
+function downloadFlightDataCSV(indexFlt) {
+  // create CSV header
+  var csv = 'UT,Date,Time (UTC),Latitude,Latitude (decimal),Longitude,Longitude (decimal),Altitude ASL (km),Altitude ASL (m),Altitude AGL (km),Altitude AGL (m),Velocity (m/s),Distance from KSC (km),Distance from KSC (m)\n';
+  
+  // loop through all data points in the flight path
+  KSA_CATALOGS.fltPaths[indexFlt].fltData.forEach(function(data) {
+    var cardinal = getLatLngCompass({lat: data.Lat, lng: data.Lng});
+    
+    // get formatted date/time
+    var dateTime = UTtoDateTime(data.UT);
+    var date = dateTime.split('@')[0];
+    var time = dateTime.split('@')[1];
+    
+    // add data row
+    csv += data.UT + ',';
+    csv += '"' + date + '",';
+    csv += '"' + time + '",';
+    csv += '"' + numeral(data.Lat).format('0.0000') + ' ' + cardinal.lat + '",';
+    csv += data.Lat + ',';
+    csv += '"' + numeral(data.Lng).format('0.0000') + ' ' + cardinal.lng + '",';
+    csv += data.Lng + ',';
+    csv += numeral(data.ASL/1000).format('0,0.000') + ',';
+    csv += data.ASL + ',';
+    csv += numeral(data.AGL/1000).format('0,0.000') + ',';
+    csv += data.AGL + ',';
+    csv += data.Spd + ',';
+    csv += numeral(data.Dist/1000).format('0,0.000') + ',';
+    csv += data.Dist + '\n';
+  });
+  
+  // create a blob and download it
+  var blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  var link = document.createElement('a');
+  var url = URL.createObjectURL(blob);
+  
+  // generate filename with flight name
+  var filename = 'flight_data_' + KSA_CATALOGS.fltPaths[indexFlt].info.Title.replace(/[^a-z0-9]/gi, '_') + '.csv';
+  
+  link.setAttribute('href', url);
+  link.setAttribute('download', filename);
+  link.style.visibility = 'hidden';
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+}
+
+// replay the flight path with snake animation
+function replayFlightPath(indexFlt) {
+  // close the popup
+  ops.surface.map.closePopup(KSA_MAP_CONTROLS.flightPositionPopup);
+  
+  // if there's already an animation running, don't start another
+  if (KSA_CATALOGS.fltPaths[indexFlt]._isAnimating) {
+    return;
+  }
+  KSA_CATALOGS.fltPaths[indexFlt]._isAnimating = true;
+  
+  // save the elev state and turn off elevation if it's active
+  var wasElevShown = KSA_CATALOGS.fltPaths[indexFlt].elev;
+  if (wasElevShown) {
+    fltElev(indexFlt);
+  }
+  
+  // save the original layer
+  var originalLayer = KSA_CATALOGS.fltPaths[indexFlt].layer;
+  
+  // setup global error handler for this animation
+  var animationErrorHandler = function(event) {
+    if (event.error && event.error.message && event.error.message.includes('Invalid LatLng')) {
+      console.error("Caught LatLng error during animation, restoring original path");
+      event.preventDefault();
+      
+      // restore the original layer if it's not already on the map
+      if (!ops.surface.map.hasLayer(originalLayer)) {
+        try {
+          if (window.currentAnimLayer) {
+            ops.surface.map.removeLayer(window.currentAnimLayer);
+          }
+        } catch(e) {}
+        
+        originalLayer.addTo(ops.surface.map);
+        
+        if (wasElevShown) {
+          fltElev(indexFlt);
+        }
+      }
+      
+      KSA_CATALOGS.fltPaths[indexFlt]._isAnimating = false;
+      window.removeEventListener('error', animationErrorHandler);
+    }
+  };
+  
+  window.addEventListener('error', animationErrorHandler);
+  
+  // fit the map to show the entire flight path
+  ops.surface.map.fitBounds(originalLayer.getBounds());
+  
+  // wait for map to finish adjusting before starting animation
+  setTimeout(function() {
+    // remove the original layer from the map
+    ops.surface.map.removeLayer(originalLayer);
+    
+    // create a new layer for the animation
+    var animLayer = L.featureGroup();
+    var segments = [];
+    
+    // build the path segments
+    var path = [];
+    
+    KSA_CATALOGS.fltPaths[indexFlt].fltData.forEach(function(position, index) {
+      
+      // validate coordinates before adding
+      if (isNaN(position.Lat) || isNaN(position.Lng)) {
+        console.error("Invalid coordinates at index", index, position);
+        return;
+      }
+      
+      // detect if we've crossed off the edge of the map and need to cut the path
+      if (path.length && (((position.Lng < 0 && path[path.length-1][1] > 0) && Math.abs(position.Lng) > 100) || ((position.Lng > 0 && path[path.length-1][1] < 0) && Math.abs(position.Lng) > 100))) { 
+        
+        // only create segment if we have at least 2 points
+        if (path.length >= 2) {
+          // create a completely new polyline with validated coordinates
+          var segment = L.polyline(path, {
+            smoothFactor: 1.75,
+            color: KSA_CATALOGS.fltPaths[indexFlt].color,
+            weight: 3,
+            opacity: 1,
+            snakingSpeed: 400
+          });
+          
+          segments.push(segment);
+          animLayer.addLayer(segment);
+        }
+        path = [];
+      }
+      
+      // add position to path as simple array [lat, lng]
+      path.push([position.Lat, position.Lng]);
+    });
+    
+    // add the final segment
+    if (path.length >= 2) {
+      var finalSegment = L.polyline(path, {
+        smoothFactor: 1.75,
+        color: KSA_CATALOGS.fltPaths[indexFlt].color,
+        weight: 3,
+        opacity: 1,
+        snakingSpeed: 400
+      });
+      
+      segments.push(finalSegment);
+      animLayer.addLayer(finalSegment);
+    }
+    
+    // add the animation layer to the map first
+    animLayer.addTo(ops.surface.map);
+    
+    // store reference for error handler
+    window.currentAnimLayer = animLayer;
+    
+    // ensure map is stable before starting animation
+    ops.surface.map.invalidateSize();
+    
+    // wait for the layer to be fully added and rendered before starting animation
+    setTimeout(function() {
+      // double-check that all segments are properly attached to the map
+      var allSegmentsValid = true;
+      segments.forEach(function(seg) {
+        if (!seg._map || !seg._latlngs || seg._latlngs.length === 0) {
+          console.error("Invalid segment found", seg);
+          allSegmentsValid = false;
+        }
+      });
+      
+      if (!allSegmentsValid) {
+        console.error("Animation cancelled - invalid segments");
+        ops.surface.map.removeLayer(animLayer);
+        originalLayer.addTo(ops.surface.map);
+        KSA_CATALOGS.fltPaths[indexFlt]._isAnimating = false;
+        return;
+      }
+      
+      // function to clean up and restore original layer
+      var cleanupAndRestore = function() {
+        // remove global error handler
+        window.removeEventListener('error', animationErrorHandler);
+        window.currentAnimLayer = null;
+        
+        segments.forEach(function(seg) {
+          seg._snaking = false;
+          seg._snakeLatLngs = null;
+        });
+        
+        try {
+          ops.surface.map.removeLayer(animLayer);
+        } catch(e) {
+          console.error("Error removing animation layer:", e);
+        }
+        
+        originalLayer.addTo(ops.surface.map);
+        
+        if (wasElevShown) {
+          fltElev(indexFlt);
+        }
+        
+        KSA_CATALOGS.fltPaths[indexFlt]._isAnimating = false;
+      };
+      
+      // listen for errors on all segments
+      segments.forEach(function(seg) {
+        seg.on('error', function(e) {
+          console.error("Error during snake animation:", e);
+          cleanupAndRestore();
+        });
+      });
+      
+      // start the snake animation with error handling
+      try {
+        animLayer.once('snakeend', cleanupAndRestore);
+        animLayer.snakeIn();
+      } catch(e) {
+        console.error("Error starting snake animation:", e);
+        cleanupAndRestore();
+      }
+    }, 200);
+  }, 350);
 }

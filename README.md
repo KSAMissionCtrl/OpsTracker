@@ -30,6 +30,7 @@ The following JavaScript libraries are used:
 * [Leaflet.MousePosition](https://github.com/ardhi/Leaflet.MousePosition)
 * [Leaflet.hotline](https://github.com/iosphere/Leaflet.hotline)
 * [Leaflet.contextmenu](https://github.com/aratcliffe/Leaflet.contextmenu)
+* [Leaflet.Polyline.SnakeAnim](https://github.com/IvanSanchez/Leaflet.Polyline.SnakeAnim)
 
 ### Important Known Issues
 
