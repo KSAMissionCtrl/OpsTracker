@@ -309,9 +309,15 @@ function filterVesselMenu(id, checked) {
 
 function filterInactiveMenu(id) {
 
-  // if a value was passed in, enable that radio option before we check to see what is selected
-  if (id) $('input:radio[name=inactive]').filter('[id=' + id + ']').prop('checked', true);
-  var currOption = $("input[name=inactive]").filter(":checked").val();
+  // set cursor to wait while sorting - use !important to override any CSS
+  $('body, *').css('cursor', 'wait', 'important');
+  $('body').addClass('wait-cursor');
+
+  // use setTimeout to allow cursor change to render before sorting begins
+  setTimeout(function() {
+    // if a value was passed in, enable that radio option before we check to see what is selected
+    if (id) $('input:radio[name=inactive]').filter('[id=' + id + ']').prop('checked', true);
+    var currOption = $("input[name=inactive]").filter(":checked").val();
 
   // reset the count to 0
   w2ui['menu'].get('inactiveVessels').text = "Inactive Vessels (0)";
@@ -423,13 +429,24 @@ function filterInactiveMenu(id) {
   }
   w2ui['menu'].refresh();
   if (selectedNode) selectMenuItem(selectedNode);
+
+  // restore cursor to default
+  $('body').removeClass('wait-cursor');
+  $('body, *').css('cursor', '');
+  }, 10);
 }
 
 function filterCrewMenu(id) {
 
-  // if a value was passed in, enable that radio option before we check to see what is selected
-  if (id) $('input:radio[name=roster]').filter('[id=' + id + ']').prop('checked', true);
-  var currOption = $("input[name=roster]").filter(":checked").val();
+  // set cursor to wait while sorting - use !important to override any CSS
+  $('body, *').css('cursor', 'wait', 'important');
+  $('body').addClass('wait-cursor');
+
+  // use setTimeout to allow cursor change to render before sorting begins
+  setTimeout(function() {
+    // if a value was passed in, enable that radio option before we check to see what is selected
+    if (id) $('input:radio[name=roster]').filter('[id=' + id + ']').prop('checked', true);
+    var currOption = $("input[name=roster]").filter(":checked").val();
 
   // reset the count to 0
   w2ui['menu'].get('crew').text = "Crew Roster (0)";
@@ -591,6 +608,11 @@ function filterCrewMenu(id) {
     KSA_CATALOGS.crewList = extractIDs(w2ui['menu'].get('crew').nodes).split(";");
     loadDB("loadCrewData.asp?db=" + showFullRoster() + "&ut=" + currUT(), loadCrewAJAX);
   }
+
+  // restore cursor to default
+  $('body').removeClass('wait-cursor');
+  $('body, *').css('cursor', '');
+  }, 10);
 }
 
 // hides the twitter widget to allow the menu to use the full height of the right-side content area, preserves event box

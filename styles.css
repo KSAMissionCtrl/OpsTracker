@@ -3,6 +3,11 @@ body {
   font-family: arial;
 }
 
+body.wait-cursor,
+body.wait-cursor * {
+  cursor: wait !important;
+}
+
 th,td {
   font-size:12px;
   padding:3px;
@@ -28,6 +33,11 @@ label {
 
 input {
   cursor: pointer;
+}
+
+#copyLinkIcon,
+#copyLinkIcon * {
+  cursor: pointer !important;
 }
 
 input:disabled {

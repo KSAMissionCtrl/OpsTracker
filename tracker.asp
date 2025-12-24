@@ -18,10 +18,12 @@
   <!-- use this image link to force reddit to use a certain image for its thumbnail -->
   <meta property="og:image" content="https://i.imgur.com/ugGunHB.png" />
   
-  <!-- cache of Font Awesome -->
+  <!-- cache of Font Awesome 
   <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.8.1/css/all.css" 
   integrity="sha384-50oBUHEmvpQ+1lW4y57PTFmhCaXp0ML5d60M1M7uH2+nqUivzIebhndOJK28anvf" 
   crossorigin="anonymous">
+  -->
+  <script src="https://kit.fontawesome.com/72c8db4d15.js" crossorigin="anonymous"></script>
 
   <!-- CSS stylesheets -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css"
@@ -41,7 +43,7 @@
   <link rel="stylesheet" href="styles.css?v=1.0">
   <link rel="stylesheet" href="../lib/tweet-display.css">
 
-   <!-- allows for use of X/Twitter JS API functions -->
+   <!-- allows for use of X/Twitter JS API functions
    <script>window.twttr = (function(d, s, id) {
     var js, fjs = d.getElementsByTagName(s)[0],
       t = window.twttr || {};
@@ -58,6 +60,7 @@
   
     return t;
   }(document, "script", "twitter-wjs"));</script>
+   -->
 </head>
 
 <body onload='setupContent()'>
@@ -79,7 +82,7 @@
       </div>
       <div id='siteDialog'></div>
       <div id='contentHeader' class='header'>&nbsp;</div>
-      <div id='copyLinkIcon' style='position: absolute; top: 10px; right: 305px; display: none; cursor: pointer; font-size: 18px; color: #4a90e2; text-decoration: none; z-index: 10;' title='Copy link to clipboard'>🔗</div>
+      <div id='copyLinkIcon' style='position: absolute; top: 10px; right: 305px; display: none; cursor: pointer; font-size: 18px; color: #4a90e2; text-decoration: none; z-index: 10; user-select: none; -webkit-user-select: none; -moz-user-select: none; -ms-user-select: none;'><i class="fa-solid fa-link"></i></div>
       <div id='contentBox'>
         <div id='map' class='map'></div>
         <div id='content'></div>

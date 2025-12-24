@@ -164,8 +164,8 @@ function setupContent() {
     // Copy to clipboard
     if (navigator.clipboard && navigator.clipboard.writeText) {
       navigator.clipboard.writeText(sanitizedUrl).then(function() {
-        $("#copyLinkIcon").html("✓");
-        setTimeout(function() { $("#copyLinkIcon").html("🔗"); }, 1500);
+        $("#copyLinkIcon").html("<i class=\"fa-solid fa-link fa-bounce\"></i>");
+        setTimeout(function() { $("#copyLinkIcon").html("<i class=\"fa-solid fa-link\"></i>"); }, 800);
       }).catch(function(err) {
         console.error("Failed to copy: ", err);
       });
@@ -176,8 +176,8 @@ function setupContent() {
       temp.val(sanitizedUrl).select();
       document.execCommand("copy");
       temp.remove();
-      $("#copyLinkIcon").html("✓");
-      setTimeout(function() { $("#copyLinkIcon").html("🔗"); }, 1500);
+      $("#copyLinkIcon").html("<i class=\"fa-solid fa-link fa-bounce\"></i>");
+      setTimeout(function() { $("#copyLinkIcon").html("<i class=\"fa-solid fa-link\"></i>"); }, 800);
     }
   });
 
@@ -381,9 +381,6 @@ function swapContent(newPageType, id, ut, flt) {
       $("#contentBox").css('height', '885px');
       $("#contentBox").fadeIn();
       loadBody(id);
-      
-      // Show link icon after spinner is removed
-      setTimeout(function() { $("#copyLinkIcon").fadeIn(); }, 500);
     }
     if (newPageType == "vessel") {
 
@@ -395,7 +392,6 @@ function swapContent(newPageType, id, ut, flt) {
       $("#infoBox").fadeIn();
       $("#dataBox").fadeIn();
       loadVessel(id, ut);
-      setTimeout(function() { $("#copyLinkIcon").fadeIn(); }, 500);
     }
     if (newPageType == "crewFull") {
       $("#contentBox").spin(false);
@@ -403,7 +399,6 @@ function swapContent(newPageType, id, ut, flt) {
       $("#contentBox").fadeIn();
       $("#fullRoster").fadeIn();
       loadCrew(id);
-      setTimeout(function() { $("#copyLinkIcon").fadeIn(); }, 500);
     }
     if (newPageType == "crew") {
       $("#contentBox").spin(false);
@@ -420,8 +415,15 @@ function swapContent(newPageType, id, ut, flt) {
       $("#contentBox").fadeOut();
       $("#missionHistory").fadeOut();
       loadCrew(id);
-      setTimeout(function() { $("#copyLinkIcon").fadeIn(); }, 500);
     }
+    // Show link icon after spinner is removed
+    setTimeout(function() { 
+      $("#copyLinkIcon").fadeIn();
+      var showOpt = 'mouseenter';
+      if (is_touch_device()) showOpt = 'click';
+      Tipped.create('#copyLinkIcon', 'Copy link to clipboard', { showOn: showOpt, hideOnClickOutside: is_touch_device(), position: 'bottom' });
+    }, 500);
+
     return;
   }
   
