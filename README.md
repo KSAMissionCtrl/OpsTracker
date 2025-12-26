@@ -31,6 +31,7 @@ The following JavaScript libraries are used:
 * [Leaflet.hotline](https://github.com/iosphere/Leaflet.hotline)
 * [Leaflet.contextmenu](https://github.com/aratcliffe/Leaflet.contextmenu)
 * [Leaflet.Polyline.SnakeAnim](https://github.com/IvanSanchez/Leaflet.Polyline.SnakeAnim)
+* [Leaflet.Geodesic](https://github.com/henrythasler/Leaflet.Geodesic)
 
 ### Important Known Issues
 

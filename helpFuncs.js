@@ -133,6 +133,18 @@ function buildSafeHTML(template, values) {
 // EXISTING UTILITIES
 // ==============================================================================
 
+/**
+ * Normalizes longitude values to be within the range of -180 to 180 degrees
+ * @param {number} longitude - Longitude value to normalize (can be any value >= 0)
+ * @returns {number} Normalized longitude between -180 and 180
+ */
+function normalizeLongitude(longitude) {
+  if (longitude >= 180) {
+    return longitude - 360;
+  }
+  return longitude;
+}
+
 // https://stackoverflow.com/questions/11887934/how-to-check-if-the-dst-daylight-saving-time-is-in-effect-and-if-it-is-whats
 Date.prototype.stdTimezoneOffset = function () {
   var jan = new Date(this.getFullYear(), 0, 1);
@@ -488,6 +500,68 @@ function flashUpdate(element, startColor, endColor) {
 // http://cwestblog.com/2012/11/12/javascript-degree-and-radian-conversion/
 Math.radians = function(degrees) { return degrees * Math.PI / 180; };
 Math.degrees = function(radians) { return radians * 180 / Math.PI; };
+
+// ==============================================================================
+// MAP UTILITIES
+// ==============================================================================
+
+/**
+ * Calculates the geodesic horizon radius for a given altitude
+ * L.GeodesicCircle uses Earth's radius (6371 km), so we scale by ratio: Earth radius / Current Body radius
+ * 
+ * @param {number} altitude - Altitude in meters
+ * @param {boolean} capAtMaxHorizon - Whether to cap at max visible distance (default: true)
+ * @returns {number} The horizon radius for use with L.GeodesicCircle
+ */
+function calculateHorizonRadius(altitude, capAtMaxHorizon = true) {
+  // Get current body radius from the catalog
+  var bodyRadius = ops.bodyCatalog.find(o => o.selected === true).Radius;
+  var scaleFactor = 6371 / bodyRadius;
+  
+  // Calculate horizon distance based on altitude
+  // Formula: √(h * (2R + h)) where h is altitude and R is body radius
+  var horizonRadius = Math.sqrt(altitude * (bodyRadius * 1000 * 2 + altitude)) * scaleFactor;
+  
+  // Cap at maximum theoretical visible distance if requested (default: true)
+  // Half circumference = π * radius, reduced by 50.1% to avoid map projection artifacts
+  if (capAtMaxHorizon) {
+    var maxHorizon = Math.PI * bodyRadius * 1000 * scaleFactor * 0.499;
+    if (horizonRadius > maxHorizon) horizonRadius = maxHorizon;
+  }
+  
+  return horizonRadius;
+}
+
+/**
+ * Creates a geodesic circle (horizon) around a marker at a given altitude
+ * 
+ * @param {L.LatLng|Array} latLng - The center point (marker position or [lat, lng])
+ * @param {number} altitude - Altitude in meters
+ * @param {object} options - Optional styling options
+ * @param {string} options.color - Circle color (default: "#00ff3c")
+ * @param {number} options.weight - Line weight (default: 2)
+ * @param {boolean} options.fill - Whether to fill the circle (default: false)
+ * @param {boolean} options.capAtMaxHorizon - Whether to cap at max visible distance (default: true)
+ * @returns {L.GeodesicCircle} The created geodesic circle
+ */
+function addHorizonCircle(latLng, altitude, options = {}) {
+  // Calculate the horizon radius
+  var horizonRadius = calculateHorizonRadius(altitude, options.capAtMaxHorizon !== false);
+  
+  // Calculate steps based on radius - larger circles need more segments (min 50, ~1 step per 50km)
+  // cap at 500 steps to avoid performance issues
+  var steps = Math.max(50, Math.min(500, Math.floor(horizonRadius / 5000)));
+  console.log(`Horizon radius: ${horizonRadius.toFixed(2)} m, Steps: ${steps}`);
+  
+  // Create the geodesic circle with provided or default options
+  return new L.GeodesicCircle(latLng, {
+    radius: horizonRadius,
+    color: options.color || "#00ff3c",
+    weight: options.weight !== undefined ? options.weight : 2,
+    fill: options.fill !== undefined ? options.fill : false,
+    steps: steps
+  });
+}
 
 // recursive function to shorten text word by word until it all fits on two lines
 function wrapText(limit, strText, fontSize) {

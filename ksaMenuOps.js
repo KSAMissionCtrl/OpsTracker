@@ -277,6 +277,7 @@ function loadMenuAJAX(xhttp) {
   loadOpsDataAJAX();
   
   // setup the rest of the menu according to the default filter & handle future filter changes
+  // isMenuSorted flag will be set inside filterInactiveMenu after sorting completes
   filterInactiveMenu();
   filterCrewMenu();
   $('input:radio[name=inactive]').change(function () { filterInactiveMenu(); });
@@ -433,6 +434,9 @@ function filterInactiveMenu(id) {
   // restore cursor to default
   $('body').removeClass('wait-cursor');
   $('body, *').css('cursor', '');
+  
+  // Set flag to indicate menu sorting is complete (only on initial page load)
+  if (!KSA_UI_STATE.isMenuSorted) KSA_UI_STATE.isMenuSorted = true;
   }, 10);
 }
 
@@ -615,6 +619,33 @@ function filterCrewMenu(id) {
   }, 10);
 }
 
+// helper function to check if the selected menu item is visible in the viewport
+function isMenuItemVisible(itemId) {
+  try {
+    // Get the scrollable container - it's the div with w2ui-sidebar-div class
+    var $container = $('#menuBox').find('.w2ui-sidebar-div');
+    if (!$container.length) return false; // if can't find container, scroll to be safe
+    
+    var container = $container[0];
+    var $item = $container.find('.w2ui-node').filter(function() {
+      return $(this).attr('id') === itemId;
+    });
+    
+    if (!$item.length) return false; // if can't find item, scroll to be safe
+    
+    var item = $item[0];
+    var containerTop = container.scrollTop;
+    var containerBottom = containerTop + container.clientHeight;
+    var itemTop = item.offsetTop;
+    var itemBottom = itemTop + item.offsetHeight;
+    
+    // Item is visible if it's fully within the viewport
+    return (itemTop >= containerTop && itemBottom <= containerBottom);
+  } catch (e) {
+    return false; // on error, scroll to be safe
+  }
+}
+
 // hides the twitter widget to allow the menu to use the full height of the right-side content area, preserves event box
 function menuResize() {
   if ($('#menuResize').html().includes("Expand")) {
@@ -625,6 +656,12 @@ function menuResize() {
       setTimeout(function() { 
         w2ui['menu'].bottomHTML = '<div id="menuResize" onclick="menuResize()">&and;&and;Collapse Menu&and;&and;</div>';
         w2ui['menu'].refresh(); 
+        if (w2ui['menu'].find({selected: true}).length) {
+          var selectedId = w2ui['menu'].find({selected: true})[0].id;
+          setTimeout(function() {
+            if (!isMenuItemVisible(selectedId)) w2ui['menu'].scrollIntoView(selectedId);
+          }, 50);
+        }
       }, 200);
     });
   } else {
@@ -634,7 +671,10 @@ function menuResize() {
     setTimeout(function() { 
       w2ui['menu'].bottomHTML = '<div id="menuResize" onclick="menuResize()">&or;&or;Expand Menu&or;&or;</div>';
       w2ui['menu'].refresh(); 
-      w2ui['menu'].scrollIntoView(w2ui['menu'].find({selected: true})[0].id); 
+      var selectedId = w2ui['menu'].find({selected: true})[0].id;
+      setTimeout(function() {
+        if (!isMenuItemVisible(selectedId)) w2ui['menu'].scrollIntoView(selectedId);
+      }, 50);
       $('#twitterBox').fadeIn(250);
     }, 200);
   }
@@ -648,7 +688,10 @@ function filterDisplay() {
     setTimeout(function() { 
       w2ui['menu'].topHTML = '<div id="filterDisplay" onclick="filterDisplay()">&and;&and;Hide Filters&and;&and;</div>';
       w2ui['menu'].refresh(); 
-      w2ui['menu'].scrollIntoView(w2ui['menu'].find({selected: true})[0].id);
+      var selectedId = w2ui['menu'].find({selected: true})[0].id;
+      setTimeout(function() {
+        if (!isMenuItemVisible(selectedId)) w2ui['menu'].scrollIntoView(selectedId);
+      }, 50);
     }, 200);
   } else {
     $('#filters').fadeOut(250);
@@ -656,7 +699,10 @@ function filterDisplay() {
     setTimeout(function() { 
       w2ui['menu'].topHTML = '<div id="filterDisplay" onclick="filterDisplay()">&or;&or;Show Filters&or;&or;</div>';
       w2ui['menu'].refresh(); 
-      w2ui['menu'].scrollIntoView(w2ui['menu'].find({selected: true})[0].id);
+      var selectedId = w2ui['menu'].find({selected: true})[0].id;
+      setTimeout(function() {
+        if (!isMenuItemVisible(selectedId)) w2ui['menu'].scrollIntoView(selectedId);
+      }, 50);
     }, 200);
   }
 }
@@ -996,9 +1042,14 @@ function addVesselByDate(item, parentFolder = "inactiveVessels", addMonths = tru
 }
 
 // selects the item from the menu and also makes sure to remove any badges
-function selectMenuItem(menuID) {
+function selectMenuItem(menuID, retryCount) {
   var menuNode = w2ui['menu'].get(menuID);
   if (!menuNode) {
+    // if the menu node doesn't exist yet, retry a few times in case the menu is still being populated
+    if (!retryCount) retryCount = 0;
+    if (retryCount < 20) {
+      return setTimeout(selectMenuItem, 50, menuID, retryCount + 1);
+    }
     console.log("improper menu id: " + menuID);
     return;
   }

@@ -210,6 +210,9 @@
   <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"
   integrity="sha512-XQoYMqMTK8LvdxXYG3nZ448hOEQiglfqkJs1NOQV44cWnUrBc8PkAOcXy20w0vlaXaVUearIOBhiXZ5V3ynxwA=="
   crossorigin=""></script>
+  <script src="https://cdn.jsdelivr.net/npm/leaflet.geodesic@2.7.2/dist/leaflet.geodesic.umd.min.js"
+  integrity="sha512-xpefEm742/sELYn8wdYCejRseXu24rGp5BxGShPo1lN+UxwPPIYNiskHW8GIJvFAicvqpzH62fltgly0eaAbOA=="
+  crossorigin=""></script>
   <script src="../lib/jquery-ui.min.js"></script>
   <script src="../lib/luxon.min.js"></script>
   <script src="../lib/spin.min.js"></script>  

@@ -160,6 +160,7 @@ const KSA_UI_STATE = {
   
   // Loading states
   isMenuDataLoaded: false,
+  isMenuSorted: false,           // when the menu has completed initial sorting
   isGGBAppletLoaded: false,      // when the GGB figure is ready to be displayed and updated
   isGGBAppletRefreshing: false,  // when the GGB figure is still loading any additional vessel orbits
   
@@ -302,6 +303,7 @@ const KSA_CATALOGS = {
 const KSA_LAYERS = {
   layerSolar: L.layerGroup(),  // layer group containing terminator polygon
   layerPins: null,             // layer showing/hiding custom pins on surface map
+  layerGroundStations: null,   // layer showing/hiding ground stations and vessel/body horizons
   
   // Loading indicators for map layers
   surfaceTracksDataLoad: {

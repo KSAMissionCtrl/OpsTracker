@@ -6,7 +6,7 @@
 function loadCrew(crew) {
   
   // make sure the menu data is loaded before continuing
-  if (!KSA_UI_STATE.isMenuDataLoaded) return setTimeout(loadCrew, 100, crew);
+  if (!KSA_UI_STATE.isMenuSorted) return setTimeout(loadCrew, 50, crew);
 
   // modify the history so people can page back/forward
   // if this is the first page to load, replace the current history

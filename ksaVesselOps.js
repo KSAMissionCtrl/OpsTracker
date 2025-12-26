@@ -10,8 +10,8 @@ function loadVessel(vessel, givenUT, wasUTExplicit) {
   
   if (!givenUT || givenUT < 0) givenUT = currUT();
 
-  // can't continue if menu data hasn't loaded - preserve the wasUTExplicit flag
-  if (!KSA_UI_STATE.isMenuDataLoaded) return setTimeout(loadVessel, 50, vessel, givenUT, wasUTExplicit);
+  // can't continue if menu data hasn't loaded and sorted - preserve the wasUTExplicit flag
+  if (!KSA_UI_STATE.isMenuSorted) return setTimeout(loadVessel, 50, vessel, givenUT, wasUTExplicit);
 
   // we can't let anyone jump to a UT later than the current UT
   if (givenUT > currUT() && !getCookie("missionctrl")) givenUT = currUT();
@@ -41,7 +41,7 @@ function loadVessel(vessel, givenUT, wasUTExplicit) {
     var lastSOI = soiList.pop();
     strParentBody = ops.bodyCatalog.find(o => o.ID === parseInt(lastSOI.split(";")[1])).Body;
   }
-  if (!ops.surface.Data || (ops.surface.Data && ops.surface.Data.Name != strParentBody.replace("-System", ""))) loadBody(strParentBody);
+  if (strParentBody && (!ops.surface.Data || (ops.surface.Data && ops.surface.Data.Name != strParentBody.replace("-System", "")))) loadBody(strParentBody);
 
   // select and show it in the menu
   selectMenuItem(vessel);
@@ -743,10 +743,9 @@ function vesselContentUpdate(update) {
       // remove any previous markers and surface plots
       if (KSA_MAP_CONTROLS.launchsiteMarker) ops.surface.map.removeLayer(KSA_MAP_CONTROLS.launchsiteMarker);
       if (KSA_MAP_CONTROLS.vesselMarker) ops.surface.map.removeLayer(KSA_MAP_CONTROLS.vesselMarker);
-      if (KSA_MAP_CONTROLS.vesselHorizon.vessel) ops.surface.map.removeLayer(KSA_MAP_CONTROLS.vesselHorizon.vessel); KSA_MAP_CONTROLS.vesselHorizon.vessel = null;
-      if (KSA_MAP_CONTROLS.vesselHorizon.eastWest) ops.surface.map.removeLayer(KSA_MAP_CONTROLS.vesselHorizon.eastWest); KSA_MAP_CONTROLS.vesselHorizon.eastWest = null;
-      if (KSA_MAP_CONTROLS.vesselHorizon.northSouth) ops.surface.map.removeLayer(KSA_MAP_CONTROLS.vesselHorizon.northSouth); KSA_MAP_CONTROLS.vesselHorizon.northSouth = null;
-        KSA_MAP_CONTROLS.launchsiteMarker = null;
+      if (KSA_MAP_CONTROLS.vesselHorizon.vessel) KSA_LAYERS.layerGroundStations.removeLayer(KSA_MAP_CONTROLS.vesselHorizon.vessel); 
+      KSA_MAP_CONTROLS.vesselHorizon.vessel = null;
+      KSA_MAP_CONTROLS.launchsiteMarker = null;
       clearSurfacePlots();
 
       // extract the data
@@ -767,12 +766,16 @@ function vesselContentUpdate(update) {
       
       // if launch is in progress and there's an altitude to report, include it
       var launchAltitude = "";
-      if (data.length > 3) launchAltitude = "<br>" + data[3] + "km ASL";
-      
+      if (data.length > 3) {
+        launchAltitude = "<br>" + data[3] + "km ASL";
+
+        // add a horizon circle at the marker location
+        KSA_MAP_CONTROLS.vesselHorizon.vessel = addHorizonCircle([parseFloat(data[0]), parseFloat(data[1])], parseFloat(data[3]) * 1000);
+        KSA_LAYERS.layerGroundStations.addLayer(KSA_MAP_CONTROLS.vesselHorizon.vessel);
+      }
       // place the marker and build the information window for it, then center the map on it and create a popup for it
       KSA_MAP_CONTROLS.launchsiteMarker = L.marker([data[0], data[1]], {icon: launchsiteIcon}).addTo(ops.surface.map);
-      var latlng = { lat: parseInt(data[0]), lng: parseInt(data[1]) };
-      KSA_MAP_CONTROLS.launchsiteMarker.bindPopup(strLaunchIconCaption + data[2] + launchAltitude + "<br>[" + numeral(data[0]).format('0.0000') + "&deg;" + getLatLngCompass(latlng).lat + ", " + numeral(data[1]).format('0.0000') + "&deg;" + getLatLngCompass(latlng).lng + "]" , { closeOnClick: false });
+      KSA_MAP_CONTROLS.launchsiteMarker.bindPopup(strLaunchIconCaption + data[2] + launchAltitude + "<br>[" + numeral(data[0]).format('0.0000') + "&deg;" + getLatLngCompass(KSA_MAP_CONTROLS.launchsiteMarker.getLatLng()).lat + ", " + numeral(data[1]).format('0.0000') + "&deg;" + getLatLngCompass(KSA_MAP_CONTROLS.launchsiteMarker.getLatLng()).lng + "]" , { closeOnClick: false });
       if (ops.surface.map.getZoom() <= 3) ops.surface.map.setView(KSA_MAP_CONTROLS.launchsiteMarker.getLatLng(), 3);
       KSA_MAP_CONTROLS.launchsiteMarker.openPopup();
       
@@ -1402,9 +1405,8 @@ function setupStreamingAscent() {
   // remove any markers that might already be placed
   if (KSA_MAP_CONTROLS.launchsiteMarker) ops.surface.map.removeLayer(KSA_MAP_CONTROLS.launchsiteMarker);
   if (KSA_MAP_CONTROLS.vesselMarker) ops.surface.map.removeLayer(KSA_MAP_CONTROLS.vesselMarker);
-  if (KSA_MAP_CONTROLS.vesselHorizon.vessel) ops.surface.map.removeLayer(KSA_MAP_CONTROLS.vesselHorizon.vessel); KSA_MAP_CONTROLS.vesselHorizon.vessel = null;
-  if (KSA_MAP_CONTROLS.vesselHorizon.eastWest) ops.surface.map.removeLayer(KSA_MAP_CONTROLS.vesselHorizon.eastWest); KSA_MAP_CONTROLS.vesselHorizon.eastWest = null;
-  if (KSA_MAP_CONTROLS.vesselHorizon.northSouth) ops.surface.map.removeLayer(KSA_MAP_CONTROLS.vesselHorizon.northSouth); KSA_MAP_CONTROLS.vesselHorizon.northSouth = null;
+  if (KSA_MAP_CONTROLS.vesselHorizon.vessel) KSA_LAYERS.layerGroundStations.removeLayer(KSA_MAP_CONTROLS.vesselHorizon.vessel);
+  KSA_MAP_CONTROLS.vesselHorizon.vessel = null;
 
   // place the craft marker 
   KSA_MAP_ICONS.vesselIcon = L.icon({iconUrl: 'button_vessel_' + currType(ops.currentVessel.Catalog.Type) + '.png', iconSize: [16, 16]});
@@ -1444,9 +1446,8 @@ function ascentEnd() {
     // clear out the ascent track and vessel marker
     clearAscentTracks();
     if (KSA_MAP_CONTROLS.vesselMarker) ops.surface.map.removeLayer(KSA_MAP_CONTROLS.vesselMarker);
-    if (KSA_MAP_CONTROLS.vesselHorizon.vessel) ops.surface.map.removeLayer(KSA_MAP_CONTROLS.vesselHorizon.vessel); KSA_MAP_CONTROLS.vesselHorizon.vessel = null;
-    if (KSA_MAP_CONTROLS.vesselHorizon.eastWest) ops.surface.map.removeLayer(KSA_MAP_CONTROLS.vesselHorizon.eastWest); KSA_MAP_CONTROLS.vesselHorizon.eastWest = null;
-    if (KSA_MAP_CONTROLS.vesselHorizon.northSouth) ops.surface.map.removeLayer(KSA_MAP_CONTROLS.vesselHorizon.northSouth); KSA_MAP_CONTROLS.vesselHorizon.northSouth = null;
+    if (KSA_MAP_CONTROLS.vesselHorizon.vessel) KSA_LAYERS.layerGroundStations.removeLayer(KSA_MAP_CONTROLS.vesselHorizon.vessel);
+    KSA_MAP_CONTROLS.vesselHorizon.vessel = null;
 
     // hide the fields that are now unused
     $("#dataField13").fadeOut();

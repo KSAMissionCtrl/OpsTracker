@@ -386,32 +386,16 @@ function loadMapDataAJAX(xhttp) {
       layerGrndStn.addLayer(grndMarker);
 
       // create the range of visibility to the horizon for this station and add it to the layer group
-      var stationHorizon = L.circle([station[0],station[1]], { 
-        radius: (Math.sqrt(parseFloat(station[2])*(600000 * 2 + parseFloat(station[2])))*10),
-        color: "#FFD800",
-        weight: 2,
-        interactive: false
-      })
+      var stationHorizon = addHorizonCircle(
+        [parseFloat(station[0]), parseFloat(station[1])],
+        parseFloat(station[2]),
+        { color: "#FFD800" }
+      );
       layerGrndStn.addLayer(stationHorizon);
-
-      // we need to temporarily add this to the map to measure it
-      stationHorizon.addTo(ops.surface.map);
-
-      // special case for ground stations near the edge of map that go off it
-      // add a second circle to the other side of the map
-      var eastWest = 0;
-      if (stationHorizon.getBounds().getWest() < -180) eastWest = 1;
-      else if (stationHorizon.getBounds().getEast() > 180) eastWest = -1;
-      if (eastWest) {
-        layerGrndStn.addLayer(L.circle([station[0],parseFloat(station[1]) + (360*eastWest)], { 
-          radius: (Math.sqrt(parseFloat(station[2])*(600000 * 2 + parseFloat(station[2])))*10),
-          color: "#FFD800",
-          weight: 2,
-          interactive: false
-        }));
-      }
-      ops.surface.map.removeLayer(stationHorizon);
     });
+
+    // Store the layer globally so vessel/body horizons can be added to it
+    KSA_LAYERS.layerGroundStations = layerGrndStn;
 
     ops.surface.layerControl.addOverlay(layerGrndStn, "<img src='pinGrndStation.png' style='width: 10px; vertical-align: 1px;'> Ground Stations", "Ground Markers");
     if (getParameterByName("layers").includes("ground") || getParameterByName("layers").includes("grnd") || getParameterByName("layers").includes("station")) {
@@ -1018,6 +1002,17 @@ function renderVesselOrbit() {
     KSA_MAP_CONTROLS.vesselMarker = L.marker(ops.currentVesselPlot.obtData[0].orbit[0].latlng, {icon: KSA_MAP_ICONS.vesselIcon, zIndexOffset: 100}).addTo(ops.surface.map);
     KSA_MAP_CONTROLS.vesselMarker.bindPopup("Lat: <span id='lat'>-000.0000&deg;S</span><br>Lng: <span id='lng'>-000.0000&deg;W</span><br>Alt: <span id='alt'>000,000.000km</span><br>Vel: <span id='vel'>000,000.000km/s</span>", {autoClose: false, keepInView: false, autoPan: false});
 
+    // create horizon circle for the vessel
+    if (!KSA_MAP_CONTROLS.vesselHorizon.vessel) {
+      KSA_MAP_CONTROLS.vesselHorizon.vessel = addHorizonCircle(
+        ops.currentVesselPlot.obtData[0].orbit[0].latlng,
+        ops.currentVesselPlot.obtData[0].orbit[0].alt * 1000,
+        { color: KSA_COLORS.vesselOrbitColors[0] }
+      );
+      // Add horizon to ground station layer so it only shows when that layer is active
+      KSA_LAYERS.layerGroundStations.addLayer(KSA_MAP_CONTROLS.vesselHorizon.vessel);
+    }
+
     // set up a listener for popup events so we can immediately update the information and not have to wait for the next tick event
     KSA_MAP_CONTROLS.vesselMarker.on('popupopen', function(e) {
       var now = getPlotIndex();
@@ -1264,7 +1259,7 @@ function orbitalCalc(callback, orbit, batchCount = 1000, limit) {
     var vel = Math.sqrt(gmu*(2/rNorm - 1/orbit.SMA));
     
     // convert the lng to proper coordinates (-180 to 180)
-    if (longitude >= 180) longitude -= 360;
+    longitude = normalizeLongitude(longitude);
     
     // store all the derived values and advance to the next second
     KSA_CALCULATIONS.orbitDataCalc.push({latlng: {lat: latitude, lng: longitude}, alt: alt, vel: vel});
@@ -1655,9 +1650,8 @@ function clearSurfacePlots() {
       if (ops.currentVesselPlot.events[event].marker) ops.surface.map.removeLayer(ops.currentVesselPlot.events[event].marker);
     }
     if (KSA_MAP_CONTROLS.vesselMarker) ops.surface.map.removeLayer(KSA_MAP_CONTROLS.vesselMarker);
-    if (KSA_MAP_CONTROLS.vesselHorizon.vessel) ops.surface.map.removeLayer(KSA_MAP_CONTROLS.vesselHorizon.vessel); KSA_MAP_CONTROLS.vesselHorizon.vessel = null;
-    if (KSA_MAP_CONTROLS.vesselHorizon.eastWest) ops.surface.map.removeLayer(KSA_MAP_CONTROLS.vesselHorizon.eastWest); KSA_MAP_CONTROLS.vesselHorizon.eastWest = null;
-    if (KSA_MAP_CONTROLS.vesselHorizon.northSouth) ops.surface.map.removeLayer(KSA_MAP_CONTROLS.vesselHorizon.northSouth); KSA_MAP_CONTROLS.vesselHorizon.northSouth = null;
+    if (KSA_MAP_CONTROLS.vesselHorizon.vessel) KSA_LAYERS.layerGroundStations.removeLayer(KSA_MAP_CONTROLS.vesselHorizon.vessel);
+    KSA_MAP_CONTROLS.vesselHorizon.vessel = null;
   }
   if (KSA_CATALOGS.fltPaths.length) {
     KSA_CATALOGS.fltPaths.forEach(function(path) {
@@ -1706,9 +1700,7 @@ function redrawVesselPlots() {
       KSA_MAP_CONTROLS.vesselMarker.openPopup();
       setTimeout(function() { KSA_MAP_CONTROLS.vesselMarker.closePopup(); }, 5000);
     }
-    if (KSA_MAP_CONTROLS.vesselHorizon.vessel) KSA_MAP_CONTROLS.vesselHorizon.vessel.addTo(ops.surface.map); KSA_MAP_CONTROLS.vesselHorizon.vessel = null;
-    if (KSA_MAP_CONTROLS.vesselHorizon.eastWest) KSA_MAP_CONTROLS.vesselHorizon.eastWest.addTo(ops.surface.map); KSA_MAP_CONTROLS.vesselHorizon.eastWest = null;
-    if (KSA_MAP_CONTROLS.vesselHorizon.northSouth) KSA_MAP_CONTROLS.vesselHorizon.northSouth.addTo(ops.surface.map); KSA_MAP_CONTROLS.vesselHorizon.northSouth = null;
+    if (KSA_MAP_CONTROLS.vesselHorizon.vessel) KSA_LAYERS.layerGroundStations.addLayer(KSA_MAP_CONTROLS.vesselHorizon.vessel);
   }
   ops.surface.map.invalidateSize();
 }
@@ -2386,41 +2378,14 @@ function renderBodyOrbit() {
     if (obj.obtData.events.ap.marker) currLayer.group.addLayer(obj.obtData.events.ap.marker);
     if (obj.obtData.events.pe.marker) currLayer.group.addLayer(obj.obtData.events.pe.marker);
 
-    // create the horizon(s)
+    // create the horizon
     var now = currUT() - obj.obtData.startUT;
-    var horizonRadius = Math.sqrt((obj.obtData.orbit[now].alt*1000)*((ops.bodyCatalog.find(o => o.selected === true).Radius*1000) * 2 + (obj.obtData.orbit[now].alt*1000)))*10;
-    //if (horizonRadius/10 > ops.bodyCatalog.find(o => o.selected === true).Radius*1000) horizonRadius = (ops.bodyCatalog.find(o => o.selected === true).Radius*1000)*10;
-    KSA_MAP_CONTROLS.vesselHorizon.vessel = L.circle(obj.obtData.marker.getLatLng(), { 
-      radius: horizonRadius,
-      color: "#00ff3c",
-      weight: 2,
-      interactive: false
-    });
-    currLayer.group.addLayer(KSA_MAP_CONTROLS.vesselHorizon.vessel);
-    if (KSA_MAP_CONTROLS.vesselHorizon.vessel.getBounds().getWest() < -180 || KSA_MAP_CONTROLS.vesselHorizon.vessel.getBounds().getEast() > 180) {
-      var eastWest = 0;
-      if (KSA_MAP_CONTROLS.vesselHorizon.vessel.getBounds().getWest() < -180) eastWest = 1;
-      else if (KSA_MAP_CONTROLS.vesselHorizon.vessel.getBounds().getEast() > 180) eastWest = -1;
-      KSA_MAP_CONTROLS.vesselHorizon.eastWest = L.circle([obj.obtData.marker.getLatLng().lat, obj.obtData.marker.getLatLng().lng + (360 * eastWest)], { 
-        radius: horizonRadius,
-        color: "#00ff3c",
-        weight: 2,
-        interactive: false
-      });
-      currLayer.group.addLayer(KSA_MAP_CONTROLS.vesselHorizon.eastWest);
-    }
-    if (KSA_MAP_CONTROLS.vesselHorizon.vessel.getBounds().getSouth() < -90 || KSA_MAP_CONTROLS.vesselHorizon.vessel.getBounds().getNorth() > 90) {
-      var northSouth = 0;
-      if (KSA_MAP_CONTROLS.vesselHorizon.vessel.getBounds().getSouth() < -90) northSouth = 1;
-      else if (KSA_MAP_CONTROLS.vesselHorizon.vessel.getBounds().getNorth() > 90) northSouth = -1;
-      KSA_MAP_CONTROLS.vesselHorizon.northSouth = L.circle([obj.obtData.marker.getLatLng().lat + (180 * northSouth), obj.obtData.marker.getLatLng().lng], { 
-        radius: horizonRadius,
-        color: "#00ff3c",
-        weight: 2,
-        interactive: false
-      });
-      currLayer.group.addLayer(KSA_MAP_CONTROLS.vesselHorizon.northSouth);
-    }
+    KSA_MAP_CONTROLS.vesselHorizon.vessel = addHorizonCircle(
+      obj.obtData.marker.getLatLng(),
+      obj.obtData.orbit[now].alt * 1000
+    );
+    // Add horizon to ground station layer so it only shows when ground stations are shown
+    KSA_LAYERS.layerGroundStations.addLayer(KSA_MAP_CONTROLS.vesselHorizon.vessel);
 
     // setup the popup
     var now = currUT() - obj.obtData.startUT;
@@ -2440,16 +2405,8 @@ function renderBodyOrbit() {
     if (obj.obtData.events.ap.marker) currLayer.group.removeLayer(obj.obtData.events.ap.marker);
     if (obj.obtData.events.pe.marker) currLayer.group.removeLayer(obj.obtData.events.pe.marker);
     if (KSA_MAP_CONTROLS.vesselHorizon.vessel) {
-      currLayer.group.removeLayer(KSA_MAP_CONTROLS.vesselHorizon.vessel);
-      KSA_MAP_CONTROLS.vesselHorizon.eastWest = vessel;
-    }
-    if (KSA_MAP_CONTROLS.vesselHorizon.eastWest) {
-      currLayer.group.removeLayer(KSA_MAP_CONTROLS.vesselHorizon.eastWest);
-      KSA_MAP_CONTROLS.vesselHorizon.eastWest = null;
-    }
-    if (KSA_MAP_CONTROLS.vesselHorizon.northSouth) {
-      currLayer.group.removeLayer(KSA_MAP_CONTROLS.vesselHorizon.northSouth);
-      KSA_MAP_CONTROLS.vesselHorizon.northSouth = null;
+      KSA_LAYERS.layerGroundStations.removeLayer(KSA_MAP_CONTROLS.vesselHorizon.vessel);
+      KSA_MAP_CONTROLS.vesselHorizon.vessel = null;
     }
   });
 
@@ -2650,6 +2607,10 @@ function downloadFlightDataCSV(indexFlt) {
 
 // replay the flight path with snake animation
 function replayFlightPath(indexFlt) {
+  // save the popup location before closing it
+  var popupLatLng = KSA_MAP_CONTROLS.flightPositionPopup.getLatLng();
+  var popupContent = KSA_MAP_CONTROLS.flightPositionPopup.getContent();
+  
   // close the popup
   ops.surface.map.closePopup(KSA_MAP_CONTROLS.flightPositionPopup);
   
@@ -2665,13 +2626,17 @@ function replayFlightPath(indexFlt) {
     fltElev(indexFlt);
   }
   
-  // save the original layer
+  // save the original layer and its bounds
   var originalLayer = KSA_CATALOGS.fltPaths[indexFlt].layer;
+  var layerBounds = originalLayer.getBounds();
+  
+  // immediately hide the path
+  ops.surface.map.removeLayer(originalLayer);
   
   // setup global error handler for this animation
   var animationErrorHandler = function(event) {
     if (event.error && event.error.message && event.error.message.includes('Invalid LatLng')) {
-      console.error("Caught LatLng error during animation, restoring original path");
+      console.error("Caught LatLng error during animation, restoring original path and popup");
       event.preventDefault();
       
       // restore the original layer if it's not already on the map
@@ -2687,6 +2652,11 @@ function replayFlightPath(indexFlt) {
         if (wasElevShown) {
           fltElev(indexFlt);
         }
+        
+        // restore the popup
+        KSA_MAP_CONTROLS.flightPositionPopup.setLatLng(popupLatLng);
+        KSA_MAP_CONTROLS.flightPositionPopup.setContent(popupContent);
+        KSA_MAP_CONTROLS.flightPositionPopup.openOn(ops.surface.map);
       }
       
       KSA_CATALOGS.fltPaths[indexFlt]._isAnimating = false;
@@ -2696,14 +2666,11 @@ function replayFlightPath(indexFlt) {
   
   window.addEventListener('error', animationErrorHandler);
   
-  // fit the map to show the entire flight path
-  ops.surface.map.fitBounds(originalLayer.getBounds());
+  // fit the map to show the entire flight path using saved bounds
+  ops.surface.map.fitBounds(layerBounds);
   
   // wait for map to finish adjusting before starting animation
   setTimeout(function() {
-    // remove the original layer from the map
-    ops.surface.map.removeLayer(originalLayer);
-    
     // create a new layer for the animation
     var animLayer = L.featureGroup();
     var segments = [];
@@ -2725,11 +2692,12 @@ function replayFlightPath(indexFlt) {
         // only create segment if we have at least 2 points
         if (path.length >= 2) {
           // create a completely new polyline with validated coordinates
+          // start with 0 opacity to prevent flash
           var segment = L.polyline(path, {
             smoothFactor: 1.75,
             color: KSA_CATALOGS.fltPaths[indexFlt].color,
             weight: 3,
-            opacity: 1,
+            opacity: 0,
             snakingSpeed: 400
           });
           
@@ -2749,7 +2717,7 @@ function replayFlightPath(indexFlt) {
         smoothFactor: 1.75,
         color: KSA_CATALOGS.fltPaths[indexFlt].color,
         weight: 3,
-        opacity: 1,
+        opacity: 0,
         snakingSpeed: 400
       });
       
@@ -2781,12 +2749,19 @@ function replayFlightPath(indexFlt) {
         console.error("Animation cancelled - invalid segments");
         ops.surface.map.removeLayer(animLayer);
         originalLayer.addTo(ops.surface.map);
+        
+        // restore the popup
+        KSA_MAP_CONTROLS.flightPositionPopup.setLatLng(popupLatLng);
+        KSA_MAP_CONTROLS.flightPositionPopup.setContent(popupContent);
+        KSA_MAP_CONTROLS.flightPositionPopup.openOn(ops.surface.map);
+        
         KSA_CATALOGS.fltPaths[indexFlt]._isAnimating = false;
+        window.removeEventListener('error', animationErrorHandler);
         return;
       }
       
       // function to clean up and restore original layer
-      var cleanupAndRestore = function() {
+      var cleanupAndRestore = function(restorePopup) {
         // remove global error handler
         window.removeEventListener('error', animationErrorHandler);
         window.currentAnimLayer = null;
@@ -2808,6 +2783,13 @@ function replayFlightPath(indexFlt) {
           fltElev(indexFlt);
         }
         
+        // restore the popup if requested (on error)
+        if (restorePopup) {
+          KSA_MAP_CONTROLS.flightPositionPopup.setLatLng(popupLatLng);
+          KSA_MAP_CONTROLS.flightPositionPopup.setContent(popupContent);
+          KSA_MAP_CONTROLS.flightPositionPopup.openOn(ops.surface.map);
+        }
+        
         KSA_CATALOGS.fltPaths[indexFlt]._isAnimating = false;
       };
       
@@ -2815,17 +2797,25 @@ function replayFlightPath(indexFlt) {
       segments.forEach(function(seg) {
         seg.on('error', function(e) {
           console.error("Error during snake animation:", e);
-          cleanupAndRestore();
+          cleanupAndRestore(true);
         });
       });
       
       // start the snake animation with error handling
       try {
-        animLayer.once('snakeend', cleanupAndRestore);
+        animLayer.once('snakeend', function() {
+          cleanupAndRestore(false);
+        });
         animLayer.snakeIn();
+        
+        // restore opacity immediately after starting animation
+        // the snakeIn() function will have already reset the polylines to show just the first point
+        segments.forEach(function(seg) {
+          seg.setStyle({opacity: 1});
+        });
       } catch(e) {
         console.error("Error starting snake animation:", e);
-        cleanupAndRestore();
+        cleanupAndRestore(true);
       }
     }, 200);
   }, 350);

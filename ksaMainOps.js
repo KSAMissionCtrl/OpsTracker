@@ -421,7 +421,7 @@ function swapContent(newPageType, id, ut, flt) {
       $("#copyLinkIcon").fadeIn();
       var showOpt = 'mouseenter';
       if (is_touch_device()) showOpt = 'click';
-      Tipped.create('#copyLinkIcon', 'Copy link to clipboard', { showOn: showOpt, hideOnClickOutside: is_touch_device(), position: 'bottom' });
+      Tipped.create('#copyLinkIcon', 'Copy shareable link to clipboard', { showOn: showOpt, hideOnClickOutside: is_touch_device(), position: 'bottom' });
     }, 500);
 
     return;
@@ -990,63 +990,22 @@ function loadOpsDataAJAX(xhttp) {
           $('#alt').html(numeral(ops.currentVesselPlot.obtData[now.obtNum].orbit[now.index].alt).format('0,0.000') + " km");
           $('#vel').html(numeral(ops.currentVesselPlot.obtData[now.obtNum].orbit[now.index].vel).format('0,0.000') + " km/s");
 
-          // create the horizon if needed, then update it
+          // create the horizon if needed, else update it
           if (ops.surface.map.hasLayer(KSA_MAP_CONTROLS.vesselMarker)) {
-            var horizonRadius = Math.sqrt((ops.currentVesselPlot.obtData[now.obtNum].orbit[now.index].alt*1000)*((ops.bodyCatalog.find(o => o.selected === true).Radius*1000) * 2 + (ops.currentVesselPlot.obtData[now.obtNum].orbit[now.index].alt*1000)))*10;
-            if (horizonRadius/10 > ops.bodyCatalog.find(o => o.selected === true).Radius*1000) horizonRadius = (ops.bodyCatalog.find(o => o.selected === true).Radius*1000)*10;
+            
             if (!KSA_MAP_CONTROLS.vesselHorizon.vessel) {
-              KSA_MAP_CONTROLS.vesselHorizon.vessel = L.circle(KSA_MAP_CONTROLS.vesselMarker.getLatLng(), { 
-                radius: horizonRadius,
-                color: KSA_COLORS.vesselOrbitColors[now.obtNum],
-                weight: 2,
-                interactive: false
-              }).addTo(ops.surface.map);
+              KSA_MAP_CONTROLS.vesselHorizon.vessel = addHorizonCircle(
+                KSA_MAP_CONTROLS.vesselMarker.getLatLng(),
+                ops.currentVesselPlot.obtData[now.obtNum].orbit[now.index].alt * 1000,
+                { color: KSA_COLORS.vesselOrbitColors[now.obtNum] }
+              );
+              // Add horizon to ground station layer so it only shows when that layer is active
+              KSA_LAYERS.layerGroundStations.addLayer(KSA_MAP_CONTROLS.vesselHorizon.vessel);
             } else {
+              var horizonRadius = calculateHorizonRadius(ops.currentVesselPlot.obtData[now.obtNum].orbit[now.index].alt * 1000);
               KSA_MAP_CONTROLS.vesselHorizon.vessel.setLatLng(KSA_MAP_CONTROLS.vesselMarker.getLatLng());
               KSA_MAP_CONTROLS.vesselHorizon.vessel.setRadius(horizonRadius);
               KSA_MAP_CONTROLS.vesselHorizon.vessel.setStyle({color: KSA_COLORS.vesselOrbitColors[now.obtNum]});
-            }
-
-            // set additional horizon circles to wrap map edges?
-            if (KSA_MAP_CONTROLS.vesselHorizon.vessel.getBounds().getWest() < -180 || KSA_MAP_CONTROLS.vesselHorizon.vessel.getBounds().getEast() > 180) {
-              var eastWest = 0;
-              if (KSA_MAP_CONTROLS.vesselHorizon.vessel.getBounds().getWest() < -180) eastWest = 1;
-              else if (KSA_MAP_CONTROLS.vesselHorizon.vessel.getBounds().getEast() > 180) eastWest = -1;
-              if (!KSA_MAP_CONTROLS.vesselHorizon.eastWest) {
-                KSA_MAP_CONTROLS.vesselHorizon.eastWest = L.circle([KSA_MAP_CONTROLS.vesselMarker.getLatLng().lat, KSA_MAP_CONTROLS.vesselMarker.getLatLng().lng + (360 * eastWest)], { 
-                  radius: horizonRadius,
-                  color: KSA_COLORS.vesselOrbitColors[now.obtNum],
-                  weight: 2,
-                  interactive: false
-                }).addTo(ops.surface.map);
-              } else {
-                KSA_MAP_CONTROLS.vesselHorizon.eastWest.setLatLng([KSA_MAP_CONTROLS.vesselMarker.getLatLng().lat, KSA_MAP_CONTROLS.vesselMarker.getLatLng().lng + (360 * eastWest)]);
-                KSA_MAP_CONTROLS.vesselHorizon.eastWest.setRadius(horizonRadius);
-                KSA_MAP_CONTROLS.vesselHorizon.eastWest.setStyle({color: KSA_COLORS.vesselOrbitColors[now.obtNum]});
-              }
-            } else if (KSA_MAP_CONTROLS.vesselHorizon.eastWest) {
-              ops.surface.map.removeLayer(KSA_MAP_CONTROLS.vesselHorizon.eastWest);
-              KSA_MAP_CONTROLS.vesselHorizon.eastWest = null;
-            }
-            if (KSA_MAP_CONTROLS.vesselHorizon.vessel.getBounds().getSouth() < -90 || KSA_MAP_CONTROLS.vesselHorizon.vessel.getBounds().getNorth() > 90) {
-              var northSouth = 0;
-              if (KSA_MAP_CONTROLS.vesselHorizon.vessel.getBounds().getSouth() < -90) northSouth = 1;
-              else if (KSA_MAP_CONTROLS.vesselHorizon.vessel.getBounds().getNorth() > 90) northSouth = -1;
-              if (!KSA_MAP_CONTROLS.vesselHorizon.northSouth) {
-                KSA_MAP_CONTROLS.vesselHorizon.northSouth = L.circle([KSA_MAP_CONTROLS.vesselMarker.getLatLng().lat + (180 * northSouth), KSA_MAP_CONTROLS.vesselMarker.getLatLng().lng], { 
-                  radius: horizonRadius,
-                  color: KSA_COLORS.vesselOrbitColors[now.obtNum],
-                  weight: 2,
-                  interactive: false
-                }).addTo(ops.surface.map);
-              } else {
-                KSA_MAP_CONTROLS.vesselHorizon.northSouth.setLatLng([KSA_MAP_CONTROLS.vesselMarker.getLatLng().lat + (180 * northSouth), KSA_MAP_CONTROLS.vesselMarker.getLatLng().lng]);
-                KSA_MAP_CONTROLS.vesselHorizon.northSouth.setRadius(horizonRadius);
-                KSA_MAP_CONTROLS.vesselHorizon.northSouth.setStyle({color: KSA_COLORS.vesselOrbitColors[now.obtNum]});
-              }
-            } else if (KSA_MAP_CONTROLS.vesselHorizon.northSouth) {
-              ops.surface.map.removeLayer(KSA_MAP_CONTROLS.vesselHorizon.northSouth);
-              KSA_MAP_CONTROLS.vesselHorizon.northSouth = null;
             }
           }
           
@@ -1058,13 +1017,9 @@ function loadOpsDataAJAX(xhttp) {
             if (ops.currentVesselPlot.events.soiEntry.UT-1 <= currUT()) {
               ops.currentVesselPlot.events.soiEntry.marker.closePopup();
               ops.surface.map.removeLayer(KSA_MAP_CONTROLS.vesselMarker);
-              ops.surface.map.removeLayer(KSA_MAP_CONTROLS.vesselHorizon.vessel);
-              if (KSA_MAP_CONTROLS.vesselHorizon.eastWest) ops.surface.map.removeLayer(KSA_MAP_CONTROLS.vesselHorizon.eastWest);
-              if (KSA_MAP_CONTROLS.vesselHorizon.northSouth) ops.surface.map.removeLayer(KSA_MAP_CONTROLS.vesselHorizon.northSouth);
+              KSA_LAYERS.layerGroundStations.removeLayer(KSA_MAP_CONTROLS.vesselHorizon.vessel);
               KSA_MAP_CONTROLS.vesselMarker = null;
               KSA_MAP_CONTROLS.vesselHorizon.vessel = null;
-              KSA_MAP_CONTROLS.vesselHorizon.eastWest = null;
-              KSA_MAP_CONTROLS.vesselHorizon.northSouth = null;
               ops.currentVesselPlot.events.soiEntry.marker.bindPopup("<center>" + UTtoDateTime(currUT()).split("@")[1] + " UTC<br>Telemetry data invalid due to " + ops.currentVessel.Orbit.SOIEvent.split(";")[2] + "<br>Please stand by for update</center>", { autoClose: false });
               ops.currentVesselPlot.events.soiEntry.marker.openPopup();
             }
@@ -1140,53 +1095,10 @@ function loadOpsDataAJAX(xhttp) {
           $('#velSurface').html(numeral(object.obtData.orbit[now].vel).format('0,0.000') + " km/s");
 
           // update the horizon
-          var horizonRadius = Math.sqrt((object.obtData.orbit[now].alt*1000)*((ops.bodyCatalog.find(o => o.selected === true).Radius*1000) * 2 + (object.obtData.orbit[now].alt*1000)))*10;
-          if (horizonRadius/10 > ops.bodyCatalog.find(o => o.selected === true).Radius*1000) horizonRadius = ((ops.bodyCatalog.find(o => o.selected === true).Radius*1000)*10)*2;
           if (KSA_MAP_CONTROLS.vesselHorizon.vessel) {
+            var horizonRadius = calculateHorizonRadius(object.obtData.orbit[now].alt * 1000);
             KSA_MAP_CONTROLS.vesselHorizon.vessel.setLatLng(object.obtData.marker.getLatLng());
             KSA_MAP_CONTROLS.vesselHorizon.vessel.setRadius(horizonRadius);
-          }
-
-          // set additional horizon circles to wrap map edges?
-          if (KSA_MAP_CONTROLS.vesselHorizon.vessel.getBounds().getWest() < -180 || KSA_MAP_CONTROLS.vesselHorizon.vessel.getBounds().getEast() > 180) {
-            var eastWest = 0;
-            if (KSA_MAP_CONTROLS.vesselHorizon.vessel.getBounds().getWest() < -180) eastWest = 1;
-            else if (KSA_MAP_CONTROLS.vesselHorizon.vessel.getBounds().getEast() > 180) eastWest = -1;
-            if (!KSA_MAP_CONTROLS.vesselHorizon.eastWest) {
-              KSA_MAP_CONTROLS.vesselHorizon.eastWest = L.circle([object.obtData.marker.getLatLng().lat, object.obtData.marker.getLatLng().lng + (360 * eastWest)], { 
-                radius: horizonRadius,
-                color: "#00ff3c",
-                weight: 2,
-                interactive: false
-              });
-              currLayer.group.addLayer(KSA_MAP_CONTROLS.vesselHorizon.eastWest);
-            } else {
-              KSA_MAP_CONTROLS.vesselHorizon.eastWest.setLatLng([object.obtData.marker.getLatLng().lat, object.obtData.marker.getLatLng().lng + (360 * eastWest)]);
-              KSA_MAP_CONTROLS.vesselHorizon.eastWest.setRadius(horizonRadius);
-            }
-          } else if (KSA_MAP_CONTROLS.vesselHorizon.eastWest) {
-            currLayer.group.removeLayer(KSA_MAP_CONTROLS.vesselHorizon.eastWest);
-            KSA_MAP_CONTROLS.vesselHorizon.eastWest = null;
-          }
-          if (KSA_MAP_CONTROLS.vesselHorizon.vessel.getBounds().getSouth() < -90 || KSA_MAP_CONTROLS.vesselHorizon.vessel.getBounds().getNorth() > 90) {
-            var northSouth = 0;
-            if (KSA_MAP_CONTROLS.vesselHorizon.vessel.getBounds().getSouth() < -90) northSouth = 1;
-            else if (KSA_MAP_CONTROLS.vesselHorizon.vessel.getBounds().getNorth() > 90) northSouth = -1;
-            if (!KSA_MAP_CONTROLS.vesselHorizon.northSouth) {
-              KSA_MAP_CONTROLS.vesselHorizon.northSouth = L.circle([object.obtData.marker.getLatLng().lat + (180 * northSouth), object.obtData.marker.getLatLng().lng], { 
-                radius: horizonRadius,
-                color: "#00ff3c",
-                weight: 2,
-                interactive: false
-              });
-              currLayer.group.addLayer(KSA_MAP_CONTROLS.vesselHorizon.northSouth);
-            } else {
-              KSA_MAP_CONTROLS.vesselHorizon.northSouth.setLatLng([object.obtData.marker.getLatLng().lat + (180 * northSouth), object.obtData.marker.getLatLng().lng]);
-              KSA_MAP_CONTROLS.vesselHorizon.northSouth.setRadius(horizonRadius);
-            }
-          } else if (KSA_MAP_CONTROLS.vesselHorizon.northSouth) {
-            currLayer.group.removeLayer(KSA_MAP_CONTROLS.vesselHorizon.northSouth);
-            KSA_MAP_CONTROLS.vesselHorizon.northSouth = null;
           }
         }
         

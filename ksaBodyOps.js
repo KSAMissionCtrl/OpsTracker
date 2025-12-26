@@ -5,6 +5,7 @@
 
 // load a new GeoGebra figure into the main content window
 function loadBody(body, flt) {
+  if (!body) return;
   if (!body.includes("-")) body = body + "-System";
   
   // an attempt was made to load orbital data for an inactive vessel. Can. Not. Compute.
