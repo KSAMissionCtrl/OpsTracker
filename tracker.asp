@@ -82,6 +82,7 @@
       </div>
       <div id='siteDialog'></div>
       <div id='contentHeader' class='header'>&nbsp;</div>
+      <div id='liveReloadIcon' style='position: absolute; top: 10px; left: 10px; display: none; cursor: pointer; font-size: 18px; color: #000000; text-decoration: none; z-index: 10; user-select: none; -webkit-user-select: none; -moz-user-select: none; -ms-user-select: none;'><i class="fa-solid fa-clock-rotate-left" style="cursor: pointer;"></i></div>
       <div id='copyLinkIcon' style='position: absolute; top: 10px; right: 305px; display: none; cursor: pointer; font-size: 18px; color: #4a90e2; text-decoration: none; z-index: 10; user-select: none; -webkit-user-select: none; -moz-user-select: none; -ms-user-select: none;'><i class="fa-solid fa-link"></i></div>
       <div id='contentBox'>
         <div id='map' class='map'></div>

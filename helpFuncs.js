@@ -166,7 +166,7 @@ function getParameterByName(name) {
   try {
     name = name.replace(/[\[]/, "\\[").replace(/[\]]/, "\\]");
     var regex = new RegExp("[\\?&]" + name + "=([^&#]*)"),
-        results = regex.exec(location.search);
+        results = regex.exec(window.location.search);
     return results === null ? "" : decodeURIComponent(results[1].replace(/\+/g, " "));
   } catch (error) {
     handleError(error, 'getParameterByName');
@@ -551,7 +551,6 @@ function addHorizonCircle(latLng, altitude, options = {}) {
   // Calculate steps based on radius - larger circles need more segments (min 50, ~1 step per 50km)
   // cap at 500 steps to avoid performance issues
   var steps = Math.max(50, Math.min(500, Math.floor(horizonRadius / 5000)));
-  console.log(`Horizon radius: ${horizonRadius.toFixed(2)} m, Steps: ${steps}`);
   
   // Create the geodesic circle with provided or default options
   return new L.GeodesicCircle(latLng, {

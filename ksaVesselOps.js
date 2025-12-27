@@ -240,7 +240,10 @@ function loadVesselAJAX(xhttp) {
     ){
       $("#dataField13").html("<center><span class='fauxLink' onclick='loadAscentData()'>Ascent Data Available - Click to View</span></center>");
       $("#dataField13").fadeIn();
-    } else $("#dataField13").fadeOut();
+    } else {
+      $("#dataField13").fadeOut();
+      clearAscentTracks();
+    }
 
     // hide the rest of the fields that are unused for now
     $("#dataField14").fadeOut();
@@ -298,20 +301,6 @@ function vesselInfoUpdate(update) {
     flashUpdate("#infoTitle", "#77C6FF", "#000");
   }
 
-  // setup the basics
-  $("#infoImg").html("<img src='" + sanitizeHTML(getVesselImage()) + "'>");
-  $("#infoTitle").html(sanitizeHTML(ops.currentVessel.CraftData.CraftDescTitle));
-  $("#infoTitle").attr("class", "infoTitle vessel");
-
-  // fix any mistakes that may have worked their way into several vessel updates
-  var dialogStr = ops.currentVessel.CraftData.CraftDescContent;
-  dialogStr = dialogStr.replace("thrid", "third");
-  dialogStr = dialogStr.replace("kerbolar", "Kerbolar");
-  dialogStr = dialogStr.replace("fist stage", "first stage");
-  $("#infoDialog").html(dialogStr);
-  $("#infoDialog").dialog("option", "title", "Additional Information - " + ops.currentVessel.CraftData.CraftDescTitle);
-  $("#infoDialog").dialog("option", {width: 643, height: 400});
-  
   // is there a parts overlay?
   if (getPartsHTML()) {
     var partsImgHTML = '';
@@ -336,6 +325,27 @@ function vesselInfoUpdate(update) {
     setTimeout(function() { if (!$('#infoBox').is(":hover")) $("#partsImg").fadeOut(1000); }, 1000);
     assignPartInfo();
   } else $("#partsImg").empty();
+
+  // setup the basics
+  var vesselImageHTML = "<div style='position: relative; display: inline-block;'>";
+  vesselImageHTML += "<img src='" + sanitizeHTML(getVesselImage()) + "'>";
+  // only add maximize button if there's a parts overlay (static state)
+  if ($("#partsImg").html()) {
+    vesselImageHTML += "<i class='fa-solid fa-maximize vessel-image-maximize' style='color: #ffffff;' onclick='openVesselImageLightbox(\"" + sanitizeHTML(getVesselImage()) + "\")'></i>";
+  }
+  vesselImageHTML += "</div>";
+  $("#infoImg").html(vesselImageHTML);
+  $("#infoTitle").html(sanitizeHTML(ops.currentVessel.CraftData.CraftDescTitle));
+  $("#infoTitle").attr("class", "infoTitle vessel");
+
+  // fix any mistakes that may have worked their way into several vessel updates
+  var dialogStr = ops.currentVessel.CraftData.CraftDescContent;
+  dialogStr = dialogStr.replace("thrid", "third");
+  dialogStr = dialogStr.replace("kerbolar", "Kerbolar");
+  dialogStr = dialogStr.replace("fist stage", "first stage");
+  $("#infoDialog").html(dialogStr);
+  $("#infoDialog").dialog("option", "title", "Additional Information - " + ops.currentVessel.CraftData.CraftDescTitle);
+  $("#infoDialog").dialog("option", {width: 643, height: 400});
 }
 
 function vesselMETUpdate(update) {
@@ -537,7 +547,7 @@ function vesselResourcesUpdate(update) {
       else strHTML += "N/A";
       strHTML += "'><b><u>Resources:</u></b></span> ";
       if (ops.currentVessel.Resources.Resources) {
-        strHTML += "<img id='prevRes' width='12' src='prevList.png' style='visibility: hidden; cursor: pointer; vertical-align: -1px' onclick='prevResource()'>";
+        strHTML += "<span id='prevRes' style='visibility: hidden; cursor: pointer; vertical-align: -1px' onclick='prevResource()'><i class='fa-solid fa-play fa-rotate-180 fa-1xs' style='color: #000000;'></i></span>";
 
         // template the max number of visible resource icons and then actually load them 250ms later
         for (resCount=0; resCount<5; resCount++) {
@@ -545,7 +555,7 @@ function vesselResourcesUpdate(update) {
           strHTML += "<span style='cursor:help' class='tip-update' data-tipped-options=\"inline: 'resTip" + resCount + "', detach: false\">";
           strHTML += "<img id='resImg" + resCount + "' src='' style='display: none; padding-left: 1px; padding-right: 2px'></span>";
         }
-        strHTML += "<img id='nextRes' width='12' src='nextList.png' style='visibility: hidden; cursor: pointer; vertical-align: -1px' onclick='nextResource()'>";
+        strHTML += "<span id='nextRes' style='visibility: hidden; cursor: pointer; vertical-align: -1px' onclick='nextResource()'><i class='fa-solid fa-play fa-2xs' style='color: #000000;'></i></span>";
         setTimeout(updateResourceIcons, 250, update);
       } else strHTML += "None";
       $("#dataField8").fadeIn();
@@ -776,7 +786,10 @@ function vesselContentUpdate(update) {
       // place the marker and build the information window for it, then center the map on it and create a popup for it
       KSA_MAP_CONTROLS.launchsiteMarker = L.marker([data[0], data[1]], {icon: launchsiteIcon}).addTo(ops.surface.map);
       KSA_MAP_CONTROLS.launchsiteMarker.bindPopup(strLaunchIconCaption + data[2] + launchAltitude + "<br>[" + numeral(data[0]).format('0.0000') + "&deg;" + getLatLngCompass(KSA_MAP_CONTROLS.launchsiteMarker.getLatLng()).lat + ", " + numeral(data[1]).format('0.0000') + "&deg;" + getLatLngCompass(KSA_MAP_CONTROLS.launchsiteMarker.getLatLng()).lng + "]" , { closeOnClick: false });
-      if (ops.surface.map.getZoom() <= 3) ops.surface.map.setView(KSA_MAP_CONTROLS.launchsiteMarker.getLatLng(), 3);
+      // if the marker is not in view, center the map on it
+      if (!ops.surface.map.getBounds().contains(KSA_MAP_CONTROLS.launchsiteMarker.getLatLng())) {
+        ops.surface.map.setView(KSA_MAP_CONTROLS.launchsiteMarker.getLatLng(), ops.surface.map.getZoom());
+      }
       KSA_MAP_CONTROLS.launchsiteMarker.openPopup();
       
       // close the popup after 5 seconds if this is a past event or a prelaunch state
@@ -1102,6 +1115,58 @@ function isMissionEnded() {
   else return parseInt(ops.currentVessel.Catalog.MissionEnd.split(";")[0]) <= currUT();
 }
 
+function openVesselImageLightbox(imageUrl) {
+  // Use the existing tweet lightbox for vessel images
+  var lightbox = document.getElementById('tweet-lightbox');
+  if (!lightbox) {
+    console.error('Lightbox not available');
+    return;
+  }
+  
+  var lightboxImg = document.getElementById('lightbox-image');
+  var lightboxAltText = document.getElementById('lightbox-alt-text');
+  var lightboxCounter = document.querySelector('.lightbox-counter');
+  var prevBtn = document.querySelector('.lightbox-prev');
+  var nextBtn = document.querySelector('.lightbox-next');
+  var loadingIndicator = document.querySelector('.lightbox-loading');
+  
+  // Hide navigation buttons (single image)
+  if (prevBtn) prevBtn.style.display = 'none';
+  if (nextBtn) nextBtn.style.display = 'none';
+  if (lightboxCounter) lightboxCounter.style.display = 'none';
+  if (lightboxAltText) lightboxAltText.style.display = 'none';
+  
+  // Show loading indicator
+  loadingIndicator.style.display = 'block';
+  lightboxImg.style.display = 'none';
+  
+  // Extract image name and construct large image URL
+  var imageName = imageUrl.split('/').pop().split('.')[0];
+  var largeImageUrl = "http://www.kerbalspace.agency/tracker/images/vessel/" + imageName + "-lrg.png";
+  
+  // Load the image
+  var imgPreload = new Image();
+  imgPreload.onload = function() {
+    lightboxImg.src = largeImageUrl;
+    lightboxImg.style.display = 'block';
+    loadingIndicator.style.display = 'none';
+  };
+  
+  imgPreload.onerror = function() {
+    loadingIndicator.textContent = 'Failed to load image';
+    setTimeout(function() {
+      loadingIndicator.style.display = 'none';
+      loadingIndicator.textContent = 'Loading...';
+    }, 2000);
+  };
+  
+  imgPreload.src = largeImageUrl;
+  
+  // Show lightbox
+  lightbox.style.display = 'flex';
+  document.body.style.overflow = 'hidden';
+}
+
 // updates the 5 resource icons in the event of a scroll
 function updateResourceIcons(update) {
   if (!ops.currentVessel) return; // too fast of a page through the history due to call delay of the function
@@ -1383,11 +1448,11 @@ function setupStreamingAscent() {
 
   // if this is a past event, show playback controls
   if (ops.currentVessel.CraftData.pastEvent) {
-    strHTML = "<div style='text-align:center'><span style='float:left'><img class='tipped' id='prev10s' title='Back 10s' src='seekBackward1.png' style='visibility: hidden; cursor: pointer;' onclick='seekBack(10)'>&nbsp;";
-    strHTML += "<img id='prev30s' src='seekBack.png' style='visibility: hidden; cursor:pointer' class='tipped' title='Back 30s' onclick='seekBack(30)'>&nbsp;</span>";
+    strHTML = "<div style='text-align:center'><span style='float:left'><span class='tipped' id='prev10s' title='Back 10s' style='visibility: hidden; cursor: pointer;' onclick='seekBack(10)'><i class='fa-solid fa-play fa-rotate-180 fa-1xs' style='color: #000000;'></i></span>&nbsp;";
+    strHTML += "<span id='prev30s' style='visibility: hidden; cursor:pointer' class='tipped' title='Back 30s' onclick='seekBack(30)'><i class='fa-solid fa-backward fa-1xs' style='color: #000000;'></i></span>&nbsp;</span>";
     strHTML += "<span id='playbackCtrl' class='fauxLink' onclick='ascentPlaybackCtrl()'>Begin Playback</span>&nbsp";
-    strHTML += "<span style='float:right'>&nbsp;<img id='next30s' src='seekForward.png' style='cursor:pointer' class='tipped' title='Forward 30s' onclick='seekFore(30)'>&nbsp;";
-    strHTML += "<img class='tipped' id='next10s' title='Forward 10s' src='seekForward1.png' style='cursor: pointer;' onclick='seekFore(10)'></span>";
+    strHTML += "<span style='float:right'>&nbsp;<span id='next30s' style='cursor:pointer' class='tipped' title='Forward 30s' onclick='seekFore(30)'><i class='fa-solid fa-forward fa-1xs' style='color: #000000;'></i></span>&nbsp;";
+    strHTML += "<span class='tipped' id='next10s' title='Forward 10s' style='cursor: pointer;' onclick='seekFore(10)'><i class='fa-solid fa-play fa-1xs' style='color: #000000;'></i></span></span>";
     strHTML += "<span>(<span id='playbackTime'>" + formatTime(ops.ascentData.telemetry.length-1, false, "") + "/" + formatTime(ops.ascentData.telemetry.length-1, false, "") + "</span>)</span></div>";
     $("#dataField14").html(strHTML);
     $("#dataField14").fadeIn();
@@ -1411,6 +1476,14 @@ function setupStreamingAscent() {
   // place the craft marker 
   KSA_MAP_ICONS.vesselIcon = L.icon({iconUrl: 'button_vessel_' + currType(ops.currentVessel.Catalog.Type) + '.png', iconSize: [16, 16]});
   KSA_MAP_CONTROLS.vesselMarker = L.marker([ops.ascentData.telemetry[ops.activeAscentFrame.ascentIndex].Lat, ops.ascentData.telemetry[ops.activeAscentFrame.ascentIndex].Lon], {icon: KSA_MAP_ICONS.vesselIcon, zIndexOffset: 100, interactive: false}).addTo(ops.surface.map);
+  
+  // add a horizon circle at the marker location
+  KSA_MAP_CONTROLS.vesselHorizon.vessel = addHorizonCircle(
+    [ops.ascentData.telemetry[ops.activeAscentFrame.ascentIndex].Lat, ops.ascentData.telemetry[ops.activeAscentFrame.ascentIndex].Lon],
+    ops.ascentData.telemetry[ops.activeAscentFrame.ascentIndex].Altitude
+  );
+  // Add horizon to ground station layer so it only shows when that layer is active
+  KSA_LAYERS.layerGroundStations.addLayer(KSA_MAP_CONTROLS.vesselHorizon.vessel);
   
   // focus in on the vessel position
   ops.surface.map.setView(KSA_MAP_CONTROLS.vesselMarker.getLatLng(), 9);
@@ -1685,6 +1758,13 @@ function updateAscentData(clamp) {
 
   // move the vessel icon
   KSA_MAP_CONTROLS.vesselMarker.setLatLng([ops.activeAscentFrame.lat, ops.activeAscentFrame.lon]);
+
+  // update the horizon circle position and radius
+  if (KSA_MAP_CONTROLS.vesselHorizon.vessel) {
+    KSA_MAP_CONTROLS.vesselHorizon.vessel.setLatLng([ops.activeAscentFrame.lat, ops.activeAscentFrame.lon]);
+    var newRadius = calculateHorizonRadius(ops.activeAscentFrame.altitude, true);
+    KSA_MAP_CONTROLS.vesselHorizon.vessel.setRadius(newRadius);
+  }
 
   // if the vessel is outside the view but not KSC, shimmy the map over
   if (!ops.surface.map.getBounds().contains(KSA_MAP_CONTROLS.vesselMarker.getLatLng()) && ops.surface.map.getBounds().contains(KSA_LOCATIONS.srfLocations["KSC"])) {

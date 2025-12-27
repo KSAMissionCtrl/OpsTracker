@@ -35,6 +35,11 @@ input {
   cursor: pointer;
 }
 
+#liveReloadIcon,
+#liveReloadIcon * {
+  cursor: pointer !important;
+}
+
 #copyLinkIcon,
 #copyLinkIcon * {
   cursor: pointer !important;
@@ -345,4 +350,23 @@ input:disabled+label {
   word-wrap: break-word;
   overflow-wrap: break-word;
   white-space: normal;
+}
+
+/* Vessel image maximize icon */
+.vessel-image-maximize {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  font-size: 18px;
+  cursor: pointer;
+  background-color: rgba(0, 0, 0, 0.6);
+  padding: 6px 8px;
+  border-radius: 4px;
+  transition: all 0.3s ease;
+  z-index: 10;
+}
+
+.vessel-image-maximize:hover {
+  background-color: rgba(0, 0, 0, 0.8);
+  transform: scale(1.1);
 }
