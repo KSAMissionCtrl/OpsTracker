@@ -333,7 +333,6 @@ var TweetDisplay = (function() {
 
       if (err) {
         containerEl.innerHTML = '<p class="tweet-error">No tweets found.</p>';
-        console.error(err);
         return;
       }
 

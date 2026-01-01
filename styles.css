@@ -45,6 +45,21 @@ input {
   cursor: pointer !important;
 }
 
+#resetHistoricTime,
+#resetHistoricTime * {
+  cursor: pointer !important;
+}
+
+#returnToCurrentTime,
+#returnToCurrentTime * {
+  cursor: pointer !important;
+}
+
+#advanceTime,
+#advanceTime * {
+  cursor: pointer !important;
+}
+
 input:disabled {
   cursor: default;
 }

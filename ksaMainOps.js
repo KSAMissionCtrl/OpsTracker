@@ -4,7 +4,10 @@
 var tzOffset = luxon.DateTime.utc();
 ops.UT = luxon.Interval.fromDateTimes(KSA_CONSTANTS.FOUNDING_MOMENT, tzOffset).count("milliseconds")/1000;
 if (getParameterByName("setut") && (getCookie("missionctrl") || parseInt(getParameterByName("setut")) < ops.UT)) ops.UT = parseInt(getParameterByName("setut"));
-if (window.location.href.includes("&live") && getParameterByName("ut") && parseInt(getParameterByName("ut")) < ops.UT) ops.UT = parseInt(getParameterByName("ut"));
+if (window.location.href.includes("&live") && getParameterByName("ut") && parseInt(getParameterByName("ut")) < ops.UT) {
+  ops.UT = parseInt(getParameterByName("ut"));
+  KSA_UI_STATE.isLivePastUT = true;
+}
 
 // handle history state changes when user invokes forward/back button
 window.onpopstate = function(event) { swapContent(event.state.type, event.state.id, event.state.UT); }
@@ -156,12 +159,18 @@ function setupContent() {
   $("#maneuver").spin({ scale: 0.5, position: 'relative', top: '20px', left: '75%' });
   $("#contentBox").spin({ position: 'relative', top: '50%', left: '50%' });
 
-  // setup click handler for the link icon
-  $("#liveReloadIcon").click(function() {
-    var currentUrl = window.location.href;
-    var newUrl = currentUrl.includes("?") ? currentUrl + "&live" : currentUrl + "?live";
-    window.location.href = newUrl;
-  });
+  // populate the live reload icon only if not already in live mode
+  if (!KSA_UI_STATE.isLivePastUT) {
+    $("#liveReloadIcon").html("<i class=\"fa-solid fa-clock-rotate-left\" style=\"cursor: pointer;\"></i>");
+
+    // setup click handler for the link icon
+    $("#liveReloadIcon").click(function() {
+      var newUrl = window.location.href;
+      if (!getParameterByName("ut")) newUrl += "&ut=" + ops.currentVessel.CraftData.UT;
+      newUrl += "&live";
+      window.location.href = newUrl;
+    });
+  }
 
   $("#copyLinkIcon").click(function() {
     var queryString = window.location.search;
@@ -189,8 +198,95 @@ function setupContent() {
 
   // setup the clock
   tzOffset = tzOffset.setZone("America/New_York");
-  $("#clock").html("<strong>Current Time @ KSC (UTC " + tzOffset.offset/60 + ")</strong><br><span id='ksctime' style='font-size: 16px'></span>");
-
+  var clockHTML = "<strong>Current Time @ KSC (UTC " + tzOffset.offset/60 + ")</strong><br>";
+  if (KSA_UI_STATE.isLivePastUT) {
+    clockHTML += "<div style=\"position: relative;\">";
+    clockHTML += "<span id='resetHistoricTime' style=\"position: absolute; left: 42px; cursor: pointer; display: none;\"><i class=\"fa-solid fa-arrow-rotate-right\" style=\"color: #000000;\"></i></span>";
+    clockHTML += "<span id='ksctime' style='font-size: 16px; display: block; text-align: center;'></span>";
+    clockHTML += "<span id='liveControlIcons' style=\"position: absolute; right: 0; top: 0; display: none;\">";
+    clockHTML += "<span id='advanceTime1s' style=\"cursor: pointer;\"><i class=\"fa-solid fa-play\" style=\"color: #000000;\"></i></span> ";
+    clockHTML += "<span id='advanceTime1m' style=\"cursor: pointer;\"><i class=\"fa-solid fa-forward\" style=\"color: #000000;\"></i></span> ";
+    clockHTML += "<span id='returnToCurrentTime' style=\"cursor: pointer;\"><i class=\"fa-solid fa-forward-fast\" style=\"color: #000000;\"></i></span>";
+    clockHTML += "</span>";
+    clockHTML += "</div>";
+  } else {
+    clockHTML += "<span id='ksctime' style='font-size: 16px'></span>";
+  }
+  $("#clock").html(clockHTML);
+  if (KSA_UI_STATE.isLivePastUT) {
+    $("#resetHistoricTime").click(function() {
+      var newUrl = window.location.href;
+      if (!getParameterByName("ut")) newUrl += "&ut=" + ops.UT;
+      else newUrl = newUrl.replace(/(&|\?)ut=[^&]*/, "$1ut=" + ops.UT);
+      newUrl += "&live";
+      window.location.href = newUrl;
+    });
+    $("#returnToCurrentTime").click(function() {
+      var newUrl = window.location.href;
+      if (ops.pageType == "vessel" && ops.currentVessel && ops.currentVessel.CraftData) {
+        var currentUT = ops.currentVessel.CraftData.UT;
+        if (!getParameterByName("ut")) {
+          newUrl += "&ut=" + currentUT;
+        } else {
+          newUrl = newUrl.replace(/(&|\?)ut=[^&]*/, "$1ut=" + currentUT);
+        }
+      }
+      window.location.href = newUrl;
+    });
+    var showOpt = 'mouseenter';
+    if (is_touch_device()) showOpt = 'click';
+    Tipped.create('#resetHistoricTime', 'Reset historic time', { showOn: showOpt, hideOnClickOutside: is_touch_device(), position: 'bottom' });
+    Tipped.create('#advanceTime1s', 'Advance time 1sec', { showOn: showOpt, hideOnClickOutside: is_touch_device(), position: 'bottom' });
+    Tipped.create('#advanceTime1m', 'Advance time 1min', { showOn: showOpt, hideOnClickOutside: is_touch_device(), position: 'bottom' });
+    Tipped.create('#returnToCurrentTime', 'Return to current time', { showOn: showOpt, hideOnClickOutside: is_touch_device(), position: 'bottom' });
+    
+    // Setup 1s time advance icon mousedown/mouseup handlers
+    $("#advanceTime1s").on('mousedown', function() {
+      clearTimeout(KSA_TIMERS.rapidFireTimer);
+      clearTimeout(KSA_TIMERS.tickTimer);
+      tick();
+      
+      // Set timer for rapid fire mode after 750ms
+      KSA_TIMERS.rapidFireTimer = setTimeout(function() {
+        clearTimeout(KSA_TIMERS.tickTimer);
+        tick(1000, true);
+        KSA_TIMERS.rapidFireTimer = null;
+      }, 750);
+    });
+    
+    $("#advanceTime1s").on('mouseup', function() {
+      clearTimeout(KSA_TIMERS.rapidFireTimer);
+      if (!KSA_TIMERS.rapidFireTimer) {
+        clearTimeout(KSA_TIMERS.tickTimer);
+        KSA_TIMERS.tickTimer = setTimeout(tick, 500);
+      }
+      KSA_TIMERS.rapidFireTimer = null;
+    });
+    
+    // Setup 1m time advance icon mousedown/mouseup handlers
+    $("#advanceTime1m").on('mousedown', function() {
+      clearTimeout(KSA_TIMERS.rapidFireTimer);
+      clearTimeout(KSA_TIMERS.tickTimer);
+      tick(60000);
+      
+      // Set timer for rapid fire mode after 750ms
+      KSA_TIMERS.rapidFireTimer = setTimeout(function() {
+        clearTimeout(KSA_TIMERS.tickTimer);
+        tick(60000, true);
+        KSA_TIMERS.rapidFireTimer = null;
+      }, 750);
+    });
+    
+    $("#advanceTime1m").on('mouseup', function() {
+      clearTimeout(KSA_TIMERS.rapidFireTimer);
+      if (!KSA_TIMERS.rapidFireTimer) {
+        clearTimeout(KSA_TIMERS.tickTimer);
+        KSA_TIMERS.tickTimer = setTimeout(tick, 500);
+      }
+      KSA_TIMERS.rapidFireTimer = null;
+    });
+  }
+  
   // select the default sort options
   $('input:radio[name=roster]').filter('[id=name]').prop('checked', true);
   $('input:radio[name=inactive]').filter('[id=type]').prop('checked', true);
@@ -342,6 +438,9 @@ function setupContent() {
   setTimeout(function() {
     swapTwitterSource();
   }, 500);
+
+  // start the heartbeat
+  tick();
 }
 function setupContentDown() {
   setTimeout(function() {
@@ -527,6 +626,9 @@ function swapContent(newPageType, id, ut, flt) {
     }, 600);
   } else if (ops.pageType == "vessel") {
     $("#liveReloadIcon").fadeIn();
+    var showOpt = 'mouseenter';
+    if (is_touch_device()) showOpt = 'click';
+    Tipped.create('#liveReloadIcon', 'Return tracker to this update', { showOn: showOpt, hideOnClickOutside: is_touch_device(), position: 'bottom' });
     lowerContent();
     $("#infoBox").fadeIn();
     $("#infoBox").css("height", "400px");
@@ -567,29 +669,33 @@ function swapContent(newPageType, id, ut, flt) {
 }
 
 // updates various content on the page depending on what update event has been triggered
-function updatePage(updateEvent) {
+function updatePage(updateEvent, rapidFireMode = false) {
+
+  // if rapid fire mode is active, we need to reset the tick timer
+  if (rapidFireMode) KSA_TIMERS.tickTimer = null;
+
   KSA_UI_STATE.menuSaveSelected = w2ui['menu'].find({selected: true});
   if (KSA_UI_STATE.menuSaveSelected.length == 0) KSA_UI_STATE.menuSaveSelected = null;
   if (updateEvent.type.includes("menu")) menuUpdate(updateEvent.type.split(";")[1], updateEvent.id);
   else if (updateEvent.type == "event") loadDB("loadEventData.asp?UT=" + currUT(), loadEventsAJAX);
   else if (updateEvent.type == "object") {
     var obj = ops.updateData.find(o => o.id === updateEvent.id);
-    if (!obj) console.log("unknown object" + updateEvent.id);
+    if (!obj) console.log("unknown object", updateEvent);
     else {
       if (obj.type == "crew") updateCrewData(obj);
       else if (obj.type == "vessel") updateVesselData(obj);
-      else console.log("unknown update type" + obj.type);
+      else console.log("unknown update type", obj);
     }
   }
 }
 
 // recursively check through updates so we get any that occur at the same time
-function checkPageUpdate() {
+function checkPageUpdate(rapidFireMode = false) {
   if (!KSA_UI_STATE.isMenuDataLoaded) return;
   if (ops.updatesList.length && currUT() >= ops.updatesList[0].UT) {
-    updatePage(ops.updatesList.shift());
+    updatePage(ops.updatesList.shift(), rapidFireMode);
     ops.updatesListSize = ops.updatesList.length;
-    return checkPageUpdate();
+    return checkPageUpdate(rapidFireMode);
   } else return;
 }
 
@@ -785,8 +891,8 @@ function loadOpsDataAJAX(xhttp) {
         if (lastVisit <= latestUT && latestUT <= currUT()) badgeMenuItem(item.id, true, true);
       });
 
-      // update the visit time
-      setCookie("visitTime", currUT(), true);
+      // update the visit time only if we're viewing current time (not looking at past data)
+      if (currUT() > lastVisit) setCookie("visitTime", currUT(), true);
       
       // select in the menu what was loaded, if that is not already the current selection
       var menuID;
@@ -804,14 +910,14 @@ function loadOpsDataAJAX(xhttp) {
 // loop and update the page every second
 // no longer using setInterval, as suggested via
 // http://stackoverflow.com/questions/6685396/execute-the-first-time-the-setinterval-without-delay
-(function tick() {
+function tick(utDelta = 1000, rapidFireMode = false) {
 
   // sort the update times if new ones have been added since our last check, then look for updates
   if (ops.updatesList.length > ops.updatesListSize) {
     ops.updatesListSize = ops.updatesList.length;
     ops.updatesList.sort(function(a,b) { return (a.UT > b.UT) ? 1 : ((b.UT > a.UT) ? -1 : 0); });
   }
-  checkPageUpdate();
+  checkPageUpdate(rapidFireMode);
 
   // update the clocks
   $('#ksctime').html(UTtoDateTime(currUT(), true));
@@ -1153,16 +1259,31 @@ function loadOpsDataAJAX(xhttp) {
   // update any tooltips
   Tipped.refresh(".tip-update");  
   
-  // ensure timer accuracy, even catch up if browser slows tab in background
-  // http://www.sitepoint.com/creating-accurate-timers-in-javascript/
-  var diff = (new Date().getTime() - ops.clock.getTime()) - ops.tickDelta;
-  
-  // if tab was inactive for more than 3 minutes, reload the page to ensure fresh state
-  if (diff > 180000) {
-    window.location.reload();
-    return;
+  // update the UT
+  ops.tickDelta += utDelta;
+  if (!rapidFireMode) { 
+    
+    // if this is viewing current time, keep track of any tab inactivity or time drift
+    // otherwise just set a standard timeout since we don't care about accuracy when viewing past time
+    if (!KSA_UI_STATE.isLivePastUT) {
+
+      // ensure timer accuracy, even catch up if browser slows tab in background
+      // http://www.sitepoint.com/creating-accurate-timers-in-javascript/
+      var diff = ((new Date().getTime()) - ops.clock.getTime()) - ops.tickDelta;
+
+      // if tab was inactive for more than 3 minutes, reload the page to ensure fresh state
+      if (diff > 180000) {
+        window.location.reload();
+        return;
+      }
+      
+      KSA_TIMERS.tickTimer = setTimeout(tick, 1000 - diff);
+    } else KSA_TIMERS.tickTimer = setTimeout(tick, 1000);
+
+  // in rapid fire mode, call the next tick sooner
+  // bail if an update event was fired
+  } else if (rapidFireMode) {
+    if (!KSA_TIMERS.tickTimer) KSA_TIMERS.tickTimer = setTimeout(tick, 1000);
+    else KSA_TIMERS.tickTimer = setTimeout(tick, 125, utDelta, true);
   }
-  
-  ops.tickDelta += 1000;
-  setTimeout(tick, 1000 - diff);
-})();
+}

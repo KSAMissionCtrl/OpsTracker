@@ -48,7 +48,7 @@ var ops = {
   clock: new Date(),      // saves the time at which the page was loaded
   UT: null,               // assigned the current time on page load then used with currUT() to get the current time
   UTC: 5,                 // time zone DST UTC offset, set at page load
-  tickDelta: 0,           // number of seconds since the page was loaded
+  tickDelta: 0,           // number of ms since the page was loaded
   
   pageType: null,         // defines the type of data being shown - body, vessel, crew or crewFull for the entire roster. set only by swapContent() whenever a page type change is needed
   twitterSource: null,    // used in swapTwitterSource() to remember the current source of the twitter feed
@@ -157,6 +157,7 @@ const KSA_UI_STATE = {
   isDirty: false,                // tells the GGB figure that is loaded underneath a vessel to refresh
   isOrbitRenderCancelled: false, // whether the Cancel button was clicked to stop orbital calculation early
   isOrbitRenderTerminated: false,// whether the orbital calc was stopped due to changing a vessel or view
+  isLivePastUT: false,           // whether the page was loaded with &live param to auto-update from a past UT
   
   // Loading states
   isMenuDataLoaded: false,
@@ -168,7 +169,7 @@ const KSA_UI_STATE = {
   menuSaveSelected: null,        // saves the id of menu item that was last clicked on
   
   // Visual indices
-  vesselRotationIndex: 0,        // current rotation angle of the vessel if its static image can be spun
+  vesselRotationIndex: 0,        // current rotation angle of the vessel if its static image can be spun [currently unused]
   ascentColorsIndex: -1          // current color to use for plotting the ascent path
 };
 
@@ -184,7 +185,9 @@ const KSA_TIMERS = {
   interpStart: null,             // ensures that ascent data interpolation sticks to the defined FPS
   flightTimelineInterval: null,  // handle for automatically updating the flight timeline data popup
   vesselImgTimeout: null,        // handle for updating the caption of the vessel image
-  ascentInterpTimeout: null      // timer that maintains ascent interpolation FPS
+  ascentInterpTimeout: null,     // timer that maintains ascent interpolation FPS
+  tickTimer: null,               // main tick timer handle for interrupting the tick loop
+  rapidFireTimer: null,          // timer for detecting 750ms hold on time advance controls
 };
 
 // ------------------------------------------------------------------------------
@@ -220,9 +223,7 @@ const KSA_MAP_CONTROLS = {
   // Geometry objects
   terminator: null,        // surface map polygon that shapes the terminator
   vesselHorizon: {         // circle objects for vessel's view horizon
-    vessel: null,
-    eastWest: null,
-    northSouth: null
+    vessel: null           // there used to be circles for polar and equatorial horizons too before switching to geodesic calculation
   },
   
   // Leaflet bounds
