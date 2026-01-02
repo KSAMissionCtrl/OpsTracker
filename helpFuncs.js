@@ -338,11 +338,141 @@ function UTtoDateTimeLocal(setUT) {
   return d.toLocaleString(luxon.DateTime.DATETIME_HUGE_WITH_SECONDS);
 }
 
-// convert a given date object to game UT
-function dateObjtoUT(dateTime) {
-  var setUT = ((dateTime.getTime() - KSA_CONSTANTS.FOUNDING_MOMENT) / 1000);
-  if (ops.UTC == 5) setUT += 3600;
-  return setUT;
+/**
+ * Opens the time picker dialog to set a custom UT for viewing past events
+ * @param {number} currentUT - The current UT to pre-populate the dialog with
+ */
+function openTimePicker(currentUT) {
+  // Stop the tick timer while dialog is open
+  if (KSA_TIMERS.tickTimer) {
+    clearTimeout(KSA_TIMERS.tickTimer);
+    KSA_TIMERS.tickTimer = null;
+  }
+  
+  // Convert current UT to local date/time for display (as UTC)
+  var d = KSA_CONSTANTS.FOUNDING_MOMENT.plus({seconds: currentUT});
+  
+  // Helper function to update the display of local time and UTC offset
+  function updateTimeDisplay() {
+    try {
+      var month = parseInt($("#timePickerMonth").val()) || d.month;
+      var day = parseInt($("#timePickerDay").val()) || d.day;
+      var year = parseInt($("#timePickerYear").val()) || d.year;
+      var hour = parseInt($("#timePickerHour").val()) || 0;
+      var minute = parseInt($("#timePickerMinute").val()) || 0;
+      var second = parseInt($("#timePickerSecond").val()) || 0;
+      
+      // Create UTC DateTime from inputs
+      var utcDateTime = luxon.DateTime.utc(year, month, day, hour, minute, second);
+      
+      // Convert to New York time zone
+      var nyDateTime = utcDateTime.setZone("America/New_York");
+      
+      // Format the display string
+      var displayStr = "UTC: " + utcDateTime.toLocaleString(luxon.DateTime.DATETIME_FULL_WITH_SECONDS);
+      displayStr += "<br>KSC Local: " + nyDateTime.toLocaleString(luxon.DateTime.DATETIME_FULL_WITH_SECONDS);
+      displayStr += " (UTC" + (nyDateTime.offset >= 0 ? "+" : "") + (nyDateTime.offset / 60) + ")";
+      
+      $("#timePickerDisplay").html(displayStr);
+    } catch (e) {
+      $("#timePickerDisplay").html("Invalid date/time");
+    }
+  }
+  
+  // Build the dialog HTML with input fields
+  var dialogHTML = "<div style='padding: 10px;'>";
+  dialogHTML += "<p>Enter a date and time to view:</p>";
+  dialogHTML += "<div style='margin-bottom: 15px;'>";
+  dialogHTML += "<label style='display: inline-block; width: 80px;'>Date:</label>";
+  dialogHTML += "<input type='number' id='timePickerMonth' style='width: 50px;' min='1' max='12' value='" + d.month + "' /> / ";
+  dialogHTML += "<input type='number' id='timePickerDay' style='width: 50px;' min='1' max='31' value='" + d.day + "' /> / ";
+  dialogHTML += "<input type='number' id='timePickerYear' style='width: 70px;' value='" + d.year + "' />";
+  dialogHTML += "</div>";
+  dialogHTML += "<div>";
+  dialogHTML += "<label style='display: inline-block; width: 80px;'>Time:</label>";
+  dialogHTML += "<input type='number' id='timePickerHour' style='width: 50px;' min='0' max='23' value='" + d.hour + "' /> : ";
+  dialogHTML += "<input type='number' id='timePickerMinute' style='width: 50px;' min='0' max='59' value='" + d.minute + "' /> : ";
+  dialogHTML += "<input type='number' id='timePickerSecond' style='width: 50px;' min='0' max='59' value='" + d.second + "' /> UTC";
+  dialogHTML += "</div>";
+  dialogHTML += "<p id='timePickerDisplay' style='margin-top: 15px; font-size: 11px; color: #666; text-align: center;'></p>";
+  dialogHTML += "</div>";
+  
+  // Set dialog content and configure
+  $("#siteDialog").html(dialogHTML);
+  
+  // Add input event listeners to update the display
+  $("#timePickerMonth, #timePickerDay, #timePickerYear, #timePickerHour, #timePickerMinute, #timePickerSecond").on("input change", updateTimeDisplay);
+  
+  // Initial display update
+  updateTimeDisplay();
+  $("#siteDialog").dialog("option", "title", "Set Time");
+  $("#siteDialog").dialog("option", "width", 400);
+  $("#siteDialog").dialog("option", "buttons", [{
+    text: "Apply",
+    click: function() {
+      try {
+        // Get values from inputs
+        var month = parseInt($("#timePickerMonth").val());
+        var day = parseInt($("#timePickerDay").val());
+        var year = parseInt($("#timePickerYear").val());
+        var hour = parseInt($("#timePickerHour").val());
+        var minute = parseInt($("#timePickerMinute").val());
+        var second = parseInt($("#timePickerSecond").val());
+        
+        // Validate inputs
+        if (isNaN(month) || isNaN(day) || isNaN(year) || isNaN(hour) || isNaN(minute) || isNaN(second)) {
+          alert("Please enter valid numbers for all fields");
+          return;
+        }
+        
+        if (month < 1 || month > 12 || day < 1 || day > 31 || hour < 0 || hour > 23 || minute < 0 || minute > 59 || second < 0 || second > 59) {
+          alert("Please enter valid date/time values");
+          return;
+        }
+        
+        // Create a luxon DateTime object from the input values (as UTC)
+        var inputDateTime = luxon.DateTime.utc(year, month, day, hour, minute, second);
+        
+        // Convert to UT
+        var newUT = dateToUT(inputDateTime);
+
+        // Build new URL with ut parameter
+        var newUrl = window.location.href;
+        if (!getParameterByName("ut")) {
+          // Add ut parameter
+          if (newUrl.includes("?")) newUrl += "&ut=" + Math.floor(newUT);
+          else newUrl += "?ut=" + Math.floor(newUT);
+        } else {
+          // Replace existing ut parameter
+          newUrl = newUrl.replace(/([?&])ut=[^&]*/, "$1ut=" + Math.floor(newUT));
+        }
+        
+        // If the date is less than current time, append &live
+        if (newUT < currTime()) {
+          newUrl += "&live";
+        }
+        
+        // Reload page with new URL
+        window.location.href = newUrl;
+        
+      } catch (error) {
+        handleError(error, "openTimePicker Apply", true);
+      }
+    }
+  }, {
+    text: "Cancel",
+    click: function() {
+      $("#siteDialog").dialog("close");
+      tick();
+    }
+  }]);
+  
+  // Open the dialog
+  $("#siteDialog").dialog("open");
+}
+
+function dateToUT(dateTime) {
+  return luxon.Interval.fromDateTimes(KSA_CONSTANTS.FOUNDING_MOMENT, dateTime).count("milliseconds")/1000;
 }
 
 // https://stackoverflow.com/questions/1026069/how-do-i-make-the-first-letter-of-a-string-uppercase-in-javascript

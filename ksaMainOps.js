@@ -1,11 +1,10 @@
 // refactor complete (except for calls to surface/vessel operations)
 
 // current game time is the difference between current real time minus number of ms since midnight on 9/13/16
-var tzOffset = luxon.DateTime.utc();
-ops.UT = luxon.Interval.fromDateTimes(KSA_CONSTANTS.FOUNDING_MOMENT, tzOffset).count("milliseconds")/1000;
-if (getParameterByName("setut") && (getCookie("missionctrl") || parseInt(getParameterByName("setut")) < ops.UT)) ops.UT = parseInt(getParameterByName("setut"));
-if (window.location.href.includes("&live") && getParameterByName("ut") && parseInt(getParameterByName("ut")) < ops.UT) {
-  ops.UT = parseInt(getParameterByName("ut"));
+ops.UT = dateToUT(luxon.DateTime.utc());
+if (getParameterByName("setut") && (getCookie("missionctrl") || parseFloat(getParameterByName("setut")) < ops.UT)) ops.UT = parseFloat(getParameterByName("setut"));
+if (window.location.href.includes("&live") && getParameterByName("ut") && parseFloat(getParameterByName("ut")) < ops.UT) {
+  ops.UT = parseFloat(getParameterByName("ut"));
   KSA_UI_STATE.isLivePastUT = true;
 }
 
@@ -197,12 +196,13 @@ function setupContent() {
   });
 
   // setup the clock
-  tzOffset = tzOffset.setZone("America/New_York");
+  var tzOffset = luxon.DateTime.fromMillis(KSA_CONSTANTS.MS_FROM_1970_TO_KSA_FOUNDING + (ops.UT * 1000)).setZone("America/New_York");
+  console.dir(tzOffset);
   var clockHTML = "<strong>Current Time @ KSC (UTC " + tzOffset.offset/60 + ")</strong><br>";
   if (KSA_UI_STATE.isLivePastUT) {
     clockHTML += "<div style=\"position: relative;\">";
     clockHTML += "<span id='resetHistoricTime' style=\"position: absolute; left: 42px; cursor: pointer; display: none;\"><i class=\"fa-solid fa-arrow-rotate-right\" style=\"color: #000000;\"></i></span>";
-    clockHTML += "<span id='ksctime' style='font-size: 16px; display: block; text-align: center;'></span>";
+    clockHTML += "<span id='ksctime' style='font-size: 16px; display: block; text-align: center;' title='Click to set time'></span>";
     clockHTML += "<span id='liveControlIcons' style=\"position: absolute; right: 0; top: 0; display: none;\">";
     clockHTML += "<span id='advanceTime1s' style=\"cursor: pointer;\"><i class=\"fa-solid fa-play\" style=\"color: #000000;\"></i></span> ";
     clockHTML += "<span id='advanceTime1m' style=\"cursor: pointer;\"><i class=\"fa-solid fa-forward\" style=\"color: #000000;\"></i></span> ";
@@ -214,6 +214,11 @@ function setupContent() {
   }
   $("#clock").html(clockHTML);
   if (KSA_UI_STATE.isLivePastUT) {
+    // Add click handler to open time picker dialog
+    $("#ksctime").click(function() {
+      openTimePicker(currUT());
+    });
+    
     $("#resetHistoricTime").click(function() {
       var newUrl = window.location.href;
       if (!getParameterByName("ut")) newUrl += "&ut=" + ops.UT;
@@ -1283,7 +1288,10 @@ function tick(utDelta = 1000, rapidFireMode = false) {
   // in rapid fire mode, call the next tick sooner
   // bail if an update event was fired
   } else if (rapidFireMode) {
-    if (!KSA_TIMERS.tickTimer) KSA_TIMERS.tickTimer = setTimeout(tick, 1000);
+    if (!KSA_TIMERS.tickTimer) {
+      ops.tickDelta -= utDelta; // undo the addition since we're exiting rapid fire
+      tick();                   // call normal tick to resume normal operation
+    }
     else KSA_TIMERS.tickTimer = setTimeout(tick, 125, utDelta, true);
   }
 }

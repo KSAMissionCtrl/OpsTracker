@@ -881,6 +881,8 @@ function vesselContentUpdate(update) {
   if (KSA_UI_STATE.isLivePastUT && !ops.ascentData.active) {
     $("#resetHistoricTime").fadeIn();
     $("#liveControlIcons").fadeIn();
+    // Add fauxLink styling to ksctime when controls fade in
+    $("#ksctime").addClass("fauxLink tipped");
   }
 
   // create any tooltips since we will likely miss the default tip creation waiting on async data load

@@ -47,7 +47,6 @@ const KSA_CONSTANTS = {
 var ops = {
   clock: new Date(),      // saves the time at which the page was loaded
   UT: null,               // assigned the current time on page load then used with currUT() to get the current time
-  UTC: 5,                 // time zone DST UTC offset, set at page load
   tickDelta: 0,           // number of ms since the page was loaded
   
   pageType: null,         // defines the type of data being shown - body, vessel, crew or crewFull for the entire roster. set only by swapContent() whenever a page type change is needed

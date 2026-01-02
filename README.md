@@ -18,6 +18,7 @@ The following JavaScript libraries are used:
 * [Numeral](http://numeraljs.com/)
 * [Tipped](https://github.com/staaky/tipped)
 * [Spin.js](http://fgnass.github.io/spin.js/)
+* [Luxon](https://github.com/moment/luxon)
 * [Rrose](http://erictheise.github.io/rrose/)
 * [Leaflet.Fullscreen](https://github.com/brunob/leaflet.fullscreen)
 * [Leaflet.GroupedLayerControl](https://github.com/ismyrnow/Leaflet.groupedlayercontrol)
