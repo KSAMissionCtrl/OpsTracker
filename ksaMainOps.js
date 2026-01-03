@@ -197,8 +197,7 @@ function setupContent() {
 
   // setup the clock
   var tzOffset = luxon.DateTime.fromMillis(KSA_CONSTANTS.MS_FROM_1970_TO_KSA_FOUNDING + (ops.UT * 1000)).setZone("America/New_York");
-  console.dir(tzOffset);
-  var clockHTML = "<strong>Current Time @ KSC (UTC " + tzOffset.offset/60 + ")</strong><br>";
+  var clockHTML = "<strong>Current Time @ KSC (UTC <span id='utcOffset'>" + tzOffset.offset/60 + "</span>)</strong><br>";
   if (KSA_UI_STATE.isLivePastUT) {
     clockHTML += "<div style=\"position: relative;\">";
     clockHTML += "<span id='resetHistoricTime' style=\"position: absolute; left: 42px; cursor: pointer; display: none;\"><i class=\"fa-solid fa-arrow-rotate-right\" style=\"color: #000000;\"></i></span>";
@@ -249,12 +248,12 @@ function setupContent() {
     $("#advanceTime1s").on('mousedown', function() {
       clearTimeout(KSA_TIMERS.rapidFireTimer);
       clearTimeout(KSA_TIMERS.tickTimer);
-      tick();
+      KSA_TIMERS.tickTimer = setTimeout(tick, 1);
       
       // Set timer for rapid fire mode after 750ms
       KSA_TIMERS.rapidFireTimer = setTimeout(function() {
         clearTimeout(KSA_TIMERS.tickTimer);
-        tick(1000, true);
+        KSA_TIMERS.tickTimer = setTimeout(tick, 1, 1000, true);
         KSA_TIMERS.rapidFireTimer = null;
       }, 750);
     });
@@ -272,12 +271,12 @@ function setupContent() {
     $("#advanceTime1m").on('mousedown', function() {
       clearTimeout(KSA_TIMERS.rapidFireTimer);
       clearTimeout(KSA_TIMERS.tickTimer);
-      tick(60000);
+      KSA_TIMERS.tickTimer = setTimeout(tick, 1, 60000);
       
       // Set timer for rapid fire mode after 750ms
       KSA_TIMERS.rapidFireTimer = setTimeout(function() {
         clearTimeout(KSA_TIMERS.tickTimer);
-        tick(60000, true);
+        KSA_TIMERS.tickTimer = setTimeout(tick, 1, 60000, true);
         KSA_TIMERS.rapidFireTimer = null;
       }, 750);
     });
@@ -444,14 +443,32 @@ function setupContent() {
     swapTwitterSource();
   }, 500);
 
-  // start the heartbeat
-  tick();
+  // start the heartbeat after everything is loaded
+  checkInitDataLoad();
 }
 function setupContentDown() {
   setTimeout(function() {
     $(".body").empty();
     document.documentElement.innerHTML = 'Error connecting to server! Please wait a few minutes and try again.';
   }, 5000);
+}
+
+// keep checking to see if all page data load is complete before starting the tick timer
+function checkInitDataLoad() {
+  if (KSA_UI_STATE.dataLoadQueue.length > 0) {
+    $('#ksctime').html(KSA_UI_STATE.dataLoadQueue.length + " data load(s) remaining...");
+    setTimeout(checkInitDataLoad, 1000);
+  } else {
+
+    // show clock icons and time settings if in live mode and not loading ascent data
+    if (KSA_UI_STATE.isLivePastUT) {
+      $('#ksctime').html(UTtoDateTime(currUT(), true));
+      $("#ksctime").addClass("fauxLink tipped");
+      $("#resetHistoricTime").delay(100).fadeIn();
+      $("#liveControlIcons").delay(100).fadeIn();
+    }
+    KSA_TIMERS.tickTimer = setTimeout(tick, 1);
+  }
 }
 
 // switch from one layout to another
@@ -917,15 +934,11 @@ function loadOpsDataAJAX(xhttp) {
 // http://stackoverflow.com/questions/6685396/execute-the-first-time-the-setinterval-without-delay
 function tick(utDelta = 1000, rapidFireMode = false) {
 
-  // sort the update times if new ones have been added since our last check, then look for updates
-  if (ops.updatesList.length > ops.updatesListSize) {
-    ops.updatesListSize = ops.updatesList.length;
-    ops.updatesList.sort(function(a,b) { return (a.UT > b.UT) ? 1 : ((b.UT > a.UT) ? -1 : 0); });
-  }
-  checkPageUpdate(rapidFireMode);
-
   // update the clocks
+  var tzOffset = luxon.DateTime.fromMillis(KSA_CONSTANTS.MS_FROM_1970_TO_KSA_FOUNDING + (ops.UT * 1000)).setZone("America/New_York");
   $('#ksctime').html(UTtoDateTime(currUT(), true));
+  $('#utcOffset').html(tzOffset.offset/60);
+
   if (!isNaN(KSA_CALCULATIONS.launchCountdown) && KSA_CALCULATIONS.launchCountdown - currUT() > 0) $('#launchCountdown').html(formatTime(KSA_CALCULATIONS.launchCountdown - currUT(), false));
   else if (!isNaN(KSA_CALCULATIONS.launchCountdown) && KSA_CALCULATIONS.launchCountdown - currUT() <= 0) { 
     
@@ -940,6 +953,13 @@ function tick(utDelta = 1000, rapidFireMode = false) {
     KSA_CALCULATIONS.maneuverCountdown = "null";
     KSA_TIMERS.maneuverRefreshTimeout = setTimeout(function() { loadDB("loadEventData.asp?UT=" + currUT(), loadEventsAJAX); }, 5000);
   }
+
+  // sort the update times if new ones have been added since our last check, then look for updates
+  if (ops.updatesList.length > ops.updatesListSize) {
+    ops.updatesListSize = ops.updatesList.length;
+    ops.updatesList.sort(function(a,b) { return (a.UT > b.UT) ? 1 : ((b.UT > a.UT) ? -1 : 0); });
+  }
+  checkPageUpdate(rapidFireMode);
 
   // update the terminator & sun display if a marker exists and the current body has a solar day length (is not the sun)
   // drawn based on the technique from SCANSat
@@ -1264,9 +1284,9 @@ function tick(utDelta = 1000, rapidFireMode = false) {
   // update any tooltips
   Tipped.refresh(".tip-update");  
   
-  // update the UT
-  ops.tickDelta += utDelta;
-  if (!rapidFireMode) { 
+  // update the UT if timer hasn't been canceled
+  if (KSA_TIMERS.tickTimer) ops.tickDelta += utDelta;
+  if (!rapidFireMode && KSA_TIMERS.tickTimer) { 
     
     // if this is viewing current time, keep track of any tab inactivity or time drift
     // otherwise just set a standard timeout since we don't care about accuracy when viewing past time
@@ -1288,10 +1308,7 @@ function tick(utDelta = 1000, rapidFireMode = false) {
   // in rapid fire mode, call the next tick sooner
   // bail if an update event was fired
   } else if (rapidFireMode) {
-    if (!KSA_TIMERS.tickTimer) {
-      ops.tickDelta -= utDelta; // undo the addition since we're exiting rapid fire
-      tick();                   // call normal tick to resume normal operation
-    }
+    if (!KSA_TIMERS.tickTimer) KSA_TIMERS.tickTimer = setTimeout(tick, 1);
     else KSA_TIMERS.tickTimer = setTimeout(tick, 125, utDelta, true);
   }
 }

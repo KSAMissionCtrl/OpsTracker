@@ -877,14 +877,6 @@ function vesselContentUpdate(update) {
   ops.currentVessel.CraftData.prevContent = ops.currentVessel.CraftData.Content;
   $("#contentBox").spin(false);
 
-  // show clock icons if in live mode and not loading ascent data
-  if (KSA_UI_STATE.isLivePastUT && !ops.ascentData.active) {
-    $("#resetHistoricTime").fadeIn();
-    $("#liveControlIcons").fadeIn();
-    // Add fauxLink styling to ksctime when controls fade in
-    $("#ksctime").addClass("fauxLink tipped");
-  }
-
   // create any tooltips since we will likely miss the default tip creation waiting on async data load
   // behavior of tooltips depends on the device
   if (is_touch_device()) showOpt = 'click';
@@ -1215,11 +1207,11 @@ function loadAscentData() {
   } else setupStreamingAscent();
   $("#resetHistoricTime").fadeOut();
   $("#liveControlIcons").fadeOut();
-
 }
 
 // prepares the data fields for displaying real-time ascent data
 function setupStreamingAscent() {
+
   // Wait for map to fully initialize before setting up ascent display
   if (!ops.surface.Data || ops.surface.isLoading) {
     return setTimeout(setupStreamingAscent, 50);
@@ -1506,11 +1498,6 @@ function setupStreamingAscent() {
 
   // build surface plot up to where things are if needed
   rebuildAscentTrack();
-
-  // show the historic time reset and live control icons
-  $("#resetHistoricTime").fadeIn();
-  $("#liveControlIcons").fadeIn();
-
 }
 
 // have a bit of housecleaning to do

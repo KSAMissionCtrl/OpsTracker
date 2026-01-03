@@ -163,6 +163,7 @@ const KSA_UI_STATE = {
   isMenuSorted: false,           // when the menu has completed initial sorting
   isGGBAppletLoaded: false,      // when the GGB figure is ready to be displayed and updated
   isGGBAppletRefreshing: false,  // when the GGB figure is still loading any additional vessel orbits
+  dataLoadQueue: [],             // holds urls of multiple AJAX data loads for debug and load checks
   
   // Menu state
   menuSaveSelected: null,        // saves the id of menu item that was last clicked on

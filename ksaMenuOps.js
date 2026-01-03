@@ -1055,15 +1055,14 @@ function selectMenuItem(menuID, retryCount) {
   }
   w2ui['menu'].select(menuID);
   w2ui['menu'].expandParents(menuID);
-  w2ui['menu'].scrollIntoView(menuID);
   if (menuNode.text.includes("bold")) {
     menuNode.text = menuNode.text.replace(" style='font-weight: bold;'", "");
     if (menuNode.img.includes("crew")) ops.crewMenu.find(o => o.db === menuNode.id).badged = false;
     else ops.craftsMenu.find(o => o.db === menuNode.id).badged = false;
     adjustCount(menuNode.parent.id, -1);
     w2ui['menu'].refresh();
-    w2ui['menu'].scrollIntoView(menuNode.id);
   }
+  w2ui['menu'].scrollIntoView(menuID);
 }
 
 // iterate up through the parents to add a value to the number count

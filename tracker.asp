@@ -192,7 +192,7 @@
       <!-- Events display -->
 
       <div id='eventBox'>
-        <div id='clock'></div>
+        <div id='clock'><strong>Current Time @ KSC (UTC )</strong><br>requesting data...</div>
         <div id='launch'><strong>Next Launch</strong><br>None Scheduled</div>
         <div id='maneuver'><strong>Next Maneuver</strong><br>None Scheduled</div>
       </div>

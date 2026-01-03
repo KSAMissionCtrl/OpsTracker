@@ -192,6 +192,29 @@ String.prototype.width = function(font) {
 }
 
 /**
+ * Intermediate handler for AJAX responses
+ * Calls the original callback and removes URL from the load queue
+ * @param {XMLHttpRequest} xhttp - The XMLHttpRequest object
+ * @param {string} url - The URL that was requested
+ * @param {function} cFunction - Callback function to execute
+ * @param {*} data - Optional data to pass to callback
+ */
+function dbResponse(xhttp, url, cFunction, data) {
+  try {
+    // Call the original callback function
+    cFunction(xhttp, data);
+    
+    // Remove the URL from the data load queue
+    var index = KSA_UI_STATE.dataLoadQueue.indexOf(url);
+    if (index > -1) {
+      KSA_UI_STATE.dataLoadQueue.splice(index, 1);
+    }
+  } catch (error) {
+    handleError(error, `dbResponse: ${url}`, true);
+  }
+}
+
+/**
  * Call up an AJAX query and assign it to a callback function
  * Enhanced with error handling
  * @param {string} url - The URL to request
@@ -200,6 +223,7 @@ String.prototype.width = function(font) {
  */
 function loadDB(url, cFunction, data) {
   console.log(url);
+  KSA_UI_STATE.dataLoadQueue.push(url);
   var xhttp;
   
   try {
@@ -209,7 +233,7 @@ function loadDB(url, cFunction, data) {
       try {
         if (this.readyState == 4) {
           if (this.status == 200) {
-            cFunction(this, data);
+            dbResponse(this, url, cFunction, data);
           } else if (this.status >= 400) {
             handleError(
               new Error(`HTTP ${this.status}: ${this.statusText}`),
@@ -463,7 +487,7 @@ function openTimePicker(currentUT) {
     text: "Cancel",
     click: function() {
       $("#siteDialog").dialog("close");
-      tick();
+      KSA_TIMERS.tickTimer = setTimeout(tick, 1);
     }
   }]);
   

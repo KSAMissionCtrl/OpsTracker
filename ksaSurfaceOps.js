@@ -2225,6 +2225,10 @@ function renderBodyOrbit() {
 
   // add the calculated data to teh current object
   var currObj = KSA_CATALOGS.bodyPaths.paths.find(o => o.isCalculating === true);
+  
+  // if we switched views while calculating, the object may no longer exist - just return
+  if (!currObj) return;
+  
   currObj.obtData = {
     orbit: KSA_CALCULATIONS.orbitDataCalc.slice(0),
     startUT: KSA_CALCULATIONS.obtCalcUT-KSA_CALCULATIONS.orbitDataCalc.length,
