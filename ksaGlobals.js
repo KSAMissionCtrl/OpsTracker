@@ -159,7 +159,7 @@ const KSA_UI_STATE = {
   isLivePastUT: false,           // whether the page was loaded with &live param to auto-update from a past UT
   
   // Loading states
-  isMenuDataLoaded: false,
+  isMenuDataLoaded: false,       // when all the menu data has been loaded from AJAX
   isMenuSorted: false,           // when the menu has completed initial sorting
   isGGBAppletLoaded: false,      // when the GGB figure is ready to be displayed and updated
   isGGBAppletRefreshing: false,  // when the GGB figure is still loading any additional vessel orbits
@@ -272,8 +272,8 @@ const KSA_CALCULATIONS = {
   // Event tracking
   strCurrentLaunchVessel: null,    // id of vessel next to launch
   strCurrentManeuverVessel: null,  // id of vessel next to maneuver
-  launchCountdown: null,           // UT of next launch
-  maneuverCountdown: null,         // UT of next maneuver
+  launchCountdown: "null",         // UT of next launch
+  maneuverCountdown: "null",       // UT of next maneuver
   strActiveAscent: "",             // id of vessel currently undergoing live ascent
   strTinyBodyLabel: "",            // id of body clicked to show its label
   

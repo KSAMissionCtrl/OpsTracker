@@ -692,7 +692,6 @@ function swapContent(newPageType, id, ut, flt) {
 
 // updates various content on the page depending on what update event has been triggered
 function updatePage(updateEvent, rapidFireMode = false) {
-
   // if rapid fire mode is active, we need to reset the tick timer
   if (rapidFireMode) KSA_TIMERS.tickTimer = null;
 
