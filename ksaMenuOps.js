@@ -866,9 +866,9 @@ function badgeMenuItem(strID, noSelect = false, noRefresh = false) {
   var menuItem = w2ui['menu'].get(strID);
 
   // don't alter this item if it hasn't been found, is already been badged or is currently selected
-  if (!menuItem) return;
-  if (menuItem.text.includes("bold")) return;
-  if (menuItem.selected) return;
+  if (!menuItem) return strID;
+  if (menuItem.text.includes("bold")) return null;
+  if (menuItem.selected) return false;
 
   // bold the text to identify it has updated information and badge all parent folders
   menuItem.text = menuItem.text.replace("<span>", "<span style='font-weight: bold;'>");
@@ -882,6 +882,8 @@ function badgeMenuItem(strID, noSelect = false, noRefresh = false) {
   // if selection is off, but the menu refreshed, just scroll into view the current selection
   if (noSelect && !noRefresh) w2ui['menu'].scrollIntoView();
   else if (!noSelect) w2ui['menu'].scrollIntoView(strID);
+
+  return true;
 }
 
 // get the current body being orbited for the current time

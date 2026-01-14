@@ -488,6 +488,7 @@ function openTimePicker(currentUT) {
     click: function() {
       $("#siteDialog").dialog("close");
       KSA_TIMERS.tickTimer = setTimeout(tick, 1);
+      if (ops.ascentData) ops.ascentData.isPaused = false;
     }
   }]);
   

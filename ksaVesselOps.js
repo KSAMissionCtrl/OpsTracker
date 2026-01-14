@@ -1086,7 +1086,7 @@ function updateVesselData(vessel) {
 
   // fetch new data. Add a second just to make sure we don't get the same current data
   vessel.isLoading = true;
-  loadDB("loadOpsData.asp?db=" + vessel.id + "&UT=" + (currUT()+1) + "&type=" + vessel.type + "&pastUT=NaN", loadOpsDataAJAX);
+  loadDB("loadOpsData.asp?db=" + vessel.id + "&UT=" + (currUT()+1) + "&type=" + vessel.type + "&pastUT=NaN", loadOpsDataAJAX, {isRealTimeUpdate: true, id: vessel.id});
 }
 
 // following functions perform parsing on data strings
@@ -1205,7 +1205,6 @@ function loadAscentData() {
     loadDB("loadAscentData.asp?db=" + ops.ascentData.vessel, loadAscentAJAX);
     $("#dataLabel").html("Loading Tlm...");
   } else setupStreamingAscent();
-  $("#resetHistoricTime").fadeOut();
   $("#liveControlIcons").fadeOut();
 }
 
@@ -1508,6 +1507,9 @@ function ascentEnd() {
 
   // re-enable map controls
   if (KSA_MAP_CONTROLS.mapResizeButton) KSA_MAP_CONTROLS.mapResizeButton.enable();
+
+  // bring back time controls if looking a past live event
+  $("#liveControlIcons").fadeIn();
 
   // save ascent FPS cookie
   if (checkCookies() && ops.activeAscentFrame.FPS) setCookie("ascentFPS", ops.activeAscentFrame.FPS, true);

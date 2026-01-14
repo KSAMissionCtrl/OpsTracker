@@ -51,6 +51,7 @@ var ops = {
   
   pageType: null,         // defines the type of data being shown - body, vessel, crew or crewFull for the entire roster. set only by swapContent() whenever a page type change is needed
   twitterSource: null,    // used in swapTwitterSource() to remember the current source of the twitter feed
+  lastVisit: null,        // time of the user's last visit to badge new updates since then
 
   maxMenuHeight: KSA_CONSTANTS.DEFAULT_MAX_MENU_HEIGHT,  // default value for the menu on page load, changed dynamically based on contents of event box or menu resize
   updatesListSize: 0,     // the current size of the updatesList structure since it was last checked so any added items can be detected

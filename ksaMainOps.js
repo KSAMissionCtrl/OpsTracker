@@ -216,6 +216,7 @@ function setupContent() {
     // Add click handler to open time picker dialog
     $("#ksctime").click(function() {
       openTimePicker(currUT());
+      if (ops.ascentData) ops.ascentData.isPaused = true;
     });
     
     $("#resetHistoricTime").click(function() {
@@ -762,7 +763,7 @@ function swapTwitterSource(swap, source) {
 }
 
 // loads future data for all active vessels and crew so they can be updated without fetch delay
-function loadOpsDataAJAX(xhttp) {
+function loadOpsDataAJAX(xhttp, args = null) {
 
   if (xhttp) {
   
@@ -869,20 +870,27 @@ function loadOpsDataAJAX(xhttp) {
     }
   }
 
+  // if this was a real-time update, badge the menu item 
+  // if the badging was successful we are not viewing this object, flash the menu to indicate an update
+  if (args && args.isRealTimeUpdate) {
+    if (badgeMenuItem(args.id, true) == true) {
+      flashUpdate("#menuHeader", "#77C6FF", "#FFF")
+    }
+  }
+
   // test for loading complete
   if (!ops.updateData.find(o => o.isLoading === true)) {
 
     // if this user has cookies, badge anything that has been updated since their last visit
-    // this is also run when an update is called for a crew or vessel and badges them then as well
-    if (checkCookies()) {
+    if (checkCookies() && !ops.lastVisit) {
 
       // get the time of the user's last visit
-      var lastVisit = parseInt(getCookie("visitTime"));
+      ops.lastVisit = parseInt(getCookie("visitTime"));
 
       // go through all the inactive vessels to see if any have been updated since the last visit
       ops.craftsMenu.forEach(function(item) {
         var refNumUT = currSOI(item);
-        if (refNumUT[0] == -1 && lastVisit < refNumUT[1]) badgeMenuItem(item.db, true, true);
+        if (refNumUT[0] == -1 && ops.lastVisit < refNumUT[1]) badgeMenuItem(item.db, true, true);
       });
 
       // now check the active vessels and crew, which can have several fields with varying update times
@@ -909,21 +917,22 @@ function loadOpsDataAJAX(xhttp) {
         }
 
         // if this UT is greater than when we last visited, but not greater than the current time, badge it
-        if (lastVisit <= latestUT && latestUT <= currUT()) badgeMenuItem(item.id, true, true);
+        if (ops.lastVisit <= latestUT && latestUT <= currUT()) badgeMenuItem(item.id, true, true);
       });
 
       // update the visit time only if we're viewing current time (not looking at past data)
-      if (currUT() > lastVisit) setCookie("visitTime", currUT(), true);
+      if (currUT() > ops.lastVisit) setCookie("visitTime", currUT(), true);
       
-      // select in the menu what was loaded, if that is not already the current selection
-      var menuID;
-      if (getParameterByName("body")) menuID = getParameterByName("body");
-      if (getParameterByName("vessel")) menuID = getParameterByName("vessel");
-      if (getParameterByName("crew")) menuID = getParameterByName("crew");
-      if (!KSA_UI_STATE.menuSaveSelected || (KSA_UI_STATE.menuSaveSelected && (KSA_UI_STATE.menuSaveSelected[0].id != menuID))) {
-        if (menuID && !window.location.href.includes("flt")) selectMenuItem(menuID);
-        else w2ui['menu'].scrollIntoView();
-      }
+      // not sure why this was here, the craft is selected in the menu on load elsewhere
+      // // select in the menu what was loaded, if that is not already the current selection
+      // var menuID;
+      // if (getParameterByName("body")) menuID = getParameterByName("body");
+      // if (getParameterByName("vessel")) menuID = getParameterByName("vessel");
+      // if (getParameterByName("crew")) menuID = getParameterByName("crew");
+      // if (!KSA_UI_STATE.menuSaveSelected || (KSA_UI_STATE.menuSaveSelected && (KSA_UI_STATE.menuSaveSelected[0].id != menuID))) {
+      //   if (menuID && !window.location.href.includes("flt")) selectMenuItem(menuID);
+      //   else w2ui['menu'].scrollIntoView();
+      // }
     }
   }
 }
@@ -1014,6 +1023,7 @@ function tick(utDelta = 1000, rapidFireMode = false) {
       )) {
         loadAscentData();
         ops.ascentData.active = true;
+        if (rapidFireMode) KSA_TIMERS.tickTimer = null;
       }
     }
 
@@ -1305,7 +1315,7 @@ function tick(utDelta = 1000, rapidFireMode = false) {
     } else KSA_TIMERS.tickTimer = setTimeout(tick, 1000);
 
   // in rapid fire mode, call the next tick sooner
-  // bail if an update event was fired
+  // bail if an update event or ascent telemetry load was fired
   } else if (rapidFireMode) {
     if (!KSA_TIMERS.tickTimer) KSA_TIMERS.tickTimer = setTimeout(tick, 1);
     else KSA_TIMERS.tickTimer = setTimeout(tick, 125, utDelta, true);
