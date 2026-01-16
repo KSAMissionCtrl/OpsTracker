@@ -60,6 +60,16 @@ input {
   cursor: pointer !important;
 }
 
+#advanceTime1s,
+#advanceTime1s * {
+  cursor: pointer !important;
+}
+
+#advanceTime1m,
+#advanceTime1m * {
+  cursor: pointer !important;
+}
+
 input:disabled {
   cursor: default;
 }

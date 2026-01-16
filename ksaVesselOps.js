@@ -1509,7 +1509,8 @@ function ascentEnd() {
   if (KSA_MAP_CONTROLS.mapResizeButton) KSA_MAP_CONTROLS.mapResizeButton.enable();
 
   // bring back time controls if looking a past live event
-  $("#liveControlIcons").fadeIn();
+  // as long as data is not still loading on initial page load
+  if ($("#ksctime").html().indexOf("data load") === -1) $("#liveControlIcons").fadeIn();
 
   // save ascent FPS cookie
   if (checkCookies() && ops.activeAscentFrame.FPS) setCookie("ascentFPS", ops.activeAscentFrame.FPS, true);

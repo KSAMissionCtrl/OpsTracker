@@ -6,6 +6,10 @@ if (getParameterByName("setut") && (getCookie("missionctrl") || parseFloat(getPa
 if (window.location.href.includes("&live") && getParameterByName("ut") && parseFloat(getParameterByName("ut")) < ops.UT) {
   ops.UT = parseFloat(getParameterByName("ut"));
   KSA_UI_STATE.isLivePastUT = true;
+
+  // remove the live parameter from the URL to keep things clean
+  var newUrl = window.location.href.replace("&live", "");
+  window.history.replaceState({}, document.title, newUrl);
 }
 
 // handle history state changes when user invokes forward/back button
@@ -164,6 +168,7 @@ function setupContent() {
 
     // setup click handler for the link icon
     $("#liveReloadIcon").click(function() {
+      $("#liveReloadIcon").html("<i class=\"fa-solid fa-clock-rotate-left fa-spin fa-spin-reverse\"></i>");
       var newUrl = window.location.href;
       if (!getParameterByName("ut")) newUrl += "&ut=" + ops.currentVessel.CraftData.UT;
       newUrl += "&live";
@@ -200,6 +205,7 @@ function setupContent() {
   var clockHTML = "<strong>Current Time @ KSC (UTC <span id='utcOffset'>" + tzOffset.offset/60 + "</span>)</strong><br>";
   if (KSA_UI_STATE.isLivePastUT) {
     clockHTML += "<div style=\"position: relative;\">";
+    clockHTML += "<input type='checkbox' id='ffCancelOnOtherUpdates' style=\"position: absolute; left: 18px; cursor: pointer; display: none;\" checked>";
     clockHTML += "<span id='resetHistoricTime' style=\"position: absolute; left: 42px; cursor: pointer; display: none;\"><i class=\"fa-solid fa-arrow-rotate-right\" style=\"color: #000000;\"></i></span>";
     clockHTML += "<span id='ksctime' style='font-size: 16px; display: block; text-align: center;' title='Click to set time'></span>";
     clockHTML += "<span id='liveControlIcons' style=\"position: absolute; right: 0; top: 0; display: none;\">";
@@ -240,6 +246,7 @@ function setupContent() {
     });
     var showOpt = 'mouseenter';
     if (is_touch_device()) showOpt = 'click';
+    Tipped.create('#ffCancelOnOtherUpdates', 'Checked: FF time stops on any vessel/crew updates<br>Unchecked: FF only stops for current vessel/crew updates', { showOn: showOpt, hideOnClickOutside: is_touch_device(), position: 'bottom' });
     Tipped.create('#resetHistoricTime', 'Reset historic time', { showOn: showOpt, hideOnClickOutside: is_touch_device(), position: 'bottom' });
     Tipped.create('#advanceTime1s', 'Advance time 1sec', { showOn: showOpt, hideOnClickOutside: is_touch_device(), position: 'bottom' });
     Tipped.create('#advanceTime1m', 'Advance time 1min', { showOn: showOpt, hideOnClickOutside: is_touch_device(), position: 'bottom' });
@@ -256,11 +263,13 @@ function setupContent() {
         clearTimeout(KSA_TIMERS.tickTimer);
         KSA_TIMERS.tickTimer = setTimeout(tick, 1, 1000, true);
         KSA_TIMERS.rapidFireTimer = null;
+        $("#advanceTime1s").css('cursor', 'pointer').html("<i class=\"fa-solid fa-play fa-beat\" style=\"color: #000000;\"></i>");
       }, 750);
     });
     
     $("#advanceTime1s").on('mouseup', function() {
       clearTimeout(KSA_TIMERS.rapidFireTimer);
+      $("#advanceTime1s").css('cursor', 'pointer').html("<i class=\"fa-solid fa-play\" style=\"color: #000000;\"></i>");
       if (!KSA_TIMERS.rapidFireTimer) {
         clearTimeout(KSA_TIMERS.tickTimer);
         KSA_TIMERS.tickTimer = setTimeout(tick, 500);
@@ -270,20 +279,41 @@ function setupContent() {
     
     // Setup 1m time advance icon mousedown/mouseup handlers
     $("#advanceTime1m").on('mousedown', function() {
-      clearTimeout(KSA_TIMERS.rapidFireTimer);
-      clearTimeout(KSA_TIMERS.tickTimer);
-      KSA_TIMERS.tickTimer = setTimeout(tick, 1, 60000);
-      
-      // Set timer for rapid fire mode after 750ms
-      KSA_TIMERS.rapidFireTimer = setTimeout(function() {
+
+      // if there is a countdown clock, we are viewing that vessel, and the countdown is within 2 minutes, block time advance
+      var bClickAllow = true;
+      if (!isNaN(KSA_CALCULATIONS.launchCountdown)) {
+        if (ops.pageType == "vessel") {
+          if (ops.currentVessel && ops.currentVessel.Catalog.DB == $("#launchLink").attr("db")) {
+            if (KSA_CALCULATIONS.launchCountdown - currUT() <= 120) bClickAllow = false;
+          }
+        }
+      }
+      if (bClickAllow) {
+        clearTimeout(KSA_TIMERS.rapidFireTimer);
         clearTimeout(KSA_TIMERS.tickTimer);
-        KSA_TIMERS.tickTimer = setTimeout(tick, 1, 60000, true);
-        KSA_TIMERS.rapidFireTimer = null;
-      }, 750);
+        KSA_TIMERS.tickTimer = setTimeout(tick, 1, 60000);
+        
+        // Set timer for rapid fire mode after 750ms
+        KSA_TIMERS.rapidFireTimer = setTimeout(function() {
+          clearTimeout(KSA_TIMERS.tickTimer);
+          KSA_TIMERS.tickTimer = setTimeout(tick, 1, 60000, true);
+          KSA_TIMERS.rapidFireTimer = null;
+          $("#advanceTime1m").css('cursor', 'pointer').html("<i class=\"fa-solid fa-forward fa-beat\" style=\"color: #000000;\"></i>");
+        }, 750);
+      } else {
+
+        // flash the countdown clock to cue users into why time advance is blocked
+        flashUpdate("#launch", "#FF0000", "#77C6FF");
+
+        // dummy value to indicate no rapid fire mode on mouse up
+        KSA_TIMERS.rapidFireTimer = 80085; 
+      }
     });
     
     $("#advanceTime1m").on('mouseup', function() {
       clearTimeout(KSA_TIMERS.rapidFireTimer);
+      $("#advanceTime1m").css('cursor', 'pointer').html("<i class=\"fa-solid fa-forward\" style=\"color: #000000;\"></i>");     
       if (!KSA_TIMERS.rapidFireTimer) {
         clearTimeout(KSA_TIMERS.tickTimer);
         KSA_TIMERS.tickTimer = setTimeout(tick, 500);
@@ -461,10 +491,11 @@ function checkInitDataLoad() {
     setTimeout(checkInitDataLoad, 1000);
   } else {
 
-    // show clock icons and time settings if in live mode and not loading ascent data
+    // show clock icons and time settings if in live mode
     if (KSA_UI_STATE.isLivePastUT) {
       $('#ksctime').html(UTtoDateTime(currUT(), true));
       $("#ksctime").addClass("fauxLink tipped");
+      $("#ffCancelOnOtherUpdates").delay(100).fadeIn();
       $("#resetHistoricTime").delay(100).fadeIn();
       $("#liveControlIcons").delay(100).fadeIn();
     }
@@ -693,9 +724,20 @@ function swapContent(newPageType, id, ut, flt) {
 
 // updates various content on the page depending on what update event has been triggered
 function updatePage(updateEvent, rapidFireMode = false) {
-  // if rapid fire mode is active, we need to reset the tick timer
-  if (rapidFireMode) KSA_TIMERS.tickTimer = null;
 
+  // if rapid fire mode is active, we need to reset the tick timer?
+  if (rapidFireMode) {
+
+    // if the ffCancelOnOtherUpdates is not checked, only stop FF for current vessel/crew updates
+    if (!$("#ffCancelOnOtherUpdates").is(":checked")) {
+      if (updateEvent.type == "object" && 
+         ((ops.pageType == "vessel" && ops.currentVessel && updateEvent.id == ops.currentVessel.Catalog.DB) ||
+          (ops.pageType == "crew" && ops.currentCrew && updateEvent.id == ops.currentCrew.Background.Kerbal))) {
+            KSA_TIMERS.tickTimer = null;
+      }
+    } else KSA_TIMERS.tickTimer = null;
+  }
+      
   KSA_UI_STATE.menuSaveSelected = w2ui['menu'].find({selected: true});
   if (KSA_UI_STATE.menuSaveSelected.length == 0) KSA_UI_STATE.menuSaveSelected = null;
   if (updateEvent.type.includes("menu")) menuUpdate(updateEvent.type.split(";")[1], updateEvent.id);
@@ -1010,7 +1052,7 @@ function tick(utDelta = 1000, rapidFireMode = false) {
   if (KSA_UI_STATE.isGGBAppletLoaded) ggbApplet.setValue("UT", currUT());
   
   // is there a loaded vessel we need to monitor?
-  if (ops.currentVessel) {
+  if (ops.currentVessel && ops.pageType == "vessel") {
 
     // does the vessel have ascent data and is it starting in the future?
     if (ops.currentVessel.AscentData.length && ops.currentVessel.AscentData[0] > currUT()) {
@@ -1315,9 +1357,25 @@ function tick(utDelta = 1000, rapidFireMode = false) {
     } else KSA_TIMERS.tickTimer = setTimeout(tick, 1000);
 
   // in rapid fire mode, call the next tick sooner
-  // bail if an update event or ascent telemetry load was fired
+  // bail if an update event or ascent telemetry load was fired and nulled the timer
+  // also bail if we are at or past terminal countdown when FF at speeds greater than 1s
+  // but only if we are viewing the current vessel that is launching
   } else if (rapidFireMode) {
-    if (!KSA_TIMERS.tickTimer) KSA_TIMERS.tickTimer = setTimeout(tick, 1);
-    else KSA_TIMERS.tickTimer = setTimeout(tick, 125, utDelta, true);
+    if (!KSA_TIMERS.tickTimer || 
+       (utDelta > 1000 && 
+         (ops.currentVessel && (ops.currentVessel.Catalog.DB == $("#launchLink").attr("db") && ops.pageType == "vessel")) &&
+         (!isNaN(KSA_CALCULATIONS.launchCountdown) && KSA_CALCULATIONS.launchCountdown - currUT() <= 120))) 
+    {
+      KSA_TIMERS.tickTimer = setTimeout(tick, 1);
+
+      // flash the launch countdown if we are within T-2 minutes
+      if (!isNaN(KSA_CALCULATIONS.launchCountdown) && KSA_CALCULATIONS.launchCountdown - currUT() <= 120) {
+        flashUpdate("#launch", "#FF0000", "#77C6FF");
+      }
+
+      // reset the advance time buttons
+      $("#advanceTime1s").css('cursor', 'pointer').html("<i class=\"fa-solid fa-play\" style=\"color: #000000;\"></i>");
+      $("#advanceTime1m").css('cursor', 'pointer').html("<i class=\"fa-solid fa-forward\" style=\"color: #000000;\"></i>");     
+    } else KSA_TIMERS.tickTimer = setTimeout(tick, 125, utDelta, true);
   }
 }
