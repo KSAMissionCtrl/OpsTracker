@@ -650,7 +650,7 @@ function isMenuItemVisible(itemId) {
 function menuResize() {
   if ($('#menuResize').html().includes("Expand")) {
     $('#twitterBox').fadeOut(250, "swing", function () { 
-      ops.maxMenuHeight = 882;
+      ops.maxMenuHeight = 915; // 882
       var height = (ops.maxMenuHeight - w2utils.getSize("#eventBox", 'height')) + "px";
       $('#menuBox').css("height", height); 
       setTimeout(function() { 
@@ -665,7 +665,7 @@ function menuResize() {
       }, 200);
     });
   } else {
-    ops.maxMenuHeight = 340;
+    ops.maxMenuHeight = 340; // 340
     var height = (ops.maxMenuHeight - w2utils.getSize("#eventBox", 'height')) + "px";
     $('#menuBox').css("height", height); 
     setTimeout(function() { 

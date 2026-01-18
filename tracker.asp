@@ -82,8 +82,6 @@
       </div>
       <div id='siteDialog'></div>
       <div id='contentHeader' class='header'>&nbsp;</div>
-      <div id='liveReloadIcon' style='position: absolute; top: 10px; display: none; cursor: pointer; font-size: 18px; color: #000000; text-decoration: none; z-index: 10; user-select: none; -webkit-user-select: none; -moz-user-select: none; -ms-user-select: none;'></div>
-      <div id='copyLinkIcon' style='position: absolute; top: 10px; right: 305px; display: none; cursor: pointer; font-size: 18px; color: #4a90e2; text-decoration: none; z-index: 10; user-select: none; -webkit-user-select: none; -moz-user-select: none; -ms-user-select: none;'><i class="fa-solid fa-link"></i></div>
       <div id='contentBox'>
         <div id='map' class='map'></div>
         <div id='content'></div>
@@ -158,6 +156,8 @@
         <span id='alt9' style='color:#ffffff'>Test</span><br>
       </div>
       <div id='footer' style='text-align: center; width: 955px; top: 930px; position: absolute;'><a target='_blank' href='http://www.kerbalspace.agency'>KSA Home Page</a> | 2D Orbit rendering: <a target='_blank' href='https://forum.kerbalspaceprogram.com/index.php?/topic/33568-winmaclinux-ksp-trajectory-optimization-tool-v164-new-vehicle-sizing-tool/'>KSPTOT</a> | 3D Orbit Rendering: <a target='_blank' href='https://forum.kerbalspaceprogram.com/index.php?/topic/158826-3d-ksp-solar-system-scale-model-major-update-05202017/'>by Syntax</a> | <a target='_blank' href='https://github.com/KSAMissionCtrl/OpsTracker/wiki'>Ops Tracker Wiki</a></div>
+      <div id='liveReloadIcon' style='position: absolute; top: 930px; left: 125px; display: none; cursor: pointer; font-size: 18px; color: #000000; text-decoration: none; z-index: 10; user-select: none; -webkit-user-select: none; -moz-user-select: none; -ms-user-select: none;'></div>
+      <div id='copyLinkIcon' style='position: absolute; top: 930px; right: 430px; display: none; cursor: pointer; font-size: 18px; color: #4a90e2; text-decoration: none; z-index: 10; user-select: none; -webkit-user-select: none; -moz-user-select: none; -ms-user-select: none;'><i class="fa-solid fa-link"></i></div>
     </div>
     <div id='sideContent'>
       

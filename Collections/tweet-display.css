@@ -12,7 +12,7 @@
 /* Container - fills parent width with vertical scrolling */
 .inline-tweets {
   width: 100%;
-  max-height: 500px;
+  max-height: 525px;
   overflow-y: auto;
   overflow-x: hidden;
 }

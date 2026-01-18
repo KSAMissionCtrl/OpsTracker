@@ -622,29 +622,48 @@ function vesselRelatedUpdate(update) {
 
 function vesselAddlInfoUpdate(update) {
   if (ops.currentVessel.Catalog.AddlRes) {
-    var newRes;
-    var strHTML = '';
-    ops.currentVessel.Catalog.AddlRes.split("|").forEach(function(item) {
-      if (parseFloat(item.split(";")[0]) < currUT()) {
-        strHTML += "<span class='tipped' title='" + item.split(";")[1] + "'><a target='_blank' style='color: black' href='" + item.split(";")[2] + "'><i class='" + AddlResourceItems[item.split(";")[1]] + "'></i></a></span>&nbsp;";
-      
-      // if the item isn't visible yet, save the UT so we can add an update notice for it
-      } else {
-        if (!newRes) newRes = parseFloat(item.split(";")[0]);
-        else if (parseFloat(item.split(";")[0]) < newRes) newRes = parseFloat(item.split(";")[0]);
-      }
-    });
-    if (strHTML) {
-      if (update && (!ops.currentVessel.Catalog.AddlResHTML || (ops.currentVessel.Catalog.AddlResHTML && strHTML != ops.currentVessel.Catalog.AddlResHTML))) {
-        flashUpdate("#dataField11", "#77C6FF", "#FFF");
-      }
-      $("#dataField11").html("<b>Additional Information:</b> " + strHTML);
-      $("#dataField11").fadeIn();
-      ops.currentVessel.Catalog.AddlResHTML = strHTML;
 
-    // there could be data but turns out we can't show it yet
-    } else $("#dataField11").fadeOut();
-    if (newRes) ops.updatesList.push({ type: "object", id: ops.currentVessel.Catalog.DB, UT: newRes });
+    // handle things differently if this is a past live event or not
+    if (!KSA_UI_STATE.isLivePastUT) {
+      var newRes;
+      var strHTML = '';
+      ops.currentVessel.Catalog.AddlRes.split("|").forEach(function(item) {
+        if (parseFloat(item.split(";")[0]) < currUT()) {
+          strHTML += "<span class='tipped' title='" + item.split(";")[1] + "'><a target='_blank' style='color: black' href='" + item.split(";")[2] + "'><i class='" + AddlResourceItems[item.split(";")[1]] + "'></i></a></span>&nbsp;";
+        
+        // if the item isn't visible yet, save the UT so we can add an update notice for it
+        } else {
+          if (!newRes) newRes = parseFloat(item.split(";")[0]);
+          else if (parseFloat(item.split(";")[0]) < newRes) newRes = parseFloat(item.split(";")[0]);
+        }
+      });
+      if (strHTML) {
+        if (update && (!ops.currentVessel.Catalog.AddlResHTML || (ops.currentVessel.Catalog.AddlResHTML && strHTML != ops.currentVessel.Catalog.AddlResHTML))) {
+          flashUpdate("#dataField11", "#77C6FF", "#FFF");
+        }
+        $("#dataField11").html("<b>Additional Information:</b> " + strHTML);
+        $("#dataField11").fadeIn();
+        ops.currentVessel.Catalog.AddlResHTML = strHTML;
+
+      // there could be data but turns out we can't show it yet
+      } else $("#dataField11").fadeOut();
+      if (newRes) ops.updatesList.push({ type: "object", id: ops.currentVessel.Catalog.DB, UT: newRes });
+    } else {
+
+      // if the craft is inactive then show all the resources, otherwise hide them
+      if (isMissionEnded()) {
+        var strHTML = '';
+        ops.currentVessel.Catalog.AddlRes.split("|").forEach(function(item) {
+          strHTML += "<span class='tipped' title='" + item.split(";")[1] + "'><a target='_blank' style='color: black' href='" + item.split(";")[2] + "'><i class='" + AddlResourceItems[item.split(";")[1]] + "'></i></a></span>&nbsp;";
+        });
+        if (update && (!ops.currentVessel.Catalog.AddlResHTML || (ops.currentVessel.Catalog.AddlResHTML && strHTML != ops.currentVessel.Catalog.AddlResHTML))) {
+          flashUpdate("#dataField11", "#77C6FF", "#FFF");
+        }
+        $("#dataField11").html("<b>Additional Information:</b> " + strHTML);
+        $("#dataField11").fadeIn();
+        ops.currentVessel.Catalog.AddlResHTML = strHTML;
+      } else $("#dataField11").fadeOut();
+    }
   } else $("#dataField11").fadeOut();
 }
 
