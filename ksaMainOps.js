@@ -226,9 +226,20 @@ function setupContent() {
     });
     
     $("#resetHistoricTime").click(function() {
+      $("#resetHistoricTime").html("<i class=\"fa-solid fa-arrow-rotate-right fa-spin\" style=\"color: #000000;\"></i>");
       var newUrl = window.location.href;
       if (!getParameterByName("ut")) newUrl += "&ut=" + ops.UT;
       else newUrl = newUrl.replace(/(&|\?)ut=[^&]*/, "$1ut=" + ops.UT);
+      newUrl += "&live";
+      window.location.href = newUrl;
+    });
+    $("#resetHistoricTime").contextmenu(function(e) {
+      e.preventDefault();
+
+      // if there is no ut parameter, nothing to reset
+      if (!getParameterByName("ut")) return;
+      $("#resetHistoricTime").html("<i class=\"fa-solid fa-arrow-rotate-right fa-spin\" style=\"color: #000000;\"></i>");
+      var newUrl = window.location.href;
       newUrl += "&live";
       window.location.href = newUrl;
     });
@@ -247,7 +258,7 @@ function setupContent() {
     var showOpt = 'mouseenter';
     if (is_touch_device()) showOpt = 'click';
     Tipped.create('#ffCancelOnOtherUpdates', 'Checked: FF time stops on any vessel/crew updates<br>Unchecked: FF only stops for current vessel/crew updates', { showOn: showOpt, hideOnClickOutside: is_touch_device(), position: 'bottom' });
-    Tipped.create('#resetHistoricTime', 'Reset historic time', { showOn: showOpt, hideOnClickOutside: is_touch_device(), position: 'bottom' });
+    Tipped.create('#resetHistoricTime', 'Left click: Reset time to page load<br>Right click: Reset time to current event', { showOn: showOpt, hideOnClickOutside: is_touch_device(), position: 'bottom' });
     Tipped.create('#advanceTime1s', 'Advance time 1sec', { showOn: showOpt, hideOnClickOutside: is_touch_device(), position: 'bottom' });
     Tipped.create('#advanceTime1m', 'Advance time 1min', { showOn: showOpt, hideOnClickOutside: is_touch_device(), position: 'bottom' });
     Tipped.create('#returnToCurrentTime', 'Return to current time', { showOn: showOpt, hideOnClickOutside: is_touch_device(), position: 'bottom' });

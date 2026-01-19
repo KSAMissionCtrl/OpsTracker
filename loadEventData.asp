@@ -1,3 +1,4 @@
+<!--#include file="aspUtils.asp"-->
 <%
 
 'http://www.sorenwinslow.com/SortArray.asp
@@ -35,8 +36,6 @@ Sub SortArray(TheArr,AscDesc)
   Next
 End Sub
 
-<!--#include file="aspUtils.asp"-->
-<%
 response.expires=-1
 Call SetSecurityHeaders()
 
@@ -52,8 +51,6 @@ UT = validatedUT
 
 'open catalog database using utility function
 Set conn = GetCatalogConnection()
-%>
-<%
 
 'create and open the tables
 set rsCrafts = Server.CreateObject("ADODB.recordset")
@@ -70,7 +67,7 @@ maneuverIndex = 0
 do
 
   'parse all the SOIs this craft has/will be in and find the one it is in currently
-  ref = 0
+  ref = -1
   locations = split(rsCrafts.fields.item("SOI"), "|")
   for each loc in locations
     values = split(loc, ";")
@@ -126,7 +123,7 @@ do
     conn2.Close
     Set conn2 = nothing
   end if
-  
+
   'advance the recordset point and repeat
   rsCrafts.movenext
 loop until rsCrafts.eof
