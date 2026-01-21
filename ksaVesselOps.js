@@ -104,8 +104,11 @@ function loadFlt(dbName, menuSelect = true) {
       return;
     }
     
-    // Make sure page type is correct
-    if (ops.pageType != "body") swapContent("body", "Kerbin-System", dbName);
+    // Make sure page type is correct - return to let swapContent handle showing the map
+    if (ops.pageType != "body") {
+      swapContent("body", "Kerbin-System", dbName);
+      return;
+    }
     
     // add it back to the map and the control if it has been removed
     if (path.deleted) {
