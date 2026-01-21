@@ -123,9 +123,7 @@
         </div>
       </div>
       <div id='crewFooter' style='text-align: center; margin-left: 503px; margin-top: 5px; display: none'>
-        <a target='_blank' href='http://www.kerbalspace.agency'>KSA Home Page</a> | 
-        Ribbons &amp; Stats by <a target='_blank' href='http://forum.kerbalspaceprogram.com/index.php?/topic/61065-105-final-frontier-kerbal-individual-merits-098-1882/'>Final Frontier</a> | 
-        <a target='_blank' href='https://github.com/KSAMissionCtrl/OpsTracker/wiki'>Ops Tracker Wiki</a>
+        Ribbons &amp; Stats by <a target='_blank' href='http://forum.kerbalspaceprogram.com/index.php?/topic/61065-105-final-frontier-kerbal-individual-merits-098-1882/'>Final Frontier</a>
       </div>
       <div id='figureOptions' style='z-index: 2; color: white; position: absolute; top: 900px; left: 5px; display: none;'>
         <input class='checkboxes' name='nodes' id='nodes' type='checkbox'> <label for='nodes'>Show Nodes</label> 

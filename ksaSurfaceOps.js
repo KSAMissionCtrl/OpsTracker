@@ -537,6 +537,7 @@ function loadFltDataAJAX(xhttp) {
   var fltInfo = rsToObj(xhttp.responseText.split("^")[0]);
   var fltData = [];
   xhttp.responseText.split("^")[1].split("|").forEach(function(item) { fltData.push(rsToObj(item)); });
+  console.log(fltInfo);
 
   // get the min/max altitudes of the flight
   var altMin = fltData[0].ASL;
@@ -610,7 +611,7 @@ function loadFltDataAJAX(xhttp) {
         
         // Update the URL to include this flight
         var strURL = "http://www.kerbalspace.agency/Tracker/tracker.asp?body=Kerbin-System&flt=" + KSA_CATALOGS.fltPaths[0].id;
-        history.pushState({type: "body", id: "Kerbin-System"}, document.title, strURL);
+        history.pushState({type: "flt", db: KSA_CATALOGS.fltPaths[0].id}, document.title, strURL);
       // multiple tracks...
       } else {
 
@@ -653,7 +654,7 @@ function loadFltDataAJAX(xhttp) {
 
     // Update the URL to include this flight
     var strURL = "http://www.kerbalspace.agency/Tracker/tracker.asp?body=Kerbin-System&flt=" + KSA_CATALOGS.fltPaths[KSA_CATALOGS.fltPaths.length-1].id;
-    history.pushState({type: "body", id: "Kerbin-System"}, document.title, strURL);
+    history.pushState({type: "flt", db: KSA_CATALOGS.fltPaths[KSA_CATALOGS.fltPaths.length-1].id}, document.title, strURL);
 
     KSA_LAYERS.surfaceTracksDataLoad.fltTrackDataLoad = null;
     checkDataLoad();

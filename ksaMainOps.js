@@ -13,7 +13,10 @@ if (window.location.href.includes("&live") && getParameterByName("ut") && parseF
 }
 
 // handle history state changes when user invokes forward/back button
-window.onpopstate = function(event) { swapContent(event.state.type, event.state.id, event.state.UT); }
+window.onpopstate = function(event) { 
+  if (event.state.type == "flt") loadFlt(event.state.db, false);
+  else swapContent(event.state.type, event.state.id, event.state.UT); 
+}
 
 // ==============================================================================
 // MEMORY LEAK PREVENTION - Cleanup Functions
@@ -580,8 +583,6 @@ function swapContent(newPageType, id, ut, flt) {
       $("#dataBox").fadeIn();
       $("#dataBox").css("transform", "translateX(-154px)");
       $("#dataBox").css("width", "449px");
-      $("#crewFooter").fadeIn();
-      $("#footer").fadeOut();
       $("#contentBox").fadeOut();
       $("#missionHistory").fadeOut();
       loadCrew(id);
@@ -655,7 +656,6 @@ function swapContent(newPageType, id, ut, flt) {
       $("#dataBox").fadeOut();
     }
     $("#crewFooter").fadeOut();
-    $("#footer").fadeIn();
     $("#infoDialog").dialog("close");
   } else if (ops.pageType == "crewFull") {
     $("#fullRoster").fadeOut();
@@ -680,7 +680,7 @@ function swapContent(newPageType, id, ut, flt) {
         KSA_LAYERS.layerPins.addTo(ops.surface.map);
         ops.surface.layerControl.addOverlay(KSA_LAYERS.layerPins, "<img src='defPin.png' style='width: 10px; height: 14px; vertical-align: 1px;'> Custom Pins", "Ground Markers");
       }
-     KSA_CATALOGS.bodyPaths.layers.forEach(function(layer) {
+      KSA_CATALOGS.bodyPaths.layers.forEach(function(layer) {
         if (layer.isLoaded) {
           var strType = capitalizeFirstLetter(layer.type);
           if (!strType.endsWith("s")) strType += "s";
@@ -712,7 +712,6 @@ function swapContent(newPageType, id, ut, flt) {
     $("#dataBox").css("transform", "translateX(-154px)");
     $("#dataBox").css("width", "449px");
     $("#crewFooter").fadeIn();
-    $("#footer").fadeOut();
     $("#contentBox").fadeOut();
     $("#missionHistory").fadeOut();
     loadCrew(id);
@@ -924,9 +923,10 @@ function loadOpsDataAJAX(xhttp, args = null) {
   }
 
   // if this was a real-time update, badge the menu item 
-  // if the badging was successful we are not viewing this object, flash the menu to indicate an update
+  // if the badging was successful or still previously badged we are not viewing this object, flash the menu to indicate an update
   if (args && args.isRealTimeUpdate) {
-    if (badgeMenuItem(args.id, true) == true) {
+    var result = badgeMenuItem(args.id, true)
+    if (result == true || result == null) {
       flashUpdate("#menuHeader", "#77C6FF", "#FFF")
     }
   }

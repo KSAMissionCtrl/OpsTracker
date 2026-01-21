@@ -132,106 +132,7 @@ function loadMenuAJAX(xhttp) {
       else if (event.node.img.includes("crew") && event.node.id == "crewFull") swapContent("crewFull", event.node.id);
         
       // when loading aircraft, ensure that it wasn't the aircraft Type folder that was clicked  and that a current load isn't already in progress
-      else if (event.node.img.includes("aircraft") && event.node.parent.id != "inactiveVessels") {
-        
-        // First check if this flight path has already been loaded - if so, handle it and skip loading checks
-        var path = KSA_CATALOGS.fltPaths.find(o => o.id === event.node.id);
-        if (path) {
-          
-          // Close the load notice dialog if it's open
-          if ($("#mapDialog").dialog("isOpen") && $("#mapDialog").dialog("option", "title") == "Data Load Notice") {
-            $("#mapDialog").dialog("close");
-          }
-          
-          // Make sure we're on Kerbin
-          var currBody = ops.bodyCatalog.find(o => o.selected === true);
-          if (!currBody || (currBody && currBody.Body != "Kerbin")) {
-            swapContent("body", "Kerbin-System", event.node.id);
-            return;
-          }
-          
-          // Make sure page type is correct
-          if (ops.pageType != "body") swapContent("body", "Kerbin-System", event.node.id);
-          
-          // add it back to the map and the control if it has been removed
-          if (path.deleted) {
-            ops.surface.layerControl.addOverlay(path.layer, "<i class='fa fa-minus' style='color: " + path.color + "'></i> " + path.info.Title, "Flight Tracks");
-            path.layer.addTo(ops.surface.map);
-            path.Deleted = false;
-            
-          // just add it back to the map in case it was hidden
-          } else if (!ops.surface.map.hasLayer(path.layer)) path.layer.addTo(ops.surface.map);
-          showMap();
-          
-          // Zoom the map to fit this flight path
-          // If there are more than two layers the plot wraps around the meridian so just show the whole map
-          // otherwise zoom in to fit the size of the plot
-          if (Object.keys(path.layer._layers).length > 1) ops.surface.map.setView([0,0], 1);
-          else ops.surface.map.fitBounds(Object.values(path.layer._layers)[0]._bounds);
-          
-          // Update the URL to include this flight
-          var strURL = "http://www.kerbalspace.agency/Tracker/tracker.asp?body=Kerbin-System&flt=" + event.node.id;
-          history.pushState({type: "body", id: "Kerbin-System"}, document.title, strURL);
-          return;
-        }
-        
-        // let the user know only one data load request can be active at a time
-        if (KSA_UI_STATE.strFltTrackLoading) {
-          
-          // Check if dialog is already open before recreating it
-          if (!$("#mapDialog").dialog("isOpen")) {
-            $("#mapDialog").dialog( "option", "title", "Data Load Notice");
-            $("#progressbar").fadeOut();
-            $("#dialogTxt").fadeIn();
-            $("#dialogTxt").html("Only one flight track can be requested at a time. Please wait for the track to load before clicking another from the menu.");
-            $("#mapDialog").dialog( "option", "buttons", [{
-              text: "Okay",
-              click: function() { 
-                $("#mapDialog").dialog("close");
-              }
-            }]);
-            $("#mapDialog").dialog("open");
-          }
-          
-          // Revert menu selection to the currently-loading flight path, but don't scroll into view
-          w2ui['menu'].unselect(event.node.id);
-          w2ui['menu'].select(KSA_UI_STATE.strFltTrackLoading);
-          w2ui['menu'].expandParents(KSA_UI_STATE.strFltTrackLoading);
-          return;
-        }
-
-        // Close the load notice dialog if it's open, since we're now allowing a new load to proceed
-        if ($("#mapDialog").dialog("isOpen") && $("#mapDialog").dialog("option", "title") == "Data Load Notice") {
-          $("#mapDialog").dialog("close");
-        }
-
-        // check that we are looking at the proper map (hardcoded to Kerbin), and load it if not
-        // this will append the flight name to the URL and the path will be loaded
-        var currBody = ops.bodyCatalog.find(o => o.selected === true);
-        if (!currBody || (currBody && currBody.Body != "Kerbin")) {
-          swapContent("body", "Kerbin-System", event.node.id);
-        }
-
-        // however if the system is already set to Kerbin, just load the path straight to the map
-        else {
-
-          // if this isn't the right page type, set it up
-          if (ops.pageType != "body") swapContent("body", "Kerbin-System", event.node.id);
-          setTimeout(showMap, 1000);
-
-          // load the aircraft track
-          KSA_LAYERS.surfaceTracksDataLoad.fltTrackDataLoad = L.layerGroup();
-          ops.surface.layerControl._expand();
-          ops.surface.layerControl.options.collapsed = false;
-          ops.surface.layerControl.addOverlay(KSA_LAYERS.surfaceTracksDataLoad.fltTrackDataLoad, "<i class='fa fa-cog fa-spin'></i> Loading Data...", "Flight Tracks");
-          loadDB("loadFltData.asp?data=" + event.node.id, loadFltDataAJAX);
-          KSA_UI_STATE.strFltTrackLoading = event.node.id;
-          
-          // Update the URL to include this flight
-          var strURL = "http://www.kerbalspace.agency/Tracker/tracker.asp?body=Kerbin-System&flt=" + event.node.id;
-          history.pushState({type: "body", id: "Kerbin-System"}, document.title, strURL);
-        }
-      }
+      else if (event.node.img.includes("aircraft") && event.node.parent.id != "inactiveVessels") loadFlt(event.node.id);
 
       // for now, we link to another page for the DSN
       else if (event.node.img.includes("dish")) window.open("http://www.kerbalspace.agency/?p=3736");
@@ -246,8 +147,14 @@ function loadMenuAJAX(xhttp) {
         if (event.node.img.includes("crew")) ops.crewMenu.find(o => o.db === event.node.id).badged = false;
         else ops.craftsMenu.find(o => o.db === event.node.id).badged = false;
         adjustCount(event.node.parent.id, -1);
+        var selectedId = event.node.id;
         w2ui['menu'].refresh();
-        w2ui['menu'].scrollIntoView(event.node.id);
+        w2ui['menu'].select(selectedId);
+        (function(id) {
+          setTimeout(function() {
+            w2ui['menu'].scrollIntoView(id);
+          }, 50);
+        })(selectedId);
       }
     },
     onExpand: function (event) {
@@ -603,7 +510,13 @@ function filterCrewMenu(id) {
       }
     });
   }
+  
+  // preserve the selected item after refresh
   w2ui['menu'].refresh();
+  if (KSA_TIMERS.menuRefresh) clearTimeout(KSA_TIMERS.menuRefresh);
+  KSA_TIMERS.menuRefresh = setTimeout(function() {
+    w2ui['menu'].scrollIntoView();
+  }, 100);
   
   // if we are looking at the full crew roster, refresh the view
   // this may place an extra call to the first crew member if loading initially to full roster page but does no harm
@@ -655,12 +568,17 @@ function menuResize() {
       $('#menuBox').css("height", height); 
       setTimeout(function() { 
         w2ui['menu'].bottomHTML = '<div id="menuResize" onclick="menuResize()">&and;&and;Collapse Menu&and;&and;</div>';
-        w2ui['menu'].refresh(); 
-        if (w2ui['menu'].find({selected: true}).length) {
-          var selectedId = w2ui['menu'].find({selected: true})[0].id;
-          setTimeout(function() {
-            if (!isMenuItemVisible(selectedId)) w2ui['menu'].scrollIntoView(selectedId);
-          }, 50);
+        var selectedNode = w2ui['menu'].find({selected: true});
+        var selectedId = (selectedNode.length > 0) ? selectedNode[0].id : null;
+        w2ui['menu'].refresh();
+        if (selectedId && w2ui['menu'].get(selectedId)) {
+          w2ui['menu'].select(selectedId);
+          w2ui['menu'].expandParents(selectedId);
+          (function(id) {
+            setTimeout(function() {
+              if (!isMenuItemVisible(id)) w2ui['menu'].scrollIntoView(id);
+            }, 50);
+          })(selectedId);
         }
       }, 200);
     });
@@ -670,11 +588,18 @@ function menuResize() {
     $('#menuBox').css("height", height); 
     setTimeout(function() { 
       w2ui['menu'].bottomHTML = '<div id="menuResize" onclick="menuResize()">&or;&or;Expand Menu&or;&or;</div>';
-      w2ui['menu'].refresh(); 
-      var selectedId = w2ui['menu'].find({selected: true})[0].id;
-      setTimeout(function() {
-        if (!isMenuItemVisible(selectedId)) w2ui['menu'].scrollIntoView(selectedId);
-      }, 50);
+      var selectedNode = w2ui['menu'].find({selected: true});
+      var selectedId = (selectedNode.length > 0) ? selectedNode[0].id : null;
+      w2ui['menu'].refresh();
+      if (selectedId && w2ui['menu'].get(selectedId)) {
+        w2ui['menu'].select(selectedId);
+        w2ui['menu'].expandParents(selectedId);
+        (function(id) {
+          setTimeout(function() {
+            if (!isMenuItemVisible(id)) w2ui['menu'].scrollIntoView(id);
+          }, 50);
+        })(selectedId);
+      }
       $('#twitterBox').fadeIn(250);
     }, 200);
   }
@@ -687,22 +612,36 @@ function filterDisplay() {
     $("#menuBox").css("transform", "translateY(" + w2utils.getSize("#filters", 'height') + "px)");
     setTimeout(function() { 
       w2ui['menu'].topHTML = '<div id="filterDisplay" onclick="filterDisplay()">&and;&and;Hide Filters&and;&and;</div>';
-      w2ui['menu'].refresh(); 
-      var selectedId = w2ui['menu'].find({selected: true})[0].id;
-      setTimeout(function() {
-        if (!isMenuItemVisible(selectedId)) w2ui['menu'].scrollIntoView(selectedId);
-      }, 50);
+      var selectedNode = w2ui['menu'].find({selected: true});
+      var selectedId = (selectedNode.length > 0) ? selectedNode[0].id : null;
+      w2ui['menu'].refresh();
+      if (selectedId && w2ui['menu'].get(selectedId)) {
+        w2ui['menu'].select(selectedId);
+        w2ui['menu'].expandParents(selectedId);
+        (function(id) {
+          setTimeout(function() {
+            if (!isMenuItemVisible(id)) w2ui['menu'].scrollIntoView(id);
+          }, 50);
+        })(selectedId);
+      }
     }, 200);
   } else {
     $('#filters').fadeOut(250);
     $("#menuBox").css("transform", "translateY(0px)");
     setTimeout(function() { 
       w2ui['menu'].topHTML = '<div id="filterDisplay" onclick="filterDisplay()">&or;&or;Show Filters&or;&or;</div>';
-      w2ui['menu'].refresh(); 
-      var selectedId = w2ui['menu'].find({selected: true})[0].id;
-      setTimeout(function() {
-        if (!isMenuItemVisible(selectedId)) w2ui['menu'].scrollIntoView(selectedId);
-      }, 50);
+      var selectedNode = w2ui['menu'].find({selected: true});
+      var selectedId = (selectedNode.length > 0) ? selectedNode[0].id : null;
+      w2ui['menu'].refresh();
+      if (selectedId && w2ui['menu'].get(selectedId)) {
+        w2ui['menu'].select(selectedId);
+        w2ui['menu'].expandParents(selectedId);
+        (function(id) {
+          setTimeout(function() {
+            if (!isMenuItemVisible(id)) w2ui['menu'].scrollIntoView(id);
+          }, 50);
+        })(selectedId);
+      }
     }, 200);
   }
 }
@@ -768,7 +707,18 @@ function menuUpdate(type, id) {
   else if (type == "crew") filterCrewMenu();
   else if (type == "name") w2ui['menu'].get(id).text = "<span>" + currName(ops.craftsMenu.find(o => o.db === id), true) + "</span>";
   else console.log("unknown menu update: " + type);
+  var selectedNode = w2ui['menu'].find({selected: true});
+  var selectedId = (selectedNode.length > 0) ? selectedNode[0].id : null;
   w2ui['menu'].refresh();
+  if (selectedId && w2ui['menu'].get(selectedId)) {
+    w2ui['menu'].select(selectedId);
+    w2ui['menu'].expandParents(selectedId);
+    (function(id) {
+      setTimeout(function() {
+        w2ui['menu'].scrollIntoView(id);
+      }, 50);
+    })(selectedId);
+  }
 }
 
 function addMenuItem(item, newAdd = false) {
@@ -880,8 +830,11 @@ function badgeMenuItem(strID, noSelect = false, noRefresh = false) {
   else ops.craftsMenu.find(o => o.db === strID).badged = true;
 
   // if selection is off, but the menu refreshed, just scroll into view the current selection
-  if (noSelect && !noRefresh) w2ui['menu'].scrollIntoView();
-  else if (!noSelect) w2ui['menu'].scrollIntoView(strID);
+  // since multiple items may be badged in one pass, use a timer handle to avoid excessive scrolling
+  if (noSelect && !noRefresh) {
+    if (KSA_TIMERS.menuRefresh) clearTimeout(KSA_TIMERS.menuRefresh);
+    KSA_TIMERS.menuRefresh = setTimeout(function() { w2ui['menu'].scrollIntoView(); }, 50);
+  } else if (!noSelect) w2ui['menu'].scrollIntoView(strID);
 
   return true;
 }
@@ -1063,8 +1016,16 @@ function selectMenuItem(menuID, retryCount) {
     else ops.craftsMenu.find(o => o.db === menuNode.id).badged = false;
     adjustCount(menuNode.parent.id, -1);
     w2ui['menu'].refresh();
+    w2ui['menu'].select(menuID);
+    w2ui['menu'].expandParents(menuID);
+    (function(id) {
+      setTimeout(function() {
+        w2ui['menu'].scrollIntoView(id);
+      }, 50);
+    })(menuID);
+  } else {
+    w2ui['menu'].scrollIntoView(menuID);
   }
-  w2ui['menu'].scrollIntoView(menuID);
 }
 
 // iterate up through the parents to add a value to the number count

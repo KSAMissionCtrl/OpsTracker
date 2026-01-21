@@ -86,6 +86,111 @@ function loadVessel(vessel, givenUT, wasUTExplicit) {
   }
 }
 
+function loadFlt(dbName, menuSelect = true) {
+
+  // First check if this flight path has already been loaded - if so, handle it and skip loading checks
+  var path = KSA_CATALOGS.fltPaths.find(o => o.id === dbName);
+  if (path) {
+    
+    // Close the load notice dialog if it's open
+    if ($("#mapDialog").dialog("isOpen") && $("#mapDialog").dialog("option", "title") == "Data Load Notice") {
+      $("#mapDialog").dialog("close");
+    }
+    
+    // Make sure we're on Kerbin
+    var currBody = ops.bodyCatalog.find(o => o.selected === true);
+    if (!currBody || (currBody && currBody.Body != "Kerbin")) {
+      swapContent("body", "Kerbin-System", dbName);
+      return;
+    }
+    
+    // Make sure page type is correct
+    if (ops.pageType != "body") swapContent("body", "Kerbin-System", dbName);
+    
+    // add it back to the map and the control if it has been removed
+    if (path.deleted) {
+      ops.surface.layerControl.addOverlay(path.layer, "<i class='fa fa-minus' style='color: " + path.color + "'></i> " + path.info.Title, "Flight Tracks");
+      path.layer.addTo(ops.surface.map);
+      path.Deleted = false;
+      
+    // just add it back to the map in case it was hidden
+    } else if (!ops.surface.map.hasLayer(path.layer)) path.layer.addTo(ops.surface.map);
+    showMap();
+    
+    // Zoom the map to fit this flight path
+    // If there are more than two layers the plot wraps around the meridian so just show the whole map
+    // otherwise zoom in to fit the size of the plot
+    if (Object.keys(path.layer._layers).length > 1) ops.surface.map.setView([0,0], 1);
+    else ops.surface.map.fitBounds(Object.values(path.layer._layers)[0]._bounds);
+
+    // if this wasn't selected from the menu, select it now
+    if (!menuSelect) selectMenuItem(dbName);
+    else {
+
+      // Update the URL to include this flight
+      var strURL = "http://www.kerbalspace.agency/Tracker/tracker.asp?body=Kerbin-System&flt=" + dbName;
+      history.pushState({type: "flt", db: dbName}, document.title, strURL);
+    }
+    return;
+  }
+  
+  // let the user know only one data load request can be active at a time
+  if (KSA_UI_STATE.strFltTrackLoading) {
+    
+    // Check if dialog is already open before recreating it
+    if (!$("#mapDialog").dialog("isOpen")) {
+      $("#mapDialog").dialog( "option", "title", "Data Load Notice");
+      $("#progressbar").fadeOut();
+      $("#dialogTxt").fadeIn();
+      $("#dialogTxt").html("Only one flight track can be requested at a time. Please wait for the track to load before clicking another from the menu.");
+      $("#mapDialog").dialog( "option", "buttons", [{
+        text: "Okay",
+        click: function() { 
+          $("#mapDialog").dialog("close");
+        }
+      }]);
+      $("#mapDialog").dialog("open");
+    }
+    
+    // Revert menu selection to the currently-loading flight path, but don't scroll into view
+    w2ui['menu'].unselect(dbName);
+    w2ui['menu'].select(KSA_UI_STATE.strFltTrackLoading);
+    w2ui['menu'].expandParents(KSA_UI_STATE.strFltTrackLoading);
+    return;
+  }
+
+  // Close the load notice dialog if it's open, since we're now allowing a new load to proceed
+  if ($("#mapDialog").dialog("isOpen") && $("#mapDialog").dialog("option", "title") == "Data Load Notice") {
+    $("#mapDialog").dialog("close");
+  }
+
+  // check that we are looking at the proper map (hardcoded to Kerbin), and load it if not
+  // this will append the flight name to the URL and the path will be loaded
+  var currBody = ops.bodyCatalog.find(o => o.selected === true);
+  if (!currBody || (currBody && currBody.Body != "Kerbin")) {
+    swapContent("body", "Kerbin-System", dbName);
+  }
+
+  // however if the system is already set to Kerbin, just load the path straight to the map
+  else {
+
+    // if this isn't the right page type, set it up
+    if (ops.pageType != "body") swapContent("body", "Kerbin-System", dbName);
+    setTimeout(showMap, 1000);
+
+    // load the aircraft track
+    KSA_LAYERS.surfaceTracksDataLoad.fltTrackDataLoad = L.layerGroup();
+    ops.surface.layerControl._expand();
+    ops.surface.layerControl.options.collapsed = false;
+    ops.surface.layerControl.addOverlay(KSA_LAYERS.surfaceTracksDataLoad.fltTrackDataLoad, "<i class='fa fa-cog fa-spin'></i> Loading Data...", "Flight Tracks");
+    loadDB("loadFltData.asp?data=" + dbName, loadFltDataAJAX);
+    KSA_UI_STATE.strFltTrackLoading = dbName;
+    
+    // if this wasn't selected from the menu, select it now
+    if (!menuSelect) selectMenuItem(dbName);
+  }
+}
+
 // parses data used to display information on parts for vessels
 function loadPartsAJAX(xhttp) {
   xhttp.responseText.split("^").forEach(function(item) { KSA_CATALOGS.partsCatalog.push(rsToObj(item)); });

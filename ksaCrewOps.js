@@ -378,14 +378,21 @@ function CrewMissionsUpdate(update) {
     });
   } else $("#missionSelect").append($('<option>', { value: '', text: 'No Missions Yet Completed' }));
   $("#missionSelect").change(function () {
-    if ($("#missionSelect").val()) window.open($("#missionSelect").val());
+
+    // open the mission in a new window/tab if it is a link
+    // otherwise switch to the vessel ID
+    if ($("#missionSelect").val()) {
+      if ($("#missionSelect").val().startsWith("http")) window.open($("#missionSelect").val());
+      else if ($("#missionSelect").val().startsWith("flt")) loadFlt($("#missionSelect").val().replace("flt=", ""), false);
+      else swapContent('vessel', $("#missionSelect").val());
+    }
   });
 }
 
 // use of saveTip attribute is so match can be made when update check runs since Tipped removes text from the title attribute
 function crewStatusUpdate(update) {
   if (update && (!$("#dataField7").html().includes(ops.currentCrew.Stats.StatusHTML) || !$("#dataField7").html().includes(ops.currentCrew.Stats.Status))) flashUpdate("#dataField7", "#77C6FF", "#FFF");
-  $("#dataField7").html("<b>Current Status:</b> <u><span style='cursor:help' class='tip' data-tipped-options=\"maxWidth: 250, position: 'top'\" title='" + sanitizeHTML(ops.currentCrew.Stats.StatusHTML) + "' saveTip='" + sanitizeHTML(ops.currentCrew.Stats.AssignmentHTML) + "'>" + sanitizeHTML(ops.currentCrew.Stats.Status) + "</span></u>");
+  $("#dataField7").html("<b>Current Status:</b> <u><span style='cursor:help' class='tip' data-tipped-options=\"maxWidth: 250, position: 'top'\" title='" + sanitizeHTML(ops.currentCrew.Stats.StatusHTML) + "' saveTip='" + sanitizeHTML(ops.currentCrew.Stats.StatusHTML) + "'>" + sanitizeHTML(ops.currentCrew.Stats.Status) + "</span></u>");
   $("#dataField7").fadeIn();
 }
 
@@ -423,6 +430,11 @@ function crewRibbonsUpdate(update) {
   if (ops.currentCrew.Ribbons.length) {
     if (update && !$("#dataField11").html().includes('ribbons="' + ops.currentCrew.Ribbons.length)) flashUpdate("#dataField11", "#77C6FF", "#FFF");
     ribbonDisplayToggle(true)
-  } else { $("#dataField11").html("<center>No Ribbons Yet Awarded</center>"); }
+    $("#crewFooter").fadeIn();
+  } else { 
+    $("#dataField11").html("<center>No Ribbons Yet Awarded</center>"); 
+    $("#crewFooter").fadeOut();
+    $("#dataField12").fadeOut();
+  }
   $("#dataField11").fadeIn();
 }

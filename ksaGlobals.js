@@ -189,6 +189,7 @@ const KSA_TIMERS = {
   ascentInterpTimeout: null,     // timer that maintains ascent interpolation FPS
   tickTimer: null,               // main tick timer handle for interrupting the tick loop
   rapidFireTimer: null,          // timer for detecting 750ms hold on time advance controls
+  menuRefresh: null              // timer handle to make sure we don't stack multiple menu refreshes
 };
 
 // ------------------------------------------------------------------------------
