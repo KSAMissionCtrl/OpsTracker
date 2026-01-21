@@ -74,10 +74,23 @@ function validateNotNull(value, varName = 'value', context = 'Validation') {
  */
 function sanitizeHTML(html) {
   if (typeof html !== 'string') return '';
-  
+
   const div = document.createElement('div');
   div.textContent = html;
   return div.innerHTML;
+}
+
+/**
+ * Decodes HTML entities in a string (e.g., &#39; to ')
+ * @param {string} html - String containing HTML entities
+ * @returns {string} String with decoded entities
+ */
+function decodeHTMLEntities(html) {
+  if (typeof html !== 'string') return '';
+
+  var txt = document.createElement('textarea');
+  txt.innerHTML = html;
+  return txt.value;
 }
 
 /**

@@ -532,11 +532,16 @@ function loadMapDataAJAX(xhttp) {
 }
 
 function loadFltDataAJAX(xhttp) {
-  
+
   // split and parse the flight data
   var fltInfo = rsToObj(xhttp.responseText.split("^")[0]);
   var fltData = [];
   xhttp.responseText.split("^")[1].split("|").forEach(function(item) { fltData.push(rsToObj(item)); });
+
+  // decode HTML entities in the description field
+  if (fltInfo && fltInfo.Desc) {
+    fltInfo.Desc = decodeHTMLEntities(fltInfo.Desc);
+  }
   console.log(fltInfo);
 
   // get the min/max altitudes of the flight
