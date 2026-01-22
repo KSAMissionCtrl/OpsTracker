@@ -537,7 +537,6 @@ function loadFltDataAJAX(xhttp) {
   var fltInfo = rsToObj(xhttp.responseText.split("^")[0]);
   var fltData = [];
   xhttp.responseText.split("^")[1].split("|").forEach(function(item) { fltData.push(rsToObj(item)); });
-  console.log(fltInfo);
 
   // get the min/max altitudes of the flight
   var altMin = fltData[0].ASL;

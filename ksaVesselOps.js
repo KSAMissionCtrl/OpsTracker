@@ -433,13 +433,22 @@ function vesselInfoUpdate(update) {
 
   // setup the basics
   var vesselImageHTML = "<div style='position: relative; display: inline-block;'>";
-  vesselImageHTML += "<img src='" + sanitizeHTML(getVesselImage()) + "'>";
+
+  // if there is an existing image in the container, save it src
+  var existingImageSrc = $("#infoImg img").attr("src");
+  if (existingImageSrc) vesselImageHTML += "<img src='" + existingImageSrc + "'>";
+  else vesselImageHTML += "<img src='" + sanitizeHTML(getVesselImage()) + "'>";
+  
   // only add maximize button if there's a parts overlay (static state)
   if ($("#partsImg").html()) {
     vesselImageHTML += "<i class='fa-solid fa-maximize vessel-image-maximize' style='color: #ffffff;' onclick='openVesselImageLightbox(\"" + sanitizeHTML(getVesselImage()) + "\")'></i>";
   }
   vesselImageHTML += "</div>";
   $("#infoImg").html(vesselImageHTML);
+
+  // load the new image if it is different
+  if (existingImageSrc != getVesselImage()) loadImageWithTransition("#infoImg", sanitizeHTML(getVesselImage()));
+
   $("#infoTitle").html(sanitizeHTML(ops.currentVessel.CraftData.CraftDescTitle));
   $("#infoTitle").attr("class", "infoTitle vessel");
 
@@ -968,18 +977,28 @@ function vesselContentUpdate(update) {
 
       // no need to update unless it's not the same as before or there's no orbit
       if (!ops.currentVessel.Orbit.Eph || !ops.currentVessel.CraftData.prevContent || (ops.currentVessel.CraftData.prevContent && ops.currentVessel.CraftData.prevContent != ops.currentVessel.CraftData.Content)) {
-        $("#content").empty();
         hideMap();
+        
+        var newContentHTML;
         
         // two images?
         if (data[1].includes(".png")) {
-          $("#content").html("<div class='fullCenter'><img width='475' class='contentTip' style='cursor: help' title='Ecliptic View<br>Dynamic orbit unavailable - viewing old data' src='" + sanitizeHTML(data[0]) + "'>&nbsp;<img width='475' class='tipped' data-tipped-options=\"target: 'mouse'\"  style='cursor: help' title='Polar View<br>Dynamic orbit unavailable - viewing old data' src='" + sanitizeHTML(data[1]) + "'></div>");
+          newContentHTML = "<div class='fullCenter'><img width='475' class='contentTip' style='cursor: help' title='Ecliptic View<br>Dynamic orbit unavailable - viewing old data' src='" + sanitizeHTML(data[0]) + "'>&nbsp;<img width='475' class='tipped' data-tipped-options=\"target: 'mouse'\"  style='cursor: help' title='Polar View<br>Dynamic orbit unavailable - viewing old data' src='" + sanitizeHTML(data[1]) + "'></div>";
           
         // one image
         } else {
-          $("#content").html("<img class='fullCenter contentTip' style='cursor: help' title='" + sanitizeHTML(data[1]) + "' src='" + sanitizeHTML(data[0]) + "'>");
+          newContentHTML = "<img class='fullCenter contentTip' style='cursor: help' title='" + sanitizeHTML(data[1]) + "' src='" + sanitizeHTML(data[0]) + "'>";
         }
-        $("#content").fadeIn();
+        
+        // Use transition if content already exists, otherwise just show it
+        if ($("#content").is(':visible') && $("#content").html()) {
+          loadHTMLWithTransition("#content", newContentHTML, function() {
+            $("#content").fadeIn();
+          });
+        } else {
+          $("#content").html(newContentHTML);
+          $("#content").fadeIn();
+        }
       }
     }
   
@@ -1419,7 +1438,7 @@ function setupStreamingAscent() {
     }
 
     // update info box img and title
-    $("#infoImg").html("<img src='" + sanitizeHTML(ops.activeAscentFrame.img) + "'>");
+    loadImageWithTransition("#infoImg", sanitizeHTML(ops.activeAscentFrame.img));
     $("#infoTitle").attr("class", "infoTitle vessel");
     $("#infoTitle").css("cursor", "auto");
     $("#infoTitle").html(sanitizeHTML(ops.activeAscentFrame.event));
@@ -1737,7 +1756,13 @@ function updateAscentData(clamp) {
         }
       }
     }
-    $("#infoImg").html("<img src='" + sanitizeHTML(ops.activeAscentFrame.img) + "'>");
+    
+    // don't bother updating the image if it is the same as what is already shown
+    var existingImageSrc = $("#infoImg img").attr("src");
+    if (existingImageSrc !== sanitizeHTML(ops.activeAscentFrame.img)) {
+      loadImageWithTransition("#infoImg", sanitizeHTML(ops.activeAscentFrame.img));
+    }
+
     if (ops.ascentData.telemetry[ops.activeAscentFrame.ascentIndex].Event) {
       ops.activeAscentFrame.event = ops.ascentData.telemetry[ops.activeAscentFrame.ascentIndex].Event;
       flashUpdate("#infoTitle", "#77C6FF", "#000000");

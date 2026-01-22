@@ -17,6 +17,16 @@ img {
   padding: 0px;
   margin: 0px;
   vertical-align: text-bottom;
+  opacity: 1;
+  transition: opacity 0.3s ease-in-out;
+}
+
+img.image-loading {
+  opacity: 0;
+}
+
+img.image-loaded {
+  opacity: 1;
 }
 u {
   text-decoration: underline;
@@ -357,7 +367,7 @@ input:disabled+label {
 /* Grouped layer control - word wrapping with character limit */
 .leaflet-control-layers label {
   display: block;
-  max-width: 170px;
+  max-width: 175px;
   word-wrap: break-word;
   overflow-wrap: break-word;
   white-space: normal;
@@ -365,14 +375,14 @@ input:disabled+label {
 }
 
 .leaflet-control-layers label span {
-  max-width: 170px;
+  max-width: 175px;
   word-wrap: break-word;
   overflow-wrap: break-word;
   white-space: normal;
 }
 
 .leaflet-control-layers-group-name {
-  max-width: 170px;
+  max-width: 175px;
   word-wrap: break-word;
   overflow-wrap: break-word;
   white-space: normal;

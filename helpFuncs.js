@@ -748,3 +748,211 @@ function wrapText(limit, strText, fontSize) {
     else return strText;
   }
 }
+
+// ==============================================================================
+// IMAGE LOADING UTILITIES
+// ==============================================================================
+
+/**
+ * Smoothly transitions an image by only changing its src attribute
+ * Uses a crossfade effect where the new image fades in over the old one
+ * Preserves all existing HTML attributes, classes, and event handlers
+ * @param {string} elementSelector - jQuery selector for the container element or the img element itself
+ * @param {string} newImageSrc - URL of the new image to load
+ * @param {function} onComplete - Optional callback function after transition completes
+ */
+function loadImageWithTransition(elementSelector, newImageSrc, onComplete) {
+  const $element = $(elementSelector);
+  
+  if (!$element.length) {
+    console.warn(`Element ${elementSelector} not found`);
+    return;
+  }
+  
+  // Find the img element - either the element itself or within a container
+  let $img = $element.is('img') ? $element : $element.find('img');
+  
+  if (!$img.length) {
+    console.warn(`No img element found in ${elementSelector}`);
+    return;
+  }
+  
+  // Preload the new image
+  const preloadImg = new Image();
+  
+  preloadImg.onload = function() {
+    // Clone the current image to create the old layer
+    const $oldImg = $img.clone();
+    
+    // Get the parent container of the image
+    const $imgParent = $img.parent();
+    
+    // Make sure the immediate parent has relative positioning for absolute positioning to work
+    const originalPosition = $imgParent.css('position');
+    if (originalPosition === 'static') {
+      $imgParent.css('position', 'relative');
+    }
+    
+    // Get the actual computed position and dimensions of the image
+    const imgOffset = $img.offset();
+    const parentOffset = $imgParent.offset();
+    
+    // Position the old image absolutely on top (without z-index to preserve stacking context)
+    $oldImg.css({
+      'position': 'absolute',
+      'top': (imgOffset.top - parentOffset.top) + 'px',
+      'left': (imgOffset.left - parentOffset.left) + 'px',
+      'width': $img.width() + 'px',
+      'height': $img.height() + 'px'
+    });
+    
+    // Insert the old image clone after the original
+    $img.after($oldImg);
+    
+    // Update the original image src (it's now behind the clone)
+    $img.attr('src', newImageSrc);
+    $img.css('opacity', '0');
+    
+    // Trigger reflow to ensure the opacity change is registered
+    $img[0].offsetHeight;
+    
+    // Fade in the new image and fade out the old one
+    $img.css('opacity', '1');
+    $oldImg.addClass('image-loading');
+    
+    // Remove the old image after transition completes
+    setTimeout(function() {
+      $oldImg.remove();
+      
+      // Callback after transition
+      if (onComplete && typeof onComplete === 'function') {
+        onComplete();
+      }
+    }, 300); // Match CSS transition duration
+  };
+  
+  preloadImg.onerror = function() {
+    console.error(`Failed to load image: ${newImageSrc}`);
+    // Keep existing image on error
+  };
+  
+  // Start loading the image
+  preloadImg.src = newImageSrc;
+}
+
+/**
+ * Smoothly transitions HTML content containing images with a crossfade effect
+ * Useful when you need to replace entire container HTML that includes multiple images
+ * @param {string} containerSelector - jQuery selector for the container element
+ * @param {string} newHTML - New HTML content to insert
+ * @param {function} onComplete - Optional callback function after transition completes
+ */
+function loadHTMLWithTransition(containerSelector, newHTML, onComplete) {
+  const $container = $(containerSelector);
+  
+  if (!$container.length) {
+    console.warn(`Container ${containerSelector} not found`);
+    return;
+  }
+  
+  // Count images in current content
+  const currentImageCount = $container.find('img').length;
+  
+  // Extract image URLs from the new HTML to preload them
+  const tempDiv = document.createElement('div');
+  tempDiv.innerHTML = newHTML;
+  const imageSrcs = Array.from(tempDiv.querySelectorAll('img')).map(img => img.src || img.getAttribute('src'));
+  const newImageCount = imageSrcs.length;
+  
+  // If the number of images is changing, just replace without crossfade
+  if (currentImageCount !== newImageCount) {
+    $container.html(newHTML);
+    if (onComplete && typeof onComplete === 'function') {
+      onComplete();
+    }
+    return;
+  }
+  
+  // If no images to preload, just do a simple fade transition
+  if (imageSrcs.length === 0) {
+    $container.fadeOut(150, function() {
+      $container.html(newHTML);
+      $container.fadeIn(150, onComplete);
+    });
+    return;
+  }
+  
+  // Preload all images
+  let loadedCount = 0;
+  let hasError = false;
+  
+  const checkAllLoaded = function() {
+    loadedCount++;
+    if (loadedCount === imageSrcs.length && !hasError) {
+      performTransition();
+    }
+  };
+  
+  const performTransition = function() {
+    // Clone the current container content
+    const $oldContent = $container.clone();
+    
+    // Get container position info
+    const containerOffset = $container.offset();
+    const containerPosition = $container.css('position');
+    
+    // Ensure container has relative or absolute positioning
+    if (containerPosition === 'static') {
+      $container.css('position', 'relative');
+    }
+    
+    // Position the old content absolutely on top
+    $oldContent.css({
+      'position': 'absolute',
+      'top': '0',
+      'left': '0',
+      'width': $container.width() + 'px',
+      'height': $container.height() + 'px',
+      'pointer-events': 'none'
+    });
+    
+    // Insert new HTML (it will be behind the clone)
+    $container.html(newHTML);
+    $container.css('opacity', '0');
+    
+    // Add the old content on top
+    $container.append($oldContent);
+    
+    // Trigger reflow
+    $container[0].offsetHeight;
+    
+    // Fade in new content and fade out old content
+    $container.css('opacity', '1');
+    $oldContent.addClass('image-loading');
+    
+    // Remove old content after transition
+    setTimeout(function() {
+      $oldContent.remove();
+      
+      if (onComplete && typeof onComplete === 'function') {
+        onComplete();
+      }
+    }, 300);
+  };
+  
+  // Start preloading all images
+  imageSrcs.forEach(function(src) {
+    const img = new Image();
+    img.onload = checkAllLoaded;
+    img.onerror = function() {
+      hasError = true;
+      console.error(`Failed to preload image: ${src}`);
+      // Fall back to immediate update on error
+      $container.html(newHTML);
+      if (onComplete && typeof onComplete === 'function') {
+        onComplete();
+      }
+    };
+    img.src = src;
+  });
+}

@@ -16,6 +16,11 @@ if (window.location.href.includes("&live") && getParameterByName("ut") && parseF
 window.onpopstate = function(event) { 
   if (event.state.type == "flt") loadFlt(event.state.db, false);
   else swapContent(event.state.type, event.state.id, event.state.UT); 
+
+  // make sure to do a menu selection in these instances where its not done intrinsically
+  if (event.state.type == "crewFull" || event.state.type == "body") selectMenuItem(event.state.id);
+
+  console.log(event);
 }
 
 // ==============================================================================
