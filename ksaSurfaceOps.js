@@ -129,11 +129,13 @@ function initializeMap() {
   // show controls only when the cursor is over the map, unless this is a touch device
   if (!is_touch_device()) { 
     ops.surface.map.on('mouseover', function(e) {
-      $(".leaflet-top").fadeIn();
+      $(".leaflet-top.leaflet-right").fadeIn();
+      $(".leaflet-top.leaflet-left").fadeIn();
       $(".leaflet-bottom.leaflet-left").fadeIn();
     });
     ops.surface.map.on('mouseout', function(e) {
-      $(".leaflet-top").fadeOut();
+      if (checkDataLoad()) $(".leaflet-top.leaflet-right").fadeOut();
+      $(".leaflet-top.leaflet-left").fadeOut();
       $(".leaflet-bottom.leaflet-left").fadeOut();
     });
     ops.surface.map.on('mousemove', function(e) {
@@ -458,7 +460,8 @@ function loadMapDataAJAX(xhttp) {
   if (!is_touch_device()) { 
     setTimeout(function() {
       if (!$('#map').is(":hover")) { 
-        $(".leaflet-top").fadeOut();
+        if (checkDataLoad()) $(".leaflet-top.leaflet-right").fadeOut();
+        $(".leaflet-top.leaflet-left").fadeOut();
         $(".leaflet-bottom.leaflet-left").fadeOut();
       }
     }, 3000);
@@ -1411,7 +1414,8 @@ function showMap() {
       $("#contentHeader").html(ops.bodyCatalog.find(o => o.selected === true).Body);
       document.title = "KSA Operations Tracker - " + ops.bodyCatalog.find(o => o.selected === true).Body;
       if (KSA_MAP_CONTROLS.launchsiteMarker) ops.surface.map.removeLayer(KSA_MAP_CONTROLS.launchsiteMarker);
-      $(".leaflet-top").fadeIn();
+      $(".leaflet-top.leaflet-right").fadeIn();
+      $(".leaflet-top.leaflet-left").fadeIn();
       $(".leaflet-bottom.leaflet-left").fadeIn();
     } else if (ops.pageType == "vessel") {
       $("#content").fadeOut();
@@ -1420,6 +1424,18 @@ function showMap() {
     $("#map").css("visibility", "visible");
     $("#map").fadeIn();
     KSA_UI_STATE.isMapShown = true;
+
+    // hide map controls after 3 seconds if the user cursor isn't over the map (or dialog) at that time
+    // unless this is a touchscreen device
+    if (!is_touch_device()) { 
+      setTimeout(function() {
+        if (!$('#map').is(":hover")) { 
+          if (checkDataLoad()) $(".leaflet-top.leaflet-right").fadeOut();
+          $(".leaflet-top.leaflet-left").fadeOut();
+          $(".leaflet-bottom.leaflet-left").fadeOut();
+        }
+      }, 3000);
+    }
   }
 }
 
@@ -1732,6 +1748,9 @@ function checkDataLoad() {
     var isHovered = layerControlElement && layerControlElement.matches(':hover');
     if (!ops.surface.layerControl.options.collapsed && !isHovered) ops.surface.layerControl._collapse();
     ops.surface.layerControl.options.collapsed = true;
+
+    // if the cursor is not on the map, hide the layer control
+    if (!$('#map').is(":hover")) $('.leaflet-top.leaflet-right').fadeOut();
   }
 }
 
@@ -2043,6 +2062,9 @@ function loadSurfaceTracks() {
     setTimeout(loadSurfaceTracks, 50);
     return;
   }
+
+  // show the layers control
+  $('.leaflet-top.leaflet-right').fadeIn();
 
   // does this body have any moons? If so, add them to the list
   var bodyData = ops.bodyCatalog.find(o => o.Body === KSA_CATALOGS.bodyPaths.bodyName);

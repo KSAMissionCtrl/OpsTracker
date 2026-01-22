@@ -178,6 +178,9 @@ function loadFlt(dbName, menuSelect = true) {
     if (ops.pageType != "body") swapContent("body", "Kerbin-System", dbName);
     setTimeout(showMap, 1000);
 
+    // show the layers control
+    $('.leaflet-top.leaflet-right').fadeIn();
+
     // load the aircraft track
     KSA_LAYERS.surfaceTracksDataLoad.fltTrackDataLoad = L.layerGroup();
     ops.surface.layerControl._expand();

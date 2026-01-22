@@ -178,7 +178,8 @@ function setupContent() {
     $("#liveReloadIcon").click(function() {
       $("#liveReloadIcon").html("<i class=\"fa-solid fa-clock-rotate-left fa-spin fa-spin-reverse\"></i>");
       var newUrl = window.location.href;
-      if (!getParameterByName("ut")) newUrl += "&ut=" + ops.currentVessel.CraftData.UT;
+      if (ops.currentVessel && ops.pageType == "vessel" && !getParameterByName("ut")) newUrl += "&ut=" + ops.currentVessel.CraftData.UT;
+      else newUrl += "&ut=" + (currUT()-1);
       newUrl += "&live";
       window.location.href = newUrl;
     });
@@ -594,11 +595,11 @@ function swapContent(newPageType, id, ut, flt) {
     }
     // Show link icon after spinner is removed
     setTimeout(function() { 
-      if (newPageType == "vessel") $("#liveReloadIcon").fadeIn();
+      $("#liveReloadIcon").fadeIn();
       $("#copyLinkIcon").fadeIn();
       var showOpt = 'mouseenter';
       if (is_touch_device()) showOpt = 'click';
-      if (newPageType == "vessel") Tipped.create('#liveReloadIcon', 'Return tracker to this update', { showOn: showOpt, hideOnClickOutside: is_touch_device(), position: 'bottom' });
+      Tipped.create('#liveReloadIcon', 'Switch to historical time view', { showOn: showOpt, hideOnClickOutside: is_touch_device(), position: 'bottom' });
       Tipped.create('#copyLinkIcon', 'Copy shareable link to clipboard', { showOn: showOpt, hideOnClickOutside: is_touch_device(), position: 'bottom' });
     }, 500);
 
@@ -669,7 +670,6 @@ function swapContent(newPageType, id, ut, flt) {
   // show/load the new content
   ops.pageType = newPageType;
   if (ops.pageType == "body") {
-    $("#liveReloadIcon").fadeOut();
 
     // return the twitter feed to the main feed if alternate feed is loaded from vessel or crew
     if ($("#twitterTimelineSelection").html().includes("|")) swapTwitterSource();
@@ -695,10 +695,6 @@ function swapContent(newPageType, id, ut, flt) {
       loadBody(id, flt); 
     }, 600);
   } else if (ops.pageType == "vessel") {
-    $("#liveReloadIcon").fadeIn();
-    var showOpt = 'mouseenter';
-    if (is_touch_device()) showOpt = 'click';
-    Tipped.create('#liveReloadIcon', 'Return tracker to this update', { showOn: showOpt, hideOnClickOutside: is_touch_device(), position: 'bottom' });
     lowerContent();
     $("#infoBox").fadeIn();
     $("#infoBox").css("height", "400px");
@@ -709,7 +705,6 @@ function swapContent(newPageType, id, ut, flt) {
     $("#contentBox").fadeIn();
     loadVessel(id, ut);
   } else if (ops.pageType == "crew") {
-    $("#liveReloadIcon").fadeOut();
     $("#infoBox").fadeIn();
     $("#infoBox").css("height", "600px");
     $("#infoBox").css("width", "498px");
@@ -721,7 +716,6 @@ function swapContent(newPageType, id, ut, flt) {
     $("#missionHistory").fadeOut();
     loadCrew(id);
   } else if (ops.pageType == "crewFull") {
-    $("#liveReloadIcon").fadeOut();
     raiseContent();
     $("#infoBox").fadeOut();
     $("#dataBox").fadeOut();
