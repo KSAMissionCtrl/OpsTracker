@@ -460,6 +460,11 @@ function openTimePicker(currentUT) {
         // Convert to UT
         var newUT = dateToUT(inputDateTime);
 
+        // don't let us go before the start of the Agency
+        if (isNaN(newUT)) {
+          newUT = 0;
+        }
+        
         // Build new URL with ut parameter
         var newUrl = window.location.href;
         if (!getParameterByName("ut")) {
@@ -470,12 +475,8 @@ function openTimePicker(currentUT) {
           // Replace existing ut parameter
           newUrl = newUrl.replace(/([?&])ut=[^&]*/, "$1ut=" + Math.floor(newUT));
         }
-        
-        // If the date is less than current time, append &live
-        if (newUT < currTime()) {
-          newUrl += "&live";
-        }
-        
+        newUrl += "&live";
+
         // Reload page with new URL
         window.location.href = newUrl;
         

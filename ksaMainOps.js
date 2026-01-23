@@ -3,10 +3,12 @@
 // current game time is the difference between current real time minus number of ms since midnight on 9/13/16
 ops.UT = dateToUT(luxon.DateTime.utc());
 if (getParameterByName("setut") && (getCookie("missionctrl") || parseFloat(getParameterByName("setut")) < ops.UT)) ops.UT = parseFloat(getParameterByName("setut"));
-if (window.location.href.includes("&live") && getParameterByName("ut") && parseFloat(getParameterByName("ut")) < ops.UT) {
-  ops.UT = parseFloat(getParameterByName("ut"));
-  KSA_UI_STATE.isLivePastUT = true;
-
+if (window.location.href.includes("&live") && getParameterByName("ut")) {
+  if (parseFloat(getParameterByName("ut")) < ops.UT) {
+    ops.UT = parseFloat(getParameterByName("ut"));
+    KSA_UI_STATE.isLivePastUT = true;
+  }
+  
   // remove the live parameter from the URL to keep things clean
   var newUrl = window.location.href.replace("&live", "");
   window.history.replaceState({}, document.title, newUrl);
