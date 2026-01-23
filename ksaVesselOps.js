@@ -1361,7 +1361,7 @@ function setupStreamingAscent() {
   if (!ops.surface.Data || ops.surface.isLoading) {
     return setTimeout(setupStreamingAscent, 50);
   }
-  
+
   ops.ascentData.active = true;
   ops.activeAscentFrame = {};
   ops.activeAscentFrame.ascentIndex = 0;
@@ -1441,7 +1441,7 @@ function setupStreamingAscent() {
     }
 
     // update info box img and title
-    loadImageWithTransition("#infoImg", sanitizeHTML(ops.activeAscentFrame.img));
+    $("#infoImg").html("<img src='" + sanitizeHTML(ops.activeAscentFrame.img) + "'>");
     $("#infoTitle").attr("class", "infoTitle vessel");
     $("#infoTitle").css("cursor", "auto");
     $("#infoTitle").html(sanitizeHTML(ops.activeAscentFrame.event));

@@ -134,7 +134,7 @@ function initializeMap() {
       $(".leaflet-bottom.leaflet-left").fadeIn();
     });
     ops.surface.map.on('mouseout', function(e) {
-      if (checkDataLoad()) $(".leaflet-top.leaflet-right").fadeOut();
+      if (!checkDataLoad()) $(".leaflet-top.leaflet-right").fadeOut();
       $(".leaflet-top.leaflet-left").fadeOut();
       $(".leaflet-bottom.leaflet-left").fadeOut();
     });
@@ -252,6 +252,27 @@ function loadMapDataAJAX(xhttp) {
         style: "sat"
       }
     ).addTo(ops.surface.map), strSatLabel);
+
+  // set up MutationObserver to monitor control collapse/expand state
+  var controlContainer = ops.surface.layerControl._container;
+  var observer = new MutationObserver(function(mutations) {
+    mutations.forEach(function(mutation) {
+      if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
+        var isExpanded = controlContainer.classList.contains('leaflet-control-layers-expanded');
+        if (!isExpanded) {
+
+          // don't let this happen if there is data loading
+          if (checkDataLoad()) ops.surface.layerControl._expand(); 
+        }
+      }
+    });
+  });
+  
+  // Start observing the container for class attribute changes
+  observer.observe(controlContainer, {
+    attributes: true,
+    attributeFilter: ['class']
+  });
 
   // show the entire control until everything is finished loading
   ops.surface.layerControl._expand();
@@ -460,7 +481,7 @@ function loadMapDataAJAX(xhttp) {
   if (!is_touch_device()) { 
     setTimeout(function() {
       if (!$('#map').is(":hover")) { 
-        if (checkDataLoad()) $(".leaflet-top.leaflet-right").fadeOut();
+        if (!checkDataLoad()) $(".leaflet-top.leaflet-right").fadeOut();
         $(".leaflet-top.leaflet-left").fadeOut();
         $(".leaflet-bottom.leaflet-left").fadeOut();
       }
@@ -1430,7 +1451,7 @@ function showMap() {
     if (!is_touch_device()) { 
       setTimeout(function() {
         if (!$('#map').is(":hover")) { 
-          if (checkDataLoad()) $(".leaflet-top.leaflet-right").fadeOut();
+          if (!checkDataLoad()) $(".leaflet-top.leaflet-right").fadeOut();
           $(".leaflet-top.leaflet-left").fadeOut();
           $(".leaflet-bottom.leaflet-left").fadeOut();
         }
@@ -1752,6 +1773,7 @@ function checkDataLoad() {
     // if the cursor is not on the map, hide the layer control
     if (!$('#map').is(":hover")) $('.leaflet-top.leaflet-right').fadeOut();
   }
+  return isDataLoading;
 }
 
 // places a pin or group of pins when a link is clicked in a flight path mission data window

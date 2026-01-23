@@ -112,7 +112,7 @@ function loadCrewAJAX(xhttp) {
     // service length determined by deactivation?
     var strDeactiveTipOpen = "";
     var strDeactiveTipClose = "";
-    if (ops.currentCrew.Background.Deactivation) {
+    if (ops.currentCrew.Background.Deactivation && parseInt(ops.currentCrew.Background.Deactivation.split(";")[0]) < currUT()) {
       var serviceEnd = parseInt(ops.currentCrew.Background.Deactivation.split(";")[0]);
       strDeactiveTipOpen = "<u><span style='cursor:help' class='tip' data-tipped-options=\"position: 'top'\" title='" + ops.currentCrew.Background.Deactivation.split(";")[1] + " on " + UTtoDateTime(serviceEnd).split("@")[0] + "'>";
       strDeactiveTipClose = "</span></u>";
@@ -300,7 +300,7 @@ function crewInfoUpdate(update) {
   // compose the background information
   // get the date of the birthday to display in MM/DD/YYYY format and also age calculation
   // if crew is deceased, the current date becomes the date they died so their age remains static
-  if (ops.currentCrew.Background.Deactivation && ops.currentCrew.Background.Deactivation.includes("Deceased")) {
+  if (ops.currentCrew.Background.Deactivation && parseInt(ops.currentCrew.Background.Deactivation.split(";")[0]) < currUT() && ops.currentCrew.Background.Deactivation.includes("Deceased")) {
     var currDate = KSA_CONSTANTS.FOUNDING_MOMENT + (parseInt(ops.currentCrew.Background.Deactivation.split(";")[0]) * 1000)
     var strAge = " (Age at Death: ";
   } else {
