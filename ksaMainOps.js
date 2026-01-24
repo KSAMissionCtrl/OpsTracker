@@ -976,17 +976,6 @@ function loadOpsDataAJAX(xhttp, args = null) {
 
       // update the visit time only if we're viewing current time (not looking at past data)
       if (currUT() > ops.lastVisit) setCookie("visitTime", currUT(), true);
-      
-      // not sure why this was here, the craft is selected in the menu on load elsewhere
-      // // select in the menu what was loaded, if that is not already the current selection
-      // var menuID;
-      // if (getParameterByName("body")) menuID = getParameterByName("body");
-      // if (getParameterByName("vessel")) menuID = getParameterByName("vessel");
-      // if (getParameterByName("crew")) menuID = getParameterByName("crew");
-      // if (!KSA_UI_STATE.menuSaveSelected || (KSA_UI_STATE.menuSaveSelected && (KSA_UI_STATE.menuSaveSelected[0].id != menuID))) {
-      //   if (menuID && !window.location.href.includes("flt")) selectMenuItem(menuID);
-      //   else w2ui['menu'].scrollIntoView();
-      // }
     }
   }
 }

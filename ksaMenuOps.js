@@ -997,16 +997,16 @@ function addVesselByDate(item, parentFolder = "inactiveVessels", addMonths = tru
 }
 
 // selects the item from the menu and also makes sure to remove any badges
-function selectMenuItem(menuID, retryCount) {
+function selectMenuItem(menuID, retryCount = 0) {
   var menuNode = w2ui['menu'].get(menuID);
   if (!menuNode) {
+    
     // if the menu node doesn't exist yet, retry a few times in case the menu is still being populated
-    if (!retryCount) retryCount = 0;
     if (retryCount < 20) {
       return setTimeout(selectMenuItem, 50, menuID, retryCount + 1);
     }
     console.log("improper menu id: " + menuID);
-    return;
+    return false;
   }
   w2ui['menu'].select(menuID);
   w2ui['menu'].expandParents(menuID);
@@ -1026,6 +1026,7 @@ function selectMenuItem(menuID, retryCount) {
   } else {
     w2ui['menu'].scrollIntoView(menuID);
   }
+  return true;
 }
 
 // iterate up through the parents to add a value to the number count

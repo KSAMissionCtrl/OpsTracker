@@ -27,6 +27,13 @@ function loadCrew(crew) {
     ops.currentCrew = null;
   }
 
+  // we know the menu is sorted so shortcut the check and find out if this crew member is in the menu
+  // if they are they will be selected but if not then the full roster will be loaded instead
+  if (ops.pageType == "crew" && !selectMenuItem(crew, 25)) {
+    swapContent("crewFull", "crewFull");
+    return
+  }
+
   // load the data depending on our view
   if (ops.pageType == "crewFull") {
     $("#contentHeader").html("Full Roster");
@@ -39,9 +46,6 @@ function loadCrew(crew) {
   } else {
     $("#contentHeader").html("&nbsp;");
     $("#contentHeader").spin({ scale: 0.5, position: 'relative', top: '50%', left: '50%' });
-    
-    // select and show it in the menu
-    selectMenuItem(crew);
     
     // load the data if there is no current crew loaded or the current crew loaded is not the crew that was selected
     // otherwise just go straight to displaying the data
