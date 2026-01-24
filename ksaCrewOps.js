@@ -283,9 +283,6 @@ function crewHeaderUpdate(update) {
   if (update && !$("#contentHeader").html().includes(ops.currentCrew.Stats.Rank)) flashUpdate("#contentHeader", "#77C6FF", "#FFF");
   $("#contentHeader").html(sanitizeHTML(ops.currentCrew.Stats.Rank) + " " + sanitizeHTML(ops.currentCrew.Background.FullName) + " Kerman");
   document.title = "KSA Operations Tracker" + " - " + sanitizeHTML(ops.currentCrew.Stats.Rank) + " " + sanitizeHTML(ops.currentCrew.Background.FullName) + " Kerman";
-
-  // for tag loading
-  // $("#contentHeader").spin({ scale: 0.35, position: 'relative', top: '10px', left: (((955/2) + (crew.width('bold 32px arial')/2)) + 10) +'px' });
 }
 
 function crewInfoUpdate(update) {

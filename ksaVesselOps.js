@@ -271,9 +271,6 @@ function loadVesselAJAX(xhttp) {
 
   // update with the vessel name for this record
   vesselTitleUpdate();
-
-  // tag loading
-  //$("#tags").spin({ scale: 0.35, position: 'relative', top: '10px', left: (((955/2) + (strVesselName.width('bold 32px arial')/2)) + 10) +'px' });
   
   // update the twitter timeline only if the current one loaded isn't already the one we want to load
   var thisTimeline = '';

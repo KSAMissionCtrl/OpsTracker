@@ -41,9 +41,6 @@ function loadBody(body, flt) {
       history.pushState({type: "body", id: body}, document.title, strURL); 
     }
 
-    // for tag loading
-    // $("#contentHeader").spin({ scale: 0.35, position: 'relative', top: '10px', left: (((955/2) + (body.width('bold 32px arial')/2)) + 10) +'px' });
-
     // if body was already loaded & we are switching to it then just exit at this point
     if (KSA_UI_STATE.isGGBAppletLoaded && ops.bodyCatalog.find(o => o.selected === true) && ops.bodyCatalog.find(o => o.selected === true).Body == body.split("-")[0]) { 
 

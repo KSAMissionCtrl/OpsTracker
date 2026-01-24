@@ -215,7 +215,7 @@ function filterVesselMenu(id, checked) {
   hideEmptyNodes(w2ui['menu'].get('activeVessels').nodes);
 }
 
-function filterInactiveMenu(id) {
+function filterInactiveMenu(id, selectId) {
 
   // set cursor to wait while sorting - use !important to override any CSS
   $('body, *').css('cursor', 'wait', 'important');
@@ -223,127 +223,130 @@ function filterInactiveMenu(id) {
 
   // use setTimeout to allow cursor change to render before sorting begins
   setTimeout(function() {
+    
     // if a value was passed in, enable that radio option before we check to see what is selected
     if (id) $('input:radio[name=inactive]').filter('[id=' + id + ']').prop('checked', true);
     var currOption = $("input[name=inactive]").filter(":checked").val();
 
-  // reset the count to 0
-  w2ui['menu'].get('inactiveVessels').text = "Inactive Vessels (0)";
+    // reset the count to 0
+    w2ui['menu'].get('inactiveVessels').text = "Inactive Vessels (0)";
 
-  // if the currently selected menu item is an inactive vessel, show it after the re-sort
-  var selectedNode = w2ui['menu'].find({selected: true});
-  if (!selectedNode.length || (selectedNode.length && getParentSystem(selectedNode[0].id) != "inactive")) selectedNode = null;
-  else selectedNode = selectedNode[0].id;
+    // if the currently selected menu item is an inactive vessel, show it after the re-sort
+    // also use selectId if passed (for vessels just moved from active to inactive)
+    var selectedNode = w2ui['menu'].find({selected: true});
+    if (selectId) selectedNode = selectId;
+    else if (!selectedNode.length || (selectedNode.length && getParentSystem(selectedNode[0].id) != "inactive")) selectedNode = null;
+    else selectedNode = selectedNode[0].id;
 
-  // remove all nodes
-  if (w2ui['menu'].get('inactiveVessels').nodes.length) {
-  
-    // create a copy of the array so we can delete things one by one
-    var del = w2ui['menu'].get('inactiveVessels').nodes.slice(0);
-    for (var i=0; i<del.length; i++) w2ui['menu'].remove(del[i].id);
-    del.length = 0;
-  }
+    // remove all nodes
+    if (w2ui['menu'].get('inactiveVessels').nodes.length) {
+    
+      // create a copy of the array so we can delete things one by one
+      var del = w2ui['menu'].get('inactiveVessels').nodes.slice(0);
+      for (var i=0; i<del.length; i++) w2ui['menu'].remove(del[i].id);
+      del.length = 0;
+    }
 
-  // build the new menu depending on which filter was selected
-  if (currOption == "type") {
+    // build the new menu depending on which filter was selected
+    if (currOption == "type") {
 
-    // sort by filter option first to create folders, then re-sort by end date to add vessels
-    ops.craftsMenu.sort(function(a,b) { return (a.type > b.type) ? 1 : ((b.type > a.type) ? -1 : 0); });
-    ops.craftsMenu.forEach(function(item) {
-      if (currSOI(item)[0] == -1) {
-        if (!w2ui['menu'].find('inactiveVessels', { id: item.type }).length) {
-          w2ui['menu'].add('inactiveVessels', { id: item.type,
-                                                text: capitalizeFirstLetter(item.type) + " (0)",
-                                                img: 'icon-' + item.type,
-                                                count: null });
+      // sort by filter option first to create folders, then re-sort by end date to add vessels
+      ops.craftsMenu.sort(function(a,b) { return (a.type > b.type) ? 1 : ((b.type > a.type) ? -1 : 0); });
+      ops.craftsMenu.forEach(function(item) {
+        if (currSOI(item)[0] == -1) {
+          if (!w2ui['menu'].find('inactiveVessels', { id: item.type }).length) {
+            w2ui['menu'].add('inactiveVessels', { id: item.type,
+                                                  text: capitalizeFirstLetter(item.type) + " (0)",
+                                                  img: 'icon-' + item.type,
+                                                  count: null });
+          }
         }
-      }
-    });
-    ops.craftsMenu.sort(function(a,b) { return (a.end > b.end) ? 1 : ((b.end > a.end) ? -1 : 0); });
-    ops.craftsMenu.forEach(function(item) { if (currSOI(item)[0] == -1) addVesselByDate(item, item.type) });
-  } else if (currOption == "vessel") {
+      });
+      ops.craftsMenu.sort(function(a,b) { return (a.end > b.end) ? 1 : ((b.end > a.end) ? -1 : 0); });
+      ops.craftsMenu.forEach(function(item) { if (currSOI(item)[0] == -1) addVesselByDate(item, item.type) });
+    } else if (currOption == "vessel") {
 
-    // sort by filter option first to create folders, then re-sort by end date to add vessels
-    ops.craftsMenu.sort(function(a,b) { return (a.vessel > b.vessel) ? 1 : ((b.vessel > a.vessel) ? -1 : 0); });
-    ops.craftsMenu.forEach(function(item) {
-      if (currSOI(item)[0] == -1) {
-        if (item.vessel != "null" && !w2ui['menu'].find('inactiveVessels', { id: item.vessel }).length) {
-          w2ui['menu'].add('inactiveVessels', { id: item.vessel,
-                                                text: item.vessel + " (0)",
-                                                img: 'icon-folder',
-                                                count: null });
+      // sort by filter option first to create folders, then re-sort by end date to add vessels
+      ops.craftsMenu.sort(function(a,b) { return (a.vessel > b.vessel) ? 1 : ((b.vessel > a.vessel) ? -1 : 0); });
+      ops.craftsMenu.forEach(function(item) {
+        if (currSOI(item)[0] == -1) {
+          if (item.vessel != "null" && !w2ui['menu'].find('inactiveVessels', { id: item.vessel }).length) {
+            w2ui['menu'].add('inactiveVessels', { id: item.vessel,
+                                                  text: item.vessel + " (0)",
+                                                  img: 'icon-folder',
+                                                  count: null });
+          }
         }
-      }
-    });
-    ops.craftsMenu.sort(function(a,b) { return (a.end > b.end) ? 1 : ((b.end > a.end) ? -1 : 0); });
-    ops.craftsMenu.forEach(function(item) {
-      if (currSOI(item)[0] == -1) {
-        if (item.vessel != "null") addVesselByDate(item, item.vessel, false)
-      }
-    });
-  } else if (currOption == "program") {
-
-    // sort by filter option first to create folders, then re-sort by end date to add vessels
-    ops.craftsMenu.sort(function(a,b) { return (a.program > b.program) ? 1 : ((b.program > a.program) ? -1 : 0); });
-    ops.craftsMenu.forEach(function(item) {
-      if (currSOI(item)[0] == -1) {
-        if (item.program != "null" && !w2ui['menu'].find('inactiveVessels', { id: item.program }).length) {
-          w2ui['menu'].add('inactiveVessels', { id: item.program,
-                                                text: item.program + " (0)",
-                                                img: 'icon-folder',
-                                                count: null });
+      });
+      ops.craftsMenu.sort(function(a,b) { return (a.end > b.end) ? 1 : ((b.end > a.end) ? -1 : 0); });
+      ops.craftsMenu.forEach(function(item) {
+        if (currSOI(item)[0] == -1) {
+          if (item.vessel != "null") addVesselByDate(item, item.vessel, false)
         }
-      }
-    });
-    ops.craftsMenu.sort(function(a,b) { return (a.end > b.end) ? 1 : ((b.end > a.end) ? -1 : 0); });
-    ops.craftsMenu.forEach(function(item) {
-      if (currSOI(item)[0] == -1) {
-        if (item.program != "null") addVesselByDate(item, item.program)
-      }
-    });
-  } else if (currOption == "start") {
+      });
+    } else if (currOption == "program") {
 
-    // sort by start date to add vessels
-    ops.craftsMenu.sort(function(a,b) { return (a.start > b.start) ? 1 : ((b.start > a.start) ? -1 : 0); });
-    console.log(ops.craftsMenu)
-    ops.craftsMenu.forEach(function(item) {
-      if (currSOI(item)[0] == -1) addVesselByDate(item)
-    });
-  } else if (currOption == "end") {
-
-    // sort by end date to add vessels
-    ops.craftsMenu.sort(function(a,b) { return (a.end > b.end) ? 1 : ((b.end > a.end) ? -1 : 0); });
-    ops.craftsMenu.forEach(function(item) {
-      if (currSOI(item)[0] == -1) addVesselByDate(item)
-    });
-  } else if (currOption == "body") {
-
-    // sort by filter option first to create folders, then re-sort by end date to add vessels
-    ops.craftsMenu.sort(function(a,b) { return (a.bodyRef > b.bodyRef) ? 1 : ((b.bodyRef > a.bodyRef) ? -1 : 0); });
-    ops.craftsMenu.forEach(function(item) {
-      if (currSOI(item)[0] == -1) {
-        if (item.bodyRef != "null" && !w2ui['menu'].find('inactiveVessels', { id: "refNum" + item.bodyRef }).length) {
-          w2ui['menu'].add('inactiveVessels', { id: "refNum" + item.bodyRef,
-                                                text: ops.bodyCatalog.find(o => o.ID === item.bodyRef).Body + " (0)",
-                                                img: 'icon-body',
-                                                count: null });
+      // sort by filter option first to create folders, then re-sort by end date to add vessels
+      ops.craftsMenu.sort(function(a,b) { return (a.program > b.program) ? 1 : ((b.program > a.program) ? -1 : 0); });
+      ops.craftsMenu.forEach(function(item) {
+        if (currSOI(item)[0] == -1) {
+          if (item.program != "null" && !w2ui['menu'].find('inactiveVessels', { id: item.program }).length) {
+            w2ui['menu'].add('inactiveVessels', { id: item.program,
+                                                  text: item.program + " (0)",
+                                                  img: 'icon-folder',
+                                                  count: null });
+          }
         }
-      }
-    });
-    ops.craftsMenu.sort(function(a,b) { return (a.end > b.end) ? 1 : ((b.end > a.end) ? -1 : 0); });
-    ops.craftsMenu.forEach(function(item) {
-      if (currSOI(item)[0] == -1) addVesselByDate(item, "refNum" + item.bodyRef)
-    });
-  }
-  w2ui['menu'].refresh();
-  if (selectedNode) selectMenuItem(selectedNode);
+      });
+      ops.craftsMenu.sort(function(a,b) { return (a.end > b.end) ? 1 : ((b.end > a.end) ? -1 : 0); });
+      ops.craftsMenu.forEach(function(item) {
+        if (currSOI(item)[0] == -1) {
+          if (item.program != "null") addVesselByDate(item, item.program)
+        }
+      });
+    } else if (currOption == "start") {
 
-  // restore cursor to default
-  $('body').removeClass('wait-cursor');
-  $('body, *').css('cursor', '');
-  
-  // Set flag to indicate menu sorting is complete (only on initial page load)
-  if (!KSA_UI_STATE.isMenuSorted) KSA_UI_STATE.isMenuSorted = true;
+      // sort by start date to add vessels
+      ops.craftsMenu.sort(function(a,b) { return (a.start > b.start) ? 1 : ((b.start > a.start) ? -1 : 0); });
+      console.log(ops.craftsMenu)
+      ops.craftsMenu.forEach(function(item) {
+        if (currSOI(item)[0] == -1) addVesselByDate(item)
+      });
+    } else if (currOption == "end") {
+
+      // sort by end date to add vessels
+      ops.craftsMenu.sort(function(a,b) { return (a.end > b.end) ? 1 : ((b.end > a.end) ? -1 : 0); });
+      ops.craftsMenu.forEach(function(item) {
+        if (currSOI(item)[0] == -1) addVesselByDate(item)
+      });
+    } else if (currOption == "body") {
+
+      // sort by filter option first to create folders, then re-sort by end date to add vessels
+      ops.craftsMenu.sort(function(a,b) { return (a.bodyRef > b.bodyRef) ? 1 : ((b.bodyRef > a.bodyRef) ? -1 : 0); });
+      ops.craftsMenu.forEach(function(item) {
+        if (currSOI(item)[0] == -1) {
+          if (item.bodyRef != "null" && !w2ui['menu'].find('inactiveVessels', { id: "refNum" + item.bodyRef }).length) {
+            w2ui['menu'].add('inactiveVessels', { id: "refNum" + item.bodyRef,
+                                                  text: ops.bodyCatalog.find(o => o.ID === item.bodyRef).Body + " (0)",
+                                                  img: 'icon-body',
+                                                  count: null });
+          }
+        }
+      });
+      ops.craftsMenu.sort(function(a,b) { return (a.end > b.end) ? 1 : ((b.end > a.end) ? -1 : 0); });
+      ops.craftsMenu.forEach(function(item) {
+        if (currSOI(item)[0] == -1) addVesselByDate(item, "refNum" + item.bodyRef)
+      });
+    }
+    w2ui['menu'].refresh();
+    if (selectedNode) selectMenuItem(selectedNode);
+
+    // restore cursor to default
+    $('body').removeClass('wait-cursor');
+    $('body, *').css('cursor', '');
+    
+    // Set flag to indicate menu sorting is complete (only on initial page load)
+    if (!KSA_UI_STATE.isMenuSorted) KSA_UI_STATE.isMenuSorted = true;
   }, 10);
 }
 
@@ -702,7 +705,7 @@ function menuUpdate(type, id) {
       w2ui['menu'].select(id);
       w2ui['menu'].expandParents(id);
       w2ui['menu'].scrollIntoView(id);
-    } else adjustCount(w2ui['menu'].get(id).parent.id, 1);    
+    } else if (w2ui['menu'].get(id)) adjustCount(w2ui['menu'].get(id).parent.id, 1);    
   }
   else if (type == "crew") filterCrewMenu();
   else if (type == "name") w2ui['menu'].get(id).text = "<span>" + currName(ops.craftsMenu.find(o => o.db === id), true) + "</span>";
@@ -790,9 +793,15 @@ function addMenuItem(item, newAdd = false) {
   // this avoids repeated filter calls during the initial menu load
   } else if (refNumUT[0] == -1 && newAdd) {
     
-    // make sure this is badged after the menu is re-sorted
-    item.badged = true;
-    filterInactiveMenu();
+    // make sure this is badged after the menu is re-sorted, unless it is currently being viewed
+    // if currently viewed, pass the ID to filterInactiveMenu so it can be selected after rebuild
+    if (ops.pageType == "vessel" && ops.currentVessel.Catalog.DB == item.db) {
+      item.badged = false;
+      filterInactiveMenu(null, item.db);
+    } else {
+      item.badged = true;
+      filterInactiveMenu();
+    }
 
     // remove this from the active vessels list if it's on there and update the counts
     for (vessIndex=0; vessIndex<ops.activeVessels.length; vessIndex++) {
