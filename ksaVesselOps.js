@@ -878,6 +878,11 @@ function vesselContentUpdate(update) {
     return setTimeout(vesselContentUpdate, 50, update);
   }
 
+  // skip content update if ascent is already active - ascent setup handles the map view
+  if (ops.ascentData.active) {
+    return;
+  }
+
   // decide what kind of content we have to deal with
   // pre-launch/static data event. 
   if (ops.currentVessel.CraftData.Content.charAt(0) == "@") {
@@ -1351,7 +1356,6 @@ function loadAscentData() {
     loadDB("loadAscentData.asp?db=" + ops.ascentData.vessel, loadAscentAJAX);
     $("#dataLabel").html("Loading Tlm...");
   } else setupStreamingAscent();
-  $("#liveControlIcons").fadeOut();
 }
 
 // prepares the data fields for displaying real-time ascent data
@@ -1639,14 +1643,20 @@ function setupStreamingAscent() {
   KSA_LAYERS.layerGroundStations.addLayer(KSA_MAP_CONTROLS.vesselHorizon.vessel);
   
   // focus in on the vessel position
-  ops.surface.map.setView(KSA_MAP_CONTROLS.vesselMarker.getLatLng(), 9);
+  // delay to ensure map is fully shown and sized before setting view
+  setTimeout(function() {
+    ops.surface.map.setView(KSA_MAP_CONTROLS.vesselMarker.getLatLng(), 9);
+  }, 600);
 
   // build surface plot up to where things are if needed
   rebuildAscentTrack();
+
+  // get rid of the time controls during live ascent
+  $("#liveControlIcons").fadeOut();
 }
 
 // have a bit of housecleaning to do
-function ascentEnd() {
+function ascentEnd(isPageSwap = false) {
 
   // reset cursor for info window
   $("#infoTitle").css("cursor", "pointer");
@@ -1671,6 +1681,7 @@ function ascentEnd() {
   ops.ascentData.isPaused = true;
 
   // live event? reload the vessel to get all the history from the launch in addition to the current state
+  // but not if we're leaving the vessel page (isPageSwap)
   if (!ops.currentVessel.CraftData.pastEvent && ops.ascentData.active) {
 
     // clear out the ascent track and vessel marker
@@ -1687,7 +1698,8 @@ function ascentEnd() {
 
     // check the vessel so switching vessels during ascent doesn't trigger a double load or reload while looking elsewhere
     // check page type so vessel load isn't triggered if not looking at the vessel page
-    if (ops.ascentData.vessel == ops.currentVessel.Catalog.DB && ops.pageType == "vessel") loadVessel(ops.currentVessel.Catalog.DB, currUT())
+    // skip reload if this is a page swap - we're leaving the vessel page entirely
+    if (!isPageSwap && ops.ascentData.vessel == ops.currentVessel.Catalog.DB && ops.pageType == "vessel") loadVessel(ops.currentVessel.Catalog.DB, currUT())
   }
   ops.ascentData.active = false;
   ops.ascentData.vessel = null;

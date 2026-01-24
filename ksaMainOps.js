@@ -519,7 +519,7 @@ function checkInitDataLoad() {
       $("#ksctime").addClass("fauxLink tipped");
       $("#ffCancelOnOtherUpdates").delay(100).fadeIn();
       $("#resetHistoricTime").delay(100).fadeIn();
-      $("#liveControlIcons").delay(100).fadeIn();
+      if (!ops.ascentData.active) $("#liveControlIcons").delay(100).fadeIn();
     }
     KSA_TIMERS.tickTimer = setTimeout(tick, 1);
   }
@@ -642,7 +642,8 @@ function swapContent(newPageType, id, ut, flt) {
   } else if (ops.pageType == "vessel") {
   
     // stop any active ascent playback before leaving the vessel page
-    if (ops.ascentData.active) ascentEnd();
+    // pass true to indicate this is a page swap so vessel reload is skipped
+    if (ops.ascentData.active) ascentEnd(true);
   
     // some elements need to be hidden only if we are not switching to a crew page
     if (newPageType != "crew") {
