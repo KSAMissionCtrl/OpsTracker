@@ -8,10 +8,6 @@ if (window.location.href.includes("&live") && getParameterByName("ut")) {
     ops.UT = parseFloat(getParameterByName("ut"));
     KSA_UI_STATE.isLivePastUT = true;
   }
-  
-  // remove the live parameter from the URL to keep things clean
-  var newUrl = window.location.href.replace("&live", "");
-  window.history.replaceState({}, document.title, newUrl);
 }
 
 // handle history state changes when user invokes forward/back button
@@ -181,7 +177,7 @@ function setupContent() {
       $("#liveReloadIcon").html("<i class=\"fa-solid fa-clock-rotate-left fa-spin fa-spin-reverse\"></i>");
       var newUrl = window.location.href;
       if (ops.currentVessel && ops.pageType == "vessel" && !getParameterByName("ut")) newUrl += "&ut=" + ops.currentVessel.CraftData.UT;
-      else newUrl += "&ut=" + (currUT()-1);
+      else if (!getParameterByName("ut")) newUrl += "&ut=" + (currUT()-1);
       newUrl += "&live";
       window.location.href = newUrl;
     });

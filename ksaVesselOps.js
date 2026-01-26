@@ -23,7 +23,7 @@ function loadVessel(vessel, givenUT, wasUTExplicit) {
   if (wasUTExplicit) strURL += "&ut=" + givenUT;
 
   // if this is the first page to load, replace the current history
-  if (!history.state) history.replaceState({type: "vessel", id: vessel, UT: givenUT}, document.title, strURL);
+  if (!history.state) history.replaceState({type: "vessel", id: vessel, UT: givenUT}, document.title, strURL.replace("&live", ""));
 
   // otherwise check to see if the current state isn't this same event. if it is we are paging back and don't want to push a new state
   else if (history.state.UT != givenUT) history.pushState({type: "vessel", id: vessel, UT: givenUT}, document.title, strURL);

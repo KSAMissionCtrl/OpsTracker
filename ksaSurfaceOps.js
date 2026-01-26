@@ -762,22 +762,21 @@ function renderMapData(updated = false) {
   } else if (ops.pageType == "vessel") {
     if (updated) KSA_UI_STATE.isOrbitRenderTerminated = true;
 
-    // if 3 orbits are longer than 100,000s we need to inform the user that this could take a while
-    if ((ops.currentVessel.Orbit.OrbitalPeriod * 3) > 100000) {
+    // check if another vessel rendering was interrupted and be sure the user wants to continue
+    if (KSA_CALCULATIONS.strPausedVesselCalculation) {
       $("#mapDialog").dialog( "option", "buttons", [{
-        text: "Render Single Orbit",
-        click: function() { 
-          beginOrbitalCalc(1);
-        }
-      },{
-        text: "Render All Orbits",
+        text: "Proceed",
         click: function() { 
           beginOrbitalCalc();
         }
+      },{
+        text: "Return",
+        click: function() { 
+          swapContent("vessel", KSA_CALCULATIONS.strPausedVesselCalculation);
+        }
       }]);
-      if (!updated) $("#mapDialog").dialog( "option", "title", "Calculation Notice");
-      else $("#mapDialog").dialog( "option", "title", "Calculation Notice - New Orbital Data");
-      $("#dialogTxt").html("Calculating 3 orbits for this vessel could take a long time, but you can also cancel at any time and show what has been done up to that point if you wish");
+      $("#mapDialog").dialog( "option", "title", "Calculation Notice");
+      $("#dialogTxt").html("A previous calculation was started for another vessel. Do you wish to calculate orbital data for this vessel or return to the paused calculation?");
       $("#dialogTxt").fadeIn();
       $("#progressbar").hide();
 
@@ -786,37 +785,7 @@ function renderMapData(updated = false) {
         $("#mapDialog").dialog("open"); 
         KSA_TIMERS.mapDialogDelay = null;
       }, 1000);
-      
-    } else {
-
-      // check if another vessel rendering was interrupted and be sure the user wants to continue
-      if (KSA_CALCULATIONS.strPausedVesselCalculation) {
-        $("#mapDialog").dialog( "option", "buttons", [{
-          text: "Proceed",
-          click: function() { 
-            beginOrbitalCalc();
-          }
-        },{
-          text: "Return",
-          click: function() { 
-            swapContent("vessel", KSA_CALCULATIONS.strPausedVesselCalculation);
-          }
-        }]);
-        $("#mapDialog").dialog( "option", "title", "Calculation Notice");
-        $("#dialogTxt").html("A previous calculation was started for another vessel. Do you wish to calculate orbital data for this vessel or return to the paused calculation?");
-        $("#dialogTxt").fadeIn();
-        $("#progressbar").hide();
-  
-        // gives time for any map buttons to hide
-        KSA_TIMERS.mapDialogDelay = setTimeout(function() { 
-          $("#mapDialog").dialog("open"); 
-          KSA_TIMERS.mapDialogDelay = null;
-        }, 1000);
-      } else beginOrbitalCalc();
-    }
-    
-  // this is not a vessel with any orbital data
-  } else { 
+    } else beginOrbitalCalc();
   }
 }
 
@@ -1663,6 +1632,22 @@ function setupVesselSurfacePath(path, obtIndex) {
     // compose the popup HTML and place it on the cursor location then display it
     KSA_MAP_CONTROLS.vesselPositionPopup.setLatLng(ops.currentVesselPlot.obtData[e.target._myId].orbit[index].latlng);
     KSA_MAP_CONTROLS.vesselPositionPopup.setContent(UTtoDateTime(ops.currentVesselPlot.obtData[e.target._myId].startUT + index) + ' UTC<br>Latitude: ' + numeral(ops.currentVesselPlot.obtData[e.target._myId].orbit[index].latlng.lat).format('0.0000') + '&deg;' + cardinal.lat + '<br>Longitude: ' + numeral(ops.currentVesselPlot.obtData[e.target._myId].orbit[index].latlng.lng).format('0.0000') + '&deg;' + cardinal.lng + '<br>Altitude: ' + numeral(ops.currentVesselPlot.obtData[e.target._myId].orbit[index].alt).format('0,0.000') + " km<br>Velocity: " + numeral(ops.currentVesselPlot.obtData[e.target._myId].orbit[index].vel).format('0,0.000') + " km/s");
+    
+    // move popup to the correct layer (the layer for this specific orbit)
+    var targetLayer = ops.currentVesselPlot.obtData[e.target._myId].layer;
+    if (targetLayer) {
+      // check if popup needs to be moved to a different layer
+      if (!KSA_MAP_CONTROLS.vesselPositionPopup._currentLayer || KSA_MAP_CONTROLS.vesselPositionPopup._currentLayer !== targetLayer) {
+        // remove from old layer if it exists
+        if (KSA_MAP_CONTROLS.vesselPositionPopup._currentLayer) {
+          KSA_MAP_CONTROLS.vesselPositionPopup._currentLayer.removeLayer(KSA_MAP_CONTROLS.vesselPositionPopup);
+        }
+        // add to new layer and track it
+        targetLayer.addLayer(KSA_MAP_CONTROLS.vesselPositionPopup);
+        KSA_MAP_CONTROLS.vesselPositionPopup._currentLayer = targetLayer;
+      }
+    }
+    
     KSA_MAP_CONTROLS.vesselPositionPopup.openOn(ops.surface.map);
   });
   
@@ -2398,7 +2383,14 @@ function renderBodyOrbit() {
   currObj.obtData.marker = L.marker(currObj.obtData.orbit[0].latlng, {icon: icon, zIndexOffset: 100});
   var now = currUT() - currObj.obtData.startUT;
   var cardinal = getLatLngCompass(currObj.obtData.orbit[now].latlng);
-  currObj.obtData.marker.bindPopup("Lat: <span id='latSurface'>" + numeral(currObj.obtData.orbit[now].latlng.lat).format('0.0000') + "&deg;" + cardinal.lat + "</span><br>Lng: <span id='lngSurface'>" + numeral(currObj.obtData.orbit[now].latlng.lng).format('0.0000') + "&deg;" + cardinal.lng + "</span><br>Alt: <span id='altSurface'>" + numeral(currObj.obtData.orbit[now].alt).format('0,0.000') + " km" + "</span><br>Vel: <span id='velSurface'>" + numeral(currObj.obtData.orbit[now].vel).format('0,0.000') + " km/s" + "</span>", {autoClose: false, keepInView: false, autoPan: false});
+  if (currObj.isVessel) var strName = currName(ops.activeVessels.find(o => o.db === currObj.name));
+  else var strName = currObj.name;
+  currObj.obtData.marker.bindPopup("<h2>" + strName + "</h2>" + 
+                                   "Lat: <span id='latSurface'>" + numeral(currObj.obtData.orbit[now].latlng.lat).format('0.0000') + "&deg;" + cardinal.lat + "</span><br>" + 
+                                   "Lng: <span id='lngSurface'>" + numeral(currObj.obtData.orbit[now].latlng.lng).format('0.0000') + "&deg;" + cardinal.lng + "</span><br>" + 
+                                   "Alt: <span id='altSurface'>" + numeral(currObj.obtData.orbit[now].alt).format('0,0.000') + " km" + "</span><br>" + 
+                                   "Vel: <span id='velSurface'>" + numeral(currObj.obtData.orbit[now].vel).format('0,0.000') + " km/s" + "</span><br>&nbsp;<br>" + 
+                                   "<span class='fauxLink' onclick='markerHandler(\"" + currObj.name + "\", " + currObj.isVessel + ")'>" + (currObj.isVessel ? "View Vessel Page" : "View Body Orbits") + "</span>", {autoClose: false, keepInView: false, autoPan: false});
   currObj.obtData.marker._myId = currObj.name;
   currLayer.group.addLayer(currObj.obtData.marker);
 
@@ -2442,7 +2434,14 @@ function renderBodyOrbit() {
     // setup the popup
     var now = currUT() - obj.obtData.startUT;
     var cardinal = getLatLngCompass(obj.obtData.orbit[now].latlng);
-    obj.obtData.marker.getPopup().setContent("Lat: <span id='latSurface'>" + numeral(obj.obtData.orbit[now].latlng.lat).format('0.0000') + "&deg;" + cardinal.lat + "</span><br>Lng: <span id='lngSurface'>" + numeral(obj.obtData.orbit[now].latlng.lng).format('0.0000') + "&deg;" + cardinal.lng + "</span><br>Alt: <span id='altSurface'>" + numeral(obj.obtData.orbit[now].alt).format('0,0.000') + " km" + "</span><br>Vel: <span id='velSurface'>" + numeral(obj.obtData.orbit[now].vel).format('0,0.000') + " km/s" + "</span>");
+    if (obj.isVessel) var strName = currName(ops.activeVessels.find(o => o.db === obj.name));
+    else var strName = obj.name;
+    obj.obtData.marker.getPopup().setContent("<h2>" + strName + "</h2>" + 
+                                             "Lat: <span id='latSurface'>" + numeral(currObj.obtData.orbit[now].latlng.lat).format('0.0000') + "&deg;" + cardinal.lat + "</span><br>" + 
+                                             "Lng: <span id='lngSurface'>" + numeral(currObj.obtData.orbit[now].latlng.lng).format('0.0000') + "&deg;" + cardinal.lng + "</span><br>" + 
+                                             "Alt: <span id='altSurface'>" + numeral(currObj.obtData.orbit[now].alt).format('0,0.000') + " km" + "</span><br>" + 
+                                             "Vel: <span id='velSurface'>" + numeral(currObj.obtData.orbit[now].vel).format('0,0.000') + " km/s" + "</span><br>&nbsp;<br>" + 
+                                             "<span class='fauxLink' onclick='markerHandler(\"" + currObj.name + "\", " + currObj.isVessel + ")'>" + (currObj.isVessel ? "View Vessel Page" : "View Body Orbits") + "</span>");
   });
 
   // de-selects the object
@@ -2509,9 +2508,25 @@ function setupSurfacePath(path, object) {
       
     // compose the popup HTML and place it on the cursor location then display it
     KSA_MAP_CONTROLS.vesselPositionPopup.setLatLng(obj.obtData.orbit[index].latlng);
-    if (obj.isVessel) var strName = ops.activeVessels.find(o => o.db === e.target._myId).name;
+    if (obj.isVessel) var strName = currName(ops.activeVessels.find(o => o.db === e.target._myId));
     else var strName = obj.name;
     KSA_MAP_CONTROLS.vesselPositionPopup.setContent("<h2>" + strName + "</h2>" + UTtoDateTime(obj.obtData.startUT + index) + ' UTC<br>Latitude: ' + numeral(obj.obtData.orbit[index].latlng.lat).format('0.0000') + '&deg;' + cardinal.lat + '<br>Longitude: ' + numeral(obj.obtData.orbit[index].latlng.lng).format('0.0000') + '&deg;' + cardinal.lng + '<br>Altitude: ' + numeral(obj.obtData.orbit[index].alt).format('0,0.000') + " km<br>Velocity: " + numeral(obj.obtData.orbit[index].vel).format('0,0.000') + " km/s");
+    
+    // move popup to the correct layer if needed
+    var targetLayer = KSA_CATALOGS.bodyPaths.layers.find(o => o.type === obj.type);
+    if (targetLayer && targetLayer.group) {
+      // check if popup needs to be moved to a different layer
+      if (!KSA_MAP_CONTROLS.vesselPositionPopup._currentLayer || KSA_MAP_CONTROLS.vesselPositionPopup._currentLayer !== targetLayer.group) {
+        // remove from old layer if it exists
+        if (KSA_MAP_CONTROLS.vesselPositionPopup._currentLayer) {
+          KSA_MAP_CONTROLS.vesselPositionPopup._currentLayer.removeLayer(KSA_MAP_CONTROLS.vesselPositionPopup);
+        }
+        // add to new layer and track it
+        targetLayer.group.addLayer(KSA_MAP_CONTROLS.vesselPositionPopup);
+        KSA_MAP_CONTROLS.vesselPositionPopup._currentLayer = targetLayer.group;
+      }
+    }
+    
     KSA_MAP_CONTROLS.vesselPositionPopup.openOn(ops.surface.map);
   });
   
@@ -2871,4 +2886,14 @@ function replayFlightPath(indexFlt) {
       }
     }, 200);
   }, 350);
+}
+
+// handler for clicking on a surface marker to go to the vessel or body page
+function markerHandler(objName, isVessel) {
+  var obj;
+  if (isVessel) {
+    swapContent("vessel", ops.activeVessels.find(o => o.db === objName).db);
+  } else {
+    obj = ops.bodyCatalog.find(o => o.Body === objName);
+  }
 }

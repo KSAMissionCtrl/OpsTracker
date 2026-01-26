@@ -13,7 +13,7 @@ function loadCrew(crew) {
   if (!history.state) {
     if (window.location.href.includes("&")) var strURL = window.location.href;
     else var strURL = "http://www.kerbalspace.agency/Tracker/tracker.asp?crew=" + crew;
-    history.replaceState({type: ops.pageType, id: crew}, document.title, strURL);
+    history.replaceState({type: ops.pageType, id: crew}, document.title, strURL.replace("&live", ""));
     
   // don't create a new entry if this is the same page being reloaded
   } else if (history.state.id != crew) {
