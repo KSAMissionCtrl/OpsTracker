@@ -957,3 +957,53 @@ function loadHTMLWithTransition(containerSelector, newHTML, onComplete) {
     img.src = src;
   });
 }
+
+function openObjectTags(url, delimiter, urlAppend = "") {
+  var strTags = null;
+  if (ops.pageType == "vessel" && ops.currentVessel && ops.currentVessel.Catalog) {
+     if (ops.currentVessel.Catalog.SiteTags) strTags = ops.currentVessel.Catalog.SiteTags;
+     else strTags = ops.currentVessel.Catalog.DB;
+  }
+  else if (ops.pageType == "crew" && ops.currentCrew) strTags = ops.currentCrew.Background.Kerbal;
+  else if (ops.pageType == "crewFull") {
+    var arrTags = [];
+    ops.crewMenu.forEach(function(kerbal) {
+      arrTags.push(kerbal.db);
+    });
+    strTags = arrTags.join(delimiter);
+  }
+  else if (ops.pageType == "body" && ops.bodyCatalog) {
+
+    // check if the body details dialog is open
+    if ($("#figureDialog").dialog("isOpen")) {
+
+      // load just the tags for that body
+      strTags = $("#figureDialog").dialog("option", "title");
+    
+    // otherwise just use the selected body
+    } else {
+      var currBody = ops.bodyCatalog.find(o => o.selected === true);
+      strTags = currBody.Body;
+
+      // if this is a system, add all the names of the bodies in the system as tags too
+      if ($("#contentTitle").html().includes("System")) {
+        
+        // Kerbol is a special case since planets do not have reference numbers
+        if (currBody.Body == "Kerbol") {
+
+          // add all bodies that don't have a Ref property (i.e., planets)
+          ops.bodyCatalog.filter(o => !o.Ref).forEach(function(body) {
+            if (body.Body !== "Kerbol") strTags += delimiter + body.Body;
+          });
+        } else {
+
+          // add all bodies whose Ref matches the array index of the current body
+          ops.bodyCatalog.filter(o => o.Ref == ops.bodyCatalog.findIndex(o => o.selected === true)).forEach(function(body) {
+            strTags += delimiter + body.Body;
+          });
+        }
+      }
+    }
+  }
+  if (strTags) window.open(url + strTags + urlAppend, '_blank');
+}

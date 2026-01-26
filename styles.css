@@ -80,6 +80,10 @@ input {
   cursor: pointer !important;
 }
 
+#tags {
+  cursor: pointer;
+}
+
 input:disabled {
   cursor: default;
 }

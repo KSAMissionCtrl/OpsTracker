@@ -81,7 +81,7 @@
         <div id='progressbar' style='display:none'></div>
       </div>
       <div id='siteDialog'></div>
-      <div id='contentHeader' class='header'>&nbsp;</div>
+      <div id='contentHeader' class='header'></div>
       <div id='contentBox'>
         <div id='map' class='map'></div>
         <div id='content'></div>

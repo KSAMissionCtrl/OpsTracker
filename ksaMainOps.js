@@ -229,7 +229,9 @@ function setupContent() {
     clockHTML += "<span id='ksctime' style='font-size: 16px'></span>";
   }
   $("#clock").html(clockHTML);
+
   if (KSA_UI_STATE.isLivePastUT) {
+
     // Add click handler to open time picker dialog
     $("#ksctime").click(function() {
       openTimePicker(currUT());
@@ -454,6 +456,28 @@ function setupContent() {
     if ($(this).attr("id").includes("filter")) filterVesselOrbits($(this).attr("name"), $(this).is(":checked"));
   });
 
+  // setup the header
+  $("#contentHeader").html("<span id='patches'></span>&nbsp;<span id='contentTitle'></span>&nbsp;<span id='tags' style='display:none'><i class='fa-solid fa-tag fa-2xs' style='color: #000000;'></i></span>");
+  var showOpt = 'mouseenter';
+  if (is_touch_device()) showOpt = 'click';
+  Tipped.create('#tags', 'Left click: Open posts on KSA website<br>Right click: Open images on flickr<br>Middle click: Open both', { showOn: showOpt, hideOnClickOutside: is_touch_device(), position: 'right' });
+
+  // setup click handlers for tags element
+  $("#tags").on('click', function(e) {
+    openObjectTags("http://www.kerbalspace.agency/?tag=", ",");
+  });
+  $("#tags").on('mouseup', function(e) {
+    if (e.which === 2) {
+      e.preventDefault();
+      openObjectTags("http://www.kerbalspace.agency/?tag=", ",");
+      openObjectTags("https://www.flickr.com/search/?user_id=kerbal_space_agency&view_all=1&tags=(", "+OR+", ")+-archive");
+    }
+  });
+  $("#tags").on('contextmenu', function(e) {
+    e.preventDefault();
+    openObjectTags("https://www.flickr.com/search/?user_id=kerbal_space_agency&view_all=1&tags=(", "+OR+", ")+-archive");
+  });
+  
   // load page content
   var paramUT = null;
   if (getParameterByName("ut")) paramUT = parseInt(getParameterByName("ut"));
@@ -618,6 +642,9 @@ function swapContent(newPageType, id, ut, flt) {
 
   // just do this regardless - anything that needs to be redrawn will do so
   clearSurfacePlots();
+
+  // always clear since patches are appended
+  $("#patches").empty();
 
   // not a total content swap, just new data
   if (ops.pageType == newPageType) {

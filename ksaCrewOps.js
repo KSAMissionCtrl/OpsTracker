@@ -35,18 +35,23 @@ function loadCrew(crew) {
   }
 
   // load the data depending on our view
+  $("#contentHeader").spin(false);
+  $("#tags").fadeIn();
   if (ops.pageType == "crewFull") {
-    $("#contentHeader").html("Full Roster");
-    $("#fullRoster").empty();
+    $("#contentTitle").html("Full Roster");
     document.title = "KSA Operations Tracker - Full Roster";
+    $("#fullRoster").empty();
     
     // get the full crew listing and start to show them all
     KSA_CATALOGS.crewList = extractIDs(w2ui['menu'].get('crew').nodes).split(";");
     loadDB("loadCrewData.asp?db=" + showFullRoster() + "&ut=" + currUT(), loadCrewAJAX);
   } else {
-    $("#contentHeader").html("&nbsp;");
-    $("#contentHeader").spin({ scale: 0.5, position: 'relative', top: '50%', left: '50%' });
-    
+
+    // find the crew in the menu data
+    var crewMenuObj = ops.crewMenu.find(o => o.db === crew);
+    $("#contentTitle").html(sanitizeHTML(crewMenuObj.rank) + " " + sanitizeHTML(crewMenuObj.name) + " Kerman");
+    document.title = "KSA Operations Tracker" + " - " + sanitizeHTML(crewMenuObj.rank) + " " + sanitizeHTML(crewMenuObj.name) + " Kerman";
+
     // load the data if there is no current crew loaded or the current crew loaded is not the crew that was selected
     // otherwise just go straight to displaying the data
     if (!ops.currentCrew || (ops.currentCrew && crew != ops.currentCrew.Background.Kerbal)) loadDB("loadCrewData.asp?db=" + crew + "&ut=" + currUT(), loadCrewAJAX);
@@ -280,9 +285,13 @@ function updateCrewData(crew) {
 }
 
 function crewHeaderUpdate(update) {
-  if (update && !$("#contentHeader").html().includes(ops.currentCrew.Stats.Rank)) flashUpdate("#contentHeader", "#77C6FF", "#FFF");
-  $("#contentHeader").html(sanitizeHTML(ops.currentCrew.Stats.Rank) + " " + sanitizeHTML(ops.currentCrew.Background.FullName) + " Kerman");
-  document.title = "KSA Operations Tracker" + " - " + sanitizeHTML(ops.currentCrew.Stats.Rank) + " " + sanitizeHTML(ops.currentCrew.Background.FullName) + " Kerman";
+
+  // only bother if this is a change because the header is set before data load
+  if (update && !$("#contentTitle").html().includes(ops.currentCrew.Stats.Rank)) {
+    flashUpdate("#contentHeader", "#77C6FF", "#FFF");
+    $("#contentTitle").html(sanitizeHTML(ops.currentCrew.Stats.Rank) + " " + sanitizeHTML(ops.currentCrew.Background.FullName) + " Kerman");
+    document.title = "KSA Operations Tracker" + " - " + sanitizeHTML(ops.currentCrew.Stats.Rank) + " " + sanitizeHTML(ops.currentCrew.Background.FullName) + " Kerman";
+  }
 }
 
 function crewInfoUpdate(update) {

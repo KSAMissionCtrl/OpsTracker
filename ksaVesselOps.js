@@ -62,6 +62,9 @@ function loadVessel(vessel, givenUT, wasUTExplicit) {
   
   // clear ascent vessel tracking so ascentEnd() won't trigger a reload for this vessel
   ops.ascentData.vessel = null;
+
+  // clear previous patches
+  $("#patches").empty();
   
   loadDB("loadVesselData.asp?db=" + vessel + "&ut=" + givenUT, loadVesselAJAX);
   
@@ -266,9 +269,6 @@ function loadVesselAJAX(xhttp) {
   if (ops.currentVessel.CraftData.UT < ops.currentVessel.History[histIndex].UT) ops.currentVessel.CraftData.pastEvent = true;
   else ops.currentVessel.CraftData.pastEvent = false;
   
-  // setup the content header sections
-  $("#contentHeader").html("<span id='patches'></span>&nbsp;<span id='title'></span>&nbsp;<span id='tags'></span>");
-
   // update with the vessel name for this record
   vesselTitleUpdate();
   
@@ -389,14 +389,11 @@ function vesselTimelineUpdate(update) {
 }
 
 function vesselTitleUpdate(update) {
-  if (update && $("#title").html() != ops.currentVessel.CraftData.CraftName) {
-    flashUpdate("#title", "#77C6FF", "#FFF");
-    $("#title").html(ops.currentVessel.CraftData.CraftName);
-    document.title = "KSA Operations Tracker" + " - " + ops.currentVessel.CraftData.CraftName + ": " + ops.currentVessel.CraftData.CraftDescTitle;
-  } else {
-    $("#title").html(ops.currentVessel.CraftData.CraftName);
-    document.title = "KSA Operations Tracker" + " - " + ops.currentVessel.CraftData.CraftName + ": " + ops.currentVessel.CraftData.CraftDescTitle;
-  }
+  $("#contentHeader").spin(false);
+  $("#tags").fadeIn();
+  if (update && $("#contentHeader").html() != ops.currentVessel.CraftData.CraftName) flashUpdate("#contentHeader", "#77C6FF", "#FFF");
+  $("#contentTitle").html(ops.currentVessel.CraftData.CraftName);
+  document.title = "KSA Operations Tracker" + " - " + ops.currentVessel.CraftData.CraftName + ": " + ops.currentVessel.CraftData.CraftDescTitle;
 }
 
 // updates all the data in the Info Box

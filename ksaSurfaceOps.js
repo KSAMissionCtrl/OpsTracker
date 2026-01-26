@@ -1432,7 +1432,9 @@ function showMap() {
       removeMapRefreshButton();
       addMapCloseButton();
       redrawFlightPlots();
-      $("#contentHeader").html(ops.bodyCatalog.find(o => o.selected === true).Body);
+      $("#contentHeader").spin(false);
+      $("#contentTitle").html(ops.bodyCatalog.find(o => o.selected === true).Body);
+      $("#tags").fadeIn();
       document.title = "KSA Operations Tracker - " + ops.bodyCatalog.find(o => o.selected === true).Body;
       if (KSA_MAP_CONTROLS.launchsiteMarker) ops.surface.map.removeLayer(KSA_MAP_CONTROLS.launchsiteMarker);
       $(".leaflet-top.leaflet-right").fadeIn();
@@ -1470,7 +1472,9 @@ function hideMap() {
       $("#figureOptions").fadeIn();
       if (!$("#asteroid-filter").prop("disabled") || !$("#debris-filter").prop("disabled") || !$("#probe-filter").prop("disabled") || !$("#ship-filter").prop("disabled") || !$("#station-filter").prop("disabled")) $("#vesselOrbitTypes").fadeIn();
       $("#figure").fadeIn();
-      $("#contentHeader").html(ops.bodyCatalog.find(o => o.selected === true).Body + " System");
+      $("#contentHeader").spin(false);
+      $("#contentTitle").html(ops.bodyCatalog.find(o => o.selected === true).Body + " System");
+      $("#tags").fadeIn();
       document.title = "KSA Operations Tracker - " + ops.bodyCatalog.find(o => o.selected === true).Body + " System";
     }
     KSA_UI_STATE.isMapShown = false;

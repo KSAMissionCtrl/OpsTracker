@@ -26,7 +26,9 @@ function loadBody(body, flt) {
 
     // default to kerbol system
     if (!body || !body.length) body = "Kerbol-System";
-    $("#contentHeader").html(sanitizeHTML(body.replace("-", " ")));
+    $("#contentHeader").spin(false);
+    $("#tags").fadeIn();
+    $("#contentTitle").html(sanitizeHTML(body.replace("-", " ")));
     document.title = "KSA Operations Tracker" + " - " + sanitizeHTML(body.replace("-", " "));
     
     // if this is the first page to load, replace the current history
@@ -464,9 +466,9 @@ function figureClick(object) {
       var bodyData = ops.bodyCatalog.find(o => o.Body === strBodyName);
       var strHTML = "<table style='border: 0px; border-collapse: collapse;'><tr><td style='vertical-align: top; width: 256px;'>";
       if (bodyData.Image) {
-        strHTML += "<img src='" + bodyData.Image + "' style='background-color:black;'>";
+        strHTML += "<img src='" + bodyData.Image + "' style='background-color:black; cursor:pointer;' class='body-image-clickable'>";
       } else {
-        strHTML += "<img src='https://i.imgur.com/advRrs1.png'>";
+        strHTML += "<img src='https://i.imgur.com/advRrs1.png' style='cursor:pointer;' class='body-image-clickable'>";
       }
       strHTML += "<i><p>&quot;" + bodyData.Desc + "&quot;</p></i><p><b>- Kerbal Astronomical Society</b></p></td>";
       strHTML += "<td style='vertical-align: top; padding: 0px; margin-top: 0px'><b>Orbital Data</b>";
@@ -490,13 +492,13 @@ function figureClick(object) {
       if (bodyData.Moons) strHTML += "<p><b>Moons</b></p><p>" + bodyData.Moons + "</p>";
       if (ops.surface.Data && ops.surface.Data.Name == strBodyName) {
         strHTML += "<p><span onclick='showMap()' style='cursor: pointer; color: blue; text-decoration: none;'>View Surface</span> | ";
-      } else if (bodyData.Moons && !$("#contentHeader").html().includes(strBodyName)) {
+      } else if (bodyData.Moons && !$("#contentTitle").html().includes(strBodyName)) {
         strHTML += "<span class='fauxLink' onclick='loadBody(&quot;" + strBodyName + "-System&quot;)'>View System</span> | ";
       }
       strHTML += "<span class='fauxLink' onclick='centerBody(&quot;" + object.charAt(0) + "&quot;)'>Focus View</span> | ";
 
       // no nodes to show unless body has an eccentric or inclined orbit
-      if ((parseFloat(bodyData.Ecc) || parseFloat(bodyData.Inc)) && !$("#contentHeader").html().includes(strBodyName)) {
+      if ((parseFloat(bodyData.Ecc) || parseFloat(bodyData.Inc)) && !$("#contentTitle").html().includes(strBodyName)) {
         if (clickedObj.showNodes) strHTML += "<span onclick='toggleBodyNodes(&quot;" + object + "&quot;)' style='cursor: pointer; color: blue;'>Hide Nodes</span> | ";
         else strHTML += "<span onclick='toggleBodyNodes(&quot;" + object + "&quot;)' style='cursor: pointer; color: blue;'>Show Nodes</span> | ";
       } 
@@ -506,6 +508,24 @@ function figureClick(object) {
       $("#figureDialog").html(strHTML);
     }
     $("#figureDialog").dialog("open");
+
+    // setup click handlers for body image
+    $(".body-image-clickable").off('click mouseup contextmenu');
+    $(".body-image-clickable").on('click', function(e) {
+      openObjectTags("http://www.kerbalspace.agency/?tag=", ",");
+    });
+    $(".body-image-clickable").on('mouseup', function(e) {
+      if (e.which === 2) {
+        e.preventDefault();
+        openObjectTags("http://www.kerbalspace.agency/?tag=", ",");
+        openObjectTags("https://www.flickr.com/search/?user_id=kerbal_space_agency&view_all=1&tags=(", "+OR+", ")+-archive");
+      }
+    });
+    $(".body-image-clickable").on('contextmenu', function(e) {
+      e.preventDefault();
+      openObjectTags("https://www.flickr.com/search/?user_id=kerbal_space_agency&view_all=1&tags=(", "+OR+", ")+-archive");
+    });
+    Tipped.create('.body-image-clickable', 'Left click: Open posts on KSA website<br>Right click: Open images on flickr<br>Middle click: Open both', { showOn: 'mouseenter', hideOnClickOutside: is_touch_device(), position: 'bottom' });
 
     // toggle the orbit if the orbits are hidden
     if (!$("#orbits").is(":checked")) {
