@@ -95,6 +95,11 @@ function loadFlt(dbName, menuSelect = true) {
   var path = KSA_CATALOGS.fltPaths.find(o => o.id === dbName);
   if (path) {
     
+    // Close any open flight position popup
+    if (KSA_MAP_CONTROLS.flightPositionPopup.isOpen()) {
+      ops.surface.map.closePopup(KSA_MAP_CONTROLS.flightPositionPopup);
+    }
+    
     // Close the load notice dialog if it's open
     if ($("#mapDialog").dialog("isOpen") && $("#mapDialog").dialog("option", "title") == "Data Load Notice") {
       $("#mapDialog").dialog("close");
@@ -123,8 +128,9 @@ function loadFlt(dbName, menuSelect = true) {
     // Zoom the map to fit this flight path
     // If there are more than two layers the plot wraps around the meridian so just show the whole map
     // otherwise zoom in to fit the size of the plot
-    if (Object.keys(path.layer._layers).length > 1) ops.surface.map.setView([0,0], 1);
-    else ops.surface.map.fitBounds(Object.values(path.layer._layers)[0]._bounds);
+    var polylines = getPolylinesFromLayer(path.layer);
+    if (polylines.length > 1) ops.surface.map.setView([0,0], 1);
+    else ops.surface.map.fitBounds(polylines[0]._bounds);
 
     // if this wasn't selected from the menu, select it now
     if (!menuSelect) selectMenuItem(dbName);

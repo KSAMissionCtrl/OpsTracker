@@ -628,8 +628,9 @@ function loadFltDataAJAX(xhttp) {
           // if there are more than two layers the plot wraps around the meridian so just show the whole map
           // otherwise zoom in to fit the size of the plot
           // https://stackoverflow.com/questions/5223/length-of-a-javascript-object
-          if (Object.keys(KSA_CATALOGS.fltPaths[0].layer._layers).length > 1) ops.surface.map.setView([0,0], 1);
-          else ops.surface.map.fitBounds(Object.values(KSA_CATALOGS.fltPaths[0].layer._layers)[0]._bounds);
+          var polylines = getPolylinesFromLayer(KSA_CATALOGS.fltPaths[0].layer);
+          if (polylines.length > 1) ops.surface.map.setView([0,0], 1);
+          else ops.surface.map.fitBounds(polylines[0]._bounds);
         }
         
         // Update the URL to include this flight
@@ -650,10 +651,11 @@ function loadFltDataAJAX(xhttp) {
         KSA_CATALOGS.fltPaths.forEach(function(item) {
           
           // if there are more than two layers the plot wraps around the meridian
-          if (Object.keys(item.layer._layers).length > 1) isDblPlotted = true;
+          var polylines = getPolylinesFromLayer(item.layer);
+          if (polylines.length > 1) isDblPlotted = true;
           else {
-            if (!groupBounds) groupBounds = Object.values(item.layer._layers)[0]._bounds;
-            else groupBounds.extend(Object.values(item.layer._layers)[0]._bounds);
+            if (!groupBounds) groupBounds = polylines[0]._bounds;
+            else groupBounds.extend(polylines[0]._bounds);
           }
         });
 
@@ -671,8 +673,9 @@ function loadFltDataAJAX(xhttp) {
     if (!inFlight(KSA_CATALOGS.fltPaths[KSA_CATALOGS.fltPaths.length-1])) {
 
       // zoom out to the full map if the new plot jumps the meridian otherwise fit its bounds
-      if (Object.keys(KSA_CATALOGS.fltPaths[KSA_CATALOGS.fltPaths.length-1].layer._layers).length > 1) ops.surface.map.setView([0,0], 1);
-      else ops.surface.map.fitBounds(Object.values(KSA_CATALOGS.fltPaths[KSA_CATALOGS.fltPaths.length-1].layer._layers)[0]._bounds);
+      var polylines = getPolylinesFromLayer(KSA_CATALOGS.fltPaths[KSA_CATALOGS.fltPaths.length-1].layer);
+      if (polylines.length > 1) ops.surface.map.setView([0,0], 1);
+      else ops.surface.map.fitBounds(polylines[0]._bounds);
     }
 
     // Update the URL to include this flight
@@ -1553,9 +1556,7 @@ function setupFlightSurfacePath(path, index, startIndex, length) {
   
   // show the time and data for this position
   srfTrack.on('mouseover mousemove', function(e) {
-    if (!KSA_MAP_CONTROLS.flightPositionPopup.isOpen()) {
-      flightTrackHover(e);
-    }
+    flightTrackHover(e);
   });
   
   // remove the mouseover popup
@@ -1566,11 +1567,9 @@ function setupFlightSurfacePath(path, index, startIndex, length) {
   
   // when clicking along this line, display the mission data info
   srfTrack.on('click', function(e) {
-    if (KSA_MAP_CONTROLS.flightPositionPopup.isOpen()) {
-      ops.surface.map.closePopup(KSA_MAP_CONTROLS.flightPositionPopup);
-      flightTrackHover(e);
-      return;
-    }
+    // generate the timePopup content for this location (needed for the full popup)
+    flightTrackHover(e);
+    
     var indexFlt = parseInt(e.target._myId.split(",")[1]);
     w2ui['menu'].select(KSA_CATALOGS.fltPaths[indexFlt].id);
     w2ui['menu'].expandParents(KSA_CATALOGS.fltPaths[indexFlt].id);
@@ -1587,6 +1586,22 @@ function setupFlightSurfacePath(path, index, startIndex, length) {
     strNewHtml += "</span><br><span class='fauxLink' onclick='downloadFlightDataCSV(" + indexFlt + ")'>Download CSV</span> | <span class='fauxLink' onclick='replayFlightPath(" + indexFlt + ")'>Animate Flight</span></center></p>";
     KSA_MAP_CONTROLS.flightPositionPopup.setContent(strNewHtml);
     KSA_MAP_CONTROLS.flightPositionPopup.setLatLng(e.latlng);
+    
+    // move popup to the correct layer (the layer for this specific flight path)
+    var targetLayer = KSA_CATALOGS.fltPaths[indexFlt].layer;
+    if (targetLayer) {
+      // check if popup needs to be moved to a different layer
+      if (!KSA_MAP_CONTROLS.flightPositionPopup._currentLayer || KSA_MAP_CONTROLS.flightPositionPopup._currentLayer !== targetLayer) {
+        // remove from old layer if it exists
+        if (KSA_MAP_CONTROLS.flightPositionPopup._currentLayer) {
+          KSA_MAP_CONTROLS.flightPositionPopup._currentLayer.removeLayer(KSA_MAP_CONTROLS.flightPositionPopup);
+        }
+        // add to new layer and track it
+        targetLayer.addLayer(KSA_MAP_CONTROLS.flightPositionPopup);
+        KSA_MAP_CONTROLS.flightPositionPopup._currentLayer = targetLayer;
+      }
+    }
+    
     KSA_MAP_CONTROLS.flightPositionPopup.openOn(ops.surface.map);
     ops.surface.map.setView(e.latlng);
     ops.surface.map.closePopup(KSA_MAP_CONTROLS.timePopup);
@@ -1649,6 +1664,7 @@ function setupVesselSurfacePath(path, obtIndex) {
     }
     
     KSA_MAP_CONTROLS.vesselPositionPopup.openOn(ops.surface.map);
+    ops.surface.map.setView(ops.currentVesselPlot.obtData[e.target._myId].orbit[index].latlng);
   });
   
   return srfTrack;
@@ -2528,6 +2544,7 @@ function setupSurfacePath(path, object) {
     }
     
     KSA_MAP_CONTROLS.vesselPositionPopup.openOn(ops.surface.map);
+    ops.surface.map.setView(obj.obtData.orbit[index].latlng);
   });
   
   return srfTrack;
@@ -2564,11 +2581,12 @@ function inFlight(fltPath) {
 
         // if there is more than one layer we need to find the layer that holds the coordinates
         var fltLayer;
-        if (Object.keys(fltPath.Layer._layers).length > 1) {
-          Object.values(fltPath.Layer._layers).forEach(function(item) {
+        var polylines = getPolylinesFromLayer(fltPath.Layer);
+        if (polylines.length > 1) {
+          polylines.forEach(function(item) {
             if (item._bounds.contains([fltPath.fltData[dataIndex].Lat,fltPath.fltData[dataIndex].Lng])) fltLayer = item;
           });
-        } else fltLayer = Object.values(fltPath.Layer._layers)[0];
+        } else fltLayer = polylines[0];
 
         // fire a click event after popping up the initial data
         fltLayer.fire("mouseover", { 

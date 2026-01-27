@@ -662,6 +662,18 @@ Math.degrees = function(radians) { return radians * 180 / Math.PI; };
 // ==============================================================================
 
 /**
+ * Gets only the polyline layers from a Leaflet layer group, filtering out popups and other non-polyline layers
+ * This is needed because popups added to layers affect the _layers collection
+ * @param {L.LayerGroup|L.FeatureGroup} layerGroup - The layer group to filter
+ * @returns {Array} Array of polyline layers
+ */
+function getPolylinesFromLayer(layerGroup) {
+  return Object.values(layerGroup._layers).filter(function(layer) {
+    return layer instanceof L.Polyline && !(layer instanceof L.Polygon);
+  });
+}
+
+/**
  * Calculates the geodesic horizon radius for a given altitude
  * L.GeodesicCircle uses Earth's radius (6371 km), so we scale by ratio: Earth radius / Current Body radius
  * 
