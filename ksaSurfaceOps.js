@@ -1333,7 +1333,14 @@ function addMapViewButton() {
         onClick: function(control) {
           var currBody = ops.bodyCatalog.find(o => o.selected === true).Body;
           swapContent("body", currBody);
-          setTimeout(showMap, 1000);
+          setTimeout(function() {
+            showMap();
+            
+            // After map is shown, check if we need to select a vessel
+            if (ops.currentVessel) {
+              selectVesselOnBodyMap(ops.currentVessel.Catalog.DB);
+            }
+          }, 1000);
           selectMenuItem(currBody + "-System");
         }
       }]
@@ -1451,6 +1458,56 @@ function hideMap() {
     }
     KSA_UI_STATE.isMapShown = false;
   }
+}
+
+// handles selection and centering of a vessel marker after switching from vessel page to body map
+function selectVesselOnBodyMap(vesselId) {
+  
+  // check if bodyPaths data exists and if vessel is in the list
+  if (!KSA_CATALOGS.bodyPaths.paths.length) {
+    // No data yet, wait a bit and try again
+    setTimeout(selectVesselOnBodyMap, 100, vesselId);
+    return;
+  }
+  
+  var vesselObj = KSA_CATALOGS.bodyPaths.paths.find(o => o.isVessel === true && o.name === vesselId);
+  
+  // vessel not found in paths - it may not have orbital data
+  if (!vesselObj) return;
+  
+  // check if the vessel's data has finished loading and calculating
+  if (!vesselObj.isCalculated) {
+    // Data still loading or calculating, wait and try again
+    setTimeout(selectVesselOnBodyMap, 100, vesselId);
+    return;
+  }
+  
+  // check if the vessel has orbital data (orbit could be null)
+  if (!vesselObj.orbit || !vesselObj.obtData || !vesselObj.obtData.marker) {
+    // No orbital data to display
+    return;
+  }
+  
+  // find the layer this vessel belongs to
+  var vesselLayer = KSA_CATALOGS.bodyPaths.layers.find(o => o.type === vesselObj.type);
+  
+  // make sure the layer group exists and is loaded
+  if (!vesselLayer || !vesselLayer.group || !vesselLayer.isLoaded) {
+    // Layer not ready yet, wait and try again
+    setTimeout(selectVesselOnBodyMap, 100, vesselId);
+    return;
+  }
+  
+  // add the layer to the map if it's not already visible
+  if (!ops.surface.map.hasLayer(vesselLayer.group)) {
+    vesselLayer.group.addTo(ops.surface.map);
+  }
+  
+  // center on the vessel marker
+  ops.surface.map.setView(vesselObj.obtData.marker.getLatLng(), 3);
+  
+  // open the vessel marker popup to select it (this triggers the selection logic in the marker's popupopen event)
+  vesselObj.obtData.marker.openPopup();
 }
 
 // because the vessel plot is broken up into distinct orbital periods, we need to do a bit of legwork
