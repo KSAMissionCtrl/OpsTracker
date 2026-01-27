@@ -1646,7 +1646,7 @@ function setupVesselSurfacePath(path, obtIndex) {
       
     // compose the popup HTML and place it on the cursor location then display it
     KSA_MAP_CONTROLS.vesselPositionPopup.setLatLng(ops.currentVesselPlot.obtData[e.target._myId].orbit[index].latlng);
-    KSA_MAP_CONTROLS.vesselPositionPopup.setContent(UTtoDateTime(ops.currentVesselPlot.obtData[e.target._myId].startUT + index) + ' UTC<br>Latitude: ' + numeral(ops.currentVesselPlot.obtData[e.target._myId].orbit[index].latlng.lat).format('0.0000') + '&deg;' + cardinal.lat + '<br>Longitude: ' + numeral(ops.currentVesselPlot.obtData[e.target._myId].orbit[index].latlng.lng).format('0.0000') + '&deg;' + cardinal.lng + '<br>Altitude: ' + numeral(ops.currentVesselPlot.obtData[e.target._myId].orbit[index].alt).format('0,0.000') + " km<br>Velocity: " + numeral(ops.currentVesselPlot.obtData[e.target._myId].orbit[index].vel).format('0,0.000') + " km/s");
+    KSA_MAP_CONTROLS.vesselPositionPopup.setContent(UTtoDateTime(ops.currentVesselPlot.obtData[e.target._myId].startUT + index) + ' UTC<br>Latitude: ' + numeral(ops.currentVesselPlot.obtData[e.target._myId].orbit[index].latlng.lat).format('0.0000') + '&deg;' + cardinal.lat + '<br>Longitude: ' + numeral(ops.currentVesselPlot.obtData[e.target._myId].orbit[index].latlng.lng).format('0.0000') + '&deg;' + cardinal.lng + '<br>Altitude: ' + numeral(ops.currentVesselPlot.obtData[e.target._myId].orbit[index].alt).format('0,0.000') + " km<br>Velocity: " + numeral(ops.currentVesselPlot.obtData[e.target._myId].orbit[index].vel).format('0,0.000') + " km/s<br>&nbsp;<br><span class='fauxLink' onclick='centerOnVesselMarker()'>Center on Vessel Marker</span>");
     
     // move popup to the correct layer (the layer for this specific orbit)
     var targetLayer = ops.currentVesselPlot.obtData[e.target._myId].layer;
@@ -2526,7 +2526,7 @@ function setupSurfacePath(path, object) {
     KSA_MAP_CONTROLS.vesselPositionPopup.setLatLng(obj.obtData.orbit[index].latlng);
     if (obj.isVessel) var strName = currName(ops.activeVessels.find(o => o.db === e.target._myId));
     else var strName = obj.name;
-    KSA_MAP_CONTROLS.vesselPositionPopup.setContent("<h2>" + strName + "</h2>" + UTtoDateTime(obj.obtData.startUT + index) + ' UTC<br>Latitude: ' + numeral(obj.obtData.orbit[index].latlng.lat).format('0.0000') + '&deg;' + cardinal.lat + '<br>Longitude: ' + numeral(obj.obtData.orbit[index].latlng.lng).format('0.0000') + '&deg;' + cardinal.lng + '<br>Altitude: ' + numeral(obj.obtData.orbit[index].alt).format('0,0.000') + " km<br>Velocity: " + numeral(obj.obtData.orbit[index].vel).format('0,0.000') + " km/s");
+    KSA_MAP_CONTROLS.vesselPositionPopup.setContent("<h2>" + strName + "</h2>" + UTtoDateTime(obj.obtData.startUT + index) + ' UTC<br>Latitude: ' + numeral(obj.obtData.orbit[index].latlng.lat).format('0.0000') + '&deg;' + cardinal.lat + '<br>Longitude: ' + numeral(obj.obtData.orbit[index].latlng.lng).format('0.0000') + '&deg;' + cardinal.lng + '<br>Altitude: ' + numeral(obj.obtData.orbit[index].alt).format('0,0.000') + " km<br>Velocity: " + numeral(obj.obtData.orbit[index].vel).format('0,0.000') + " km/s<br>&nbsp;<br><span class='fauxLink' onclick='centerOnMarker(\"" + obj.name + "\", " + obj.isVessel + ")'>Center on Marker</span>");
     
     // move popup to the correct layer if needed
     var targetLayer = KSA_CATALOGS.bodyPaths.layers.find(o => o.type === obj.type);
@@ -2913,5 +2913,30 @@ function markerHandler(objName, isVessel) {
     swapContent("vessel", ops.activeVessels.find(o => o.db === objName).db);
   } else {
     obj = ops.bodyCatalog.find(o => o.Body === objName);
+  }
+}
+
+// handler for centering map on orbital marker and closing popup
+function centerOnMarker(objName, isVessel) {
+  var obj;
+  if (isVessel) {
+    obj = KSA_CATALOGS.bodyPaths.paths.find(o => o.name === objName && o.isVessel);
+  } else {
+    obj = KSA_CATALOGS.bodyPaths.paths.find(o => o.name === objName && !o.isVessel);
+  }
+  
+  if (obj && obj.obtData && obj.obtData.marker) {
+    if (KSA_MAP_CONTROLS.vesselPositionPopup) ops.surface.map.closePopup(KSA_MAP_CONTROLS.vesselPositionPopup);
+    ops.surface.map.setView(obj.obtData.marker.getLatLng(), ops.surface.map.getZoom());
+    obj.obtData.marker.openPopup();
+  }
+}
+
+// handler for centering map on current vessel marker and closing popup
+function centerOnVesselMarker() {
+  if (KSA_MAP_CONTROLS.vesselMarker) {
+    if (KSA_MAP_CONTROLS.vesselPositionPopup) ops.surface.map.closePopup(KSA_MAP_CONTROLS.vesselPositionPopup);
+    ops.surface.map.setView(KSA_MAP_CONTROLS.vesselMarker.getLatLng(), ops.surface.map.getZoom());
+    KSA_MAP_CONTROLS.vesselMarker.openPopup();
   }
 }
