@@ -924,6 +924,7 @@ function vesselContentUpdate(update) {
         KSA_MAP_CONTROLS.vesselHorizon.vessel = addHorizonCircle([parseFloat(data[0]), parseFloat(data[1])], parseFloat(data[3]) * 1000);
         KSA_LAYERS.layerGroundStations.addLayer(KSA_MAP_CONTROLS.vesselHorizon.vessel);
       }
+
       // place the marker and build the information window for it, then center the map on it and create a popup for it
       KSA_MAP_CONTROLS.launchsiteMarker = L.marker([data[0], data[1]], {icon: launchsiteIcon}).addTo(ops.surface.map);
       KSA_MAP_CONTROLS.launchsiteMarker.bindPopup(strLaunchIconCaption + data[2] + launchAltitude + "<br>[" + numeral(data[0]).format('0.0000') + "&deg;" + getLatLngCompass(KSA_MAP_CONTROLS.launchsiteMarker.getLatLng()).lat + ", " + numeral(data[1]).format('0.0000') + "&deg;" + getLatLngCompass(KSA_MAP_CONTROLS.launchsiteMarker.getLatLng()).lng + "]" , { closeOnClick: false });
@@ -965,7 +966,7 @@ function vesselContentUpdate(update) {
           ops.currentVesselPlot.obtData[ops.currentVesselPlot.obtData.length-1].endUT > currUT()  // the plot itself runs longer than the current time
           ) {
         isPlottable = true;
-        redrawVesselPlots();
+        if (!update) redrawVesselPlots();
       }
 
       // if this is not plottable or there is no previous content, we need to render new data

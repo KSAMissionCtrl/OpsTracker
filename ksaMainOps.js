@@ -244,11 +244,16 @@ function setupContent() {
     });
     $("#resetHistoricTime").contextmenu(function(e) {
       e.preventDefault();
-
-      // if there is no ut parameter, nothing to reset
-      if (!getParameterByName("ut")) return;
-      $("#resetHistoricTime").html("<i class=\"fa-solid fa-arrow-rotate-right fa-spin\" style=\"color: #000000;\"></i>");
       var newUrl = window.location.href;
+
+      // if there is no ut parameter or active vessel, do nothing
+      if (!newUrl.includes("ut") && !ops.currentVessel) return;
+
+      // if a ut parameter is missing, replace it with current vessel UT
+      else if (!newUrl.includes("ut")) {  
+        newUrl += "&ut=" + ops.currentVessel.CraftData.UT;
+      }
+      $("#resetHistoricTime").html("<i class=\"fa-solid fa-arrow-rotate-right fa-spin\" style=\"color: #000000;\"></i>");
       newUrl += "&live";
       window.location.href = newUrl;
     });
@@ -771,6 +776,12 @@ function updatePage(updateEvent, rapidFireMode = false) {
             KSA_TIMERS.tickTimer = null;
       }
     } else KSA_TIMERS.tickTimer = null;
+
+    // if tick timer was cleared, we need to make the tickdelta time match the time of this update so we don't skip a future one
+    // just subtract ops.UT (page load) from the updateEvent.UT to get the delta
+    if (!KSA_TIMERS.tickTimer) {
+      ops.tickDelta = (updateEvent.UT - ops.UT) * 1000;
+    }
   }
       
   KSA_UI_STATE.menuSaveSelected = w2ui['menu'].find({selected: true});
