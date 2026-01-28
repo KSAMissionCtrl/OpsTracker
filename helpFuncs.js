@@ -973,7 +973,10 @@ function loadHTMLWithTransition(containerSelector, newHTML, onComplete) {
 function openObjectTags(url, delimiter, urlAppend = "") {
   var strTags = null;
   if (ops.pageType == "vessel" && ops.currentVessel && ops.currentVessel.Catalog) {
-     if (ops.currentVessel.Catalog.SiteTags) strTags = ops.currentVessel.Catalog.SiteTags;
+
+    // this de-generalizes the function a bit by expecting certain URLs
+     if (url.includes("agency") && ops.currentVessel.Catalog.SiteTags) strTags = ops.currentVessel.Catalog.SiteTags;
+     else if (url.includes("flickr") && ops.currentVessel.Catalog.ImgTags) strTags = ops.currentVessel.Catalog.ImgTags;
      else strTags = ops.currentVessel.Catalog.DB;
   }
   else if (ops.pageType == "crew" && ops.currentCrew) strTags = ops.currentCrew.Background.Kerbal;
