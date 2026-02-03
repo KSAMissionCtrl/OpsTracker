@@ -3,67 +3,6 @@
 // before insertion into DOM to prevent XSS attacks. Use sanitizeHTML() for any
 // new code that inserts database content into HTML.
 
-/**
- * Adds change indicator icon for crew member if content has changed
- * @param {string} elementId - jQuery selector for the element
- * @param {string} itemId - Crew member DB identifier
- * @param {string} fieldId - Field identifier for hash lookup
- * @param {*} currentContent - Current content to check against stored hash
- * @returns {boolean} - True if content has changed, false otherwise
- */
-function addCrewChangeIndicator(elementId, itemId, fieldId, currentContent) {
-  let contentChanged = false;
-  
-  try {
-    // Remove any existing indicator first
-    $(`${elementId} .change-indicator`).remove();
-    
-    // Crew logic: Simple temp vs perm based on isLivePastUT
-    const usePermStorage = !KSA_UI_STATE.isLivePastUT;
-    const storageKey = usePermStorage ? `ksaOps_hashes_${itemId}` : `ksaOps_hashes_temp_${itemId}`;
-    const stored = localStorage.getItem(storageKey);
-    const currentHash = hashContent(currentContent);
-    
-    if (!stored) {
-      // First time seeing this crew member in this storage type - create hash storage
-      const hashes = {};
-      hashes[fieldId] = currentHash;
-      localStorage.setItem(storageKey, JSON.stringify(hashes));
-      console.log(`[Storage] First visit - saved hash for ${itemId}.${fieldId} (perm=${usePermStorage})`);
-    } else {
-      // Crew member has stored hashes - check if this field changed
-      const hashes = JSON.parse(stored);
-      
-      if (!hashes[fieldId]) {
-        // First time seeing this specific field - save it
-        hashes[fieldId] = currentHash;
-        localStorage.setItem(storageKey, JSON.stringify(hashes));
-        console.log(`[Storage] New field - saved hash for ${itemId}.${fieldId} (perm=${usePermStorage})`);
-      } else if (hashes[fieldId] !== currentHash) {
-        // Content has changed - update hash and show indicator
-        hashes[fieldId] = currentHash;
-        localStorage.setItem(storageKey, JSON.stringify(hashes));
-        contentChanged = true;
-        
-        console.log(`[Storage] Changed - updated hash for ${itemId}.${fieldId} and showing indicator (perm=${usePermStorage})`);
-        
-        // Add the certificate icon
-        const icon = '<i class="fa-solid fa-certificate fa-2xs change-indicator" style="color: #000000; cursor: pointer; position: absolute; right: 5px; top: 50%; transform: translateY(-50%);" title="Updated since last visit" data-item-id="' + itemId + '" data-field-id="' + fieldId + '"></i>';
-        
-        if ($(elementId).css('position') === 'static') {
-          $(elementId).css('position', 'relative');
-        }
-        
-        $(elementId).append(icon);
-      }
-    }
-  } catch (error) {
-    handleError(error, 'addCrewChangeIndicator');
-  }
-  
-  return contentChanged;
-}
-
 function loadCrew(crew) {
   
   // make sure the menu data is loaded before continuing
@@ -882,4 +821,61 @@ function crewRibbonsUpdate(update) {
     $("#dataField12").fadeOut();
   }
   $("#dataField11").fadeIn();
+}
+
+/**
+ * Adds change indicator icon for crew member if content has changed
+ * @param {string} elementId - jQuery selector for the element
+ * @param {string} itemId - Crew member DB identifier
+ * @param {string} fieldId - Field identifier for hash lookup
+ * @param {*} currentContent - Current content to check against stored hash
+ * @returns {boolean} - True if content has changed, false otherwise
+ */
+function addCrewChangeIndicator(elementId, itemId, fieldId, currentContent) {
+  let contentChanged = false;
+  
+  try {
+    // Remove any existing indicator first
+    $(`${elementId} .change-indicator`).remove();
+    
+    // Crew logic: Simple temp vs perm based on isLivePastUT
+    const usePermStorage = !KSA_UI_STATE.isLivePastUT;
+    const storageKey = usePermStorage ? `ksaOps_hashes_${itemId}` : `ksaOps_hashes_temp_${itemId}`;
+    const stored = localStorage.getItem(storageKey);
+    const currentHash = hashContent(currentContent);
+    
+    if (!stored) {
+      // First time seeing this crew member in this storage type - create hash storage
+      const hashes = {};
+      hashes[fieldId] = currentHash;
+      localStorage.setItem(storageKey, JSON.stringify(hashes));
+    } else {
+      // Crew member has stored hashes - check if this field changed
+      const hashes = JSON.parse(stored);
+      
+      if (!hashes[fieldId]) {
+        // First time seeing this specific field - save it
+        hashes[fieldId] = currentHash;
+        localStorage.setItem(storageKey, JSON.stringify(hashes));
+      } else if (hashes[fieldId] !== currentHash) {
+        // Content has changed - update hash and show indicator
+        hashes[fieldId] = currentHash;
+        localStorage.setItem(storageKey, JSON.stringify(hashes));
+        contentChanged = true;
+        
+        // Add the certificate icon
+        const icon = '<i class="fa-solid fa-certificate fa-2xs change-indicator" style="color: #000000; cursor: pointer; position: absolute; right: 5px; top: 50%; transform: translateY(-50%);" title="Updated since last visit" data-item-id="' + itemId + '" data-field-id="' + fieldId + '"></i>';
+        
+        if ($(elementId).css('position') === 'static') {
+          $(elementId).css('position', 'relative');
+        }
+        
+        $(elementId).append(icon);
+      }
+    }
+  } catch (error) {
+    handleError(error, 'addCrewChangeIndicator');
+  }
+  
+  return contentChanged;
 }

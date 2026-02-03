@@ -4,6 +4,7 @@
 // new code that inserts database content into HTML.
 
 function loadVessel(vessel, givenUT, wasUTExplicit) {
+
   // Track whether UT was explicitly provided in the original call
   // This flag needs to be preserved through recursive setTimeout calls
   if (wasUTExplicit === undefined) wasUTExplicit = (givenUT && givenUT != currUT());
@@ -975,28 +976,31 @@ function vesselContentUpdate(update) {
       KSA_MAP_CONTROLS.launchsiteMarker = null;
       showMap();
 
-      var isPlottable = false;
-      if (ops.currentVesselPlot && 
-          ops.currentVesselPlot.obtData.length &&                                                 // a plot exists
-          ops.currentVesselPlot.id == ops.currentVessel.Catalog.DB &&                             // the plot belongs to this vessel
-          ops.currentVesselPlot.eph == ops.currentVessel.Orbit.Eph &&                             // the data used for the plot is still valid
-          ops.currentVesselPlot.obtData[ops.currentVesselPlot.obtData.length-1].endUT > currUT()  // the plot itself runs longer than the current time
-          ) {
-        isPlottable = true;
-        if (!update) redrawVesselPlots();
+      // check first if there was a paused calculation for this vessel - if so, resume it immediately
+      // this takes priority over checking if existing data is plottable since the calculation is incomplete
+      if (!update && KSA_CALCULATIONS.strPausedVesselCalculation == ops.currentVessel.Catalog.DB) {
+        renderMapData(update);
+      } else {
+        var isPlottable = false;
+        if (ops.currentVesselPlot && 
+            ops.currentVesselPlot.obtData.length &&                                                 // a plot exists
+            ops.currentVesselPlot.id == ops.currentVessel.Catalog.DB &&                             // the plot belongs to this vessel
+            ops.currentVesselPlot.eph == ops.currentVessel.Orbit.Eph &&                             // the data used for the plot is still valid
+            ops.currentVesselPlot.obtData[ops.currentVesselPlot.obtData.length-1].endUT > currUT()  // the plot itself runs longer than the current time
+            ) {
+          isPlottable = true;
+          if (!update) redrawVesselPlots();
+        }
+
+        // if this is not plottable or there is no previous content, we need to render new data
+        if (!update && (!isPlottable || (!isPlottable && !ops.currentVessel.CraftData.prevContent))) renderMapData(update);
+
+        // if this is an update with changed content, we need to render new trajectories
+        else if (update && (ops.currentVessel.CraftData.prevContent != ops.currentVessel.CraftData.Content) || (ops.currentVesselPlot.eph != ops.currentVessel.Orbit.Eph)) renderMapData(update);
+
+        // no call made to renderMapData means if the dialog is open we don't need it
+        else $("#mapDialog").dialog("close");
       }
-
-      // if this is not plottable or there is no previous content, we need to render new data
-      if (!update && (!isPlottable || (!isPlottable && !ops.currentVessel.CraftData.prevContent))) renderMapData(update);
-
-      // if this is an update with changed content, we need to render new trajectories
-      else if (update && (ops.currentVessel.CraftData.prevContent != ops.currentVessel.CraftData.Content) || (ops.currentVesselPlot.eph != ops.currentVessel.Orbit.Eph)) renderMapData(update);
-
-      // if there was a paused calculation, we need to resume it
-      else if (!update && KSA_CALCULATIONS.strPausedVesselCalculation == ops.currentVessel.Catalog.DB) renderMapData(update);
-
-      // no call made to renderMapData means if the dialog is open we don't need it
-      else $("#mapDialog").dialog("close");
       
     // we're looking at old orbital data
     } else {
@@ -1076,7 +1080,7 @@ $("#infoBox").hover(function() {
 
 // upon selection of a new list item, take the user to that event
 $("#prevEvent").change(function () {
-  if ($("#prevEvent").val()) loadVessel(ops.currentVessel.Catalog.DB, parseFloat($("#prevEvent").val()));
+  if ($("#prevEvent").val()) swapContent("vessel", ops.currentVessel.Catalog.DB, parseFloat($("#prevEvent").val()));
 });
 $("#nextEvent").change(function () {
   
@@ -1094,7 +1098,7 @@ $("#nextEvent").change(function () {
       }]);
       $("#siteDialog").dialog("open");
       $("#nextEvent").val("Next Event(s)");
-    } else loadVessel(ops.currentVessel.Catalog.DB, parseFloat($("#nextEvent").val()));
+    } else swapContent("vessel", ops.currentVessel.Catalog.DB, parseFloat($("#nextEvent").val()));
   }
 });
 
@@ -1105,7 +1109,7 @@ function prevHistoryButton() {
   for (histIndex = ops.currentVessel.History.length-1; histIndex >= 0; histIndex--) {
     if (ops.currentVessel.History[histIndex].UT < ops.currentVessel.CraftData.UT) break;
   }
-  loadVessel(ops.currentVessel.Catalog.DB, ops.currentVessel.History[histIndex].UT);
+  swapContent("vessel", ops.currentVessel.Catalog.DB, ops.currentVessel.History[histIndex].UT);
   if (histIndex == 0) $("#prevEventButton").button("option", "disabled", true);
   $("#nextEventButton").button("option", "disabled", false);
 }
@@ -1125,7 +1129,7 @@ function nextHistoryButton() {
   // otherwise if there is more history, see if the next event is in the future and if so this event we are requesting is current and should be fetched with the current time
   } else if (ops.currentVessel.History[histIndex+1].UT > currUT()) timeStamp = currUT();
 
-  loadVessel(ops.currentVessel.Catalog.DB, timeStamp);
+  swapContent("vessel", ops.currentVessel.Catalog.DB, timeStamp);
   $("#prevEventButton").button("option", "disabled", false);
 }
 
@@ -2209,7 +2213,6 @@ function addVesselChangeIndicator(elementId, itemId, fieldId, currentContent) {
         const tempKey = `ksaOps_hashes_temp_${itemId}`;
         if (localStorage.getItem(tempKey)) {
           localStorage.removeItem(tempKey);
-          console.log(`[Storage] Cleared temp storage for ${itemId} on fresh current event load`);
         }
       }
     } else {
@@ -2224,7 +2227,6 @@ function addVesselChangeIndicator(elementId, itemId, fieldId, currentContent) {
         // If no perm storage exists, copy all existing temp storage to perm first
         if (!localStorage.getItem(permKey) && localStorage.getItem(tempKey)) {
           localStorage.setItem(permKey, localStorage.getItem(tempKey));
-          console.log(`[Storage] Copied all temp storage to perm for ${itemId} on reaching current event`);
         }
         
         // Now use perm storage for this and subsequent fields
@@ -2268,11 +2270,9 @@ function addVesselChangeIndicator(elementId, itemId, fieldId, currentContent) {
       const hashes = {};
       hashes[fieldId] = currentHash;
       localStorage.setItem(storageKey, JSON.stringify(hashes));
-      console.log(`[Storage] First visit - saved hash for ${itemId}.${fieldId} (perm=${usePermStorage})`);
       
       // Check for changes: temp vs perm when viewing past, OR temp differs from perm when paging to current
       if (!suppressIndicator && (!KSA_UI_STATE.isLivePastUT && (!usePermStorage && checkPermStorageForChange() || isPagingToCurrent && checkTempDiffersFromPerm()))) {
-        console.log(`[Storage] First storage but comparison differs - showing indicator for ${itemId}.${fieldId}`);
         
         // Add the certificate icon floating from the right side
         const icon = '<i class="fa-solid fa-certificate fa-2xs change-indicator" style="color: #000000; cursor: pointer; position: absolute; right: 5px; top: 50%; transform: translateY(-50%);" title="Updated since last visit" data-item-id="' + itemId + '" data-field-id="' + fieldId + '"></i>';
@@ -2292,11 +2292,9 @@ function addVesselChangeIndicator(elementId, itemId, fieldId, currentContent) {
         // First time seeing this specific field in this storage type - save it
         hashes[fieldId] = currentHash;
         localStorage.setItem(storageKey, JSON.stringify(hashes));
-        console.log(`[Storage] New field - saved hash for ${itemId}.${fieldId} (perm=${usePermStorage})`);
         
         // Check for changes: temp vs perm when viewing past, OR temp differs from perm when paging to current
         if (!suppressIndicator && (!KSA_UI_STATE.isLivePastUT && (!usePermStorage && checkPermStorageForChange() || isPagingToCurrent && checkTempDiffersFromPerm()))) {
-          console.log(`[Storage] New field but comparison differs - showing indicator for ${itemId}.${fieldId}`);
           
           // Add the certificate icon floating from the right side
           const icon = '<i class="fa-solid fa-certificate fa-2xs change-indicator" style="color: #000000; cursor: pointer; position: absolute; right: 5px; top: 50%; transform: translateY(-50%);" title="Updated since last visit" data-item-id="' + itemId + '" data-field-id="' + fieldId + '"></i>';
@@ -2315,7 +2313,6 @@ function addVesselChangeIndicator(elementId, itemId, fieldId, currentContent) {
         
         // Only show indicator if not suppressed (i.e., not first-time temp storage creation on past event load)
         if (!suppressIndicator) {
-          console.log(`[Storage] Changed - updated hash for ${itemId}.${fieldId} and showing indicator (perm=${usePermStorage})`);
           
           // Add the certificate icon floating from the right side
           const icon = '<i class="fa-solid fa-certificate fa-2xs change-indicator" style="color: #000000; cursor: pointer; position: absolute; right: 5px; top: 50%; transform: translateY(-50%);" title="Updated since last visit" data-item-id="' + itemId + '" data-field-id="' + fieldId + '"></i>';
@@ -2326,15 +2323,12 @@ function addVesselChangeIndicator(elementId, itemId, fieldId, currentContent) {
           }
           
           $(elementId).append(icon);
-        } else {
-          console.log(`[Storage] Changed - updated hash for ${itemId}.${fieldId}, indicator suppressed (initial past event load)`);
         }
       } else {
         // Hashes match in current storage - but check for temp vs perm differences
         // When using temp storage (viewing past events), check if temp differs from perm
         // When using perm storage (paging to current), check if temp differs from perm
         if (!suppressIndicator && (!KSA_UI_STATE.isLivePastUT && (!usePermStorage && checkPermStorageForChange() || isPagingToCurrent && checkTempDiffersFromPerm()))) {
-          console.log(`[Storage] Hash unchanged but storage comparison differs - showing indicator for ${itemId}.${fieldId}`);
           
           // Add the certificate icon floating from the right side
           const icon = '<i class="fa-solid fa-certificate fa-2xs change-indicator" style="color: #000000; cursor: pointer; position: absolute; right: 5px; top: 50%; transform: translateY(-50%);" title="Updated since last visit" data-item-id="' + itemId + '" data-field-id="' + fieldId + '"></i>';

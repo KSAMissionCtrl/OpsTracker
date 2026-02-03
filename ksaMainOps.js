@@ -665,7 +665,8 @@ function swapContent(newPageType, id, ut, flt) {
   if (!flt && isNaN(ut)) flt = ut;
 
   // ignore any attempts to change content layout if request is to load what is already loaded (if something is already loaded)
-  if (ops.currentVessel && (newPageType == "vessel" && ops.pageType == "vessel" && ops.currentVessel.Catalog.DB == id) && ut == currUT()) return;
+  // but allow reload if currently viewing a past event and requesting current data
+  if (ops.currentVessel && (newPageType == "vessel" && ops.pageType == "vessel" && ops.currentVessel.Catalog.DB == id) && ut == currUT() && !ops.currentVessel.CraftData.pastEvent) return;
   if (ops.currentCrew && (newPageType == "crew" && ops.pageType == "crew" && ops.currentCrew.Background.Kerbal == id)) return;
   if (ops.bodyCatalog && (newPageType == "body" && ops.pageType == "body" && ops.bodyCatalog.find(o => o.selected === true).Body == id.replace("-System", ""))) {
 
@@ -739,6 +740,7 @@ function swapContent(newPageType, id, ut, flt) {
       $("#missionHistory").fadeOut();
       loadCrew(id);
     }
+
     // Show link icon after spinner is removed
     setTimeout(function() { 
       $("#liveReloadIcon").fadeIn();
