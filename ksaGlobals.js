@@ -186,7 +186,8 @@ const KSA_TIMERS = {
   ascentInterpTimeout: null,     // timer that maintains ascent interpolation FPS
   tickTimer: null,               // main tick timer handle for interrupting the tick loop
   rapidFireTimer: null,          // timer for detecting 750ms hold on time advance controls
-  menuRefresh: null              // timer handle to make sure we don't stack multiple menu refreshes
+  menuRefresh: null,             // timer handle to make sure we don't stack multiple menu refreshes
+  bodyLoadTimeout: null          // timer handle to wait for body load before proceeding with vessel load
 };
 
 // ------------------------------------------------------------------------------
@@ -259,7 +260,7 @@ const KSA_MAP_ICONS = {
 // ------------------------------------------------------------------------------
 const KSA_CALCULATIONS = {
   // Orbit calculations
-  obtCalcUT: null,                 // the starting time of the orbit to calculate
+  obtCalcUT: null,                 // the current time being used for orbital calculations
   orbitDataCalc: [],               // lat/lng/alt/spd points for current calculated trajectory
   
   // Flight tracking

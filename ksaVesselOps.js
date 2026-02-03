@@ -14,6 +14,27 @@ function loadVessel(vessel, givenUT, wasUTExplicit) {
   // can't continue if menu data hasn't loaded and sorted - preserve the wasUTExplicit flag
   if (!KSA_UI_STATE.isMenuSorted) return setTimeout(loadVessel, 50, vessel, givenUT, wasUTExplicit);
 
+  // if body is being switched, we need to wait for it to finish loading before proceeding
+  // this ensures paused calculations can properly resume when switching directly to a vessel from another body
+  if (KSA_TIMERS.bodyLoadTimeout && !ops.surface.Data) return setTimeout(loadVessel, 50, vessel, givenUT, wasUTExplicit);
+  else KSA_TIMERS.bodyLoadTimeout = null;
+
+  // we need to make sure the current surface map is proper for this vessel
+  var strParentBody = getParentSystem(vessel);
+  if (strParentBody == "inactive") {
+    var soiList = ops.craftsMenu.find(o => o.db === vessel).soi.split("|");
+    
+    // last element is always the inactive body ID so pop & check the next one
+    soiList.pop();
+    var lastSOI = soiList.pop();
+    strParentBody = ops.bodyCatalog.find(o => o.ID === parseInt(lastSOI.split(";")[1])).Body;
+  }
+  if (strParentBody && (!ops.surface.Data || (ops.surface.Data && ops.surface.Data.Name != strParentBody.replace("-System", "")))) {
+    loadBody(strParentBody);
+    KSA_TIMERS.bodyLoadTimeout = setTimeout(loadVessel, 500, vessel, givenUT, wasUTExplicit);
+    return;
+  }
+
   // we can't let anyone jump to a UT later than the current UT
   if (givenUT > currUT() && !localStorage.getItem("ksaOps_admin")) givenUT = currUT();
   
@@ -34,18 +55,6 @@ function loadVessel(vessel, givenUT, wasUTExplicit) {
   
   // we changed the DB name for these vessels. Allow old links to still work
   if (vessel.includes("ascensionmk1b1")) vessel = vessel.replace("mk1b1", "mk1");
-
-  // we need to make sure the current surface map is proper for this vessel
-  var strParentBody = getParentSystem(vessel);
-  if (strParentBody == "inactive") {
-    var soiList = ops.craftsMenu.find(o => o.db === vessel).soi.split("|");
-    
-    // last element is always the inactive body ID so pop & check the next one
-    soiList.pop();
-    var lastSOI = soiList.pop();
-    strParentBody = ops.bodyCatalog.find(o => o.ID === parseInt(lastSOI.split(";")[1])).Body;
-  }
-  if (strParentBody && (!ops.surface.Data || (ops.surface.Data && ops.surface.Data.Name != strParentBody.replace("-System", "")))) loadBody(strParentBody);
 
   // select and show it in the menu
   selectMenuItem(vessel);
@@ -308,7 +317,7 @@ function loadVesselAJAX(xhttp, flags) {
 
     // if this is different than what is currently loaded, change it
     if ($("#patches").html() != strPatches) $("#patches").html(strPatches);
-  }
+  } else $("#patches").empty();
 
   // no orbit data or mission ended? Close the dialog in case it is open
   if (!ops.currentVessel.Orbit || isMissionEnded()) $("#mapDialog").dialog("close");

@@ -215,10 +215,10 @@ function loadMap(map) {
   ops.surface.layerControl._expand();
   ops.surface.layerControl.options.collapsed = false;
 
-  // call up the map data to load & terminate any orbital calculations
+  // call up the map data to load 
+  // any orbital calcs in progress should have been paused with content swap
   loadDB("loadMapData.asp?map=" + map + "&UT=" + currUT(), loadMapDataAJAX);
   ops.surface.isLoading = true;
-  KSA_UI_STATE.isOrbitRenderTerminated = true;
 }
 
 function loadMapDataAJAX(xhttp) {
@@ -229,6 +229,7 @@ function loadMapDataAJAX(xhttp) {
     ops.surface.layerControl.removeLayer(ops.surface.loadingLayer);
     ops.surface.layerControl._collapse();
     ops.surface.layerControl.options.collapsed = true;
+    ops.surface.Data = null;
     return;
   }
 
@@ -453,6 +454,7 @@ function loadMapDataAJAX(xhttp) {
 
   // TODO - have to remove any layers that have already been created
   } else if (!KSA_CATALOGS.bodyPaths.bodyName) KSA_CATALOGS.bodyPaths.bodyName = ops.surface.Data.Name;
+
   // load surface track data for any vessels and moons in orbit around this body
   // this is dependent on ops catalog data so needs to be in its own function
   loadSurfaceTracks();
@@ -710,7 +712,7 @@ function renderMapData(updated = false) {
   if ((!ops.currentVessel && ops.pageType == "vessel") || 
       (ops.surface.layerControl && !ops.surface.layerControl.options.collapsed) ||
       !KSA_UI_STATE.isGGBAppletLoaded || KSA_UI_STATE.isContentMoving) {
-    
+
     // but wait! if this call was made during an orbital data update, ignore the map layer control being open, we need to cancel & restart
     if (!updated) return setTimeout(renderMapData, 150);
   }
@@ -1044,7 +1046,11 @@ function renderVesselOrbit() {
 // this function will continually call itself to batch-run orbital calculations and not completely lock up the browser
 // will calculate a full orbital period unless cancelled or otherwise interrupted by an event along the orbit, then pass control to the callback
 // orbital period self-assigned to keep from having to call the catalog for this information
-function orbitalCalc(callback, orbit, batchCount = 1000, limit) {
+// dataArray parameter allows specifying which array to store calculation results (defaults to KSA_CALCULATIONS.orbitDataCalc for backwards compatibility)
+function orbitalCalc(callback, orbit, batchCount = 1000, limit, dataArray) {
+  // default to using the global orbitDataCalc array if not specified
+  if (!dataArray) dataArray = KSA_CALCULATIONS.orbitDataCalc;
+  
   if (!limit) limit = orbit.OrbitalPeriod;
   if (KSA_UI_STATE.isOrbitRenderTerminated) return;
   var bAltLimit = false;
@@ -1258,14 +1264,14 @@ function orbitalCalc(callback, orbit, batchCount = 1000, limit) {
     longitude = normalizeLongitude(longitude);
     
     // store all the derived values and advance to the next second
-    KSA_CALCULATIONS.orbitDataCalc.push({latlng: {lat: latitude, lng: longitude}, alt: alt, vel: vel});
+    dataArray.push({latlng: {lat: latitude, lng: longitude}, alt: alt, vel: vel});
     KSA_CALCULATIONS.obtCalcUT++;
     
     // update the progress bar - will only show if loading data for a single vessel
-    if ($("#mapDialog").dialog("isOpen")) $('#progressbar').progressbar("value", (KSA_CALCULATIONS.orbitDataCalc.length/limit)*100);
+    if ($("#mapDialog").dialog("isOpen")) $('#progressbar').progressbar("value", (dataArray.length/limit)*100);
     
     // exit the batch prematurely if we've reached the end of the calculation period
-    if (KSA_CALCULATIONS.orbitDataCalc.length >= limit) break; 
+    if (dataArray.length >= limit) break; 
 
     // exit the batch prematurely if we've hit Kerbin's atmosphere
     if (alt <= 70) { 
@@ -1282,7 +1288,7 @@ function orbitalCalc(callback, orbit, batchCount = 1000, limit) {
   
   // let the callback know if we've completed all orbital calculations, or cancel out if requested by the user
   // or if an altitude was breached
-  if (KSA_CALCULATIONS.orbitDataCalc.length >= limit || KSA_UI_STATE.isOrbitRenderCancelled || bAltLimit) {
+  if (dataArray.length >= limit || KSA_UI_STATE.isOrbitRenderCancelled || bAltLimit) {
     callback();
     
   // just exit and don't call anything if the calculations have been paused by switching away from the vessel
@@ -1290,7 +1296,7 @@ function orbitalCalc(callback, orbit, batchCount = 1000, limit) {
     return;
     
   // otherwise call ourselves again for more calculations, with a small timeout to let other things happen
-  } else setTimeout(orbitalCalc, 1, callback, orbit, batchCount, limit);
+  } else setTimeout(orbitalCalc, 1, callback, orbit, batchCount, limit, dataArray);
 }
 
 function addMapResizeButton() {
