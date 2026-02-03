@@ -102,7 +102,6 @@ var ops = {
   currentVessel: {},      // data for the last-viewed vessel at last-selected UT
                             // Catalog: {}            all Crafts table record fields from Catalog DB for this vessel
                             // Comms: {}              all Comms table record fields from Vessel DB along with
-                              // commsHTML              - tooltip for "Comms" text to check for diff
                               // NotNull                - whether to hide or show comms (loaded from AJAX)
                             // CraftData: {}          all Craft Data table record fields from Vessel DB along with
                               // pastEvent              - whether the current loaded event was from a UT before the current time
@@ -110,11 +109,8 @@ var ops = {
                               // prevEph                - what was the orbital timestamp from the last update to trigger new calculations
                             // History: []            all records from Craft Data table UT & CraftDescTitle fields from Vessel DB
                             // LaunchTimes: []        all records from Launch Times table from Vessel DB
-                            // Manifest: {}           all Manifest table fields from Vessel DB plus
-                              // crewHTML               - check for diff
-                            // Orbit: {}              all Flight Data table record fields from Vessel DB plus
-                              // orbitalPeriodHTML      - tooltip for orbital period to check for diff
-                              // velocityHTML           - tooltip for velocity to check for diff
+                            // Manifest: {}           all Manifest table fields from Vessel DB
+                            // Orbit: {}              all Flight Data table record fields from Vessel DB
                             // OrbitalHistory: []     UT & period for all Flight Data records in Vessel DB
                             // Ports: {}              all Ports table record fields from Vessel DB
                             //Resources: {}           all Resources table record fields from Vessel DB plus
@@ -158,6 +154,7 @@ const KSA_UI_STATE = {
   isOrbitRenderCancelled: false, // whether the Cancel button was clicked to stop orbital calculation early
   isOrbitRenderTerminated: false,// whether the orbital calc was stopped due to changing a vessel or view
   isLivePastUT: false,           // whether the page was loaded with &live param to auto-update from a past UT
+  optUpdateInterrupt: null,      // the state of the optional update interrupt checkbox
   
   // Loading states
   isMenuDataLoaded: false,       // when all the menu data has been loaded from AJAX

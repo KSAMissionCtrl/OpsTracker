@@ -14,7 +14,10 @@ function loadVessel(vessel, givenUT, wasUTExplicit) {
   if (!KSA_UI_STATE.isMenuSorted) return setTimeout(loadVessel, 50, vessel, givenUT, wasUTExplicit);
 
   // we can't let anyone jump to a UT later than the current UT
-  if (givenUT > currUT() && !getCookie("missionctrl")) givenUT = currUT();
+  if (givenUT > currUT() && !localStorage.getItem("ksaOps_admin")) givenUT = currUT();
+  
+  // Clear all certificate icons when loading a new vessel/event
+  $('.change-indicator').remove();
   
   // compose the the URL that will appear in the address bar when the history state is updated
   var strURL = "http://www.kerbalspace.agency/Tracker/tracker.asp?vessel=" + vessel;
@@ -23,7 +26,7 @@ function loadVessel(vessel, givenUT, wasUTExplicit) {
   if (wasUTExplicit) strURL += "&ut=" + givenUT;
 
   // if this is the first page to load, replace the current history
-  if (!history.state) history.replaceState({type: "vessel", id: vessel, UT: givenUT}, document.title, strURL.replace("&live", ""));
+  if (!history.state) history.replaceState({type: "vessel", id: vessel, UT: givenUT}, document.title, strURL.replace("&live", "").replace("&reload", ""));
 
   // otherwise check to see if the current state isn't this same event. if it is we are paging back and don't want to push a new state
   else if (history.state.UT != givenUT) history.pushState({type: "vessel", id: vessel, UT: givenUT}, document.title, strURL);
@@ -52,21 +55,17 @@ function loadVessel(vessel, givenUT, wasUTExplicit) {
   $("#dataLabel").html("Loading Data...");
   
   // delete the current vessel data and put out the call for new vessel data
-  if (ops.currentVessel) {
-    ops.currentVessel.AscentData.length = 0;
-    ops.currentVessel.History.length = 0;
-    ops.currentVessel.LaunchTimes.length = 0;
-    ops.currentVessel.OrbitalHistory.length = 0;
-    ops.currentVessel = null;
-  }
-  
+  // set a flag to let data loader know if this is an initial load or not
+  // was originally set in the currentVessel object but that needs to remain null until load is complete
+  var bInitLoad;
+  if (ops.currentVessel && ops.currentVessel.Catalog.DB === vessel) bInitLoad = false;
+  else bInitLoad = true;
+  ops.currentVessel = null;
+
   // clear ascent vessel tracking so ascentEnd() won't trigger a reload for this vessel
   ops.ascentData.vessel = null;
 
-  // clear previous patches
-  $("#patches").empty();
-  
-  loadDB("loadVesselData.asp?db=" + vessel + "&ut=" + givenUT, loadVesselAJAX);
+  loadDB("loadVesselData.asp?db=" + vessel + "&ut=" + givenUT, loadVesselAJAX, { initLoad: bInitLoad});
   
   // add vessel-specific buttons to the map
   addMapResizeButton();
@@ -216,7 +215,7 @@ function loadAscentAJAX(xhttp) {
 }
 
 // parses data that shows up for the vessel currently selected in the menu
-function loadVesselAJAX(xhttp) {
+function loadVesselAJAX(xhttp, flags) {
 
   // separate the main data segments
   var data = xhttp.responseText.split("Typ3")[1].split("*");
@@ -254,6 +253,7 @@ function loadVesselAJAX(xhttp) {
   }
 
   // store all the data
+  // preserve the initial load flag
   ops.currentVessel = { Catalog: catalog,
                         CraftData: craft,
                         Resources: resources,
@@ -264,8 +264,10 @@ function loadVesselAJAX(xhttp) {
                         History: history,
                         LaunchTimes: launches,
                         OrbitalHistory: obtHist,
-                        AscentData: ascentData };
+                        AscentData: ascentData,
+                        initLoad: null };
   if (ops.currentVessel.Resources) ops.currentVessel.Resources.resIndex = 0;
+  if (flags) ops.currentVessel.initLoad = flags.initLoad;
   
   // look for the closest recent event to this UT and see if it matches the current craft data to check if it is a past event
   var histIndex;
@@ -289,19 +291,22 @@ function loadVesselAJAX(xhttp) {
   if (ops.currentVessel.Catalog.Patches) {
 
     // program patch
-    $("#patches").append("<a target='_blank' href='" + ops.currentVessel.Catalog.Patches.split("|")[0].split(";")[2].replace("index.php", "") + "'><img id='programPatch' class='tipped' data-tipped-options=\"position: 'bottom'\" style='height: 35px;' title=\"<center>Click to view the " + ops.currentVessel.Catalog.Patches.split("|")[0].split(";")[0] + " Program page</center><br /><img style='height: 500px;' src='" + ops.currentVessel.Catalog.Patches.split("|")[0].split(";")[1] + "'>\" src='" + ops.currentVessel.Catalog.Patches.split("|")[0].split(";")[1] + "'></a>&nbsp;");
+    var strPatches = "<a target='_blank' href='" + ops.currentVessel.Catalog.Patches.split("|")[0].split(";")[2].replace("index.php", "") + "'><img id='programPatch' class='tipped' data-tipped-options=\"position: 'bottom'\" style='height: 35px;' title=\"<center>Click to view the " + ops.currentVessel.Catalog.Patches.split("|")[0].split(";")[0] + " Program page</center><br /><img style='height: 500px;' src='" + ops.currentVessel.Catalog.Patches.split("|")[0].split(";")[1] + "'>\" src='" + ops.currentVessel.Catalog.Patches.split("|")[0].split(";")[1] + "'></a>&nbsp;";
     
     // vessel patch has a URL?
     if (ops.currentVessel.Catalog.Patches.split("|")[1].split(";").length > 2) {
-      $("#patches").append("<a target='_blank' href='" + ops.currentVessel.Catalog.Patches.split("|")[1].split(";")[2].replace("index.php", "") + "'><img id='vesselPatch' class='tipped' data-tipped-options=\"position: 'bottom'\" style='height: 35px; cursor: pointer;' title=\"<center>Click to view the " + ops.currentVessel.Catalog.Patches.split("|")[1].split(";")[0] + " vessel page</center><br /><img style='height: 500px;' src='" + ops.currentVessel.Catalog.Patches.split("|")[1].split(";")[1] + "'>\" src='" + ops.currentVessel.Catalog.Patches.split("|")[1].split(";")[1] + "'></a>&nbsp;");
+      strPatches += "<a target='_blank' href='" + ops.currentVessel.Catalog.Patches.split("|")[1].split(";")[2].replace("index.php", "") + "'><img id='vesselPatch' class='tipped' data-tipped-options=\"position: 'bottom'\" style='height: 35px; cursor: pointer;' title=\"<center>Click to view the " + ops.currentVessel.Catalog.Patches.split("|")[1].split(";")[0] + " vessel page</center><br /><img style='height: 500px;' src='" + ops.currentVessel.Catalog.Patches.split("|")[1].split(";")[1] + "'>\" src='" + ops.currentVessel.Catalog.Patches.split("|")[1].split(";")[1] + "'></a>&nbsp;";
     } else {
-      $("#patches").append("<img id='vesselPatch' class='tipped' data-tipped-options=\"position: 'bottom'\" style='height: 35px; cursor: help;' title=\"<img style='height: 500px;' src='" + ops.currentVessel.Catalog.Patches.split("|")[1].split(";")[1] + "'>\" src='" + ops.currentVessel.Catalog.Patches.split("|")[1].split(";")[1] + "'>&nbsp;");
+      strPatches += "<img id='vesselPatch' class='tipped' data-tipped-options=\"position: 'bottom'\" style='height: 35px; cursor: help;' title=\"<img style='height: 500px;' src='" + ops.currentVessel.Catalog.Patches.split("|")[1].split(";")[1] + "'>\" src='" + ops.currentVessel.Catalog.Patches.split("|")[1].split(";")[1] + "'>&nbsp;";
     }
 
     // mission patch?
     if (ops.currentVessel.Catalog.Patches.split("|").length > 2) {
-      $("#patches").append("<img id='missionPatch' class='tipped' data-tipped-options=\"position: 'bottom'\" style='height: 35px; cursor: help;' title=\"<img style='height: 500px;' src='" + ops.currentVessel.Catalog.Patches.split("|")[2].split(";")[1] + "'><br /><center>Mission Payload</center>\" src='" + ops.currentVessel.Catalog.Patches.split("|")[2].split(";")[1] + "'>&nbsp;");  
+      strPatches += "<img id='missionPatch' class='tipped' data-tipped-options=\"position: 'bottom'\" style='height: 35px; cursor: help;' title=\"<img style='height: 500px;' src='" + ops.currentVessel.Catalog.Patches.split("|")[2].split(";")[1] + "'><br /><center>Mission Payload</center>\" src='" + ops.currentVessel.Catalog.Patches.split("|")[2].split(";")[1] + "'>&nbsp;";  
     }
+
+    // if this is different than what is currently loaded, change it
+    if ($("#patches").html() != strPatches) $("#patches").html(strPatches);
   }
 
   // no orbit data or mission ended? Close the dialog in case it is open
@@ -366,8 +371,36 @@ function loadVesselAJAX(xhttp) {
   // behavior of tooltips depends on the device
   if (is_touch_device()) showOpt = 'click';
   else showOpt = 'mouseenter';
-  Tipped.create('.tipped', { showOn: showOpt, hideOnClickOutside: is_touch_device(), detach: false, hideOn: { element: 'mouseleave'} });
-  Tipped.create('.tip-update', { showOn: showOpt, hideOnClickOutside: is_touch_device(), detach: false, hideOn: { element: 'mouseleave'} });
+  Tipped.create('.tipped', { 
+    showOn: showOpt, 
+    hideOnClickOutside: is_touch_device(), 
+    detach: false, 
+    hideOn: { element: 'mouseleave'},
+    onShow: function(content, element) {
+      // Remove change indicator from the parent dataField when tooltip is shown
+      $(element).closest('[id^="dataField"]').find('.change-indicator').animate({
+        opacity: 0,
+        right: '-20px'
+      }, 300, function() {
+        $(this).remove();
+      });
+    }
+  });
+  Tipped.create('.tip-update', { 
+    showOn: showOpt, 
+    hideOnClickOutside: is_touch_device(), 
+    detach: false, 
+    hideOn: { element: 'mouseleave'},
+    onShow: function(content, element) {
+      // Remove change indicator from the parent dataField when tooltip is shown
+      $(element).closest('[id^="dataField"]').find('.change-indicator').animate({
+        opacity: 0,
+        right: '-20px'
+      }, 300, function() {
+        $(this).remove();
+      });
+    }
+  });
 }
 
 function vesselTimelineUpdate(update) {
@@ -534,56 +567,53 @@ function vesselMETUpdate(update) {
 
 function vesselVelocityUpdate(update) {
   if (ops.currentVessel.Orbit && ops.currentVessel.Orbit.AvgVelocity) {
+    var formattedAvgVel = numeral((ops.currentVessel.Orbit.VelocityPe+ops.currentVessel.Orbit.VelocityAp)/2).format('0.000');
     var strTip = "<span id='avgVelUpdate'>Periapsis: " + numeral(ops.currentVessel.Orbit.VelocityPe).format('0.000') + "km/s<br>Apoapsis: " + numeral(ops.currentVessel.Orbit.VelocityAp).format('0.000') + "km/s</span>";
-    var strHTML = "<b><u><span style='cursor:help' class='tip-update' data-tipped-options=\"inline: 'avgVelTip'\">Average Velocity:</u></b> " + numeral((ops.currentVessel.Orbit.VelocityPe+ops.currentVessel.Orbit.VelocityAp)/2).format('0.000') + "km/s";
-    $("#dataField1").fadeIn();
-    if (update && (!ops.currentVessel.Orbit.velocityHTML || (ops.currentVessel.Orbit.velocityHTML && strHTML + strTip != ops.currentVessel.Orbit.velocityHTML))) {
-      flashUpdate("#dataField1", "#77C6FF", "#FFF");
-    }
+    var strHTML = "<b><u><span style='cursor:help' class='tip-update' data-tipped-options=\"inline: 'avgVelTip'\">Average Velocity:</u></b> " + formattedAvgVel + "km/s";
     $("#avgVelTip").html(strTip);
     $("#dataField1").html(strHTML);
-    ops.currentVessel.Orbit.velocityHTML = strHTML + strTip;
+    $("#dataField1").fadeIn();
+    if (addChangeIndicator("#dataField1", ops.currentVessel.Catalog.DB, "Orbit_AvgVelocity", formattedAvgVel) && update) flashUpdate("#dataField1", "#77C6FF", "#FFF");
   } else $("#dataField1").fadeOut();
 }
 
 function vesselPeUpdate(update) {
   if (ops.currentVessel.Orbit && ops.currentVessel.Orbit.Periapsis) {
-    var strHTML = "<b>Periapsis:</b> " + numeral(ops.currentVessel.Orbit.Periapsis).format('0,0.000') + "km";
-    $("#dataField2").fadeIn();
-    if (update && strHTML != $("#dataField2").html()) flashUpdate("#dataField2", "#77C6FF", "#FFF");
+    var formattedValue = numeral(ops.currentVessel.Orbit.Periapsis).format('0,0.000');
+    var strHTML = "<b>Periapsis:</b> " + formattedValue + "km";
     $("#dataField2").html(strHTML);
+    $("#dataField2").fadeIn();
+    if (addChangeIndicator("#dataField2", ops.currentVessel.Catalog.DB, "Orbit_Periapsis", formattedValue) && update) flashUpdate("#dataField2", "#77C6FF", "#FFF");
   } else $("#dataField2").fadeOut();
 }
 
 function vesselApUpdate(update) {
   if (ops.currentVessel.Orbit && ops.currentVessel.Orbit.Apoapsis) {
-    var strHTML = "<b>Apoapsis:</b> " + numeral(ops.currentVessel.Orbit.Apoapsis).format('0,0.000') + "km";
-    $("#dataField3").fadeIn();
-    if (update && strHTML != $("#dataField3").html()) flashUpdate("#dataField3", "#77C6FF", "#FFF");
+    var formattedValue = numeral(ops.currentVessel.Orbit.Apoapsis).format('0,0.000');
+    var strHTML = "<b>Apoapsis:</b> " + formattedValue + "km";
     $("#dataField3").html(strHTML);
+    $("#dataField3").fadeIn();
+    if (addChangeIndicator("#dataField3", ops.currentVessel.Catalog.DB, "Orbit_Apoapsis", formattedValue) && update) flashUpdate("#dataField3", "#77C6FF", "#FFF");
   } else $("#dataField3").fadeOut();
 }
 
 function vesselEccUpdate(update) {
   if (ops.currentVessel.Orbit && ops.currentVessel.Orbit.Eccentricity) {
-    var strHTML = "<b>Eccentricity:</b> " + numeral(ops.currentVessel.Orbit.Eccentricity).format('0.000');
-    $("#dataField4").fadeIn();
-    if (update && strHTML != $("#dataField4").html()) flashUpdate("#dataField4", "#77C6FF", "#FFF");
+    var formattedValue = numeral(ops.currentVessel.Orbit.Eccentricity).format('0.000');
+    var strHTML = "<b>Eccentricity:</b> " + formattedValue;
     $("#dataField4").html(strHTML);
+    $("#dataField4").fadeIn();
+    if (addChangeIndicator("#dataField4", ops.currentVessel.Catalog.DB, "Orbit_Eccentricity", formattedValue) && update) flashUpdate("#dataField4", "#77C6FF", "#FFF");
   } else $("#dataField4").fadeOut();
 }
 
 function vesselIncUpdate(update) {
   if (ops.currentVessel.Orbit && ops.currentVessel.Orbit.Inclination) {
-    var strHTML = "<b>Inclination:</b> " + numeral(ops.currentVessel.Orbit.Inclination).format('0.000') + "&deg;";
-    $("#dataField5").fadeIn();
+    var formattedValue = numeral(ops.currentVessel.Orbit.Inclination).format('0.000');
+    var strHTML = "<b>Inclination:</b> " + formattedValue + "&deg;";
     $("#dataField5").html(strHTML);
-
-    // check the inclination against just the number in the HTML field
-    // <b>Inclination:</b> ###.###°
-    if (update && ops.currentVessel.Orbit.Inclination.toFixed(3) != parseFloat($("#dataField5").html().split(" ")[1].split("°")[0])) {
-      flashUpdate("#dataField5", "#77C6FF", "#FFF");
-    }
+    $("#dataField5").fadeIn();
+    if (addChangeIndicator("#dataField5", ops.currentVessel.Catalog.DB, "Orbit_Inclination", formattedValue) && update) flashUpdate("#dataField5", "#77C6FF", "#FFF");
   } else $("#dataField5").fadeOut();
 }
 
@@ -623,12 +653,10 @@ function vesselPeriodUpdate(update) {
       } else strTip += "<br>Number of Orbits: " + numeral((currUT() - ops.currentVessel.Orbit.Eph)/ops.currentVessel.Orbit.OrbitalPeriod).format('0,0.00');
     }
 
-    if (update && (!ops.currentVessel.Orbit.orbitalPeriodHTML || (ops.currentVessel.Orbit.orbitalPeriodHTML && strHTML + strTip != ops.currentVessel.Orbit.orbitalPeriodHTML))) {
-      flashUpdate("#dataField6", "#77C6FF", "#FFF");
-    }
+    var formattedPeriod = numeral(ops.currentVessel.Orbit.OrbitalPeriod).format('0,0.000');
     $("#dataField6").html(strHTML);
     $("#periodTip").html(strTip);
-    ops.currentVessel.Orbit.orbitalPeriodHTML = strHTML + strTip;
+    if (addChangeIndicator("#dataField6", ops.currentVessel.Catalog.DB, "Orbit_OrbitalPeriod", formattedPeriod) && update) flashUpdate("#dataField6", "#77C6FF", "#FFF");
   } else $("#dataField6").fadeOut();
 }
 
@@ -641,12 +669,9 @@ function vesselCrewUpdate(update) {
       // strHTML += "<img class='tipped' title='" + item.split(";")[0] + "<br>Boarded on: " + UTtoDateTime(parseFloat(item.split(";")[2])).split("@")[0] + "<br>Mission Time: " + formatTime(currUT() - parseFloat(item.split(";")[2])).split(",")[0] + "' style='cursor: pointer' src='http://www.kerbalspace.agency/Tracker/favicon.ico'></a>&nbsp;";
       strHTML += "<img onclick=\"swapContent('crew', '" + item.split(';')[1] + "')\" class='tipped' title='" + item.split(";")[0] + "' style='cursor: pointer' src='http://www.kerbalspace.agency/Tracker/favicon.ico'></a>&nbsp;";
     });
-    $("#dataField7").fadeIn();
-    if (update && (!ops.currentVessel.Manifest.crewHTML || (ops.currentVessel.Manifest.crewHTML && strHTML != ops.currentVessel.Manifest.crewHTML))) {
-      flashUpdate("#dataField7", "#77C6FF", "#FFF");
-    }
     $("#dataField7").html(strHTML);
-    ops.currentVessel.Manifest.crewHTML = strHTML;
+    $("#dataField7").fadeIn();
+    if (addChangeIndicator("#dataField7", ops.currentVessel.Catalog.DB, "Manifest", ops.currentVessel.Manifest.Crew) && update) flashUpdate("#dataField7", "#77C6FF", "#FFF");
   } else $("#dataField7").fadeOut();
 }
   
@@ -677,6 +702,7 @@ function vesselResourcesUpdate(update) {
       } else strHTML += "None";
       $("#dataField8").fadeIn();
       $("#dataField8").html(strHTML);
+      addChangeIndicator("#dataField8", ops.currentVessel.Catalog.DB, "Resources", JSON.stringify(ops.currentVessel.Resources));
 
       // decide whether to display recource scroll arrows
       if (ops.currentVessel.Resources.Resources && ops.currentVessel.Resources.Resources.split("|").length > 5) $("#nextRes").css("visibility", "visible");
@@ -711,12 +737,9 @@ function vesselCommsUpdate(update) {
           strHTML += "<img class='tipped' title='" + item.split(";")[1].replace("Connection", "Target") + "' style='cursor:help' src='" + iconStr + item.split(";")[0] + ".png'></a>&nbsp;";
         });
       } else strHTML += "None";
-      $("#dataField9").fadeIn();
-      if (update && (!ops.currentVessel.Comms.commsHTML || (ops.currentVessel.Comms.commsHTML && strHTML != ops.currentVessel.Comms.commsHTML))) {
-        flashUpdate("#dataField9", "#77C6FF", "#FFF");
-      } 
       $("#dataField9").html(strHTML);
-      ops.currentVessel.Comms.commsHTML = strHTML;
+      $("#dataField9").fadeIn();
+      if (addChangeIndicator("#dataField9", ops.currentVessel.Catalog.DB, "Comms", ops.currentVessel.Comms.Comms) && update) flashUpdate("#dataField9", "#77C6FF", "#FFF");
 
     // no data in the Comms field means a record exists for this UT but is empty, so we are removing the field at this time
     } else $("#dataField9").fadeOut(); 
@@ -728,12 +751,12 @@ function vesselRelatedUpdate(update) {
   // either this has just the vessel name to show now, or it has a time that needs to be checked first
   if ((ops.currentVessel.Catalog.Related && !ops.currentVessel.Catalog.Related.split(";").length == 3) || 
   (ops.currentVessel.Catalog.Related && ops.currentVessel.Catalog.Related.split(";").length > 3 && parseInt(ops.currentVessel.Catalog.Related.split(";")[3]) <= currUT())) {
-    $("#dataField10").fadeIn();
-    if (update && !$("#dataField10").html().includes(ops.currentVessel.Catalog.Related.split(";")[0])) flashUpdate("#dataField10", "#77C6FF", "#FFF");
     var strHTML = "<b>Related Vessel:</b> <span class='fauxLink tipped' style='cursor: pointer' onclick=\"swapContent('vessel', '" + ops.currentVessel.Catalog.Related.split(";")[0] + "')\" ";
     strHTML += "title='" + ops.currentVessel.Catalog.Related.split(";")[2] + "'>";
     strHTML += ops.currentVessel.Catalog.Related.split(";")[1] + "</span>";
     $("#dataField10").html(strHTML);
+    $("#dataField10").fadeIn();
+    if (addChangeIndicator("#dataField10", ops.currentVessel.Catalog.DB, "Related", ops.currentVessel.Catalog.Related) && update) flashUpdate("#dataField10", "#77C6FF", "#FFF");
   } else $("#dataField10").fadeOut();
 }
 
@@ -755,12 +778,9 @@ function vesselAddlInfoUpdate(update) {
         }
       });
       if (strHTML) {
-        if (update && (!ops.currentVessel.Catalog.AddlResHTML || (ops.currentVessel.Catalog.AddlResHTML && strHTML != ops.currentVessel.Catalog.AddlResHTML))) {
-          flashUpdate("#dataField11", "#77C6FF", "#FFF");
-        }
         $("#dataField11").html("<b>Additional Information:</b> " + strHTML);
         $("#dataField11").fadeIn();
-        ops.currentVessel.Catalog.AddlResHTML = strHTML;
+        if (addChangeIndicator("#dataField11", ops.currentVessel.Catalog.DB, "AddlRes", ops.currentVessel.Catalog.AddlRes) && update) flashUpdate("#dataField11", "#77C6FF", "#FFF");
 
       // there could be data but turns out we can't show it yet
       } else $("#dataField11").fadeOut();
@@ -773,12 +793,9 @@ function vesselAddlInfoUpdate(update) {
         ops.currentVessel.Catalog.AddlRes.split("|").forEach(function(item) {
           strHTML += "<span class='tipped' title='" + item.split(";")[1] + "'><a target='_blank' style='color: black' href='" + item.split(";")[2] + "'><i class='" + AddlResourceItems[item.split(";")[1]] + "'></i></a></span>&nbsp;";
         });
-        if (update && (!ops.currentVessel.Catalog.AddlResHTML || (ops.currentVessel.Catalog.AddlResHTML && strHTML != ops.currentVessel.Catalog.AddlResHTML))) {
-          flashUpdate("#dataField11", "#77C6FF", "#FFF");
-        }
         $("#dataField11").html("<b>Additional Information:</b> " + strHTML);
         $("#dataField11").fadeIn();
-        ops.currentVessel.Catalog.AddlResHTML = strHTML;
+        if (addChangeIndicator("#dataField11", ops.currentVessel.Catalog.DB, "AddlRes", ops.currentVessel.Catalog.AddlRes) && update) flashUpdate("#dataField11", "#77C6FF", "#FFF");
       } else $("#dataField11").fadeOut();
     }
   } else $("#dataField11").fadeOut();
@@ -797,11 +814,11 @@ function vesselLastUpdate(update) {
   // otherwise just use the timestamp of the craft data
   else timeStamp = ops.currentVessel.CraftData.UT;
 
-  if (update && !$("#dataField12").html().includes(UTtoDateTime(timeStamp))) flashUpdate("#dataField12", "#77C6FF", "#FFF");
   $("#distanceTip").html(UTtoDateTimeLocal(timeStamp))
   if (ops.currentVessel.CraftData.DistanceTraveled) $("#distanceTip").append("<br>Current Distance Traveled: " + ops.currentVessel.CraftData.DistanceTraveled + "km");
   $("#dataField12").html("<b>Last Update:</b> <u><span class='tip-update' style='cursor:help' data-tipped-options=\"inline: 'distanceTip'\">" + UTtoDateTime(timeStamp) + " UTC</span></u>")
   $("#dataField12").fadeIn()
+  if (addChangeIndicator("#dataField12", ops.currentVessel.Catalog.DB, "LastUpdate", timeStamp) && update) flashUpdate("#dataField12", "#77C6FF", "#FFF");
 }
 
 function vesselHistoryUpdate() {
@@ -1176,12 +1193,6 @@ function updateVesselData(vessel) {
     if (!ops.ascentData.active && !ops.currentVessel.CraftData.pastEvent) {
 
       // we need to retain this information
-      if (ops.currentVessel.Comms) var commsHTML = ops.currentVessel.Comms.commsHTML;
-      if (ops.currentVessel.Crew) var crewHTML = ops.currentVessel.Crew.crewHTML;
-      if (ops.currentVessel.Orbit) {
-        var orbitalPeriodHTML = ops.currentVessel.Orbit.orbitalPeriodHTML;
-        var velocityHTML = ops.currentVessel.Orbit.velocityHTML;
-      }
       if (ops.currentVessel.Resources) var resHTML = ops.currentVessel.Resources.resHTML;
       var prevContent = ops.currentVessel.CraftData.prevContent;
 
@@ -1197,12 +1208,6 @@ function updateVesselData(vessel) {
       }
 
       // restore/save the data
-      if (ops.currentVessel.Comms) ops.currentVessel.Comms.commsHTML = commsHTML;
-      if (ops.currentVessel.Crew) ops.currentVessel.Crew.crewHTML = crewHTML;
-      if (ops.currentVessel.Orbit) {
-        ops.currentVessel.Orbit.orbitalPeriodHTML = orbitalPeriodHTML;
-        ops.currentVessel.Orbit.velocityHTML = velocityHTML;
-      }
       if (ops.currentVessel.Resources) {
         ops.currentVessel.Resources.resHTML = resHTML;
         ops.currentVessel.Resources.resIndex = 0;
@@ -1394,7 +1399,7 @@ function setupStreamingAscent() {
 
   // grab default ascent FPS from cookie or null if cookies not available
   ops.activeAscentFrame.FPS = null;
-  if (checkCookies() && getCookie("ascentFPS")) ops.activeAscentFrame.FPS = parseInt(getCookie("ascentFPS"));
+  if (checkCookies() && localStorage.getItem("ksaOps_ascentFPS")) ops.activeAscentFrame.FPS = parseInt(localStorage.getItem("ksaOps_ascentFPS"));
 
   // MET/countdown display
   // we do things differently if this is a past event
@@ -1669,8 +1674,8 @@ function ascentEnd(isPageSwap = false) {
   // as long as data is not still loading on initial page load
   if ($("#ksctime").html().indexOf("data load") === -1) $("#liveControlIcons").fadeIn();
 
-  // save ascent FPS cookie
-  if (checkCookies() && ops.activeAscentFrame.FPS) setCookie("ascentFPS", ops.activeAscentFrame.FPS, true);
+  // save ascent FPS to localStorage
+  if (checkCookies() && ops.activeAscentFrame.FPS) localStorage.setItem("ksaOps_ascentFPS", ops.activeAscentFrame.FPS.toString());
 
   // interpolation function timeout handle nulled
   if (KSA_TIMERS.ascentInterpTimeout) {
@@ -2166,3 +2171,185 @@ function clearAscentTracks() {
   KSA_CATALOGS.ascentMarks.length = 0;
   KSA_UI_STATE.ascentColorsIndex = -1;
 }
+
+/**
+ * Adds change indicator icon for vessel if content has changed
+ * Uses initLoad and pastEvent properties to determine storage type:
+ * - initLoad + pastEvent: temp storage, suppress indicators (fresh load to past event)
+ * - initLoad + !pastEvent: perm storage, clear temp (fresh load to current event)
+ * - !initLoad + pastEvent: temp storage (paging through history)
+ * - !initLoad + !pastEvent: perm storage, copy temp->perm if needed (paged to current)
+ * @param {string} elementId - jQuery selector for the element
+ * @param {string} itemId - Vessel DB identifier
+ * @param {string} fieldId - Field identifier for hash lookup
+ * @param {*} currentContent - Current content to check against stored hash
+ */
+function addVesselChangeIndicator(elementId, itemId, fieldId, currentContent) {
+  try {
+    // Remove any existing indicator first
+    $(`${elementId} .change-indicator`).remove();
+    
+    // Vessel logic: use initLoad and pastEvent properties to determine storage
+    let usePermStorage = true;  // Default to permanent storage
+    let suppressIndicator = false;  // Whether to suppress showing indicator on first temp storage creation
+    
+    // Override: If viewing historical data via URL parameter, always use temp storage
+    if (KSA_UI_STATE.isLivePastUT) {
+      usePermStorage = false;
+
+    } else if (ops.currentVessel.initLoad) {
+      if (ops.currentVessel.CraftData && ops.currentVessel.CraftData.pastEvent) {
+        // Initial load of a past event - use temp storage, always suppress indicators
+        // User is loading page fresh to a past event, don't show notifications
+        usePermStorage = false;
+        suppressIndicator = true;
+      } else {
+        // Initial load of current event - use permanent storage (default)
+        // Clear any existing temp storage so subsequent page-backs compare fresh against perm
+        const tempKey = `ksaOps_hashes_temp_${itemId}`;
+        if (localStorage.getItem(tempKey)) {
+          localStorage.removeItem(tempKey);
+          console.log(`[Storage] Cleared temp storage for ${itemId} on fresh current event load`);
+        }
+      }
+    } else {
+      // Not initial load (paging through history) - default to temp storage
+      usePermStorage = false;
+      
+      // If paging to current event, we need to use perm storage
+      if (ops.currentVessel.CraftData && !ops.currentVessel.CraftData.pastEvent) {
+        const permKey = `ksaOps_hashes_${itemId}`;
+        const tempKey = `ksaOps_hashes_temp_${itemId}`;
+        
+        // If no perm storage exists, copy all existing temp storage to perm first
+        if (!localStorage.getItem(permKey) && localStorage.getItem(tempKey)) {
+          localStorage.setItem(permKey, localStorage.getItem(tempKey));
+          console.log(`[Storage] Copied all temp storage to perm for ${itemId} on reaching current event`);
+        }
+        
+        // Now use perm storage for this and subsequent fields
+        usePermStorage = true;
+      }
+    }
+    
+    const storageKey = usePermStorage ? `ksaOps_hashes_${itemId}` : `ksaOps_hashes_temp_${itemId}`;
+    const stored = localStorage.getItem(storageKey);
+    const currentHash = hashContent(currentContent);
+    
+    // Track if we're paging from history to current event (!initLoad + !pastEvent)
+    const isPagingToCurrent = !ops.currentVessel.initLoad && ops.currentVessel.CraftData && !ops.currentVessel.CraftData.pastEvent;
+    
+    // Helper to check if content changed against permanent storage
+    // Used when: temp storage viewing past events, OR paging to current event
+    const checkPermStorageForChange = () => {
+      const permKey = `ksaOps_hashes_${itemId}`;
+      const permStored = localStorage.getItem(permKey);
+      if (!permStored) return false;  // No perm data to compare against
+      const permHashes = JSON.parse(permStored);
+      if (!permHashes[fieldId]) return false;  // This field wasn't in perm storage
+      return permHashes[fieldId] !== currentHash;  // True if different from last visit
+    };
+    
+    // Helper to check if temp differs from perm (for paging to current)
+    const checkTempDiffersFromPerm = () => {
+      const permKey = `ksaOps_hashes_${itemId}`;
+      const tempKey = `ksaOps_hashes_temp_${itemId}`;
+      const permStored = localStorage.getItem(permKey);
+      const tempStored = localStorage.getItem(tempKey);
+      if (!permStored || !tempStored) return false;  // Need both to compare
+      const permHashes = JSON.parse(permStored);
+      const tempHashes = JSON.parse(tempStored);
+      if (!permHashes[fieldId] || !tempHashes[fieldId]) return false;  // Need both field values
+      return permHashes[fieldId] !== tempHashes[fieldId];  // True if temp differs from perm
+    };
+    
+    if (!stored) {
+      // First time seeing this vessel in this storage type - create hash storage
+      const hashes = {};
+      hashes[fieldId] = currentHash;
+      localStorage.setItem(storageKey, JSON.stringify(hashes));
+      console.log(`[Storage] First visit - saved hash for ${itemId}.${fieldId} (perm=${usePermStorage})`);
+      
+      // Check for changes: temp vs perm when viewing past, OR temp differs from perm when paging to current
+      if (!suppressIndicator && (!KSA_UI_STATE.isLivePastUT && (!usePermStorage && checkPermStorageForChange() || isPagingToCurrent && checkTempDiffersFromPerm()))) {
+        console.log(`[Storage] First storage but comparison differs - showing indicator for ${itemId}.${fieldId}`);
+        
+        // Add the certificate icon floating from the right side
+        const icon = '<i class="fa-solid fa-certificate fa-2xs change-indicator" style="color: #000000; cursor: pointer; position: absolute; right: 5px; top: 50%; transform: translateY(-50%);" title="Updated since last visit" data-item-id="' + itemId + '" data-field-id="' + fieldId + '"></i>';
+        
+        // Make sure parent element has relative positioning
+        if ($(elementId).css('position') === 'static') {
+          $(elementId).css('position', 'relative');
+        }
+        
+        $(elementId).append(icon);
+      }
+    } else {
+      // Vessel has stored hashes - check if this field changed
+      const hashes = JSON.parse(stored);
+      
+      if (!hashes[fieldId]) {
+        // First time seeing this specific field in this storage type - save it
+        hashes[fieldId] = currentHash;
+        localStorage.setItem(storageKey, JSON.stringify(hashes));
+        console.log(`[Storage] New field - saved hash for ${itemId}.${fieldId} (perm=${usePermStorage})`);
+        
+        // Check for changes: temp vs perm when viewing past, OR temp differs from perm when paging to current
+        if (!suppressIndicator && (!KSA_UI_STATE.isLivePastUT && (!usePermStorage && checkPermStorageForChange() || isPagingToCurrent && checkTempDiffersFromPerm()))) {
+          console.log(`[Storage] New field but comparison differs - showing indicator for ${itemId}.${fieldId}`);
+          
+          // Add the certificate icon floating from the right side
+          const icon = '<i class="fa-solid fa-certificate fa-2xs change-indicator" style="color: #000000; cursor: pointer; position: absolute; right: 5px; top: 50%; transform: translateY(-50%);" title="Updated since last visit" data-item-id="' + itemId + '" data-field-id="' + fieldId + '"></i>';
+          
+          // Make sure parent element has relative positioning
+          if ($(elementId).css('position') === 'static') {
+            $(elementId).css('position', 'relative');
+          }
+          
+          $(elementId).append(icon);
+        }
+      } else if (hashes[fieldId] !== currentHash) {
+        // Content has changed - update hash
+        hashes[fieldId] = currentHash;
+        localStorage.setItem(storageKey, JSON.stringify(hashes));
+        
+        // Only show indicator if not suppressed (i.e., not first-time temp storage creation on past event load)
+        if (!suppressIndicator) {
+          console.log(`[Storage] Changed - updated hash for ${itemId}.${fieldId} and showing indicator (perm=${usePermStorage})`);
+          
+          // Add the certificate icon floating from the right side
+          const icon = '<i class="fa-solid fa-certificate fa-2xs change-indicator" style="color: #000000; cursor: pointer; position: absolute; right: 5px; top: 50%; transform: translateY(-50%);" title="Updated since last visit" data-item-id="' + itemId + '" data-field-id="' + fieldId + '"></i>';
+          
+          // Make sure parent element has relative positioning
+          if ($(elementId).css('position') === 'static') {
+            $(elementId).css('position', 'relative');
+          }
+          
+          $(elementId).append(icon);
+        } else {
+          console.log(`[Storage] Changed - updated hash for ${itemId}.${fieldId}, indicator suppressed (initial past event load)`);
+        }
+      } else {
+        // Hashes match in current storage - but check for temp vs perm differences
+        // When using temp storage (viewing past events), check if temp differs from perm
+        // When using perm storage (paging to current), check if temp differs from perm
+        if (!suppressIndicator && (!KSA_UI_STATE.isLivePastUT && (!usePermStorage && checkPermStorageForChange() || isPagingToCurrent && checkTempDiffersFromPerm()))) {
+          console.log(`[Storage] Hash unchanged but storage comparison differs - showing indicator for ${itemId}.${fieldId}`);
+          
+          // Add the certificate icon floating from the right side
+          const icon = '<i class="fa-solid fa-certificate fa-2xs change-indicator" style="color: #000000; cursor: pointer; position: absolute; right: 5px; top: 50%; transform: translateY(-50%);" title="Updated since last visit" data-item-id="' + itemId + '" data-field-id="' + fieldId + '"></i>';
+          
+          // Make sure parent element has relative positioning
+          if ($(elementId).css('position') === 'static') {
+            $(elementId).css('position', 'relative');
+          }
+          
+          $(elementId).append(icon);
+        }
+      }
+    }
+  } catch (error) {
+    handleError(error, 'addVesselChangeIndicator');
+  }
+}
+

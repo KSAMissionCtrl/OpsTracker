@@ -4,13 +4,12 @@ response.expires=-1
 Call SetSecurityHeaders()
 
 ' Validate and sanitize inputs
-Dim dbName, dbType, UT, pastUT, validatedUT
+Dim dbName, UT, pastUT, validatedUT
 dbName = ValidateDBName(request.querystring("db"))
-dbType = ValidateType(request.querystring("type"))
 validatedUT = ValidateUT(request.querystring("ut"))
 
 ' Check for required parameters
-If dbName = "" Or dbType = "" Or validatedUT = -1 Then
+If dbName = "" Or validatedUT = -1 Then
     Call SendErrorResponse("Invalid parameters")
 End If
 
@@ -21,7 +20,7 @@ pastUT = -1
 'if request.querystring("pastUT") <> "NaN" then pastUT = int(request.querystring("pastUT") * 1)
 
 'header information that was passed in
-output = dbName & "Typ3" & dbType
+output = dbName & "Typ3"
 
 ' Open catalog database using utility function
 Set conn = GetCatalogConnection()
@@ -100,21 +99,8 @@ if not rsCraftData.bof then
   for each field in rsCraftData.fields
     output = output & replace(field.name, " ", "") & "~" & field.value & "`"
   next
-  
-  'if we jumped to another UT, check to see if it is the same record as the current UT. If not, we are looking at a past record
-  'if it is a past record, reassign the pastUT time so all other records are pulled from the same time as this past vessel data update
-  'this check is mainly for someone who tries to access a past record from memory or a general time period
-  if pastUT >= 0 then
-    if rsCraftData.fields.item("UT") < actualUT then
-      output = output & "PastEvent~true^"
-      bPastEvent = true
-      pastUT = rsCraftData.fields.item("UT")
-    else
-      output = output & "PastEvent~false^"
-    end if
-  else
-    output = output & "PastEvent~false^"
-  end if
+  output = left(output, len(output)-1)
+  output = output & "^"
 else
   output = output & "null^"
 end if

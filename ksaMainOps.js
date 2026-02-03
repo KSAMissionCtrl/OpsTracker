@@ -1,8 +1,14 @@
 // refactor complete (except for calls to surface/vessel operations)
 
+// Clear temporary hash storage on every page load
+// unless the page was reloaded while already in a live past UT state
+if (!window.location.href.includes("&reload")) {
+  clearTempHashStorage();
+}
+
 // current game time is the difference between current real time minus number of ms since midnight on 9/13/16
 ops.UT = dateToUT(luxon.DateTime.utc());
-if (getParameterByName("setut") && (getCookie("missionctrl") || parseFloat(getParameterByName("setut")) < ops.UT)) ops.UT = parseFloat(getParameterByName("setut"));
+if (getParameterByName("setut") && localStorage.getItem("ksaOps_admin")) ops.UT = parseFloat(getParameterByName("setut"));
 if (window.location.href.includes("&live") && getParameterByName("ut")) {
   if (parseFloat(getParameterByName("ut")) < ops.UT) {
     ops.UT = parseFloat(getParameterByName("ut"));
@@ -17,8 +23,6 @@ window.onpopstate = function(event) {
 
   // make sure to do a menu selection in these instances where its not done intrinsically
   if (event.state.type == "crewFull" || event.state.type == "body") selectMenuItem(event.state.id);
-
-  console.log(event);
 }
 
 // ==============================================================================
@@ -168,7 +172,7 @@ function setupContent() {
   $("#maneuver").spin({ scale: 0.5, position: 'relative', top: '20px', left: '75%' });
   $("#contentBox").spin({ position: 'relative', top: '50%', left: '50%' });
 
-  // populate the live reload icon only if not already in live mode
+  // populate the live reload icon depending on what mode we are in
   if (!KSA_UI_STATE.isLivePastUT) {
     $("#liveReloadIcon").html("<i class=\"fa-solid fa-clock-rotate-left\" style=\"cursor: pointer;\"></i>");
 
@@ -179,6 +183,23 @@ function setupContent() {
       if (ops.currentVessel && ops.pageType == "vessel" && !getParameterByName("ut")) newUrl += "&ut=" + ops.currentVessel.CraftData.UT;
       else if (!getParameterByName("ut")) newUrl += "&ut=" + (currUT()-1);
       newUrl += "&live";
+      window.location.href = newUrl;
+    });
+  } else {
+     $("#liveReloadIcon").html("<i class=\"fa-solid fa-clock-rotate-left fa-flip-horizontal\" style=\"cursor: pointer;\"></i>");
+
+    // setup click handler for the link icon
+    $("#liveReloadIcon").click(function() {
+      $("#liveReloadIcon").html("<i class=\"fa-solid fa-clock-rotate-left fa-flip-horizontal fa-flip-spin\"></i>");
+      var newUrl = window.location.href;
+      if (ops.pageType == "vessel" && ops.currentVessel && ops.currentVessel.CraftData) {
+        var currentUT = ops.currentVessel.CraftData.UT;
+        if (!getParameterByName("ut")) {
+          newUrl += "&ut=" + currentUT;
+        } else {
+          newUrl = newUrl.replace(/(&|\?)ut=[^&]*/, "$1ut=" + currentUT);
+        }
+      }
       window.location.href = newUrl;
     });
   }
@@ -207,6 +228,10 @@ function setupContent() {
     }
   });
 
+  $("#adminIcon").click(function() {
+    window.open("admin.htm", "_blank");
+  });
+
   // setup the clock
   var tzOffset = luxon.DateTime.fromMillis(KSA_CONSTANTS.MS_FROM_1970_TO_KSA_FOUNDING + (ops.UT * 1000)).setZone("America/New_York");
   var clockHTML = "<strong>Current Time @ KSC (UTC <span id='utcOffset'>" + tzOffset.offset/60 + "</span>)</strong><br>";
@@ -218,7 +243,7 @@ function setupContent() {
     clockHTML += "<span id='liveControlIcons' style=\"position: absolute; right: 0; top: 0; display: none;\">";
     clockHTML += "<span id='advanceTime1s' style=\"cursor: pointer;\"><i class=\"fa-solid fa-play\" style=\"color: #000000;\"></i></span> ";
     clockHTML += "<span id='advanceTime1m' style=\"cursor: pointer;\"><i class=\"fa-solid fa-forward\" style=\"color: #000000;\"></i></span> ";
-    clockHTML += "<span id='returnToCurrentTime' style=\"cursor: pointer;\"><i class=\"fa-solid fa-forward-fast\" style=\"color: #000000;\"></i></span>";
+    clockHTML += "<span id='advanceEvent' style=\"cursor: pointer;\"><i class=\"fa-solid fa-forward-fast\" style=\"color: #000000;\"></i></span>";
     clockHTML += "</span>";
     clockHTML += "</div>";
   } else {
@@ -257,17 +282,88 @@ function setupContent() {
       newUrl += "&live";
       window.location.href = newUrl;
     });
-    $("#returnToCurrentTime").click(function() {
-      var newUrl = window.location.href;
-      if (ops.pageType == "vessel" && ops.currentVessel && ops.currentVessel.CraftData) {
-        var currentUT = ops.currentVessel.CraftData.UT;
-        if (!getParameterByName("ut")) {
-          newUrl += "&ut=" + currentUT;
-        } else {
-          newUrl = newUrl.replace(/(&|\?)ut=[^&]*/, "$1ut=" + currentUT);
+    $("#advanceEvent").click(function() {
+      if (ops.updatesList.length == 0) {
+        $("#siteDialog").html("There are no further historical events to fast forward to");
+        $("#siteDialog").dialog("option", "title", "Notice");
+        $("#siteDialog").dialog( "option", "buttons", [{
+          text: "Close",
+          click: function() {
+            $("#siteDialog").dialog("close");
+          }
+        }]);
+        $("#siteDialog").dialog("open");
+        return;
+      }
+
+      if ($("#advanceEvent").html().includes("fa-beat")) {
+        KSA_TIMERS.tickTimer = null;
+        $("#advanceEvent").css('cursor', 'pointer').html("<i class=\"fa-solid fa-forward-fast\" style=\"color: #000000;\"></i>");
+        Tipped.remove('#advanceEvent');
+        Tipped.create('#advanceEvent', 'FF to next event<br>(reloads if >6hrs to next event)', { showOn: showOpt, hideOnClickOutside: is_touch_device(), position: 'bottom' });
+        $("#ffCancelOnOtherUpdates").prop('checked', KSA_UI_STATE.optUpdateInterrupt);
+      } else {      
+
+        // if there is a countdown clock, we are viewing that vessel, there is ascent data and the countdown is within 2 minutes, block time advance
+        var bClickAllow = true;
+        if (!isNaN(KSA_CALCULATIONS.launchCountdown)) {
+          if (ops.pageType == "vessel") {
+            if (ops.currentVessel && ops.currentVessel.AscentData.length > 0 && ops.currentVessel.Catalog.DB == $("#launchLink").attr("db")) {
+              if (KSA_CALCULATIONS.launchCountdown - currUT() <= 120) bClickAllow = false;
+            }
+          }
+        }
+        if (bClickAllow) {
+
+          // get the next event UT for a crew or vessel if that is what is being viewed
+          var nextEventUT;
+          if (ops.pageType == "vessel" && ops.currentVessel) {
+            nextEventUT = ops.updatesList.find(o => o.id === ops.currentVessel.Catalog.DB);
+            if (nextEventUT) nextEventUT = nextEventUT.UT;
+          } else if (ops.pageType == "crew" && ops.currentCrew) {
+            nextEventUT = ops.updatesList.find(o => o.id === ops.currentCrew.Background.Kerbal);
+            if (nextEventUT) nextEventUT = nextEventUT.UT;
+          } else {
+            nextEventUT = ops.updatesList[0].UT;
+          }
+
+          // make sure this event doesn't take us past the current live UT
+          if (!nextEventUT || nextEventUT > dateToUT(luxon.DateTime.utc())) {
+            if (ops.pageType == "vessel" || ops.pageType == "crew") $("#siteDialog").html("There are no further historical events for this " + ops.pageType + " to fast forward to");
+            else $("#siteDialog").html("There are no further historical events to fast forward to");
+            $("#siteDialog").dialog("option", "title", "Notice");
+            $("#siteDialog").dialog( "option", "buttons", [{
+              text: "Close",
+              click: function() {
+                $("#siteDialog").dialog("close");
+              }
+            }]);
+            $("#siteDialog").dialog("open");
+            return;
+          }
+          $("#advanceEvent").css('cursor', 'pointer').html("<i class=\"fa-solid fa-forward-fast fa-beat\" style=\"color: #000000;\"></i>");
+          Tipped.remove('#advanceEvent');
+          Tipped.create('#advanceEvent', 'Click to cancel', { showOn: showOpt, hideOnClickOutside: is_touch_device(), position: 'bottom' });
+
+          // save the current option and make sure we don't get interrupted if we are viewing a crew or vessel
+          KSA_UI_STATE.optUpdateInterrupt = $("#ffCancelOnOtherUpdates").prop('checked');
+          if (ops.pageType == "vessel" || ops.pageType == "crew") $("#ffCancelOnOtherUpdates").prop('checked', false);
+
+          // if there is more than 6 hours to the next event, just reload the page
+          if (nextEventUT - currUT() > 21600) {
+            var newUrl = window.location.href;
+            if (!getParameterByName("ut")) newUrl += "&ut=" + nextEventUT;
+            else newUrl = newUrl.replace(/(&|\?)ut=[^&]*/, "$1ut=" + nextEventUT);
+            newUrl += "&live&reload";
+            window.location.href = newUrl;
+          
+          // otherwise, start rapid fire mode to the next event
+          } else {
+            clearTimeout(KSA_TIMERS.tickTimer);
+            KSA_TIMERS.tickTimer = setTimeout(tick, 1, 60000, true);
+          }
         }
       }
-      window.location.href = newUrl;
     });
     var showOpt = 'mouseenter';
     if (is_touch_device()) showOpt = 'click';
@@ -275,7 +371,7 @@ function setupContent() {
     Tipped.create('#resetHistoricTime', 'Left click: Reset time to page load<br>Right click: Reset time to current event', { showOn: showOpt, hideOnClickOutside: is_touch_device(), position: 'bottom' });
     Tipped.create('#advanceTime1s', 'Advance time 1sec', { showOn: showOpt, hideOnClickOutside: is_touch_device(), position: 'bottom' });
     Tipped.create('#advanceTime1m', 'Advance time 1min', { showOn: showOpt, hideOnClickOutside: is_touch_device(), position: 'bottom' });
-    Tipped.create('#returnToCurrentTime', 'Return to current time', { showOn: showOpt, hideOnClickOutside: is_touch_device(), position: 'bottom' });
+    Tipped.create('#advanceEvent', 'FF to next event<br>(reloads if >6hrs to next event)', { showOn: showOpt, hideOnClickOutside: is_touch_device(), position: 'bottom' });
     
     // Setup 1s time advance icon mousedown/mouseup handlers
     $("#advanceTime1s").on('mousedown', function() {
@@ -305,11 +401,11 @@ function setupContent() {
     // Setup 1m time advance icon mousedown/mouseup handlers
     $("#advanceTime1m").on('mousedown', function() {
 
-      // if there is a countdown clock, we are viewing that vessel, and the countdown is within 2 minutes, block time advance
+      // if there is a countdown clock, we are viewing that vessel, there is ascent data and the countdown is within 2 minutes, block time advance
       var bClickAllow = true;
       if (!isNaN(KSA_CALCULATIONS.launchCountdown)) {
         if (ops.pageType == "vessel") {
-          if (ops.currentVessel && ops.currentVessel.Catalog.DB == $("#launchLink").attr("db")) {
+          if (ops.currentVessel && ops.currentVessel.AscentData.length > 0 && ops.currentVessel.Catalog.DB == $("#launchLink").attr("db")) {
             if (KSA_CALCULATIONS.launchCountdown - currUT() <= 120) bClickAllow = false;
           }
         }
@@ -479,6 +575,18 @@ function setupContent() {
     openObjectTags("https://www.flickr.com/search/?user_id=kerbal_space_agency&view_all=1&tags=(", "+OR+", ")+-archive");
   });
   
+  // Setup hover handler for change indicators (except those marked no-hover)
+  $(document).on('mouseenter', '.change-indicator:not(.no-hover)', function() {
+    // Hash is already updated in addChangeIndicator, just remove the visual indicator
+    // This acknowledges the user has seen the change
+    $(this).animate({
+      opacity: 0,
+      right: '-15px'
+    }, 150, function() {
+      $(this).remove();
+    });
+  });
+  
   // load page content
   var paramUT = null;
   if (getParameterByName("ut")) paramUT = parseInt(getParameterByName("ut"));
@@ -495,8 +603,7 @@ function setupContent() {
 
   // check if this is a first-time visitor and act accordingly
   if (checkCookies()) {
-    if (!getCookie("visitTime")) {
-      setCookie("visitTime", currUT(), true);
+    if (!localStorage.getItem("ksaOps_lastVisit")) {
       $("#siteDialog").html("<img src='http://www.kerbalspace.agency/KSA/wp-content/uploads/2016/01/KSAlogo_new_190x250.png' style='float: left; margin: 0px 5px 0px 0px; width: 25%'>The Operations Tracker is your view into everything that is happening right now at the Kerbal Space Agency. There is a lot to view and explore - we suggest starting with the Wiki to get an idea of all you can do here. We ask you take note the Operations Tracker is under <b>heavy ongoing development</b> and may at times be inaccessible for short periods. Please help us make this the best experience possible by <a href='https://github.com/KSAMissionCtrl/OpsTracker/issues' target='_blank'>submitting bug reports</a> if you come across any problems not listed in our <a href='https://github.com/KSAMissionCtrl/OpsTracker#known-issues' target='_blank'>Known Issues</a>. Enjoy exploring the Kerbol system with us <img src='http://www.kerbalspace.agency/KSA/wp-content/uploads/2017/12/jef2zahe.png'>");
       $("#siteDialog").dialog("option", "title", "Welcome, new visitor!");
       $("#siteDialog").dialog( "option", "buttons", [{
@@ -567,6 +674,18 @@ function swapContent(newPageType, id, ut, flt) {
     return;
   }
 
+  // if the next event icon is beating, stop it
+  // this also means we are in rapid time advance mode, so stop that too
+  if (KSA_UI_STATE.isLivePastUT) {
+    if ($("#advanceEvent").html().includes("fa-beat")) {
+      $("#advanceEvent").css('cursor', 'pointer').html("<i class=\"fa-solid fa-forward-fast\" style=\"color: #000000;\"></i>");
+      KSA_TIMERS.tickTimer = null;
+      Tipped.remove('#advanceEvent');
+      Tipped.create('#advanceEvent', 'FF to next event<br>(reloads if >6hrs to next event)', { showOn: showOpt, hideOnClickOutside: is_touch_device(), position: 'bottom' });
+      $("#ffCancelOnOtherUpdates").prop('checked', KSA_UI_STATE.optUpdateInterrupt);
+    }
+  }
+
   // Clean up resources from previous view to prevent memory leaks
   cleanupView();
 
@@ -624,10 +743,18 @@ function swapContent(newPageType, id, ut, flt) {
     setTimeout(function() { 
       $("#liveReloadIcon").fadeIn();
       $("#copyLinkIcon").fadeIn();
+
+      // Show admin icon only if admin flag is set in localStorage
+      if (localStorage.getItem('ksaOps_admin') === 'true') {
+        $("#adminIcon").fadeIn();
+      }
+
+      if (!KSA_UI_STATE.isLivePastUT) var strCaption = 'Switch to historical live time view';
+      else var strCaption = 'Switch to current live time view';
       var showOpt = 'mouseenter';
       if (is_touch_device()) showOpt = 'click';
-      Tipped.create('#liveReloadIcon', 'Switch to historical time view', { showOn: showOpt, hideOnClickOutside: is_touch_device(), position: 'bottom' });
-      Tipped.create('#copyLinkIcon', 'Copy shareable link to clipboard', { showOn: showOpt, hideOnClickOutside: is_touch_device(), position: 'bottom' });
+      Tipped.create('#liveReloadIcon', strCaption, { showOn: showOpt, hideOnClickOutside: is_touch_device(), position: 'bottom' });
+      Tipped.create('#copyLinkIcon', 'Copy permalink to clipboard', { showOn: showOpt, hideOnClickOutside: is_touch_device(), position: 'bottom' });
     }, 500);
 
     return;
@@ -643,9 +770,6 @@ function swapContent(newPageType, id, ut, flt) {
 
   // just do this regardless - anything that needs to be redrawn will do so
   clearSurfacePlots();
-
-  // always clear since patches are appended
-  $("#patches").empty();
 
   // not a total content swap, just new data
   if (ops.pageType == newPageType) {
@@ -685,6 +809,7 @@ function swapContent(newPageType, id, ut, flt) {
     hideMap();
     $("#content").fadeOut();
     removeVesselMapButtons();    
+    $("#patches").empty();
   } else if (ops.pageType == "crew") {
 
     // some elements need to be hidden only if we are not switching to a vessel page
@@ -764,7 +889,6 @@ function swapContent(newPageType, id, ut, flt) {
 
 // updates various content on the page depending on what update event has been triggered
 function updatePage(updateEvent, rapidFireMode = false) {
-
   // if rapid fire mode is active, we need to reset the tick timer?
   if (rapidFireMode) {
 
@@ -781,6 +905,14 @@ function updatePage(updateEvent, rapidFireMode = false) {
     // just subtract ops.UT (page load) from the updateEvent.UT to get the delta
     if (!KSA_TIMERS.tickTimer) {
       ops.tickDelta = (updateEvent.UT - ops.UT) * 1000;
+
+      // also stop the next event icon from beating
+      if ($("#advanceEvent").html().includes("fa-beat")) {
+        $("#advanceEvent").css('cursor', 'pointer').html("<i class=\"fa-solid fa-forward-fast\" style=\"color: #000000;\"></i>");
+        Tipped.remove('#advanceEvent');
+        Tipped.create('#advanceEvent', 'FF to next event<br>(reloads if >6hrs to next event)', { showOn: showOpt, hideOnClickOutside: is_touch_device(), position: 'bottom' });
+        $("#ffCancelOnOtherUpdates").prop('checked', KSA_UI_STATE.optUpdateInterrupt);
+      }
     }
   }
       
@@ -970,47 +1102,65 @@ function loadOpsDataAJAX(xhttp, args = null) {
   // test for loading complete
   if (!ops.updateData.find(o => o.isLoading === true)) {
 
+    // check if any crew need to be resorted
+    if (ops.updateData.find(o => o.needsSorting)) {
+      filterCrewMenu($("input[name=roster]").filter(":checked").val());
+
+      // more than one crew member may need sorting, so reset all the flags
+      // not all items will have this flag, so check for its existence first
+      ops.updateData.forEach(function(item) { if (item.needsSorting) item.needsSorting = false; });
+    }
+
     // if this user has cookies, badge anything that has been updated since their last visit
     if (checkCookies() && !ops.lastVisit) {
 
       // get the time of the user's last visit
-      ops.lastVisit = parseInt(getCookie("visitTime"));
+      var lastVisitValue;
+      if (!KSA_UI_STATE.isLivePastUT) lastVisitValue = localStorage.getItem("ksaOps_lastVisit");
+      else lastVisitValue = localStorage.getItem("ksaOps_lastVisit_temp");
+      var isFirstVisit = !lastVisitValue;
+      ops.lastVisit = parseInt(lastVisitValue || currUT().toString());
 
-      // go through all the inactive vessels to see if any have been updated since the last visit
-      ops.craftsMenu.forEach(function(item) {
-        var refNumUT = currSOI(item);
-        if (refNumUT[0] == -1 && ops.lastVisit < refNumUT[1]) badgeMenuItem(item.db, true, true);
-      });
+      // Only badge items if this is not a first-time visit
+      if (!isFirstVisit) {
 
-      // now check the active vessels and crew, which can have several fields with varying update times
-      ops.updateData.forEach(function(item) {
-        var latestUT = 0;
-        if (item.type == "vessel") {
-          
-          // find the latest UT update for the vessel
-          Object.entries(item.CurrentData).forEach(function(items) {
-            if (items[1] && items[1].UT && items[1].UT > latestUT) latestUT = items[1].UT;
-          });
-        } else {
+        // go through all the inactive vessels to see if any have been updated since the last visit
+        ops.craftsMenu.forEach(function(item) {
+          var refNumUT = currSOI(item);
+          if (refNumUT[0] == -1 && ops.lastVisit < refNumUT[1]) badgeMenuItem(item.db, true, true);
+        });
 
-          // same as for vessels but check for arrays and test accordingly
-          Object.entries(item.CurrentData).forEach(function(items) {
-            if (items[1] && !Array.isArray(items[1])) {
-              if (items[1].UT && items[1].UT > latestUT) latestUT = items[1].UT;
-            } else if (items[1] && Array.isArray(items[1])) {
-              items[1].forEach(function(arrayItem) {
-                if (arrayItem.UT && arrayItem.UT > latestUT) latestUT = arrayItem.UT;
-              });
-            }
-          });
-        }
+        // now check the active vessels and crew, which can have several fields with varying update times
+        ops.updateData.forEach(function(item) {
+          var latestUT = 0;
+          if (item.type == "vessel") {
+            
+            // find the latest UT update for the vessel
+            Object.entries(item.CurrentData).forEach(function(items) {
+              if (items[1] && items[1].UT && items[1].UT > latestUT) latestUT = items[1].UT;
+            });
+          } else {
 
-        // if this UT is greater than when we last visited, but not greater than the current time, badge it
-        if (ops.lastVisit <= latestUT && latestUT <= currUT()) badgeMenuItem(item.id, true, true);
-      });
+            // same as for vessels but check for arrays and test accordingly
+            Object.entries(item.CurrentData).forEach(function(items) {
+              if (items[1] && !Array.isArray(items[1])) {
+                if (items[1].UT && items[1].UT > latestUT) latestUT = items[1].UT;
+              } else if (items[1] && Array.isArray(items[1])) {
+                items[1].forEach(function(arrayItem) {
+                  if (arrayItem.UT && arrayItem.UT > latestUT) latestUT = arrayItem.UT;
+                });
+              }
+            });
+          }
+
+          // if this UT is greater than when we last visited, but not greater than the current time, badge it
+          if (ops.lastVisit <= latestUT && latestUT <= currUT()) badgeMenuItem(item.id, true, true);
+        });
+      }
 
       // update the visit time only if we're viewing current time (not looking at past data)
-      if (currUT() > ops.lastVisit) setCookie("visitTime", currUT(), true);
+      if (!KSA_UI_STATE.isLivePastUT && currUT() >= ops.lastVisit) localStorage.setItem("ksaOps_lastVisit", currUT().toString());
+      else if (KSA_UI_STATE.isLivePastUT) localStorage.setItem("ksaOps_lastVisit_temp", currUT().toString());
     }
   }
 }
@@ -1395,12 +1545,18 @@ function tick(utDelta = 1000, rapidFireMode = false) {
   // in rapid fire mode, call the next tick sooner
   // bail if an update event or ascent telemetry load was fired and nulled the timer
   // also bail if we are at or past terminal countdown when FF at speeds greater than 1s
-  // but only if we are viewing the current vessel that is launching
+  // but only if we are viewing the current vessel that is launching and it has ascent data
   } else if (rapidFireMode) {
     if (!KSA_TIMERS.tickTimer || 
-       (utDelta > 1000 && 
-         (ops.currentVessel && (ops.currentVessel.Catalog.DB == $("#launchLink").attr("db") && ops.pageType == "vessel")) &&
-         (!isNaN(KSA_CALCULATIONS.launchCountdown) && KSA_CALCULATIONS.launchCountdown - currUT() <= 120))) 
+         (utDelta > 1000 && 
+           (ops.currentVessel && 
+             (ops.currentVessel.Catalog.DB == $("#launchLink").attr("db") && 
+              ops.pageType == "vessel" && 
+              ops.currentVessel.AscentData.length
+             )) &&
+           (!isNaN(KSA_CALCULATIONS.launchCountdown) && KSA_CALCULATIONS.launchCountdown - currUT() <= 120)
+         )
+       )
     {
       KSA_TIMERS.tickTimer = setTimeout(tick, 1);
 
@@ -1412,6 +1568,14 @@ function tick(utDelta = 1000, rapidFireMode = false) {
       // reset the advance time buttons
       $("#advanceTime1s").css('cursor', 'pointer').html("<i class=\"fa-solid fa-play\" style=\"color: #000000;\"></i>");
       $("#advanceTime1m").css('cursor', 'pointer').html("<i class=\"fa-solid fa-forward\" style=\"color: #000000;\"></i>");     
+
+      // also stop the next event icon from beating
+      if ($("#advanceEvent").html().includes("fa-beat")) {
+        $("#advanceEvent").css('cursor', 'pointer').html("<i class=\"fa-solid fa-forward-fast\" style=\"color: #000000;\"></i>");
+        Tipped.remove('#advanceEvent');
+        Tipped.create('#advanceEvent', 'FF to next event<br>(reloads if >6hrs to next event)', { showOn: showOpt, hideOnClickOutside: is_touch_device(), position: 'bottom' });
+        $("#ffCancelOnOtherUpdates").prop('checked', KSA_UI_STATE.optUpdateInterrupt);
+      }
     } else KSA_TIMERS.tickTimer = setTimeout(tick, 125, utDelta, true);
   }
 }

@@ -3,16 +3,6 @@
 response.expires=-1
 Call SetSecurityHeaders()
 
-' Validate inputs
-Dim validatedUT
-validatedUT = ValidateUT(request.querystring("ut"))
-
-If validatedUT = -1 Then
-    Call SendErrorResponse("Invalid parameters")
-End If
-
-UT = validatedUT
-
 'open catalog database using utility function
 Set conn = GetCatalogConnection()
 

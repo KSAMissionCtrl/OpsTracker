@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>KSA Ops Tracker - Admin Access</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 600px;
+      margin: 50px auto;
+      padding: 20px;
+      background-color: #f5f5f5;
+    }
+    .container {
+      background-color: white;
+      padding: 30px;
+      border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    h1 {
+      color: #333;
+      margin-top: 0;
+    }
+    .status {
+      padding: 15px;
+      margin: 20px 0;
+      border-radius: 4px;
+      font-weight: bold;
+    }
+    .status.enabled {
+      background-color: #d4edda;
+      color: #155724;
+      border: 1px solid #c3e6cb;
+    }
+    .status.disabled {
+      background-color: #f8d7da;
+      color: #721c24;
+      border: 1px solid #f5c6cb;
+    }
+    button {
+      padding: 10px 20px;
+      margin: 5px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 16px;
+      transition: background-color 0.3s;
+    }
+    .enable-btn {
+      background-color: #28a745;
+      color: white;
+    }
+    .enable-btn:hover {
+      background-color: #218838;
+    }
+    .disable-btn {
+      background-color: #dc3545;
+      color: white;
+    }
+    .disable-btn:hover {
+      background-color: #c82333;
+    }
+    .back-btn {
+      background-color: #007bff;
+      color: white;
+      margin-top: 20px;
+    }
+    .back-btn:hover {
+      background-color: #0056b3;
+    }
+    .clear-btn {
+      background-color: #ff6b35;
+      color: white;
+      margin-top: 20px;
+    }
+    .clear-btn:hover {
+      background-color: #e55a2b;
+    }
+    .info {
+      background-color: #e7f3ff;
+      padding: 15px;
+      border-radius: 4px;
+      border-left: 4px solid #2196F3;
+      margin-top: 20px;
+    }
+    .info h3 {
+      margin-top: 0;
+      color: #1976D2;
+    }
+    .info ul {
+      margin-bottom: 0;
+    }
+    .storage-viewer {
+      margin-top: 20px;
+    }
+    .storage-viewer h3 {
+      margin-bottom: 10px;
+      color: #333;
+    }
+    .storage-info {
+      background-color: #f0f0f0;
+      padding: 15px;
+      border-radius: 4px;
+      margin-bottom: 15px;
+      font-family: 'Courier New', monospace;
+    }
+    .storage-info div {
+      margin: 5px 0;
+    }
+    .storage-bar {
+      width: 100%;
+      height: 25px;
+      background-color: #e0e0e0;
+      border-radius: 4px;
+      overflow: hidden;
+      margin: 10px 0;
+      position: relative;
+    }
+    .storage-bar-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #4CAF50 0%, #8BC34A 100%);
+      transition: width 0.3s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-weight: bold;
+      font-size: 12px;
+    }
+    .storage-bar-fill.warning {
+      background: linear-gradient(90deg, #FFC107 0%, #FF9800 100%);
+    }
+    .storage-bar-fill.danger {
+      background: linear-gradient(90deg, #F44336 0%, #E91E63 100%);
+    }
+    #storageData {
+      width: 100%;
+      min-height: 300px;
+      font-family: 'Courier New', monospace;
+      font-size: 12px;
+      padding: 10px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      background-color: #f9f9f9;
+      resize: vertical;
+      box-sizing: border-box;
+    }
+    .refresh-btn {
+      background-color: #6c757d;
+      color: white;
+      margin-top: 10px;
+    }
+    .refresh-btn:hover {
+      background-color: #5a6268;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🔑 Admin Access Control</h1>
+    
+    <div id="status" class="status"></div>
+    
+    <div>
+      <button class="enable-btn" onclick="enableAdmin()">Enable Admin Access</button>
+      <button class="disable-btn" onclick="disableAdmin()">Disable Admin Access</button>
+    </div>
+    
+    <button class="clear-btn" onclick="clearAllStorage()">🗑️ Clear All Tracker Data</button>
+    
+    <button class="back-btn" onclick="goToTracker()">← Back to Ops Tracker</button>
+    
+    <div class="info">
+      <h3>Admin Privileges:</h3>
+      <ul>
+        <li>Set custom UT times in the future</li>
+        <li>Jump to any UT without restrictions</li>
+        <li>Access development features</li>
+    
+    <div class="info">
+      <h3>Clear Tracker Data:</h3>
+      <ul>
+        <li>Removes all change detection hashes</li>
+        <li>Clears last visit timestamp</li>
+        <li>Resets admin access flag</li>
+        <li>Deletes ascent FPS setting</li>
+      </ul>
+      <p><strong>Warning:</strong> This will treat your next visit as a first-time visit. All items will appear new.</p>
+    </div>
+    
+    <div class="storage-viewer">
+      <h3>📦 Current Storage Data:</h3>
+      <div class="storage-info" id="storageInfo">
+        <div><strong>Storage Usage:</strong></div>
+        <div id="storageSize">Calculating...</div>
+        <div id="storageQuota">Calculating...</div>
+        <div class="storage-bar">
+          <div class="storage-bar-fill" id="storageBarFill"></div>
+        </div>
+      </div>
+      <textarea id="storageData" readonly></textarea>
+      <button class="refresh-btn" onclick="displayStorageData()">🔄 Refresh Data</button>
+    </div>
+  </div>
+
+  <script>
+    function updateStatus() {
+      const statusDiv = document.getElementById('status');
+      const isAdmin = localStorage.getItem('ksaOps_admin');
+      
+      if (isAdmin) {
+        statusDiv.className = 'status enabled';
+        statusDiv.textContent = '✓ Admin access is ENABLED';
+      } else {
+        statusDiv.className = 'status disabled';
+        statusDiv.textContent = '✗ Admin access is DISABLED';
+      }
+    }
+    
+    function enableAdmin() {
+      localStorage.setItem('ksaOps_admin', 'true');
+      updateStatus();
+      displayStorageData();
+      updateStorageInfo();
+    }
+    
+    function disableAdmin() {
+      localStorage.removeItem('ksaOps_admin');
+      updateStatus();
+      displayStorageData();
+      updateStorageInfo();
+    }
+    
+    function clearAllStorage() {
+      if (!confirm('Are you sure you want to clear ALL tracker data?\n\nThis will remove:\n• All change detection data\n• Last visit timestamp\n• Admin access flag\n• Ascent FPS setting\n\nThis cannot be undone!')) {
+        return;
+      }
+      
+      // Get all localStorage keys
+      const keys = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key.startsWith('ksaOps_')) {
+          keys.push(key);
+        }
+      }
+      
+      // Remove all tracker-related keys
+      keys.forEach(key => localStorage.removeItem(key));
+      
+      updateStatus();
+      displayStorageData();
+      updateStorageInfo();
+      alert(`Cleared ${keys.length} tracker storage item(s).\n\nYour next visit will be treated as a first-time visit.`);
+    }
+    
+    function goToTracker() {
+      window.location.href = 'tracker.asp';
+    }
+    
+    function formatBytes(bytes) {
+      if (bytes === 0) return '0 Bytes';
+      const k = 1024;
+      const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+      const i = Math.floor(Math.log(bytes) / Math.log(k));
+      return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    }
+    
+    function calculateLocalStorageSize() {
+      let total = 0;
+      for (let key in localStorage) {
+        if (localStorage.hasOwnProperty(key)) {
+          total += key.length + localStorage.getItem(key).length;
+        }
+      }
+      return total * 2; // UTF-16 encoding uses 2 bytes per character
+    }
+    
+    async function updateStorageInfo() {
+      const sizeElement = document.getElementById('storageSize');
+      const quotaElement = document.getElementById('storageQuota');
+      const barFill = document.getElementById('storageBarFill');
+      
+      // Calculate current localStorage size
+      const currentSize = calculateLocalStorageSize();
+      
+      // Try to get storage quota
+      if (navigator.storage && navigator.storage.estimate) {
+        try {
+          const estimate = await navigator.storage.estimate();
+          const usage = estimate.usage || 0;
+          const quota = estimate.quota || 0;
+          
+          sizeElement.textContent = `Used: ${formatBytes(currentSize)} (localStorage) / ${formatBytes(usage)} (total storage)`;
+          
+          if (quota > 0) {
+            quotaElement.textContent = `Quota: ${formatBytes(quota)}`;
+            const percentage = (usage / quota * 100).toFixed(2);
+            barFill.style.width = percentage + '%';
+            barFill.textContent = percentage + '%';
+            
+            // Color code based on usage
+            barFill.className = 'storage-bar-fill';
+            if (percentage > 80) {
+              barFill.className += ' danger';
+            } else if (percentage > 60) {
+              barFill.className += ' warning';
+            }
+          } else {
+            quotaElement.textContent = 'Quota: Not available';
+            barFill.style.width = '0%';
+            barFill.textContent = 'N/A';
+          }
+        } catch (e) {
+          sizeElement.textContent = `Used: ${formatBytes(currentSize)} (localStorage only)`;
+          quotaElement.textContent = 'Quota: Unable to determine (' + e.message + ')';
+          barFill.style.width = '0%';
+          barFill.textContent = 'N/A';
+        }
+      } else {
+        sizeElement.textContent = `Used: ${formatBytes(currentSize)} (localStorage only)`;
+        quotaElement.textContent = 'Quota: API not supported (typical limit: ~5-10 MB for localStorage)';
+        barFill.style.width = '0%';
+        barFill.textContent = 'N/A';
+      }
+    }
+    
+    function displayStorageData() {
+      const textarea = document.getElementById('storageData');
+      
+      // Update storage info
+      updateStorageInfo();
+      
+      // Check if localStorage is available
+      try {
+        const test = '__storage_test__';
+        localStorage.setItem(test, test);
+        localStorage.removeItem(test);
+      } catch (e) {
+        textarea.value = 'ERROR: localStorage is not available!\n\n';
+        textarea.value += 'Reason: ' + e.message + '\n\n';
+        textarea.value += 'This is likely because:\n';
+        textarea.value += '1. You opened admin.htm directly as a file (file:// protocol)\n';
+        textarea.value += '2. The tracker runs on http://www.kerbalspace.agency/\n';
+        textarea.value += '3. Different origins cannot share localStorage\n\n';
+        textarea.value += 'Solution: Access admin.htm through the web server:\n';
+        textarea.value += 'http://www.kerbalspace.agency/Tracker/admin.htm\n';
+        return;
+      }
+      
+      const allKeys = [];
+      const trackerKeys = [];
+      
+      // Collect all localStorage keys
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        allKeys.push(key);
+        if (key.startsWith('ksaOps_')) {
+          trackerKeys.push(key);
+        }
+      }
+      
+      // Sort keys for easier reading
+      trackerKeys.sort();
+      
+      // Build display text
+      let output = `Total localStorage items: ${allKeys.length}\n`;
+      output += `Tracker items (ksaOps_*): ${trackerKeys.length}\n`;
+      output += `Current origin: ${window.location.origin}\n`;
+      output += '='.repeat(60) + '\n\n';
+      
+      if (trackerKeys.length === 0) {
+        output += 'No tracker data stored.\n\n';
+        output += 'All localStorage keys:\n';
+        allKeys.sort().forEach(key => {
+          output += `  - ${key}\n`;
+        });
+      } else {
+        trackerKeys.forEach(key => {
+          const value = localStorage.getItem(key);
+          output += `KEY: ${key}\n`;
+          
+          // Try to format JSON if it's JSON data
+          try {
+            const parsed = JSON.parse(value);
+            output += `VALUE: ${JSON.stringify(parsed, null, 2)}\n`;
+          } catch (e) {
+            output += `VALUE: ${value}\n`;
+          }
+          
+          output += '-'.repeat(60) + '\n\n';
+        });
+      }
+      
+      textarea.value = output;
+    }
+    
+    // Update status on page load
+    updateStatus();
+    displayStorageData();
+  </script>
+</body>
+</html>

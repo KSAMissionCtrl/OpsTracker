@@ -47,6 +47,7 @@ function loadMenuAJAX(xhttp) {
       ops.updateData.push({ id: fields[4],
                             type: "crew",
                             isLoading: false,
+                            needsSorting: false,
                             CurrentData: null,
                             FutureData: null });
     }

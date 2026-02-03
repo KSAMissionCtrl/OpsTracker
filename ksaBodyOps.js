@@ -36,7 +36,7 @@ function loadBody(body, flt) {
     if (!history.state) {
       if (window.location.href.includes("&")) var strURL = window.location.href;
       else var strURL = "http://www.kerbalspace.agency/Tracker/tracker.asp?body=" + body;
-      history.replaceState({type: "body", id: body}, document.title, strURL.replace("&live", "")); 
+      history.replaceState({type: "body", id: body}, document.title, strURL.replace("&live", "").replace("&reload", "")); 
     } else if (history.state.id != body) {
       var strURL = "http://www.kerbalspace.agency/Tracker/tracker.asp?body=" + body;
       if (flt) strURL += "&flt=" + flt;

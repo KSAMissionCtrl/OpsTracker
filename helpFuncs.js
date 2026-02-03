@@ -80,6 +80,116 @@ function sanitizeHTML(html) {
   return div.innerHTML;
 }
 
+// ==============================================================================
+// CHANGE DETECTION UTILITIES
+// ==============================================================================
+
+/**
+ * Generates a hash for content to detect changes
+ * @param {*} content - Content to hash (will be stringified)
+ * @returns {string|null} Hash string or null if no content
+ */
+function hashContent(content) {
+  if (!content && content !== 0) return null;
+  let hash = 0;
+  const str = String(content);
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash; // Convert to 32-bit integer
+  }
+  return hash.toString(36);
+}
+
+/**
+ * Checks if content has changed since last visit (read-only, doesn't modify storage)
+ * @param {string} itemId - Unique identifier for the item (vessel/crew DB)
+ * @param {string} fieldId - Field identifier
+ * @param {*} currentContent - Current content to check
+ * @returns {boolean} True if content has changed, false if no change or first visit
+ */
+function checkContentChanged(itemId, fieldId, currentContent) {
+  try {
+    const storageKey = `ksaOps_hashes_${itemId}`;
+    const stored = localStorage.getItem(storageKey);
+    
+    if (!stored) return false; // First visit, no stored hashes
+    
+    const hashes = JSON.parse(stored);
+    if (!hashes[fieldId]) return false; // First time seeing this field
+    
+    const currentHash = hashContent(currentContent);
+    return hashes[fieldId] !== currentHash; // Return true only if different
+  } catch (error) {
+    handleError(error, 'checkContentChanged');
+    return false;
+  }
+}
+
+/**
+ * Updates a single field hash to mark it as seen
+ * @param {string} itemId - Unique identifier for the item (vessel/crew DB)
+ * @param {string} fieldId - Field identifier
+ * @param {*} currentContent - Current content to save
+ */
+function updateContentHash(itemId, fieldId, currentContent) {
+  try {
+    const storageKey = `ksaOps_hashes_${itemId}`;
+    const stored = localStorage.getItem(storageKey);
+    
+    if (stored) {
+      const hashes = JSON.parse(stored);
+      hashes[fieldId] = hashContent(currentContent);
+      localStorage.setItem(storageKey, JSON.stringify(hashes));
+    }
+  } catch (error) {
+    handleError(error, 'updateContentHash');
+  }
+}
+
+/**
+ * Clears all temporary hash storage used for past UT viewing
+ * Called when loading the site with isLivePastUT flag
+ */
+function clearTempHashStorage() {
+  try {
+    const keysToRemove = [];
+    
+    // Find all temp hash keys in localStorage
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && key.startsWith('ksaOps_hashes_temp_')) {
+        keysToRemove.push(key);
+      }
+    }
+    
+    // Remove all temp hash keys
+    // and the temp lastVisit key
+    keysToRemove.forEach(key => localStorage.removeItem(key));
+    localStorage.removeItem('ksaOps_lastVisit_temp');
+  } catch (error) {
+    handleError(error, 'clearTempHashStorage');
+  }
+}
+
+/**
+ * Adds change indicator icon to an element if content has changed
+ * Routes to crew or vessel specific implementation
+ * @param {string} elementId - jQuery selector for the element
+ * @param {string} itemId - Unique identifier for the item (vessel/crew DB)
+ * @param {string} fieldId - Field identifier for hash lookup
+ * @param {*} currentContent - Current content to check against stored hash
+ * @returns {boolean} - True if content has changed, false otherwise
+ */
+function addChangeIndicator(elementId, itemId, fieldId, currentContent) {
+  // Route to appropriate implementation
+  if (ops.currentVessel && ops.currentVessel.Catalog && itemId === ops.currentVessel.Catalog.DB) {
+    return addVesselChangeIndicator(elementId, itemId, fieldId, currentContent);
+  } else {
+    return addCrewChangeIndicator(elementId, itemId, fieldId, currentContent);
+  }
+}
+
 /**
  * Safely sets text content (use instead of innerHTML when possible)
  * @param {string} selector - jQuery selector
@@ -476,6 +586,9 @@ function openTimePicker(currentUT) {
           newUrl = newUrl.replace(/([?&])ut=[^&]*/, "$1ut=" + Math.floor(newUT));
         }
         newUrl += "&live";
+
+        // only attach a reload if the time we are jumping to is in the future
+        if (newUT >= currUT()) newUrl += "&reload";
 
         // Reload page with new URL
         window.location.href = newUrl;
@@ -926,22 +1039,22 @@ function loadHTMLWithTransition(containerSelector, newHTML, onComplete) {
       'left': '0',
       'width': $container.width() + 'px',
       'height': $container.height() + 'px',
-      'pointer-events': 'none'
+      'pointer-events': 'none',
+      'opacity': '1',
+      'transition': 'opacity 0.3s ease-in-out'
     });
     
     // Insert new HTML (it will be behind the clone)
     $container.html(newHTML);
-    $container.css('opacity', '0');
     
     // Add the old content on top
     $container.append($oldContent);
     
-    // Trigger reflow
-    $container[0].offsetHeight;
+    // Trigger reflow to ensure the transition is registered
+    $oldContent[0].offsetHeight;
     
-    // Fade in new content and fade out old content
-    $container.css('opacity', '1');
-    $oldContent.addClass('image-loading');
+    // Fade out old content (new content is already visible underneath)
+    $oldContent.css('opacity', '0');
     
     // Remove old content after transition
     setTimeout(function() {
@@ -975,9 +1088,14 @@ function openObjectTags(url, delimiter, urlAppend = "") {
   if (ops.pageType == "vessel" && ops.currentVessel && ops.currentVessel.Catalog) {
 
     // this de-generalizes the function a bit by expecting certain URLs
-     if (url.includes("agency") && ops.currentVessel.Catalog.SiteTags) strTags = ops.currentVessel.Catalog.SiteTags;
-     else if (url.includes("flickr") && ops.currentVessel.Catalog.ImgTags) strTags = ops.currentVessel.Catalog.ImgTags;
-     else strTags = ops.currentVessel.Catalog.DB;
+     if (url.includes(".agency")) {
+      if (ops.currentVessel.Catalog.SiteTags) strTags = ops.currentVessel.Catalog.SiteTags;
+      else strTags = ops.currentVessel.Catalog.DB;
+     }
+     else if (url.includes("flickr")) {
+      if (ops.currentVessel.Catalog.ImgTags) strTags = ops.currentVessel.Catalog.ImgTags;
+      else strTags = ops.currentVessel.Catalog.DB.replace("-", "");
+     }
   }
   else if (ops.pageType == "crew" && ops.currentCrew) strTags = ops.currentCrew.Background.Kerbal;
   else if (ops.pageType == "crewFull") {

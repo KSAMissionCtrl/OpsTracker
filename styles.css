@@ -1,3 +1,14 @@
+/* Custom spin for flipped Font Awesome icons (clockwise) */
+.fa-flip-spin {
+  animation: fa-flip-spin 1s infinite linear;
+  display: inline-block;
+}
+@keyframes fa-flip-spin {
+  100% {
+    transform: scaleX(-1) rotate(-360deg);
+  }
+}
+
 body {
   padding: 0; margin: 0; 
   font-family: arial;
@@ -21,8 +32,10 @@ img {
   transition: opacity 0.3s ease-in-out;
 }
 
-img.image-loading {
-  opacity: 0;
+img.image-loading,
+.image-loading {
+  opacity: 0 !important;
+  transition: opacity 0.3s ease-in-out;
 }
 
 img.image-loaded {
@@ -31,6 +44,11 @@ img.image-loaded {
 u {
   text-decoration: underline;
   text-decoration-style: dotted;
+}
+
+/* Ensure ribbon images always show help cursor, even after Tipped reinitialization */
+.ribbon-img {
+  cursor: help !important;
 }
 
 a:visited {
@@ -55,13 +73,18 @@ input {
   cursor: pointer !important;
 }
 
+#adminIcon,
+#adminIcon * {
+  cursor: pointer !important;
+}
+
 #resetHistoricTime,
 #resetHistoricTime * {
   cursor: pointer !important;
 }
 
-#returnToCurrentTime,
-#returnToCurrentTime * {
+#advanceEvent,
+#advanceEvent * {
   cursor: pointer !important;
 }
 
