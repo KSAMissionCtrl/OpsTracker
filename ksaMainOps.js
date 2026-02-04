@@ -352,6 +352,9 @@ function setupContent() {
           // if there is more than 6 hours to the next event, just reload the page
           if (nextEventUT - currUT() > 21600) {
             var newUrl = window.location.href;
+
+            // back up the UT 15s so user sees the event trigger
+            nextEventUT -= 15;
             if (!getParameterByName("ut")) newUrl += "&ut=" + nextEventUT;
             else newUrl = newUrl.replace(/(&|\?)ut=[^&]*/, "$1ut=" + nextEventUT);
             newUrl += "&live&reload";
@@ -891,6 +894,12 @@ function swapContent(newPageType, id, ut, flt) {
 
 // updates various content on the page depending on what update event has been triggered
 function updatePage(updateEvent, rapidFireMode = false) {
+
+  // we might need to make the tickdelta time match the time of this update so we don't skip a future one
+  // mainly from a user pushing forward a minute at a time, whether with a single click or rapid fire mode
+  // just subtract ops.UT (page load) from the updateEvent.UT to get the delta
+  if (KSA_UI_STATE.isLivePastUT) ops.tickDelta = (updateEvent.UT - ops.UT) * 1000;
+
   // if rapid fire mode is active, we need to reset the tick timer?
   if (rapidFireMode) {
 
@@ -903,18 +912,12 @@ function updatePage(updateEvent, rapidFireMode = false) {
       }
     } else KSA_TIMERS.tickTimer = null;
 
-    // if tick timer was cleared, we need to make the tickdelta time match the time of this update so we don't skip a future one
-    // just subtract ops.UT (page load) from the updateEvent.UT to get the delta
-    if (!KSA_TIMERS.tickTimer) {
-      ops.tickDelta = (updateEvent.UT - ops.UT) * 1000;
-
-      // also stop the next event icon from beating
-      if ($("#advanceEvent").html().includes("fa-beat")) {
-        $("#advanceEvent").css('cursor', 'pointer').html("<i class=\"fa-solid fa-forward-fast\" style=\"color: #000000;\"></i>");
-        Tipped.remove('#advanceEvent');
-        Tipped.create('#advanceEvent', 'FF to next event<br>(reloads if >6hrs to next event)', { showOn: showOpt, hideOnClickOutside: is_touch_device(), position: 'bottom' });
-        $("#ffCancelOnOtherUpdates").prop('checked', KSA_UI_STATE.optUpdateInterrupt);
-      }
+    // stop the next event icon from beating if timer was cancelled
+    if (!KSA_TIMERS.tickTimer && $("#advanceEvent").html().includes("fa-beat")) {
+      $("#advanceEvent").css('cursor', 'pointer').html("<i class=\"fa-solid fa-forward-fast\" style=\"color: #000000;\"></i>");
+      Tipped.remove('#advanceEvent');
+      Tipped.create('#advanceEvent', 'FF to next event<br>(reloads if >6hrs to next event)', { showOn: showOpt, hideOnClickOutside: is_touch_device(), position: 'bottom' });
+      $("#ffCancelOnOtherUpdates").prop('checked', KSA_UI_STATE.optUpdateInterrupt);
     }
   }
       

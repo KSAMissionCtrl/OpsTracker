@@ -260,8 +260,16 @@ const KSA_MAP_ICONS = {
 // ------------------------------------------------------------------------------
 const KSA_CALCULATIONS = {
   // Orbit calculations
-  obtCalcUT: null,                 // the current time being used for orbital calculations
-  orbitDataCalc: [],               // lat/lng/alt/spd points for current calculated trajectory
+  obtDataCalcVes: {
+    isVessel: true,       // whether calculating for a vessel or surface path
+    UT: null,             // current time of the orbital calculation
+    obt: []               // lat/lng/alt/spd points for current calculated vessel trajectory
+  },              
+  obtDataCalcSfc: {
+    isVessel: false,      // whether calculating for a vessel or surface path
+    UT: null,             // current time of the orbital calculation
+    obt: []               // lat/lng/alt/spd points for current calculated surface trajectory
+  },
   
   // Flight tracking
   currentFlightIndex: null,        // index of path in fltPaths corresponding to clicked path

@@ -750,9 +750,12 @@ function renderMapData(updated = false) {
     }]);
     $(".ui-progressbar-value").css("background-color", KSA_COLORS.vesselOrbitColors[ops.currentVesselPlot.obtData.length]);
     $("#dialogTxt").hide();
-    $("#progressbar").progressbar("value", (KSA_CALCULATIONS.orbitDataCalc.length/ops.currentVessel.Orbit.OrbitalPeriod)*100);
+    $("#progressbar").progressbar("value", (KSA_CALCULATIONS.obtDataCalcVes.obt.length/ops.currentVessel.Orbit.OrbitalPeriod)*100);
     $("#progressbar").fadeIn();
     $("#mapDialog").dialog("open");
+
+    // redraw any existing orbital data on the map
+    if (ops.currentVesselPlot.obtData.length) redrawVesselPlots();
   
     // reset the load state of the map
     ops.surface.layerControl._expand();
@@ -761,7 +764,7 @@ function renderMapData(updated = false) {
     ops.surface.layerControl.addOverlay(KSA_LAYERS.surfaceTracksDataLoad.obtTrackDataLoad, "<i class='fa fa-cog fa-spin'></i> Loading Data...", "Orbital Tracks");
     KSA_CALCULATIONS.strPausedVesselCalculation = null;
     KSA_UI_STATE.isOrbitRenderTerminated = false;
-    orbitalCalc(renderVesselOrbit, ops.currentVessel.Orbit);
+    orbitalCalc(renderVesselOrbit, ops.currentVessel.Orbit, KSA_CALCULATIONS.obtDataCalcVes);
 
   // otherwise we need to calculate surface tracks for a single vessel
   } else if (ops.pageType == "vessel") {
@@ -796,14 +799,6 @@ function renderMapData(updated = false) {
 
 // does the initial display and configuration for vessel orbital data loading
 function beginOrbitalCalc(numOrbitRenders = 3) {
-
-  // if there are surface orbits being calculated, we need to cancel that first
-  // just give enough time for the orbital function to call itself again and cancel the batch
-  if (!KSA_UI_STATE.isOrbitRenderTerminated && KSA_CATALOGS.bodyPaths.paths.length && KSA_CATALOGS.bodyPaths.paths.find(o => o.isCalculating === true)) {
-    KSA_UI_STATE.isOrbitRenderTerminated = true;
-    setTimeout(beginOrbitalCalc, 15, numOrbitRenders);
-    return;
-  }
 
   clearSurfacePlots();
   KSA_LAYERS.surfaceTracksDataLoad.obtTrackDataLoad = null;
@@ -845,9 +840,9 @@ function beginOrbitalCalc(numOrbitRenders = 3) {
   ops.surface.layerControl.addOverlay(KSA_LAYERS.surfaceTracksDataLoad.obtTrackDataLoad, "<i class='fa fa-cog fa-spin'></i> Loading Data...", "Orbital Tracks");
   
   // set the current UT from which the orbital data will be propagated forward
-  KSA_CALCULATIONS.obtCalcUT = currUT();
-  KSA_CALCULATIONS.orbitDataCalc.length = 0;
-  orbitalCalc(renderVesselOrbit, ops.currentVessel.Orbit);
+  KSA_CALCULATIONS.obtDataCalcVes.UT = currUT();
+  KSA_CALCULATIONS.obtDataCalcVes.obt.length = 0;
+  orbitalCalc(renderVesselOrbit, ops.currentVessel.Orbit, KSA_CALCULATIONS.obtDataCalcVes);
 }
 
 // draws the entire path of a vessel over a single or multiple orbits
@@ -855,16 +850,16 @@ function renderVesselOrbit() {
 
   // we have completed a batch of calculations, store the data
   ops.currentVesselPlot.obtData.push({
-    orbit: KSA_CALCULATIONS.orbitDataCalc.slice(0),
+    orbit: KSA_CALCULATIONS.obtDataCalcVes.obt.slice(0),
     layer: L.featureGroup(),
-    startUT: KSA_CALCULATIONS.obtCalcUT-KSA_CALCULATIONS.orbitDataCalc.length,
-    endUT: KSA_CALCULATIONS.obtCalcUT
+    startUT: KSA_CALCULATIONS.obtDataCalcVes.UT-KSA_CALCULATIONS.obtDataCalcVes.obt.length,
+    endUT: KSA_CALCULATIONS.obtDataCalcVes.UT
   });
 
   // get the times we'll reach Ap and Pe along this orbit if we haven't already done so
   if (!ops.currentVesselPlot.events.ap.marker || !ops.currentVesselPlot.events.pe.marker) {
     var n = Math.sqrt(ops.bodyCatalog.find(o => o.selected === true).Gm/(Math.pow(Math.abs(ops.currentVessel.Orbit.SMA),3)));
-    var newMean = toMeanAnomaly(Math.radians(ops.currentVessel.Orbit.TrueAnom), ops.currentVessel.Orbit.Eccentricity) + n * ((KSA_CALCULATIONS.obtCalcUT-KSA_CALCULATIONS.orbitDataCalc.length) - ops.currentVessel.Orbit.Eph);
+    var newMean = toMeanAnomaly(Math.radians(ops.currentVessel.Orbit.TrueAnom), ops.currentVessel.Orbit.Eccentricity) + n * ((KSA_CALCULATIONS.obtDataCalcVes.UT-KSA_CALCULATIONS.obtDataCalcVes.obt.length) - ops.currentVessel.Orbit.Eph);
     if (newMean < 0 || newMean > 2*Math.PI) {
       newMean = Math.abs(newMean - (2*Math.PI) * Math.floor(newMean / (2*Math.PI)));
     }
@@ -876,24 +871,24 @@ function renderVesselOrbit() {
     if (peTime <= 0) peTime += Math.round(ops.currentVessel.Orbit.OrbitalPeriod);
     
     // stash away the times but convert them to UT instead of seconds from the start of this orbit
-    ops.currentVesselPlot.events.pe.UT = peTime + (KSA_CALCULATIONS.obtCalcUT-KSA_CALCULATIONS.orbitDataCalc.length);
-    ops.currentVesselPlot.events.ap.UT = apTime + (KSA_CALCULATIONS.obtCalcUT-KSA_CALCULATIONS.orbitDataCalc.length);
+    ops.currentVesselPlot.events.pe.UT = peTime + (KSA_CALCULATIONS.obtDataCalcVes.UT-KSA_CALCULATIONS.obtDataCalcVes.obt.length);
+    ops.currentVesselPlot.events.ap.UT = apTime + (KSA_CALCULATIONS.obtDataCalcVes.UT-KSA_CALCULATIONS.obtDataCalcVes.obt.length);
     
     // configure the Ap/Pe icons, ensuring that enough orbit has been plotted to display them
-    if (!ops.currentVesselPlot.events.ap.marker && apTime < KSA_CALCULATIONS.orbitDataCalc.length) { 
+    if (!ops.currentVesselPlot.events.ap.marker && apTime < KSA_CALCULATIONS.obtDataCalcVes.obt.length) { 
 
       // add the marker, assign its information popup and give it a callback for instant update when opened, then add it to the current layer
-      ops.currentVesselPlot.events.ap.marker = L.marker(KSA_CALCULATIONS.orbitDataCalc[apTime].latlng, {icon: KSA_MAP_ICONS.apIcon}); 
-      var strTimeDate = UTtoDateTime(KSA_CALCULATIONS.obtCalcUT-KSA_CALCULATIONS.orbitDataCalc.length + apTime);
+      ops.currentVesselPlot.events.ap.marker = L.marker(KSA_CALCULATIONS.obtDataCalcVes.obt[apTime].latlng, {icon: KSA_MAP_ICONS.apIcon}); 
+      var strTimeDate = UTtoDateTime(KSA_CALCULATIONS.obtDataCalcVes.UT-KSA_CALCULATIONS.obtDataCalcVes.obt.length + apTime);
       ops.currentVesselPlot.events.ap.marker.bindPopup("<center>Time to Apoapsis<br><span id='apTime'>" + formatTime(apTime) + "</span><br><span id='apDate'>" + strTimeDate.split("@")[0] + '<br>' + strTimeDate.split("@")[1] + "</span> UTC</center>", { autoClose: false });
       ops.currentVesselPlot.events.ap.marker.on('click', function(e) {
         $('#apTime').html(formatTime(ops.currentVesselPlot.events.ap.UT - currUT()));
       });
       ops.currentVesselPlot.obtData[ops.currentVesselPlot.obtData.length-1].layer.addLayer(ops.currentVesselPlot.events.ap.marker);
     }
-    if (!ops.currentVesselPlot.events.pe.marker && peTime < KSA_CALCULATIONS.orbitDataCalc.length) { 
-      ops.currentVesselPlot.events.pe.marker = L.marker(KSA_CALCULATIONS.orbitDataCalc[peTime].latlng, {icon: KSA_MAP_ICONS.peIcon}); 
-      var strTimeDate = UTtoDateTime(KSA_CALCULATIONS.obtCalcUT-KSA_CALCULATIONS.orbitDataCalc.length + peTime);
+    if (!ops.currentVesselPlot.events.pe.marker && peTime < KSA_CALCULATIONS.obtDataCalcVes.obt.length) { 
+      ops.currentVesselPlot.events.pe.marker = L.marker(KSA_CALCULATIONS.obtDataCalcVes.obt[peTime].latlng, {icon: KSA_MAP_ICONS.peIcon}); 
+      var strTimeDate = UTtoDateTime(KSA_CALCULATIONS.obtDataCalcVes.UT-KSA_CALCULATIONS.obtDataCalcVes.obt.length + peTime);
       ops.currentVesselPlot.events.pe.marker.bindPopup("<center>Time to Periapsis<br><span id='peTime'>" + formatTime(peTime) + "</span><br><span id='peDate'>" + strTimeDate.split("@")[0] + '<br>' + strTimeDate.split("@")[1] + "</span> UTC</center>", { autoClose: false });
       ops.currentVesselPlot.events.pe.marker.on('click', function(e) {
         $('#peTime').html(formatTime(ops.currentVesselPlot.events.pe.UT - currUT()));
@@ -903,11 +898,11 @@ function renderVesselOrbit() {
   }
 
   // does this path terminate in an entry to Kerbin's atmosphere?
-  if (KSA_CALCULATIONS.orbitDataCalc[KSA_CALCULATIONS.orbitDataCalc.length-1].alt <= 70) {
+  if (KSA_CALCULATIONS.obtDataCalcVes.obt[KSA_CALCULATIONS.obtDataCalcVes.obt.length-1].alt <= 70) {
 
     // add the marker, assign its information popup and give it a callback for instant update when opened, then add it to the current layer
-    ops.currentVesselPlot.events.soiEntry.UT = KSA_CALCULATIONS.obtCalcUT;
-    ops.currentVesselPlot.events.soiEntry.marker = L.marker(KSA_CALCULATIONS.orbitDataCalc[KSA_CALCULATIONS.orbitDataCalc.length-1].latlng, {icon: KSA_MAP_ICONS.soiEntryIcon}); 
+    ops.currentVesselPlot.events.soiEntry.UT = KSA_CALCULATIONS.obtDataCalcVes.UT;
+    ops.currentVesselPlot.events.soiEntry.marker = L.marker(KSA_CALCULATIONS.obtDataCalcVes.obt[KSA_CALCULATIONS.obtDataCalcVes.obt.length-1].latlng, {icon: KSA_MAP_ICONS.soiEntryIcon}); 
     var strTimeDate = UTtoDateTime(ops.currentVesselPlot.events.soiEntry.UT);
     ops.currentVesselPlot.events.soiEntry.marker.bindPopup("<center>Time to Atmospheric Entry<br><span id='soiEntryTime'>" + formatTime(ops.currentVesselPlot.events.soiEntry.UT) + "</span><br><span id='soiEntryDate'>" + strTimeDate.split("@")[0] + '<br>' + strTimeDate.split("@")[1] + "</span> UTC</center>", { autoClose: false });
     ops.currentVesselPlot.events.soiEntry.marker.on('click', function(e) {
@@ -917,11 +912,11 @@ function renderVesselOrbit() {
   } 
 
   // does this path terminate in an exit of Kerbin's SOI?
-  else if (KSA_CALCULATIONS.orbitDataCalc[KSA_CALCULATIONS.orbitDataCalc.length-1].alt >= 83559.2865) {
+  else if (KSA_CALCULATIONS.obtDataCalcVes.obt[KSA_CALCULATIONS.obtDataCalcVes.obt.length-1].alt >= 83559.2865) {
 
     // add the marker, assign its information popup and give it a callback for instant update when opened, then add it to the current layer
-    ops.currentVesselPlot.events.soiExit.UT = KSA_CALCULATIONS.obtCalcUT;
-    ops.currentVesselPlot.events.soiExit.marker = L.marker(KSA_CALCULATIONS.orbitDataCalc[KSA_CALCULATIONS.orbitDataCalc.length-1].latlng, {icon: KSA_MAP_ICONS.soiExitIcon}); 
+    ops.currentVesselPlot.events.soiExit.UT = KSA_CALCULATIONS.obtDataCalcVes.UT;
+    ops.currentVesselPlot.events.soiExit.marker = L.marker(KSA_CALCULATIONS.obtDataCalcVes.obt[KSA_CALCULATIONS.obtDataCalcVes.obt.length-1].latlng, {icon: KSA_MAP_ICONS.soiExitIcon}); 
     var strTimeDate = UTtoDateTime(ops.currentVesselPlot.events.soiExit.UT);
     ops.currentVesselPlot.events.soiExit.marker.bindPopup("<center>Time to Kerbin SOI Exit<br><span id='soiExitTime'>" + formatTime(ops.currentVesselPlot.events.soiExit.UT) + "</span><br><span id='soiExitDate'>" + strTimeDate.split("@")[0] + '<br>' + strTimeDate.split("@")[1] + "</span> UTC</center>", { autoClose: false });
     ops.currentVesselPlot.events.soiExit.marker.on('click', function(e) {
@@ -965,8 +960,8 @@ function renderVesselOrbit() {
     // update the dialog box and call another round
     $(".ui-progressbar-value").css("background-color", KSA_COLORS.vesselOrbitColors[ops.currentVesselPlot.obtData.length]);
     $("#progressbar").progressbar("value", 0);
-    KSA_CALCULATIONS.orbitDataCalc.length = 0;
-    orbitalCalc(renderVesselOrbit, ops.currentVessel.Orbit); 
+    KSA_CALCULATIONS.obtDataCalcVes.obt.length = 0;
+    orbitalCalc(renderVesselOrbit, ops.currentVessel.Orbit, KSA_CALCULATIONS.obtDataCalcVes); 
     
   // calculation has been completed or cancelled
   } else { 
@@ -1029,37 +1024,25 @@ function renderVesselOrbit() {
       KSA_MAP_CONTROLS.vesselMarker.openPopup();
       setTimeout(function() { if (KSA_MAP_CONTROLS.vesselMarker) KSA_MAP_CONTROLS.vesselMarker.closePopup(); }, 5000);
     }
-
-    // check if we should resume calculation on body paths
-    if (KSA_CATALOGS.bodyPaths.paths.length) {
-      var currObj = KSA_CATALOGS.bodyPaths.paths.find(o => o.isCalculating === true);
-      if (currObj) {
-        KSA_CALCULATIONS.obtCalcUT = currUT();
-        KSA_CALCULATIONS.orbitDataCalc.length = 0;
-        if (currObj.orbit.OrbitalPeriod > 86400) orbitalCalc(renderBodyOrbit, currObj.orbit, 500, 86400);
-        else orbitalCalc(renderBodyOrbit, currObj.orbit, 500);
-      }
-    }
   }
 }
 
 // this function will continually call itself to batch-run orbital calculations and not completely lock up the browser
 // will calculate a full orbital period unless cancelled or otherwise interrupted by an event along the orbit, then pass control to the callback
 // orbital period self-assigned to keep from having to call the catalog for this information
-// dataArray parameter allows specifying which array to store calculation results (defaults to KSA_CALCULATIONS.orbitDataCalc for backwards compatibility)
-function orbitalCalc(callback, orbit, batchCount = 1000, limit, dataArray) {
-  // default to using the global orbitDataCalc array if not specified
-  if (!dataArray) dataArray = KSA_CALCULATIONS.orbitDataCalc;
+// dataArray parameter allows specifying which array to store calculation results
+function orbitalCalc(callback, orbit, dataArray, batchCount = 1000, limit) {
   
   if (!limit) limit = orbit.OrbitalPeriod;
   if (KSA_UI_STATE.isOrbitRenderTerminated) return;
   var bAltLimit = false;
 
   // update the dialog title with the current date & time being calculated
-  if ($("#mapDialog").dialog("isOpen") && $("#mapDialog").dialog("option").title != "Render Notice") {
+  if (dataArray.isVessel && $("#mapDialog").dialog("isOpen") && $("#mapDialog").dialog("option").title != "Render Notice") {
     var strDialogTitle = "Calculating Orbit #" + (ops.currentVesselPlot.obtData.length + 1) + " of " + ops.currentVesselPlot.numOrbitRenders + " - ";
-    strDialogTitle += UTtoDateTime(KSA_CALCULATIONS.obtCalcUT, true);
+    strDialogTitle += UTtoDateTime(dataArray.UT, true);
     $("#mapDialog").dialog("option", "title", strDialogTitle);
+    $('#progressbar').progressbar("value", (dataArray.obt.length/limit)*100);
   }
 
   // load up on some data-fetching and conversions so we're not repeating them in the batch loop
@@ -1081,7 +1064,7 @@ function orbitalCalc(callback, orbit, batchCount = 1000, limit, dataArray) {
     
     // adjust for motion since the time of this orbit
     var n = Math.sqrt(gmu/(Math.pow(Math.abs(orbit.SMA),3)));
-    var newMean = mean + n * (KSA_CALCULATIONS.obtCalcUT - orbit.Eph);
+    var newMean = mean + n * (dataArray.UT - orbit.Eph);
 
     ////////////////
     // solveKepler()
@@ -1227,7 +1210,7 @@ function orbitalCalc(callback, orbit, batchCount = 1000, limit, dataArray) {
     // abs(mod(real(Angle),2*pi));
     // javascript has a modulo operator, but it doesn't work the way we need. Or something
     // so using the mod() function implementation from Math.js: x - y * floor(x / y)
-    var angle = rotInit + bodySpinRate*KSA_CALCULATIONS.obtCalcUT;
+    var angle = rotInit + bodySpinRate*dataArray.UT;
     var spinAngle = Math.abs(angle - (2*Math.PI) * Math.floor(angle / (2*Math.PI)));
 
     //////////////////////////////////////
@@ -1264,14 +1247,11 @@ function orbitalCalc(callback, orbit, batchCount = 1000, limit, dataArray) {
     longitude = normalizeLongitude(longitude);
     
     // store all the derived values and advance to the next second
-    dataArray.push({latlng: {lat: latitude, lng: longitude}, alt: alt, vel: vel});
-    KSA_CALCULATIONS.obtCalcUT++;
-    
-    // update the progress bar - will only show if loading data for a single vessel
-    if ($("#mapDialog").dialog("isOpen")) $('#progressbar').progressbar("value", (dataArray.length/limit)*100);
+    dataArray.obt.push({latlng: {lat: latitude, lng: longitude}, alt: alt, vel: vel});
+    dataArray.UT++;
     
     // exit the batch prematurely if we've reached the end of the calculation period
-    if (dataArray.length >= limit) break; 
+    if (dataArray.obt.length >= limit) break; 
 
     // exit the batch prematurely if we've hit Kerbin's atmosphere
     if (alt <= 70) { 
@@ -1288,7 +1268,7 @@ function orbitalCalc(callback, orbit, batchCount = 1000, limit, dataArray) {
   
   // let the callback know if we've completed all orbital calculations, or cancel out if requested by the user
   // or if an altitude was breached
-  if (dataArray.length >= limit || KSA_UI_STATE.isOrbitRenderCancelled || bAltLimit) {
+  if (dataArray.obt.length >= limit || KSA_UI_STATE.isOrbitRenderCancelled || bAltLimit) {
     callback();
     
   // just exit and don't call anything if the calculations have been paused by switching away from the vessel
@@ -1296,7 +1276,7 @@ function orbitalCalc(callback, orbit, batchCount = 1000, limit, dataArray) {
     return;
     
   // otherwise call ourselves again for more calculations, with a small timeout to let other things happen
-  } else setTimeout(orbitalCalc, 1, callback, orbit, batchCount, limit, dataArray);
+  } else setTimeout(orbitalCalc, 1, callback, orbit, dataArray, batchCount, limit);
 }
 
 function addMapResizeButton() {
@@ -2262,11 +2242,11 @@ function calculateSurfaceTracks(currentName, currentType) {
   // we run a lower batch count since the full surface map has more to interact with and should remain responsive
   // orbits are rendered for one orbital period or 24 hours, whichever is shorter
   if (!currObj.isCalculated && currObj.orbit) {
-    KSA_CALCULATIONS.obtCalcUT = currUT();
-    KSA_CALCULATIONS.orbitDataCalc.length = 0;
+    KSA_CALCULATIONS.obtDataCalcSfc.UT = currUT();
+    KSA_CALCULATIONS.obtDataCalcSfc.obt.length = 0;
     KSA_UI_STATE.isOrbitRenderTerminated = false;
-    if (currObj.orbit.OrbitalPeriod > 86400) orbitalCalc(renderBodyOrbit, currObj.orbit, 500, 86400);
-    else orbitalCalc(renderBodyOrbit, currObj.orbit, 500);
+    if (currObj.orbit.OrbitalPeriod > 86400) orbitalCalc(renderBodyOrbit, currObj.orbit, KSA_CALCULATIONS.obtDataCalcSfc, 500, 86400);
+    else orbitalCalc(renderBodyOrbit, currObj.orbit, KSA_CALCULATIONS.obtDataCalcSfc, 500);
     currObj.isCalculating = true;
     return;
   } else {
@@ -2342,9 +2322,9 @@ function renderBodyOrbit() {
   if (!currObj) return;
   
   currObj.obtData = {
-    orbit: KSA_CALCULATIONS.orbitDataCalc.slice(0),
-    startUT: KSA_CALCULATIONS.obtCalcUT-KSA_CALCULATIONS.orbitDataCalc.length,
-    endUT: KSA_CALCULATIONS.obtCalcUT,
+    orbit: KSA_CALCULATIONS.obtDataCalcSfc.obt.slice(0),
+    startUT: KSA_CALCULATIONS.obtDataCalcSfc.UT-KSA_CALCULATIONS.obtDataCalcSfc.obt.length,
+    endUT: KSA_CALCULATIONS.obtDataCalcSfc.UT,
     marker: null,
     pathData: [],
     events: {
@@ -2367,7 +2347,7 @@ function renderBodyOrbit() {
   // get the times we'll reach Ap and Pe along this orbit, if it has any
   if (currObj.orbit.Eccentricity > 0) {
     var n = Math.sqrt(ops.bodyCatalog.find(o => o.selected === true).Gm/(Math.pow(Math.abs(currObj.orbit.SMA),3)));
-    var newMean = toMeanAnomaly(Math.radians(currObj.orbit.TrueAnom), currObj.orbit.Eccentricity) + n * ((KSA_CALCULATIONS.obtCalcUT-KSA_CALCULATIONS.orbitDataCalc.length) - currObj.orbit.Eph);
+    var newMean = toMeanAnomaly(Math.radians(currObj.orbit.TrueAnom), currObj.orbit.Eccentricity) + n * ((KSA_CALCULATIONS.obtDataCalcSfc.UT-KSA_CALCULATIONS.obtDataCalcSfc.obt.length) - currObj.orbit.Eph);
     if (newMean < 0 || newMean > 2*Math.PI) {
       newMean = Math.abs(newMean - (2*Math.PI) * Math.floor(newMean / (2*Math.PI)));
     }
@@ -2379,23 +2359,23 @@ function renderBodyOrbit() {
     if (peTime <= 0) peTime += Math.round(currObj.orbit.OrbitalPeriod);
     
     // stash away the times but convert them to UT instead of seconds from the start of this orbit
-    currObj.obtData.events.pe.UT = peTime + (KSA_CALCULATIONS.obtCalcUT-KSA_CALCULATIONS.orbitDataCalc.length);
-    currObj.obtData.events.ap.UT = apTime + (KSA_CALCULATIONS.obtCalcUT-KSA_CALCULATIONS.orbitDataCalc.length);
+    currObj.obtData.events.pe.UT = peTime + (KSA_CALCULATIONS.obtDataCalcSfc.UT-KSA_CALCULATIONS.obtDataCalcSfc.obt.length);
+    currObj.obtData.events.ap.UT = apTime + (KSA_CALCULATIONS.obtDataCalcSfc.UT-KSA_CALCULATIONS.obtDataCalcSfc.obt.length);
     
     // configure the Ap/Pe icons, ensuring that enough orbit has been plotted to display them
-    if (apTime < KSA_CALCULATIONS.orbitDataCalc.length) { 
+    if (apTime < KSA_CALCULATIONS.obtDataCalcSfc.obt.length) { 
 
       // add the marker, assign its information popup and give it a callback for instant update when opened, then add it to the current layer
-      currObj.obtData.events.ap.marker = L.marker(KSA_CALCULATIONS.orbitDataCalc[apTime].latlng, {icon: KSA_MAP_ICONS.apIcon}); 
-      var strTimeDate = UTtoDateTime(KSA_CALCULATIONS.obtCalcUT-KSA_CALCULATIONS.orbitDataCalc.length + apTime);
+      currObj.obtData.events.ap.marker = L.marker(KSA_CALCULATIONS.obtDataCalcSfc.obt[apTime].latlng, {icon: KSA_MAP_ICONS.apIcon}); 
+      var strTimeDate = UTtoDateTime(KSA_CALCULATIONS.obtDataCalcSfc.UT-KSA_CALCULATIONS.obtDataCalcSfc.obt.length + apTime);
       currObj.obtData.events.ap.marker.bindPopup("<center>Time to Apoapsis<br><span id='apTimeSurface'>" + formatTime(apTime) + "</span><br><span id='apDateSurface'>" + strTimeDate.split("@")[0] + '<br>' + strTimeDate.split("@")[1] + "</span> UTC</center>", { autoClose: false });
       currObj.obtData.events.ap.marker.on('click', function(e) {
         $('#apTimeSurface').html(formatTime(currObj.obtData.events.ap.UT - currUT()));
       });
     }
-    if (peTime < KSA_CALCULATIONS.orbitDataCalc.length) { 
-      currObj.obtData.events.pe.marker = L.marker(KSA_CALCULATIONS.orbitDataCalc[peTime].latlng, {icon: KSA_MAP_ICONS.peIcon}); 
-      var strTimeDate = UTtoDateTime(KSA_CALCULATIONS.obtCalcUT-KSA_CALCULATIONS.orbitDataCalc.length + peTime);
+    if (peTime < KSA_CALCULATIONS.obtDataCalcSfc.obt.length) { 
+      currObj.obtData.events.pe.marker = L.marker(KSA_CALCULATIONS.obtDataCalcSfc.obt[peTime].latlng, {icon: KSA_MAP_ICONS.peIcon}); 
+      var strTimeDate = UTtoDateTime(KSA_CALCULATIONS.obtDataCalcSfc.UT-KSA_CALCULATIONS.obtDataCalcSfc.obt.length + peTime);
       currObj.obtData.events.pe.marker.bindPopup("<center>Time to Periapsis<br><span id='peTimeSurface'>" + formatTime(peTime) + "</span><br><span id='peDateSurface'>" + strTimeDate.split("@")[0] + '<br>' + strTimeDate.split("@")[1] + "</span> UTC</center>", { autoClose: false });
       currObj.obtData.events.pe.marker.on('click', function(e) {
         $('#peTimeSurface').html(formatTime(currObj.obtData.events.pe.UT - currUT()));
@@ -2407,11 +2387,11 @@ function renderBodyOrbit() {
   if (currObj.isVessel) {
 
     // does this path terminate in an entry to Kerbin's atmosphere?
-    if (KSA_CALCULATIONS.orbitDataCalc[KSA_CALCULATIONS.orbitDataCalc.length-1].alt <= 70) {
+    if (KSA_CALCULATIONS.obtDataCalcSfc.obt[KSA_CALCULATIONS.obtDataCalcSfc.obt.length-1].alt <= 70) {
 
       // add the marker, assign its information popup and give it a callback for instant update when opened, then add it to the current layer
-      currObj.obtData.events.soiEntry.UT = KSA_CALCULATIONS.obtCalcUT;
-      currObj.obtData.events.soiEntry.marker = L.marker(KSA_CALCULATIONS.orbitDataCalc[KSA_CALCULATIONS.orbitDataCalc.length-1].latlng, {icon: KSA_MAP_ICONS.soiEntryIcon}); 
+      currObj.obtData.events.soiEntry.UT = KSA_CALCULATIONS.obtDataCalcSfc.UT;
+      currObj.obtData.events.soiEntry.marker = L.marker(KSA_CALCULATIONS.obtDataCalcSfc.obt[KSA_CALCULATIONS.obtDataCalcSfc.obt.length-1].latlng, {icon: KSA_MAP_ICONS.soiEntryIcon}); 
       var strTimeDate = UTtoDateTime(currObj.obtData.events.soiEntry.UT);
       currObj.obtData.events.soiEntry.marker.bindPopup("<center>Time to Atmospheric Entry<br><span id='soiEntryTimeSurface'>" + formatTime(currObj.obtData.events.soiEntry.UT) + "</span><br><span id='soiEntryDateSurface'>" + strTimeDate.split("@")[0] + '<br>' + strTimeDate.split("@")[1] + "</span> UTC</center>", { autoClose: false });
       currObj.obtData.events.soiEntry.marker.on('click', function(e) {
@@ -2421,11 +2401,11 @@ function renderBodyOrbit() {
     } 
 
     // does this path terminate in an exit of Kerbin's SOI?
-    else if (KSA_CALCULATIONS.orbitDataCalc[KSA_CALCULATIONS.orbitDataCalc.length-1].alt >= 83559.2865) {
+    else if (KSA_CALCULATIONS.obtDataCalcSfc.obt[KSA_CALCULATIONS.obtDataCalcSfc.obt.length-1].alt >= 83559.2865) {
 
       // add the marker, assign its information popup and give it a callback for instant update when opened, then add it to the current layer
-      currObj.obtData.events.soiExit.UT = KSA_CALCULATIONS.obtCalcUT;
-      currObj.obtData.events.soiExit.marker = L.marker(KSA_CALCULATIONS.orbitDataCalc[KSA_CALCULATIONS.orbitDataCalc.length-1].latlng, {icon: KSA_MAP_ICONS.soiExitIcon}); 
+      currObj.obtData.events.soiExit.UT = KSA_CALCULATIONS.obtDataCalcSfc.UT;
+      currObj.obtData.events.soiExit.marker = L.marker(KSA_CALCULATIONS.obtDataCalcSfc.obt[KSA_CALCULATIONS.obtDataCalcSfc.obt.length-1].latlng, {icon: KSA_MAP_ICONS.soiExitIcon}); 
       var strTimeDate = UTtoDateTime(currObj.obtData.events.soiExit.UT);
       currObj.obtData.events.soiExit.marker.bindPopup("<center>Time to Kerbin SOI Exit<br><span id='soiExitTimeSurface'>" + formatTime(currObj.obtData.events.soiExit.UT) + "</span><br><span id='soiExitDateSurface'>" + strTimeDate.split("@")[0] + '<br>' + strTimeDate.split("@")[1] + "</span> UTC</center>", { autoClose: false });
       currObj.obtData.events.soiExit.marker.on('click', function(e) {
