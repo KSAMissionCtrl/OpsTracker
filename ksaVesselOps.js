@@ -86,16 +86,6 @@ function loadVessel(vessel, givenUT, wasUTExplicit) {
   
   // close any popups
   if (KSA_MAP_CONTROLS.vesselPositionPopup && ops.surface.map) ops.surface.map.closePopup(KSA_MAP_CONTROLS.vesselPositionPopup); 
-
-  // we can't be switching vessels while loading any plot data so if it's in progress, kill it
-  if (ops.surface.layerControl && !ops.surface.layerControl.options.collapsed) { 
-    KSA_UI_STATE.isOrbitRenderTerminated = true;
-    ops.surface.layerControl._collapse();
-    ops.surface.layerControl.options.collapsed = true;
-    if (KSA_LAYERS.surfaceTracksDataLoad.obtTrackDataLoad) ops.surface.layerControl.removeLayer(KSA_LAYERS.surfaceTracksDataLoad.obtTrackDataLoad);
-    KSA_LAYERS.surfaceTracksDataLoad.obtTrackDataLoad = null;
-    clearSurfacePlots();
-  }
 }
 
 function loadFlt(dbName, menuSelect = true) {

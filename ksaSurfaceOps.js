@@ -760,15 +760,16 @@ function renderMapData(updated = false) {
     // reset the load state of the map
     ops.surface.layerControl._expand();
     ops.surface.layerControl.options.collapsed = false;
+    $(".leaflet-top.leaflet-right").fadeIn();
     KSA_LAYERS.surfaceTracksDataLoad.obtTrackDataLoad = L.layerGroup();
     ops.surface.layerControl.addOverlay(KSA_LAYERS.surfaceTracksDataLoad.obtTrackDataLoad, "<i class='fa fa-cog fa-spin'></i> Loading Data...", "Orbital Tracks");
     KSA_CALCULATIONS.strPausedVesselCalculation = null;
-    KSA_UI_STATE.isOrbitRenderTerminated = false;
+    KSA_UI_STATE.isVesObtRenderTerminated = false;
     orbitalCalc(renderVesselOrbit, ops.currentVessel.Orbit, KSA_CALCULATIONS.obtDataCalcVes);
 
   // otherwise we need to calculate surface tracks for a single vessel
   } else if (ops.pageType == "vessel") {
-    if (updated) KSA_UI_STATE.isOrbitRenderTerminated = true;
+    if (updated) KSA_UI_STATE.isVesObtRenderTerminated = true;
 
     // check if another vessel rendering was interrupted and be sure the user wants to continue
     if (KSA_CALCULATIONS.strPausedVesselCalculation) {
@@ -820,7 +821,7 @@ function beginOrbitalCalc(numOrbitRenders = 3) {
   };
 
   KSA_UI_STATE.isOrbitRenderCancelled = false;
-  KSA_UI_STATE.isOrbitRenderTerminated = false;
+  KSA_UI_STATE.isVesObtRenderTerminated = false;
   ops.currentVesselPlot.numOrbitRenders = numOrbitRenders;
   $("#mapDialog").dialog( "option", "title", "Calculating Orbit #1 of " + ops.currentVesselPlot.numOrbitRenders);
   $("#mapDialog").dialog( "option", "buttons", [{
@@ -836,6 +837,7 @@ function beginOrbitalCalc(numOrbitRenders = 3) {
   $("#mapDialog").dialog("open");
   ops.surface.layerControl._expand();
   ops.surface.layerControl.options.collapsed = false;
+  $(".leaflet-top.leaflet-right").fadeIn();
   KSA_LAYERS.surfaceTracksDataLoad.obtTrackDataLoad = L.layerGroup();
   ops.surface.layerControl.addOverlay(KSA_LAYERS.surfaceTracksDataLoad.obtTrackDataLoad, "<i class='fa fa-cog fa-spin'></i> Loading Data...", "Orbital Tracks");
   
@@ -988,7 +990,7 @@ function renderVesselOrbit() {
     // reset loading flags/triggers
     KSA_CALCULATIONS.strPausedVesselCalculation = null;
     KSA_UI_STATE.isOrbitRenderCancelled = false;
-    KSA_UI_STATE.isOrbitRenderTerminated = false;
+    KSA_UI_STATE.isVesObtRenderTerminated = false;
 
     // place the craft marker and assign its popup
     KSA_MAP_ICONS.vesselIcon = L.icon({iconUrl: 'button_vessel_' + currType(ops.currentVessel.Catalog.Type) + '.png', iconSize: [16, 16]});
@@ -1034,7 +1036,9 @@ function renderVesselOrbit() {
 function orbitalCalc(callback, orbit, dataArray, batchCount = 1000, limit) {
   
   if (!limit) limit = orbit.OrbitalPeriod;
-  if (KSA_UI_STATE.isOrbitRenderTerminated) return;
+  if ((KSA_UI_STATE.isVesObtRenderTerminated && dataArray.isVessel) || 
+      (KSA_UI_STATE.isSfcObtRenderTerminated && !dataArray.isVessel)) return;
+  if (KSA_CALCULATIONS.strPausedVesselCalculation && dataArray.isVessel) return;
   var bAltLimit = false;
 
   // update the dialog title with the current date & time being calculated
@@ -1268,14 +1272,10 @@ function orbitalCalc(callback, orbit, dataArray, batchCount = 1000, limit) {
   
   // let the callback know if we've completed all orbital calculations, or cancel out if requested by the user
   // or if an altitude was breached
-  if (dataArray.obt.length >= limit || KSA_UI_STATE.isOrbitRenderCancelled || bAltLimit) {
+  if (dataArray.obt.length >= limit || (KSA_UI_STATE.isOrbitRenderCancelled && dataArray.isVessel) || bAltLimit) {
     callback();
-    
-  // just exit and don't call anything if the calculations have been paused by switching away from the vessel
-  } else if (KSA_CALCULATIONS.strPausedVesselCalculation) {
-    return;
-    
-  // otherwise call ourselves again for more calculations, with a small timeout to let other things happen
+
+    // otherwise call ourselves again for more calculations, with a small timeout to let other things happen
   } else setTimeout(orbitalCalc, 1, callback, orbit, dataArray, batchCount, limit);
 }
 
@@ -1405,6 +1405,19 @@ function showMap() {
       $(".leaflet-top.leaflet-right").fadeIn();
       $(".leaflet-top.leaflet-left").fadeIn();
       $(".leaflet-bottom.leaflet-left").fadeIn();
+      if (checkDataLoad()) {
+        ops.surface.layerControl._expand();
+        ops.surface.layerControl.options.collapsed = false;
+        KSA_CATALOGS.bodyPaths.layers.forEach(function(layer) {
+          var strType = capitalizeFirstLetter(layer.type);
+          if (layer.isLoaded) {
+            if (!strType.endsWith("s")) strType += "s";
+            ops.surface.layerControl.addOverlay(layer.group, "<img src='icon_" + layer.type + ".png' style='width: 15px;'> " + strType, "Orbital Tracks");
+          }
+        });
+        if (!KSA_LAYERS.surfaceTracksDataLoad.bodiesTrackDataLoad) KSA_LAYERS.surfaceTracksDataLoad.bodiesTrackDataLoad = L.layerGroup();
+        ops.surface.layerControl.addOverlay(KSA_LAYERS.surfaceTracksDataLoad.bodiesTrackDataLoad, "<i class='fa fa-cog fa-spin'></i> Loading " + capitalizeFirstLetter(strType) + " Data...", "Orbital Tracks");
+      }
     } else if (ops.pageType == "vessel") {
       $("#content").fadeOut();
     }
@@ -1483,7 +1496,7 @@ function selectVesselOnBodyMap(vesselId) {
     setTimeout(selectVesselOnBodyMap, 100, vesselId);
     return;
   }
-  
+  console.log("Selecting vessel " + vesselObj.name + " on body map");
   // add the layer to the map if it's not already visible
   if (!ops.surface.map.hasLayer(vesselLayer.group)) {
     vesselLayer.group.addTo(ops.surface.map);
@@ -2126,6 +2139,7 @@ function nextFltDataOnce() {
 // load surface track data for any vessels and moons in orbit around this body
 function loadSurfaceTracks() {
   KSA_CATALOGS.bodyPaths.paths.length = 0;
+  KSA_UI_STATE.isSfcObtRenderTerminated = false;
 
   // dependent on ops and body catalog data so call back if it's not all loaded yet
   if (!ops.bodyCatalog.length || (!ops.updateData.length || (ops.updateData.length && ops.updateData.find(o => o.isLoading === true)))) {
@@ -2242,9 +2256,10 @@ function calculateSurfaceTracks(currentName, currentType) {
   // we run a lower batch count since the full surface map has more to interact with and should remain responsive
   // orbits are rendered for one orbital period or 24 hours, whichever is shorter
   if (!currObj.isCalculated && currObj.orbit) {
+    console.log("Calculating surface track for " + currObj.name);
     KSA_CALCULATIONS.obtDataCalcSfc.UT = currUT();
     KSA_CALCULATIONS.obtDataCalcSfc.obt.length = 0;
-    KSA_UI_STATE.isOrbitRenderTerminated = false;
+    KSA_UI_STATE.isVesObtRenderTerminated = false;
     if (currObj.orbit.OrbitalPeriod > 86400) orbitalCalc(renderBodyOrbit, currObj.orbit, KSA_CALCULATIONS.obtDataCalcSfc, 500, 86400);
     else orbitalCalc(renderBodyOrbit, currObj.orbit, KSA_CALCULATIONS.obtDataCalcSfc, 500);
     currObj.isCalculating = true;
@@ -2317,6 +2332,7 @@ function renderBodyOrbit() {
 
   // add the calculated data to teh current object
   var currObj = KSA_CATALOGS.bodyPaths.paths.find(o => o.isCalculating === true);
+  console.log("Completed surface track for " + currObj.name);
   
   // if we switched views while calculating, the object may no longer exist - just return
   if (!currObj) return;

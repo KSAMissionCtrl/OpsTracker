@@ -146,15 +146,16 @@ ops.surface.Data = null;
 // ------------------------------------------------------------------------------
 const KSA_UI_STATE = {
   // Content & view states
-  isContentMoving: false,        // whether the surface map is being resized in the vessel view
-  isMapShown: false,             // whether the surface map is shown or not
-  isMapFullscreen: false,        // whether the map has been sized fullscreen or not
-  isAscentPaused: false,         // whether the ascent data playback is paused or not
-  isDirty: false,                // tells the GGB figure that is loaded underneath a vessel to refresh
-  isOrbitRenderCancelled: false, // whether the Cancel button was clicked to stop orbital calculation early
-  isOrbitRenderTerminated: false,// whether the orbital calc was stopped due to changing a vessel or view
-  isLivePastUT: false,           // whether the page was loaded with &live param to auto-update from a past UT
-  optUpdateInterrupt: null,      // the state of the optional update interrupt checkbox
+  isContentMoving: false,           // whether the surface map is being resized in the vessel view
+  isMapShown: false,                // whether the surface map is shown or not
+  isMapFullscreen: false,           // whether the map has been sized fullscreen or not
+  isAscentPaused: false,            // whether the ascent data playback is paused or not
+  isDirty: false,                   // tells the GGB figure that is loaded underneath a vessel to refresh
+  isOrbitRenderCancelled: false,    // whether the Cancel button was clicked to stop orbital calculation early
+  isVesObtRenderTerminated: false,  // whether the orbital calc was stopped due to changing a vessel or view
+  isSfcObtRenderTerminated: false,  // whether the surface orbital calc was stopped due to changing a body
+  isLivePastUT: false,              // whether the page was loaded with &live param to auto-update from a past UT
+  optUpdateInterrupt: null,         // the state of the optional update interrupt checkbox
   
   // Loading states
   isMenuDataLoaded: false,       // when all the menu data has been loaded from AJAX

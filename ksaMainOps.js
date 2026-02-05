@@ -92,16 +92,6 @@ function cleanupTimers() {
       clearTimeout(KSA_TIMERS.ascentInterpTimeout);
       KSA_TIMERS.ascentInterpTimeout = null;
     }
-    
-    // Update global references for backward compatibility
-    KSA_TIMERS.mapDialogDelay = null;
-    KSA_TIMERS.timeoutHandle = null;
-    KSA_TIMERS.launchRefreshTimeout = null;
-    KSA_TIMERS.maneuverRefreshTimeout = null;
-    KSA_TIMERS.mapMarkerTimeout = null;
-    KSA_TIMERS.flightTimelineInterval = null;
-    KSA_TIMERS.vesselImgTimeout = null;
-    KSA_TIMERS.ascentInterpTimeout = null;
   } catch (error) {
     handleError(error, 'cleanupTimers');
   }
@@ -692,12 +682,6 @@ function swapContent(newPageType, id, ut, flt) {
 
   // Clean up resources from previous view to prevent memory leaks
   cleanupView();
-
-  // make sure any map dialog that was commanded to show does not
-  if (KSA_TIMERS.mapDialogDelay) {
-    clearTimeout(KSA_TIMERS.mapDialogDelay);
-    KSA_TIMERS.mapDialogDelay = null;
-  }
 
   // close any open map popups
   ops.surface.map.closePopup();

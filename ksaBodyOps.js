@@ -57,6 +57,10 @@ function loadBody(body, flt) {
   // if this is a vessel page calling the load then set a flag to let us know the figure will need to be reset next time it is shown
   } else if (ops.pageType == "vessel") KSA_UI_STATE.isDirty = true;
 
+  // stop any ongoing orbit calculations
+  // this should take effect by the time loadSurfaceTracks() is called
+  KSA_UI_STATE.isSfcObtRenderTerminated = true;
+
   // update the current body & system
   if (ops.bodyCatalog.find(o => o.selected === true)) ops.bodyCatalog.find(o => o.selected === true).selected = false;
   ops.bodyCatalog.find(o => o.Body === body.split("-")[0]).selected = true;
