@@ -61,6 +61,11 @@ function loadBody(body, flt) {
   // this should take effect by the time loadSurfaceTracks() is called
   KSA_UI_STATE.isSfcObtRenderTerminated = true;
 
+  // reset body paths so they get properly reloaded for the new body
+  // this will also prevent selectVesselOnBodyMap() from potentially calling itself far longer than it should before giving up
+  KSA_CATALOGS.bodyPaths.paths.length = 0;
+  KSA_CATALOGS.bodyPaths.layers.length = 0;
+
   // update the current body & system
   if (ops.bodyCatalog.find(o => o.selected === true)) ops.bodyCatalog.find(o => o.selected === true).selected = false;
   ops.bodyCatalog.find(o => o.Body === body.split("-")[0]).selected = true;

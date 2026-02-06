@@ -311,9 +311,17 @@ const KSA_CATALOGS = {
 // LAYER MANAGEMENT MODULE
 // ------------------------------------------------------------------------------
 const KSA_LAYERS = {
-  layerSolar: L.layerGroup(),  // layer group containing terminator polygon
-  layerPins: null,             // layer showing/hiding custom pins on surface map
-  layerGroundStations: null,   // layer showing/hiding ground stations and vessel/body horizons
+  // Ground Markers layer groups
+  groundMarkers: {
+    layerLabels: null,
+    layerFlags: null,
+    layerPOI: null,
+    layerAnomalies: null,
+    layerAirports: null,
+    layerGroundStations: null,   // layer showing/hiding ground stations and vessel/body horizons
+    layerSolar: null,            // layer group containing sun marker and terminator polygon
+    layerPins: null              // layer showing/hiding custom pins on surface map
+  },
   
   // Loading indicators for map layers
   surfaceTracksDataLoad: {

@@ -911,7 +911,7 @@ function vesselContentUpdate(update) {
       // remove any previous markers and surface plots
       if (KSA_MAP_CONTROLS.launchsiteMarker) ops.surface.map.removeLayer(KSA_MAP_CONTROLS.launchsiteMarker);
       if (KSA_MAP_CONTROLS.vesselMarker) ops.surface.map.removeLayer(KSA_MAP_CONTROLS.vesselMarker);
-      if (KSA_MAP_CONTROLS.vesselHorizon.vessel) KSA_LAYERS.layerGroundStations.removeLayer(KSA_MAP_CONTROLS.vesselHorizon.vessel); 
+      if (KSA_MAP_CONTROLS.vesselHorizon.vessel) KSA_LAYERS.groundMarkers.layerGroundStations.removeLayer(KSA_MAP_CONTROLS.vesselHorizon.vessel); 
       KSA_MAP_CONTROLS.vesselHorizon.vessel = null;
       KSA_MAP_CONTROLS.launchsiteMarker = null;
       clearSurfacePlots();
@@ -920,9 +920,9 @@ function vesselContentUpdate(update) {
       var data = ops.currentVessel.CraftData.Content.split("@")[1].split("|");
     
       // these elements should only appear on general surface maps
-      if (KSA_LAYERS.layerPins) {
-        ops.surface.map.removeLayer(KSA_LAYERS.layerPins);
-        ops.surface.layerControl.removeLayer(KSA_LAYERS.layerPins); 
+      if (KSA_LAYERS.groundMarkers.layerPins) {
+        ops.surface.map.removeLayer(KSA_LAYERS.groundMarkers.layerPins);
+        ops.surface.layerControl.removeLayer(KSA_LAYERS.groundMarkers.layerPins); 
       }
       
       // set launchsite icon
@@ -939,7 +939,7 @@ function vesselContentUpdate(update) {
 
         // add a horizon circle at the marker location
         KSA_MAP_CONTROLS.vesselHorizon.vessel = addHorizonCircle([parseFloat(data[0]), parseFloat(data[1])], parseFloat(data[3]) * 1000);
-        KSA_LAYERS.layerGroundStations.addLayer(KSA_MAP_CONTROLS.vesselHorizon.vessel);
+        KSA_LAYERS.groundMarkers.layerGroundStations.addLayer(KSA_MAP_CONTROLS.vesselHorizon.vessel);
       }
 
       // place the marker and build the information window for it, then center the map on it and create a popup for it
@@ -1636,7 +1636,7 @@ function setupStreamingAscent() {
   // remove any markers that might already be placed
   if (KSA_MAP_CONTROLS.launchsiteMarker) ops.surface.map.removeLayer(KSA_MAP_CONTROLS.launchsiteMarker);
   if (KSA_MAP_CONTROLS.vesselMarker) ops.surface.map.removeLayer(KSA_MAP_CONTROLS.vesselMarker);
-  if (KSA_MAP_CONTROLS.vesselHorizon.vessel) KSA_LAYERS.layerGroundStations.removeLayer(KSA_MAP_CONTROLS.vesselHorizon.vessel);
+  if (KSA_MAP_CONTROLS.vesselHorizon.vessel) KSA_LAYERS.groundMarkers.layerGroundStations.removeLayer(KSA_MAP_CONTROLS.vesselHorizon.vessel);
   KSA_MAP_CONTROLS.vesselHorizon.vessel = null;
 
   // place the craft marker 
@@ -1649,7 +1649,7 @@ function setupStreamingAscent() {
     ops.ascentData.telemetry[ops.activeAscentFrame.ascentIndex].Altitude
   );
   // Add horizon to ground station layer so it only shows when that layer is active
-  KSA_LAYERS.layerGroundStations.addLayer(KSA_MAP_CONTROLS.vesselHorizon.vessel);
+  KSA_LAYERS.groundMarkers.layerGroundStations.addLayer(KSA_MAP_CONTROLS.vesselHorizon.vessel);
   
   // focus in on the vessel position
   // delay to ensure map is fully shown and sized before setting view
@@ -1696,7 +1696,7 @@ function ascentEnd(isPageSwap = false) {
     // clear out the ascent track and vessel marker
     clearAscentTracks();
     if (KSA_MAP_CONTROLS.vesselMarker) ops.surface.map.removeLayer(KSA_MAP_CONTROLS.vesselMarker);
-    if (KSA_MAP_CONTROLS.vesselHorizon.vessel) KSA_LAYERS.layerGroundStations.removeLayer(KSA_MAP_CONTROLS.vesselHorizon.vessel);
+    if (KSA_MAP_CONTROLS.vesselHorizon.vessel) KSA_LAYERS.groundMarkers.layerGroundStations.removeLayer(KSA_MAP_CONTROLS.vesselHorizon.vessel);
     KSA_MAP_CONTROLS.vesselHorizon.vessel = null;
 
     // hide the fields that are now unused

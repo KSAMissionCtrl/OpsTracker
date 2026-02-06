@@ -826,17 +826,17 @@ function swapContent(newPageType, id, ut, flt) {
         $("#figure").fadeIn();
       }
       $("#contentBox").fadeIn();
-      if (KSA_LAYERS.layerPins) {
-        KSA_LAYERS.layerPins.addTo(ops.surface.map);
-        ops.surface.layerControl.addOverlay(KSA_LAYERS.layerPins, "<img src='defPin.png' style='width: 10px; height: 14px; vertical-align: 1px;'> Custom Pins", "Ground Markers");
+      if (KSA_LAYERS.groundMarkers.layerPins) {
+        KSA_LAYERS.groundMarkers.layerPins.addTo(ops.surface.map);
+        ops.surface.layerControl.addOverlay(KSA_LAYERS.groundMarkers.layerPins, "<img src='defPin.png' style='width: 10px; height: 14px; vertical-align: 1px;'> Custom Pins", "Ground Markers");
       }
-      KSA_CATALOGS.bodyPaths.layers.forEach(function(layer) {
-        if (layer.isLoaded) {
-          var strType = capitalizeFirstLetter(layer.type);
-          if (!strType.endsWith("s")) strType += "s";
-          ops.surface.layerControl.addOverlay(layer.group, "<img src='icon_" + layer.type + ".png' style='width: 15px;'> " + strType, "Orbital Tracks");
-        }
-      });
+      // KSA_CATALOGS.bodyPaths.layers.forEach(function(layer) {
+      //   if (layer.isLoaded) {
+      //     var strType = capitalizeFirstLetter(layer.type);
+      //     if (!strType.endsWith("s")) strType += "s";
+      //     ops.surface.layerControl.addOverlay(layer.group, "<img src='icon_" + layer.type + ".png' style='width: 15px;'> " + strType, "Orbital Tracks");
+      //   }
+      // });
       loadBody(id, flt); 
     }, 600);
   } else if (ops.pageType == "vessel") {
@@ -1154,6 +1154,48 @@ function loadOpsDataAJAX(xhttp, args = null) {
   }
 }
 
+// update the terminator & sun display if a marker exists and the current body has a solar day length (is not the sun)
+// drawn based on the technique from SCANSat
+// https://github.com/S-C-A-N/SCANsat/blob/dev/SCANsat/SCAN_Unity/SCAN_UI_MainMap.cs#L682-L704
+function updateTerminator() {
+  if (ops.surface.Data && ops.surface.Data.Name == "Kerbin" && KSA_MAP_CONTROLS.sunMarker && ops.bodyCatalog.find(o => o.selected === true).SolarDay && ops.surface.map.hasLayer(KSA_LAYERS.groundMarkers.layerSolar)) {
+
+    // for now only for Kerbin, with no solar inclination
+    var sunLon = -ops.bodyCatalog.find(o => o.selected === true).RotIni - (((currUT() / ops.bodyCatalog.find(o => o.selected === true).SolarDay) % 1) * 360);
+    var sunLat = 0;
+    if (sunLon < -180) sunLon += 360;
+
+    // update the marker position
+    KSA_MAP_CONTROLS.sunMarker.setLatLng([sunLat, sunLon]);
+
+    // calculate the new terminator line
+    var sunLatCenter = (0 + 180 + 90) % 180 - 90;
+    if (sunLatCenter >= 0) var sunLonCenter = ((sunLon + 90) + 360 + 180) % 360 - 180;
+    else var sunLonCenter = ((sunLon - 90) + 360 + 180) % 360 - 180;
+    var gamma = Math.abs(sunLatCenter) < 0.55 ? 100 : Math.tan(Math.radians(90 - Math.abs(sunLatCenter)));
+    var terminatorPath = [];
+    for (lon=0; lon<=360; lon++) {
+      var crossingLat = Math.atan(gamma * Math.sin(Math.radians(lon - 180) - Math.radians(sunLonCenter)));
+      terminatorPath.push([Math.degrees(crossingLat), lon-180]);
+    }
+
+    // close up the polygon
+    terminatorPath.push([-90, 180]);
+    terminatorPath.push([-90, -180]);
+
+    // remove the previous layer if there is one before adding the new one
+    if (KSA_MAP_CONTROLS.terminator && KSA_LAYERS.groundMarkers.layerSolar) {
+      KSA_LAYERS.groundMarkers.layerSolar.removeLayer(KSA_MAP_CONTROLS.terminator);
+    }
+    KSA_MAP_CONTROLS.terminator = L.polygon(terminatorPath, {stroke: false, fillOpacity: 0.5, fillColor: "#000000", interactive: false});
+    
+    // only add the terminator if the Solar layer exists and is currently visible on the map
+    if (KSA_LAYERS.groundMarkers.layerSolar && ops.surface.map.hasLayer(KSA_LAYERS.groundMarkers.layerSolar)) {
+      KSA_LAYERS.groundMarkers.layerSolar.addLayer(KSA_MAP_CONTROLS.terminator);
+    }
+  }
+}
+
 // loop and update the page every second
 // no longer using setInterval, as suggested via
 // http://stackoverflow.com/questions/6685396/execute-the-first-time-the-setinterval-without-delay
@@ -1187,38 +1229,7 @@ function tick(utDelta = 1000, rapidFireMode = false) {
   checkPageUpdate(rapidFireMode);
 
   // update the terminator & sun display if a marker exists and the current body has a solar day length (is not the sun)
-  // drawn based on the technique from SCANSat
-  // https://github.com/S-C-A-N/SCANsat/blob/dev/SCANsat/SCAN_Unity/SCAN_UI_MainMap.cs#L682-L704
-  if (ops.surface.Data && ops.surface.Data.Name == "Kerbin" && KSA_MAP_CONTROLS.sunMarker && ops.bodyCatalog.find(o => o.selected === true).SolarDay) {
-
-    // for now only for Kerbin, with no solar inclination
-    var sunLon = -ops.bodyCatalog.find(o => o.selected === true).RotIni - (((currUT() / ops.bodyCatalog.find(o => o.selected === true).SolarDay) % 1) * 360);
-    var sunLat = 0;
-    if (sunLon < -180) sunLon += 360;
-
-    // update the marker position
-    KSA_MAP_CONTROLS.sunMarker.setLatLng([sunLat, sunLon]);
-
-    // calculate the new terminator line
-    var sunLatCenter = (0 + 180 + 90) % 180 - 90;
-    if (sunLatCenter >= 0) var sunLonCenter = ((sunLon + 90) + 360 + 180) % 360 - 180;
-    else var sunLonCenter = ((sunLon - 90) + 360 + 180) % 360 - 180;
-    var gamma = Math.abs(sunLatCenter) < 0.55 ? 100 : Math.tan(Math.radians(90 - Math.abs(sunLatCenter)));
-    var terminatorPath = [];
-    for (lon=0; lon<=360; lon++) {
-      var crossingLat = Math.atan(gamma * Math.sin(Math.radians(lon - 180) - Math.radians(sunLonCenter)));
-      terminatorPath.push([Math.degrees(crossingLat), lon-180]);
-    }
-
-    // close up the polygon
-    terminatorPath.push([-90, 180]);
-    terminatorPath.push([-90, -180]);
-
-    // remove the previous layer if there is one before adding the new one
-    if (KSA_MAP_CONTROLS.terminator) KSA_LAYERS.layerSolar.removeLayer(KSA_MAP_CONTROLS.terminator);
-    KSA_MAP_CONTROLS.terminator = L.polygon(terminatorPath, {stroke: false, fillOpacity: 0.5, fillColor: "#000000", interactive: false});
-    KSA_LAYERS.layerSolar.addLayer(KSA_MAP_CONTROLS.terminator);
-  }
+  updateTerminator();
 
   // update any crew mission countdown that is active
   if (ops.pageType == "crew" && !$('#dataField10').is(':empty')) $("#crewCountdown").html(formatTime($("#crewCountdown").attr("data")-currUT()));
@@ -1369,7 +1380,7 @@ function tick(utDelta = 1000, rapidFireMode = false) {
                 { color: KSA_COLORS.vesselOrbitColors[now.obtNum] }
               );
               // Add horizon to ground station layer so it only shows when that layer is active
-              KSA_LAYERS.layerGroundStations.addLayer(KSA_MAP_CONTROLS.vesselHorizon.vessel);
+              KSA_LAYERS.groundMarkers.layerGroundStations.addLayer(KSA_MAP_CONTROLS.vesselHorizon.vessel);
             } else {
               var horizonRadius = calculateHorizonRadius(ops.currentVesselPlot.obtData[now.obtNum].orbit[now.index].alt * 1000);
               KSA_MAP_CONTROLS.vesselHorizon.vessel.setLatLng(KSA_MAP_CONTROLS.vesselMarker.getLatLng());
@@ -1386,7 +1397,7 @@ function tick(utDelta = 1000, rapidFireMode = false) {
             if (ops.currentVesselPlot.events.soiEntry.UT-1 <= currUT()) {
               ops.currentVesselPlot.events.soiEntry.marker.closePopup();
               ops.surface.map.removeLayer(KSA_MAP_CONTROLS.vesselMarker);
-              KSA_LAYERS.layerGroundStations.removeLayer(KSA_MAP_CONTROLS.vesselHorizon.vessel);
+              KSA_LAYERS.groundMarkers.layerGroundStations.removeLayer(KSA_MAP_CONTROLS.vesselHorizon.vessel);
               KSA_MAP_CONTROLS.vesselMarker = null;
               KSA_MAP_CONTROLS.vesselHorizon.vessel = null;
               ops.currentVesselPlot.events.soiEntry.marker.bindPopup("<center>" + UTtoDateTime(currUT()).split("@")[1] + " UTC<br>Telemetry data invalid due to " + ops.currentVessel.Orbit.SOIEvent.split(";")[2] + "<br>Please stand by for update</center>", { autoClose: false });
