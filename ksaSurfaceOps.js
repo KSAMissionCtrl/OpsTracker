@@ -1520,19 +1520,19 @@ function showMap() {
       $(".leaflet-top.leaflet-left").fadeIn();
       $(".leaflet-bottom.leaflet-left").fadeIn();
 
-      // check if we need to show the body path layers loading status
+      // add body path layers to the layer control if they are loaded
+      var strType;
+      for (const layer of KSA_CATALOGS.bodyPaths.layers) {
+        strType = capitalizeFirstLetter(layer.type);
+        if (!layer.isLoaded) break;
+        if (!strType.endsWith("s")) strType += "s";
+        ops.surface.layerControl.addOverlay(layer.group, "<img src='icon_" + layer.type + ".png' style='width: 15px;'> " + strType, "Orbital Tracks");
+      }
+
+      // check if anything is still loading
       if (KSA_CATALOGS.bodyPaths.paths.find(o => o.isCalculating === true)) {
         ops.surface.layerControl._expand();
         ops.surface.layerControl.options.collapsed = false;
-
-        // add body path layers to the layer control if they are loaded
-        var strType;
-        for (const layer of KSA_CATALOGS.bodyPaths.layers) {
-          strType = capitalizeFirstLetter(layer.type);
-          if (!layer.isLoaded) break;
-          if (!strType.endsWith("s")) strType += "s";
-          ops.surface.layerControl.addOverlay(layer.group, "<img src='icon_" + layer.type + ".png' style='width: 15px;'> " + strType, "Orbital Tracks");
-        }
 
         // at the break means this is what's still loading
         if (!KSA_LAYERS.surfaceTracksDataLoad.bodiesTrackDataLoad) KSA_LAYERS.surfaceTracksDataLoad.bodiesTrackDataLoad = L.layerGroup();

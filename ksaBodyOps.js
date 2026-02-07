@@ -66,6 +66,16 @@ function loadBody(body, flt) {
   KSA_CATALOGS.bodyPaths.paths.length = 0;
   KSA_CATALOGS.bodyPaths.layers.length = 0;
 
+  // clean up any orbital layers for the vessel before nulling it out
+  if (ops.currentVesselPlot) {
+    for (data in ops.currentVesselPlot.obtData) {
+      if (ops.surface.map.hasLayer(data.layer)) {
+        ops.surface.map.removeLayer(data.layer);
+      }
+    }
+  }
+  ops.currentVesselPlot = null;
+
   // update the current body & system
   if (ops.bodyCatalog.find(o => o.selected === true)) ops.bodyCatalog.find(o => o.selected === true).selected = false;
   ops.bodyCatalog.find(o => o.Body === body.split("-")[0]).selected = true;
