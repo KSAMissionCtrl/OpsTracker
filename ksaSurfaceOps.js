@@ -2439,11 +2439,11 @@ function renderBodyOrbit() {
 
   // add the calculated data to teh current object
   var currObj = KSA_CATALOGS.bodyPaths.paths.find(o => o.isCalculating === true);
-  console.log("Completed surface track for " + currObj.name);
   
   // if we switched views while calculating, the object may no longer exist - just return
   if (!currObj) return;
-  
+  console.log("Completed surface track for " + currObj.name);
+
   currObj.obtData = {
     orbit: KSA_CALCULATIONS.obtDataCalcSfc.obt.slice(0),
     startUT: KSA_CALCULATIONS.obtDataCalcSfc.UT-KSA_CALCULATIONS.obtDataCalcSfc.obt.length,

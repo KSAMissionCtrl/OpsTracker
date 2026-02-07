@@ -218,8 +218,8 @@ function filterVesselMenu(id, checked) {
 
 function filterInactiveMenu(id, selectId) {
 
-  // set cursor to wait while sorting - use !important to override any CSS
-  $('body, *').css('cursor', 'wait', 'important');
+  // set cursor to wait while sorting - only target body and menu to preserve inline cursor styles
+  $('body, #menuBox, #menuBox *').css('cursor', 'wait', 'important');
   $('body').addClass('wait-cursor');
 
   // use setTimeout to allow cursor change to render before sorting begins
@@ -342,9 +342,9 @@ function filterInactiveMenu(id, selectId) {
     w2ui['menu'].refresh();
     if (selectedNode) selectMenuItem(selectedNode);
 
-    // restore cursor to default
+    // restore cursor to default - only target body and menu to preserve inline cursor styles
     $('body').removeClass('wait-cursor');
-    $('body, *').css('cursor', '');
+    $('body, #menuBox, #menuBox *').css('cursor', '');
     
     // Set flag to indicate menu sorting is complete (only on initial page load)
     if (!KSA_UI_STATE.isMenuSorted) KSA_UI_STATE.isMenuSorted = true;
@@ -353,8 +353,8 @@ function filterInactiveMenu(id, selectId) {
 
 function filterCrewMenu(id) {
 
-  // set cursor to wait while sorting - use !important to override any CSS
-  $('body, *').css('cursor', 'wait', 'important');
+  // set cursor to wait while sorting - only target body and menu to preserve inline cursor styles
+  $('body, #menuBox, #menuBox *').css('cursor', 'wait', 'important');
   $('body').addClass('wait-cursor');
 
   // use setTimeout to allow cursor change to render before sorting begins
@@ -530,9 +530,9 @@ function filterCrewMenu(id) {
     loadDB("loadCrewData.asp?db=" + showFullRoster() + "&ut=" + currUT(), loadCrewAJAX);
   }
 
-  // restore cursor to default
+  // restore cursor to default - only target body and menu to preserve inline cursor styles
   $('body').removeClass('wait-cursor');
-  $('body, *').css('cursor', '');
+  $('body, #menuBox, #menuBox *').css('cursor', '');
   }, 10);
 }
 
