@@ -744,12 +744,15 @@ function crewAssignmentUpdate(update) {
 function crewActiveMissionUpdate(update) {
   if (ops.currentCrew.Stats.Vessel) {
     var crewVessel = ops.craftsMenu.find(o => o.db === ops.currentCrew.Stats.Vessel);
-    if (ops.currentCrew.Stats.MissionStart > currUT()) {
+    if (ops.currentCrew.Stats.MissionStart == 0) {
       var strHTML = "<b>Future Mission Vessel:</b> <u><span style='cursor:help' class='tip-update' data-tipped-options=\"inline: 'crewMissionTip'\">";
-      $("#crewMissionTip").html("Time to mission: <span data='" + ops.currentCrew.Stats.MissionStart + "' id='crewCountdown'>" + formatTime(ops.currentCrew.Stats.MissionStart-currUT()) + "</span>");
+      $("#crewMissionTip").html("Launch scrub or hold - Awaiting new information");
+    } else if (ops.currentCrew.Stats.MissionStart > currUT()) {
+      var strHTML = "<b>Future Mission Vessel:</b> <u><span style='cursor:help' class='tip-update' data-tipped-options=\"inline: 'crewMissionTip'\">";
+      $("#crewMissionTip").html("Time to mission: " + formatTime(ops.currentCrew.Stats.MissionStart-currUT()));
     } else {
       var strHTML = "<b>Current Mission Vessel:</b> <u><span style='cursor:help' class='tip-update' data-tipped-options=\"inline: 'crewMissionTip'\">";
-      $("#crewMissionTip").html("Mission elapsed time: <span data='" + ops.currentCrew.Stats.MissionStart + "' id='crewCountdown'>" + formatTime(currUT()-ops.currentCrew.Stats.MissionStart) + "</span>");
+      $("#crewMissionTip").html("Mission elapsed time: " + formatTime(currUT()-ops.currentCrew.Stats.MissionStart));
     }
     strHTML += "<span class='fauxLink' onclick=\"swapContent('vessel','" + ops.currentCrew.Stats.Vessel + "')\">";
     strHTML += crewVessel.name + "</span></span></u>";

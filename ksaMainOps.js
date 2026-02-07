@@ -1231,9 +1231,15 @@ function tick(utDelta = 1000, rapidFireMode = false) {
   // update the terminator & sun display if a marker exists and the current body has a solar day length (is not the sun)
   updateTerminator();
 
-  // update any crew mission countdown that is active
-  if (ops.pageType == "crew" && !$('#dataField10').is(':empty')) $("#crewCountdown").html(formatTime($("#crewCountdown").attr("data")-currUT()));
-  
+  // update any crew mission countdown/MET that is active
+  if (ops.pageType == "crew" && ops.currentCrew && ops.currentCrew.Stats.MissionStart > 0) {
+    if (currUT() <= ops.currentCrew.Stats.MissionStart) {
+      $("#crewMissionTip").html("Time to mission: " + formatTime(ops.currentCrew.Stats.MissionStart - currUT()));
+    } else {
+      $("#crewMissionTip").html("Mission elapsed time: " + formatTime(currUT() - ops.currentCrew.Stats.MissionStart));
+    }
+  }
+
   // update the dynamic orbit figure
   if (KSA_UI_STATE.isGGBAppletLoaded) ggbApplet.setValue("UT", currUT());
   
