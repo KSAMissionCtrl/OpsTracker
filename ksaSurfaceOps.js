@@ -2733,6 +2733,12 @@ function loadVesselOrbitAJAX(xhttp, data) {
     currObj.orbit = null;
     currObj.isCalculated = true;
   }
+
+  // possible end of mission, no more orbital data but there is a UT record
+  if (!currObj.orbit.Eph) {
+    currObj.orbit = null;
+    currObj.isCalculated = true;
+  }
   currObj.isLoaded = true;
   calculateSurfaceTracks(data.name, data.type);
 }
