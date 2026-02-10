@@ -736,14 +736,6 @@ function menuUpdate(type, id) {
 
 function addMenuItem(item, newAdd = false) {
 
-  // we need to check for a current vessel as we may be between content swap and have to call ourselves back
-  if (ops.pageType == "vessel" && !ops.currentVessel) {
-    setTimeout(function() {
-      addMenuItem(item, newAdd);
-    }, 100);
-    return;
-  }
-
   // figure out what SOI this is in, if any, and whether it's switching to another status later
   var refNumUT = currSOI(item, true);
 
@@ -904,6 +896,7 @@ function currName(vessel, updateCheck = false, utCheck) {
     updateCheck = false;
   } else var strNames = vessel.name;
 
+  var strVesselName;
   if (strNames.includes("|")) {
     var nameIndex;
     var names = strNames.split("|");
@@ -954,7 +947,7 @@ function addVesselByDate(item, parentFolder = "inactiveVessels", addMonths = tru
   var year = dateUT.split("/")[2];
   
   // special case. See github issue: https://github.com/KSAMissionCtrl/OpsTracker/issues/61
-  if (strVesselName == "Progeny Mk6 Block I Flight 7") { month--; }
+  if (currName(item) == "Progeny Mk6 Block I Flight 7") { month--; }
   
   // if this year does not have a menu entry, insert one
   // sort descending

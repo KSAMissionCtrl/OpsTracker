@@ -813,8 +813,7 @@ function renderMapData(updated = false) {
       events: {
         pe: { marker: null, UT: null },
         ap: { marker: null, UT: null },
-        soiEntry: { marker: null },
-        soiExit: { marker: null },
+        soi: { marker: null },
         node: { marker: null}
       },
       id: ops.currentVessel.Catalog.DB,
@@ -834,23 +833,6 @@ function renderMapData(updated = false) {
 
   // don't let this proceed if there is no orbital data!
   if (!ops.currentVessel.Orbit.Eph) return;
-
-  // check for an SOI event that may have already occured, which would invalidate any orbital data and so no need to plot anything
-  // if (ops.currentVessel.Orbit.SOIEvent && parseInt(ops.currentVessel.Orbit.SOIEvent.split(";")[0]) <= currUT()) {
-  //   $("#mapDialog").dialog("close");
-  //   var latlng = { lat: parseFloat(ops.currentVessel.Orbit.SOIEvent.split(";")[3]), 
-  //                  lng: parseFloat(ops.currentVessel.Orbit.SOIEvent.split(";")[4]) };
-  //   if (ops.currentVessel.Orbit.SOIEvent.split(";")[1] == "entry") {
-  //     ops.currentVesselPlot.events.soiEntry.marker = L.marker([latlng.lat, latlng.lng], { icon: KSA_MAP_ICONS.soiEntryIcon }).addTo(ops.surface.map);
-  //     ops.currentVesselPlot.events.soiEntry.marker.bindPopup("<center>" + UTtoDateTime(parseInt(ops.currentVessel.Orbit.SOIEvent.split(";")[0])).split("@")[1] + " UTC <br>Telemetry data invalid due to " + ops.currentVessel.Orbit.SOIEvent.split(";")[2] + "<br>Please stand by for update</center>", { autoClose: false });
-  //     ops.surface.map.setView(ops.currentVesselPlot.events.soiEntry.marker.getLatLng(), 3);
-  //     ops.currentVesselPlot.events.soiEntry.marker.openPopup();
-  //   } else if (ops.currentVessel.Orbit.SOIEvent.split(";")[1] == "exit") {
-  //     ops.currentVesselPlot.events.soiExit.marker = L.marker([latlng.lat, latlng.lng], { icon: KSA_MAP_ICONS.soiExitIcon }).addTo(ops.surface.map);
-  //     ops.currentVesselPlot.events.soiExit.marker.bindPopup("<center>" + UTtoDateTime(parseInt(ops.currentVessel.Orbit.SOIEvent.split(";")[0])).split("@")[1] + " UTC <br>Telemetry data invalid due to " + ops.currentVessel.Orbit.SOIEvent.split(";")[2] + "<br>Please stand by for update</center>", { autoClose: false });
-  //     ops.surface.map.setView(ops.currentVesselPlot.events.soiExit.marker.getLatLng(), 3);
-  //     ops.currentVesselPlot.events.soiExit.marker.openPopup();
-  //   }
 
   // if there is a paused calculation we are returning to, then just resume calling the orbital batch
   if (KSA_CALCULATIONS.strPausedVesselCalculation == ops.currentVessel.Catalog.DB) {
@@ -927,8 +909,7 @@ function beginOrbitalCalc(numOrbitRenders = 3) {
     events: {
       pe: { marker: null, UT: null },
       ap: { marker: null, UT: null },
-      soiEntry: { marker: null },
-      soiExit: { marker: null },
+      soi: { marker: null },
       node: { marker: null}
     },
     id: ops.currentVessel.Catalog.DB,
@@ -1026,32 +1007,28 @@ function renderVesselOrbit() {
     }
 
     // does this orbit terminate in an SOI event?
-    if (ops.currentVessel.Orbit.SOIEvent) {
+    if (ops.currentVessel.Orbit.SOIEvent && parseInt(ops.currentVessel.Orbit.SOIEvent.split(";")[0]) <= KSA_CALCULATIONS.obtDataCalcVes.UT) {
+      var strEvent;
+      var latlng = {lat: parseFloat(ops.currentVessel.Orbit.SOIEvent.split(";")[3]), 
+                    lng: parseFloat(ops.currentVessel.Orbit.SOIEvent.split(";")[4])};
       if (ops.currentVessel.Orbit.SOIEvent.split(";")[1] == "entry") {
-
-        // add the marker, assign its information popup and give it a callback for instant update when opened, then add it to the current layer
-        ops.currentVesselPlot.events.soiEntry.UT = parseInt(ops.currentVessel.Orbit.SOIEvent.split(";")[0]);
-        ops.currentVesselPlot.events.soiEntry.marker = L.marker({lat: parseFloat(ops.currentVessel.Orbit.SOIEvent.split(";")[3]), lng: parseFloat(ops.currentVessel.Orbit.SOIEvent.split(";")[4])}, {icon: KSA_MAP_ICONS.soiEntryIcon}); 
-        var strTimeDate = UTtoDateTime(ops.currentVesselPlot.events.soiEntry.UT);
-        ops.currentVesselPlot.events.soiEntry.marker.bindPopup("<center>Time to Atmospheric Entry<br><span id='soiEntryTime'>" + formatTime(ops.currentVesselPlot.events.soiEntry.UT) + "</span><br><span id='soiEntryDate'>" + strTimeDate.split("@")[0] + '<br>' + strTimeDate.split("@")[1] + "</span> UTC</center>", { autoClose: false });
-        ops.currentVesselPlot.events.soiEntry.marker.on('click', function(e) {
-          $('#soiEntryTime').html(formatTime(ops.currentVesselPlot.events.soiEntry.UT - currUT()));
-        });
-        ops.currentVesselPlot.obtData[ops.currentVesselPlot.obtData.length-1].layer.addLayer(ops.currentVesselPlot.events.soiEntry.marker);
+        strEvent = "Atmospheric Entry";
+        ops.currentVesselPlot.events.soi.marker = L.marker(latlng, {icon: KSA_MAP_ICONS.soiEntryIcon}); 
       } 
       else if (ops.currentVessel.Orbit.SOIEvent.split(";")[1] == "exit") {
-
-        // add the marker, assign its information popup and give it a callback for instant update when opened, then add it to the current layer
-        ops.currentVesselPlot.events.soiExit.UT = parseInt(ops.currentVessel.Orbit.SOIEvent.split(";")[0]);
-        ops.currentVesselPlot.events.soiExit.marker = L.marker({lat: parseFloat(ops.currentVessel.Orbit.SOIEvent.split(";")[3]), lng: parseFloat(ops.currentVessel.Orbit.SOIEvent.split(";")[4])}, {icon: KSA_MAP_ICONS.soiExitIcon}); 
-        var strTimeDate = UTtoDateTime(ops.currentVesselPlot.events.soiExit.UT);
-        ops.currentVesselPlot.events.soiExit.marker.bindPopup("<center>Time to Kerbin SOI Exit<br><span id='soiExitTime'>" + formatTime(ops.currentVesselPlot.events.soiExit.UT) + "</span><br><span id='soiExitDate'>" + strTimeDate.split("@")[0] + '<br>' + strTimeDate.split("@")[1] + "</span> UTC</center>", { autoClose: false });
-        ops.currentVesselPlot.events.soiExit.marker.on('click', function(e) {
-          $('#soiExitTime').html(formatTime(ops.currentVesselPlot.events.soiExit.UT - currUT()));
-        });
-        ops.currentVesselPlot.obtData[ops.currentVesselPlot.obtData.length-1].layer.addLayer(ops.currentVesselPlot.events.soiExit.marker);
+        strEvent = "SOI Exit";
+        ops.currentVesselPlot.events.soi.marker = L.marker(latlng, {icon: KSA_MAP_ICONS.soiExitIcon}); 
       }
-    }
+ 
+      // add the marker, assign its information popup and give it a callback for instant update when opened, then add it to the current layer
+      ops.currentVesselPlot.events.soi.UT = parseInt(ops.currentVessel.Orbit.SOIEvent.split(";")[0]);
+      var strTimeDate = UTtoDateTime(ops.currentVesselPlot.events.soi.UT);
+      ops.currentVesselPlot.events.soi.marker.bindPopup("<center>Time to " + strEvent + "<br><span id='soiTime'>" + formatTime(ops.currentVesselPlot.events.soi.UT) + "</span><br><span id='soiDate'>" + strTimeDate.split("@")[0] + '<br>' + strTimeDate.split("@")[1] + "</span> UTC</center>", { autoClose: false });
+      ops.currentVesselPlot.events.soi.marker.on('click', function(e) {
+        $('#soiTime').html(formatTime(ops.currentVesselPlot.events.soi.UT - currUT()));
+      });
+      ops.currentVesselPlot.obtData[ops.currentVesselPlot.obtData.length-1].layer.addLayer(ops.currentVesselPlot.events.soi.marker);
+   }
 
     // gather up the lat/lng positions into the paths to render
     var path = [];
@@ -1084,15 +1061,22 @@ function renderVesselOrbit() {
   
   // if there is no orbit then there was an SOI event prior to this UT
   } else {
-    ops.currentVesselPlot.events.soiEntry.marker = L.marker({lat: parseFloat(ops.currentVessel.Orbit.SOIEvent.split(";")[3]), lng: parseFloat(ops.currentVessel.Orbit.SOIEvent.split(";")[4])}, {icon: KSA_MAP_ICONS.soiEntryIcon}); 
-    ops.currentVesselPlot.events.soiEntry.marker.addTo(ops.surface.map)
-    ops.currentVesselPlot.events.soiEntry.marker.bindPopup("<center>" + UTtoDateTime(parseInt(ops.currentVessel.Orbit.SOIEvent.split(";")[0])).split("@")[1] + " UTC<br>Telemetry data invalid due to " + ops.currentVessel.Orbit.SOIEvent.split(";")[2] + "<br>Please stand by for update</center>", { autoClose: false });
-    ops.currentVesselPlot.events.soiEntry.marker.openPopup();
-    ops.surface.map.setView(ops.currentVesselPlot.events.soiEntry.marker.getLatLng());
+      var latlng = {lat: parseFloat(ops.currentVessel.Orbit.SOIEvent.split(";")[3]), 
+                    lng: parseFloat(ops.currentVessel.Orbit.SOIEvent.split(";")[4])};
+      if (ops.currentVessel.Orbit.SOIEvent.split(";")[1] == "entry") {
+        ops.currentVesselPlot.events.soi.marker = L.marker(latlng, {icon: KSA_MAP_ICONS.soiEntryIcon}); 
+      } 
+      else if (ops.currentVessel.Orbit.SOIEvent.split(";")[1] == "exit") {
+        ops.currentVesselPlot.events.soi.marker = L.marker(latlng, {icon: KSA_MAP_ICONS.soiExitIcon}); 
+      }
+    ops.currentVesselPlot.events.soi.marker.addTo(ops.surface.map)
+    ops.currentVesselPlot.events.soi.marker.bindPopup("<center>" + UTtoDateTime(parseInt(ops.currentVessel.Orbit.SOIEvent.split(";")[0])).split("@")[1] + " UTC<br>Telemetry data invalid due to " + ops.currentVessel.Orbit.SOIEvent.split(";")[2] + "<br>Please stand by for update</center>", { autoClose: false });
+    ops.currentVesselPlot.events.soi.marker.openPopup();
+    ops.surface.map.setView(ops.currentVesselPlot.events.soi.marker.getLatLng());
   }
 
   // are there still more orbits to render? Don't continue if the rendering has been cancelled or there are SOI markers present
-  if (ops.currentVesselPlot.numOrbitRenders > ops.currentVesselPlot.obtData.length && !KSA_UI_STATE.isOrbitRenderCancelled && (!ops.currentVesselPlot.events.soiExit.marker && !ops.currentVesselPlot.events.soiEntry.marker)) { 
+  if (ops.currentVesselPlot.numOrbitRenders > ops.currentVesselPlot.obtData.length && !KSA_UI_STATE.isOrbitRenderCancelled && (!ops.currentVesselPlot.events.soi.marker)) { 
     
     // update the dialog box and call another round
     $(".ui-progressbar-value").css("background-color", KSA_COLORS.vesselOrbitColors[ops.currentVesselPlot.obtData.length]);
@@ -1639,12 +1623,9 @@ function selectVesselOnBodyMap(vesselId) {
   if (vesselObj.obtData.marker) {
     ops.surface.map.setView(vesselObj.obtData.marker.getLatLng(), 3);
     vesselObj.obtData.marker.openPopup();
-  } else if (vesselObj.obtData.events.soiExit.marker) {
-    ops.surface.map.setView(vesselObj.obtData.events.soiExit.marker.getLatLng(), 3);
-    vesselObj.obtData.events.soiExit.marker.openPopup();
-  } else if (vesselObj.obtData.events.soiEntry.marker) {
-    ops.surface.map.setView(vesselObj.obtData.events.soiEntry.marker.getLatLng(), 3);
-    vesselObj.obtData.events.soiEntry.marker.openPopup();
+  } else if (vesselObj.obtData.events.soi.marker) {
+    ops.surface.map.setView(vesselObj.obtData.events.soi.marker.getLatLng(), 3);
+    vesselObj.obtData.events.soi.marker.openPopup();
   }
 }
 
@@ -2500,8 +2481,7 @@ function renderBodyOrbit() {
       if (currObj.obtData.marker && currObj.obtData.marker.isPopupOpen()) bReturnFocus = true;
       if (currObj.obtData.events.ap.marker && currObj.obtData.events.ap.marker.isPopupOpen()) bReturnFocus = true;
       if (currObj.obtData.events.pe.marker && currObj.obtData.events.pe.marker.isPopupOpen()) bReturnFocus = true;
-      if (currObj.obtData.events.soiEntry.marker && currObj.obtData.events.soiEntry.marker.isPopupOpen()) bReturnFocus = true;
-      if (currObj.obtData.events.soiExit.marker && currObj.obtData.events.soiExit.marker.isPopupOpen()) bReturnFocus = true;
+      if (currObj.obtData.events.soi.marker && currObj.obtData.events.soi.marker.isPopupOpen()) bReturnFocus = true;
       if (currObj.obtData.events.node.marker && currObj.obtData.events.node.marker.isPopupOpen()) bReturnFocus = true;
 
       // remove the main marker
@@ -2519,8 +2499,7 @@ function renderBodyOrbit() {
       // remove event markers
       if (currObj.obtData.events.ap.marker) currLayer.group.removeLayer(currObj.obtData.events.ap.marker);
       if (currObj.obtData.events.pe.marker) currLayer.group.removeLayer(currObj.obtData.events.pe.marker);
-      if (currObj.obtData.events.soiEntry.marker) currLayer.group.removeLayer(currObj.obtData.events.soiEntry.marker);
-      if (currObj.obtData.events.soiExit.marker) currLayer.group.removeLayer(currObj.obtData.events.soiExit.marker);
+      if (currObj.obtData.events.soi.marker) currLayer.group.removeLayer(currObj.obtData.events.soi.marker);
       if (currObj.obtData.events.node.marker) currLayer.group.removeLayer(currObj.obtData.events.node.marker);
     }
   }
@@ -2535,8 +2514,7 @@ function renderBodyOrbit() {
     events: {
       pe: { marker: null, UT: null },
       ap: { marker: null, UT: null },
-      soiEntry: { marker: null },
-      soiExit: { marker: null },
+      soi: { marker: null },
       node: { marker: null}
     }
   };
@@ -2599,61 +2577,28 @@ function renderBodyOrbit() {
 
     // does this orbit terminate in an SOI event?
     if (currObj.orbit.SOIEvent) {
+      var strEvent;
+      var latlng = {lat: parseFloat(currObj.orbit.SOIEvent.split(";")[3]), 
+                    lng: parseFloat(currObj.orbit.SOIEvent.split(";")[4])};
       if (currObj.orbit.SOIEvent.split(";")[1] == "entry") {
-
-        // add the marker, assign its information popup and give it a callback for instant update when opened, then add it to the current layer
-        currObj.obtData.events.soiEntry.UT = parseInt(currObj.orbit.SOIEvent.split(";")[0]);
-        currObj.obtData.events.soiEntry.marker = L.marker({lat: parseFloat(currObj.orbit.SOIEvent.split(";")[3]), lng: parseFloat(currObj.orbit.SOIEvent.split(";")[4])}, {icon: KSA_MAP_ICONS.soiEntryIcon}); 
-        var strTimeDate = UTtoDateTime(currObj.obtData.events.soiEntry.UT);
-        currObj.obtData.events.soiEntry.marker.bindPopup("<center>Time to Atmospheric Entry<br><span id='soiEntryTimeSurface'>" + formatTime(currObj.obtData.events.soiEntry.UT) + "</span><br><span id='soiEntryDateSurface'>" + strTimeDate.split("@")[0] + '<br>' + strTimeDate.split("@")[1] + "</span> UTC</center>", { autoClose: false });
-        currObj.obtData.events.soiEntry.marker.on('click', function(e) {
-          $('#soiEntryTimeSurface').html(formatTime(currObj.obtData.events.soiEntry.UT - currUT()));
-        });
-        currLayer.group.addLayer(currObj.obtData.events.soiEntry.marker);
-        currObj.obtData.events.soiEntry.reason = currObj.orbit.SOIEvent.split(";")[2];
+        strEvent = "Atmospheric Entry";
+        currObj.obtData.events.soi.marker = L.marker(latlng, {icon: KSA_MAP_ICONS.soiEntryIcon}); 
       } 
       else if (currObj.orbit.SOIEvent.split(";")[1] == "exit") {
-
-        // add the marker, assign its information popup and give it a callback for instant update when opened, then add it to the current layer
-        currObj.obtData.events.soiExit.UT = parseInt(currObj.orbit.SOIEvent.split(";")[0]);
-        currObj.obtData.events.soiExit.marker = L.marker({lat: parseFloat(currObj.orbit.SOIEvent.split(";")[3]), lng: parseFloat(currObj.orbit.SOIEvent.split(";")[4])}, {icon: KSA_MAP_ICONS.soiExitIcon}); 
-        var strTimeDate = UTtoDateTime(currObj.obtData.events.soiExit.UT);
-        currObj.obtData.events.soiExit.marker.bindPopup("<center>Time to Kerbin SOI Exit<br><span id='soiExitTimeSurface'>" + formatTime(currObj.obtData.events.soiExit.UT) + "</span><br><span id='soiExitDateSurface'>" + strTimeDate.split("@")[0] + '<br>' + strTimeDate.split("@")[1] + "</span> UTC</center>", { autoClose: false });
-        currObj.obtData.events.soiExit.marker.on('click', function(e) {
-          $('#soiExitTimeSurface').html(formatTime(currObj.obtData.events.soiExit.UT - currUT()));
-        });
-        currLayer.group.addLayer(currObj.obtData.events.soiExit.marker);
-        currObj.obtData.events.soiExit.reason = currObj.orbit.SOIEvent.split(";")[2];
+        strEvent = "SOI Exit";
+        currObj.obtData.events.soi.marker = L.marker(latlng, {icon: KSA_MAP_ICONS.soiExitIcon}); 
       }
+
+      // add the marker, assign its information popup and give it a callback for instant update when opened, then add it to the current layer
+      currObj.obtData.events.soi.UT = parseInt(currObj.orbit.SOIEvent.split(";")[0]);
+      var strTimeDate = UTtoDateTime(currObj.obtData.events.soi.UT);
+      currObj.obtData.events.soi.marker.bindPopup("<center>Time to " + strEvent + "<br><span id='soiTimeSurface'>" + formatTime(currObj.obtData.events.soi.UT) + "</span><br><span id='soiDateSurface'>" + strTimeDate.split("@")[0] + '<br>' + strTimeDate.split("@")[1] + "</span> UTC</center>", { autoClose: false });
+      currObj.obtData.events.soi.marker.on('click', function(e) {
+        $('#soiTimeSurface').html(formatTime(currObj.obtData.events.soi.UT - currUT()));
+      });
+      currLayer.group.addLayer(currObj.obtData.events.soi.marker);
+      currObj.obtData.events.soi.reason = currObj.orbit.SOIEvent.split(";")[2];
     }
-
-    // if (KSA_CALCULATIONS.obtDataCalcSfc.obt[KSA_CALCULATIONS.obtDataCalcSfc.obt.length-1].alt <= 70) {
-
-    //   // add the marker, assign its information popup and give it a callback for instant update when opened, then add it to the current layer
-    //   currObj.obtData.events.soiEntry.UT = KSA_CALCULATIONS.obtDataCalcSfc.UT;
-    //   currObj.obtData.events.soiEntry.marker = L.marker(KSA_CALCULATIONS.obtDataCalcSfc.obt[KSA_CALCULATIONS.obtDataCalcSfc.obt.length-1].latlng, {icon: KSA_MAP_ICONS.soiEntryIcon}); 
-    //   var strTimeDate = UTtoDateTime(currObj.obtData.events.soiEntry.UT);
-    //   currObj.obtData.events.soiEntry.marker.bindPopup("<center>Time to Atmospheric Entry<br><span id='soiEntryTimeSurface'>" + formatTime(currObj.obtData.events.soiEntry.UT) + "</span><br><span id='soiEntryDateSurface'>" + strTimeDate.split("@")[0] + '<br>' + strTimeDate.split("@")[1] + "</span> UTC</center>", { autoClose: false });
-    //   currObj.obtData.events.soiEntry.marker.on('click', function(e) {
-    //     $('#soiEntryTimeSurface').html(formatTime(currObj.obtData.events.soiEntry.UT - currUT()));
-    //   });
-    //   currLayer.group.addLayer(currObj.obtData.events.soiEntry.marker);
-    //   if (currObj.orbit.SOIEvent) currObj.obtData.events.soiEntry.reason = currObj.orbit.SOIEvent.split(";")[2];
-    // } 
-
-    // else if (KSA_CALCULATIONS.obtDataCalcSfc.obt[KSA_CALCULATIONS.obtDataCalcSfc.obt.length-1].alt >= 83559.2865) {
-
-    //   // add the marker, assign its information popup and give it a callback for instant update when opened, then add it to the current layer
-    //   currObj.obtData.events.soiExit.UT = KSA_CALCULATIONS.obtDataCalcSfc.UT;
-    //   currObj.obtData.events.soiExit.marker = L.marker(KSA_CALCULATIONS.obtDataCalcSfc.obt[KSA_CALCULATIONS.obtDataCalcSfc.obt.length-1].latlng, {icon: KSA_MAP_ICONS.soiExitIcon}); 
-    //   var strTimeDate = UTtoDateTime(currObj.obtData.events.soiExit.UT);
-    //   currObj.obtData.events.soiExit.marker.bindPopup("<center>Time to Kerbin SOI Exit<br><span id='soiExitTimeSurface'>" + formatTime(currObj.obtData.events.soiExit.UT) + "</span><br><span id='soiExitDateSurface'>" + strTimeDate.split("@")[0] + '<br>' + strTimeDate.split("@")[1] + "</span> UTC</center>", { autoClose: false });
-    //   currObj.obtData.events.soiExit.marker.on('click', function(e) {
-    //     $('#soiExitTimeSurface').html(formatTime(currObj.obtData.events.soiExit.UT - currUT()));
-    //   });
-    //   currLayer.group.addLayer(currObj.obtData.events.soiExit.marker);
-    //   if (currObj.orbit.SOIEvent) currObj.obtData.events.soiExit.reason = currObj.orbit.SOIEvent.split(";")[2];
-    // }
   }
 
   // gather up the lat/lng positions into the paths to render
