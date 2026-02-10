@@ -1183,9 +1183,16 @@ function assignPartInfo() {
 // called only to update the vessel data after it has already been loaded initially
 function updateVesselData(vessel) {
 
-  // check if this vessel has any orbital data
-  loadDB("loadVesselOrbitData.asp?db=" + vessel.id + "&ut=" + currUT(), addGGBOrbitAJAX);
-  
+  // check if this vessel has any orbital data to update
+  if (vessel.FutureData.Orbit && vessel.FutureData.Orbit.UT <= currUT()) {
+    loadDB("loadVesselOrbitData.asp?db=" + vessel.id + "&ut=" + currUT(), addGGBOrbitAJAX);
+    var currObj = KSA_CATALOGS.bodyPaths.paths.find(o => o.name === vessel.id);
+    currObj.isCalculated = false;
+    currObj.isCalculating = false;
+    currObj.orbit = vessel.FutureData.Orbit;
+    calculateSurfaceTracks(currObj.name, "refresh");
+  }
+
   // perform a live data update if we are looking at the vessel in question at the moment 
   if (ops.pageType == "vessel" && ops.currentVessel.Catalog.DB == vessel.id) {
 
@@ -1240,8 +1247,36 @@ function updateVesselData(vessel) {
     // behavior of tooltips depends on the device
     if (is_touch_device()) showOpt = 'click';
     else showOpt = 'mouseenter';
-    Tipped.create('.tipped', { showOn: showOpt, hideOnClickOutside: is_touch_device(), detach: false, hideOn: {element: 'mouseleave'} });
-    Tipped.create('.tip-update', { showOn: showOpt, hideOnClickOutside: is_touch_device(), detach: false, hideOn: {element: 'mouseleave'} });
+    Tipped.create('.tipped', { 
+      showOn: showOpt, 
+      hideOnClickOutside: is_touch_device(), 
+      detach: false, 
+      hideOn: {element: 'mouseleave'},
+      onShow: function(content, element) {
+        // Remove change indicator from the parent dataField when tooltip is shown
+        $(element).closest('[id^="dataField"]').find('.change-indicator').animate({
+          opacity: 0,
+          right: '-20px'
+        }, 300, function() {
+          $(this).remove();
+        });
+      }
+    });
+    Tipped.create('.tip-update', { 
+      showOn: showOpt, 
+      hideOnClickOutside: is_touch_device(), 
+      detach: false, 
+      hideOn: {element: 'mouseleave'},
+      onShow: function(content, element) {
+        // Remove change indicator from the parent dataField when tooltip is shown
+        $(element).closest('[id^="dataField"]').find('.change-indicator').animate({
+          opacity: 0,
+          right: '-20px'
+        }, 300, function() {
+          $(this).remove();
+        });
+      }
+    });
   } 
 
   // fetch new data. Add a second just to make sure we don't get the same current data
@@ -1628,7 +1663,21 @@ function setupStreamingAscent() {
   // behavior of tooltips depends on the device
   if (is_touch_device()) showOpt = 'click';
   else showOpt = 'mouseenter';
-  Tipped.create('.tipped', { showOn: showOpt, hideOnClickOutside: is_touch_device(), detach: false, hideOn: {element: 'mouseleave'} });
+  Tipped.create('.tipped', { 
+    showOn: showOpt, 
+    hideOnClickOutside: is_touch_device(), 
+    detach: false, 
+    hideOn: {element: 'mouseleave'},
+    onShow: function(content, element) {
+      // Remove change indicator from the parent dataField when tooltip is shown
+      $(element).closest('[id^="dataField"]').find('.change-indicator').animate({
+        opacity: 0,
+        right: '-20px'
+      }, 300, function() {
+        $(this).remove();
+      });
+    }
+  });
 
   // content area
   showMap();

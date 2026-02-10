@@ -1368,6 +1368,10 @@ function tick(utDelta = 1000, rapidFireMode = false) {
         } else if (ops.currentVesselPlot && ops.currentVesselPlot.obtData.length) {
           var now = getPlotIndex();
 
+          // we could have FF'd beyond the end of the plot, so just clamp to the end if that happens
+          if (!now) now = {obtNum: ops.currentVesselPlot.obtData.length-1, 
+                           index: ops.currentVesselPlot.obtData[ops.currentVesselPlot.obtData.length-1].orbit.length-1};
+
           // update craft position and popup content
           var cardinal = getLatLngCompass(ops.currentVesselPlot.obtData[now.obtNum].orbit[now.index].latlng);
           KSA_MAP_CONTROLS.vesselMarker.setLatLng(ops.currentVesselPlot.obtData[now.obtNum].orbit[now.index].latlng);
@@ -1375,6 +1379,12 @@ function tick(utDelta = 1000, rapidFireMode = false) {
           $('#lng').html(numeral(ops.currentVesselPlot.obtData[now.obtNum].orbit[now.index].latlng.lng).format('0.0000') + "&deg;" + cardinal.lng);
           $('#alt').html(numeral(ops.currentVesselPlot.obtData[now.obtNum].orbit[now.index].alt).format('0,0.000') + " km");
           $('#vel').html(numeral(ops.currentVesselPlot.obtData[now.obtNum].orbit[now.index].vel).format('0,0.000') + " km/s");
+
+          // if the vessel marker has its popup open, keep the map centered on it
+          // only if it was opened by centering from the path popup 
+          if (KSA_MAP_CONTROLS.vesselMarker.isPopupOpen() && ops.currentVesselPlot.isCentered) {
+            ops.surface.map.setView(KSA_MAP_CONTROLS.vesselMarker.getLatLng());
+          }
 
           // create the horizon if needed, else update it
           if (ops.surface.map.hasLayer(KSA_MAP_CONTROLS.vesselMarker)) {
@@ -1400,13 +1410,14 @@ function tick(utDelta = 1000, rapidFireMode = false) {
             $('#soiEntryTime').html(formatTime(ops.currentVesselPlot.events.soiEntry.UT - currUT()));
 
             // if we've hit or exceeded the entry time, remove the vessel marker and update the entry marker popup
-            if (ops.currentVesselPlot.events.soiEntry.UT-1 <= currUT()) {
+            if (ops.currentVesselPlot.events.soiEntry.UT <= currUT()) {
               ops.currentVesselPlot.events.soiEntry.marker.closePopup();
               ops.surface.map.removeLayer(KSA_MAP_CONTROLS.vesselMarker);
-              KSA_LAYERS.groundMarkers.layerGroundStations.removeLayer(KSA_MAP_CONTROLS.vesselHorizon.vessel);
+              if (KSA_LAYERS.groundMarkers.layerGroundStations.hasLayer(KSA_MAP_CONTROLS.vesselHorizon.vessel)) KSA_LAYERS.groundMarkers.layerGroundStations.removeLayer(KSA_MAP_CONTROLS.vesselHorizon.vessel);
               KSA_MAP_CONTROLS.vesselMarker = null;
+              ops.currentVesselPlot.isCentered = false;
               KSA_MAP_CONTROLS.vesselHorizon.vessel = null;
-              ops.currentVesselPlot.events.soiEntry.marker.bindPopup("<center>" + UTtoDateTime(currUT()).split("@")[1] + " UTC<br>Telemetry data invalid due to " + ops.currentVessel.Orbit.SOIEvent.split(";")[2] + "<br>Please stand by for update</center>", { autoClose: false });
+              ops.currentVesselPlot.events.soiEntry.marker.bindPopup("<center>" + UTtoDateTime(parseInt(ops.currentVessel.Orbit.SOIEvent.split(";")[0])).split("@")[1] + " UTC<br>Telemetry data invalid due to " + ops.currentVessel.Orbit.SOIEvent.split(";")[2] + "<br>Please stand by for update</center>", { autoClose: false });
               ops.currentVesselPlot.events.soiEntry.marker.openPopup();
             }
           }
@@ -1455,6 +1466,9 @@ function tick(utDelta = 1000, rapidFireMode = false) {
               }
             }
           }
+
+          // check if we have run out of plot data
+          // if (!getPlotIndex()) console.log("Ran out of plot data to display for vessel " + ops.currentVessel.Name + " at UT " + currUT() + ". Consider loading more data if this is a past event or waiting for an update if this is a live event.");
         }
       }
     }
@@ -1464,60 +1478,72 @@ function tick(utDelta = 1000, rapidFireMode = false) {
   if (KSA_CATALOGS.bodyPaths.paths.length) {
    KSA_CATALOGS.bodyPaths.paths.forEach(function(object) {
       if (object.obtData) {
-        var now = currUT() - object.obtData.startUT;
-        var currLayer =KSA_CATALOGS.bodyPaths.layers.find(o => o.type === object.type);
+        var currLayer = KSA_CATALOGS.bodyPaths.layers.find(o => o.type === object.type);
+
+        // we could have FF'd beyond the end of the plot, so just clamp to the end if that happens
+        if (currUT() > object.obtData.endUT) var now = object.obtData.orbit.length-1;
+        else var now = currUT() - object.obtData.startUT;
 
         // update craft position and popup content
-        if (object.obtData.marker) object.obtData.marker.setLatLng(object.obtData.orbit[now].latlng);
+        if (object.obtData.marker) {
+          object.obtData.marker.setLatLng(object.obtData.orbit[now].latlng);
 
-        // only perform these actions if this is the selected vessel
-        if (object.isSelected) {
+          // only perform these actions if this is the selected vessel
+          if (object.isSelected) {
 
-          // update the popup
-          var cardinal = getLatLngCompass(object.obtData.orbit[now].latlng);
-          $('#latSurface').html(numeral(object.obtData.orbit[now].latlng.lat).format('0.0000') + "&deg;" + cardinal.lat);
-          $('#lngSurface').html(numeral(object.obtData.orbit[now].latlng.lng).format('0.0000') + "&deg;" + cardinal.lng);
-          $('#altSurface').html(numeral(object.obtData.orbit[now].alt).format('0,0.000') + " km");
-          $('#velSurface').html(numeral(object.obtData.orbit[now].vel).format('0,0.000') + " km/s");
+            // update the popup
+            var cardinal = getLatLngCompass(object.obtData.orbit[now].latlng);
+            $('#latSurface').html(numeral(object.obtData.orbit[now].latlng.lat).format('0.0000') + "&deg;" + cardinal.lat);
+            $('#lngSurface').html(numeral(object.obtData.orbit[now].latlng.lng).format('0.0000') + "&deg;" + cardinal.lng);
+            $('#altSurface').html(numeral(object.obtData.orbit[now].alt).format('0,0.000') + " km");
+            $('#velSurface').html(numeral(object.obtData.orbit[now].vel).format('0,0.000') + " km/s");
 
-          // update the horizon
-          if (KSA_MAP_CONTROLS.vesselHorizon.vessel) {
-            var horizonRadius = calculateHorizonRadius(object.obtData.orbit[now].alt * 1000);
-            KSA_MAP_CONTROLS.vesselHorizon.vessel.setLatLng(object.obtData.marker.getLatLng());
-            KSA_MAP_CONTROLS.vesselHorizon.vessel.setRadius(horizonRadius);
+            // update the horizon
+            if (KSA_MAP_CONTROLS.vesselHorizon.vessel) {
+              var horizonRadius = calculateHorizonRadius(object.obtData.orbit[now].alt * 1000);
+              KSA_MAP_CONTROLS.vesselHorizon.vessel.setLatLng(object.obtData.marker.getLatLng());
+              KSA_MAP_CONTROLS.vesselHorizon.vessel.setRadius(horizonRadius);
+            }
+
+            // if the vessel marker has its popup open, keep the map centered on it
+            // only if it was opened by centering from the path popup
+            if (object.obtData.marker.isPopupOpen() && object.isCentered) {
+              ops.surface.map.setView(object.obtData.marker.getLatLng());
+            }
           }
-        }
-        
-        // update Soi markers if they exist
-        if (object.obtData.events.soiEntry.marker) {
-          $('#soiEntryTime').html(formatTime(object.obtData.events.soiEntry.UT - currUT()));
+          
+          // update Soi markers if they exist
+          if (object.obtData.events.soiEntry.marker) {
+            $('#soiEntryTimeSurface').html(formatTime(object.obtData.events.soiEntry.UT - currUT()));
 
-          // if we've hit or exceeded the entry time, remove the vessel marker and update the entry marker popup
-          if (object.obtData.events.soiEntry.UT-1 <= currUT()) {
-            object.obtData.events.soiEntry.marker.closePopup();
-            currLayer.group.removeLayer(object.obtData.marker);
-            object.obtData.marker = null;
-            object.obtData.events.soiEntry.marker.bindPopup("<center>" + UTtoDateTime(currUT()).split("@")[1] + " UTC<br>Telemetry data invalid due to " + object.obtData.events.soiEntry.reason + "<br>Please stand by for update</center>", { autoClose: false });
-            object.obtData.events.soiEntry.marker.openPopup();
+            // if we've hit or exceeded the entry time, remove the vessel marker and update the entry marker popup
+            if (object.obtData.events.soiEntry.UT <= currUT()) {
+              object.obtData.events.soiEntry.marker.closePopup();
+              currLayer.group.removeLayer(object.obtData.marker);
+              object.obtData.marker = null;
+              object.isCentered = false;
+              object.obtData.events.soiEntry.marker.bindPopup("<center>" + UTtoDateTime(parseInt(object.orbit.SOIEvent.split(";")[0])).split("@")[1] + " UTC<br>Telemetry data for " + currName(ops.activeVessels.find(o => o.db === object.name)) + " invalid due to " + object.obtData.events.soiEntry.reason + "<br>Please stand by for update<br><br><span class='fauxLink' onclick='markerHandler(\"" + object.name + "\", " + object.isVessel + ")'>View Vessel Page</span></center>", { autoClose: false });
+              object.obtData.events.soiEntry.marker.openPopup();
+            }
           }
-        }
-        else if (object.obtData.events.soiExit.marker) $('#soiExitTimeSurface').html(formatTime(object.obtData.events.soiExit.UT - currUT()));
+          else if (object.obtData.events.soiExit.marker) $('#soiExitTimeSurface').html(formatTime(object.obtData.events.soiExit.UT - currUT()));
 
-        // update the Ap/Pe markers if they exist, and check for passing
-        if (object.obtData.events.ap.marker) {
-          $('#apTimeSurface').html(formatTime(object.obtData.events.ap.UT - currUT()));
-          if (object.obtData.events.ap.UT <= currUT()) {
+          // update the Ap/Pe markers if they exist, and check for passing
+          if (object.obtData.events.ap.marker) {
+            $('#apTimeSurface').html(formatTime(object.obtData.events.ap.UT - currUT()));
+            if (object.obtData.events.ap.UT <= currUT()) {
 
-            // remove the marker from the current layer and null it out
-            currLayer.group.removeLayer(object.obtData.events.ap.marker);
-            object.obtData.events.ap.marker = null;
+              // remove the marker from the current layer and null it out
+              currLayer.group.removeLayer(object.obtData.events.ap.marker);
+              object.obtData.events.ap.marker = null;
+            }
           }
-        }
-        if (object.obtData.events.pe.marker) {
-          $('#peTimeSurface').html(formatTime(object.obtData.events.pe.UT - currUT()));
-          if (object.obtData.events.pe.UT <= currUT()) {
-              currLayer.group.removeLayer(object.obtData.events.pe.marker); 
-              object.obtData.events.pe.marker = null;
+          if (object.obtData.events.pe.marker) {
+            $('#peTimeSurface').html(formatTime(object.obtData.events.pe.UT - currUT()));
+            if (object.obtData.events.pe.UT <= currUT()) {
+                currLayer.group.removeLayer(object.obtData.events.pe.marker); 
+                object.obtData.events.pe.marker = null;
+            }
           }
         }
       }

@@ -697,6 +697,15 @@ function adjustCount(nodeID, adjust) {
 }
 
 function menuUpdate(type, id) {
+  
+  // we need to check for a current vessel as we may be between content swap and have to call ourselves back
+  if (ops.pageType == "vessel" && !ops.currentVessel) {
+    setTimeout(function() {
+      menuUpdate(type, id);
+    }, 100);
+    return;
+  }
+
   if (type == "soi") {
     w2ui['menu'].remove(id);
     addMenuItem(ops.craftsMenu.find(o => o.db === id), true);
@@ -726,6 +735,14 @@ function menuUpdate(type, id) {
 }
 
 function addMenuItem(item, newAdd = false) {
+
+  // we need to check for a current vessel as we may be between content swap and have to call ourselves back
+  if (ops.pageType == "vessel" && !ops.currentVessel) {
+    setTimeout(function() {
+      addMenuItem(item, newAdd);
+    }, 100);
+    return;
+  }
 
   // figure out what SOI this is in, if any, and whether it's switching to another status later
   var refNumUT = currSOI(item, true);
