@@ -973,7 +973,7 @@ function renderVesselOrbit() {
         // add the marker, assign its information popup and give it a callback for instant update when opened, then add it to the current layer
         ops.currentVesselPlot.events.ap.marker = L.marker(KSA_CALCULATIONS.obtDataCalcVes.obt[apTime].latlng, {icon: KSA_MAP_ICONS.apIcon}); 
         var strTimeDate = UTtoDateTime(KSA_CALCULATIONS.obtDataCalcVes.UT-KSA_CALCULATIONS.obtDataCalcVes.obt.length + apTime);
-        ops.currentVesselPlot.events.ap.marker.bindPopup("<center>Time to Apoapsis<br><span id='apTime'>" + formatTime(apTime) + "</span><br><span id='apDate'>" + strTimeDate.split("@")[0] + '<br>' + strTimeDate.split("@")[1] + "</span> UTC</center>", { autoClose: false });
+        ops.currentVesselPlot.events.ap.marker.bindPopup("<center>" + numeral(KSA_CALCULATIONS.obtDataCalcVes.obt[apTime].alt).format('0,0.000') + "km<br>Time to Apoapsis<br><span id='apTime'>" + formatTime(apTime) + "</span><br><span id='apDate'>" + strTimeDate.split("@")[0] + '<br>' + strTimeDate.split("@")[1] + "</span> UTC</center>", { autoClose: false });
         ops.currentVesselPlot.events.ap.marker.on('click', function(e) {
           $('#apTime').html(formatTime(ops.currentVesselPlot.events.ap.UT - currUT()));
         });
@@ -982,7 +982,7 @@ function renderVesselOrbit() {
       if (!ops.currentVesselPlot.events.pe.marker && peTime < KSA_CALCULATIONS.obtDataCalcVes.obt.length) { 
         ops.currentVesselPlot.events.pe.marker = L.marker(KSA_CALCULATIONS.obtDataCalcVes.obt[peTime].latlng, {icon: KSA_MAP_ICONS.peIcon}); 
         var strTimeDate = UTtoDateTime(KSA_CALCULATIONS.obtDataCalcVes.UT-KSA_CALCULATIONS.obtDataCalcVes.obt.length + peTime);
-        ops.currentVesselPlot.events.pe.marker.bindPopup("<center>Time to Periapsis<br><span id='peTime'>" + formatTime(peTime) + "</span><br><span id='peDate'>" + strTimeDate.split("@")[0] + '<br>' + strTimeDate.split("@")[1] + "</span> UTC</center>", { autoClose: false });
+        ops.currentVesselPlot.events.pe.marker.bindPopup("<center>" + numeral(KSA_CALCULATIONS.obtDataCalcVes.obt[peTime].alt).format('0,0.000') + "km<br>Time to Periapsis<br><span id='peTime'>" + formatTime(peTime) + "</span><br><span id='peDate'>" + strTimeDate.split("@")[0] + '<br>' + strTimeDate.split("@")[1] + "</span> UTC</center>", { autoClose: false });
         ops.currentVesselPlot.events.pe.marker.on('click', function(e) {
           $('#peTime').html(formatTime(ops.currentVesselPlot.events.pe.UT - currUT()));
         });
@@ -1522,7 +1522,7 @@ function showMap() {
         strType = capitalizeFirstLetter(layer.type);
         if (!layer.isLoaded) break;
         if (!strType.endsWith("s")) strType += "s";
-        ops.surface.layerControl.addOverlay(layer.group, "<img src='icon_" + layer.type + ".png' style='width: 15px;'> " + strType, "Orbital Tracks");
+        if (layer.group) ops.surface.layerControl.addOverlay(layer.group, "<img src='icon_" + layer.type + ".png' style='width: 15px;'> " + strType, "Orbital Tracks");
       }
       const allLoaded = KSA_CATALOGS.bodyPaths.layers.every(layer => layer.isLoaded);
 
@@ -1625,7 +1625,7 @@ function selectVesselOnBodyMap(vesselId) {
 
 // because the vessel plot is broken up into distinct orbital periods, we need to do a bit of legwork
 // to determine what index of what plot corresponds to the given UT
-function getPlotIndex(targetUT) {
+function getPlotIndex(targetUT, returnField = null) {
   if (!targetUT) targetUT = currUT();
   
   // check that this UT is even feasible by seeing if it is greater than the last UT of this orbit
@@ -1645,7 +1645,8 @@ function getPlotIndex(targetUT) {
   
   // the time remaining is our current index
   if (totalTime == ops.currentVesselPlot.obtData[currentOrbit].orbit.length) totalTime--;
-  return {obtNum: currentOrbit, index: totalTime};
+  if (returnField) return ops.currentVesselPlot.obtData[currentOrbit].orbit[totalTime][returnField];
+  else return {obtNum: currentOrbit, index: totalTime};
 }
 
 // finds out which orbital data point most closely corresponds to the map location targeted by the cursor by
@@ -2568,7 +2569,7 @@ function renderBodyOrbit() {
       // add the marker, assign its information popup and give it a callback for instant update when opened, then add it to the current layer
       currObj.obtData.events.ap.marker = L.marker(KSA_CALCULATIONS.obtDataCalcSfc.obt[apTime].latlng, {icon: KSA_MAP_ICONS.apIcon}); 
       var strTimeDate = UTtoDateTime(KSA_CALCULATIONS.obtDataCalcSfc.UT-KSA_CALCULATIONS.obtDataCalcSfc.obt.length + apTime);
-      currObj.obtData.events.ap.marker.bindPopup("<center>Time to Apoapsis<br><span id='apTimeSurface'>" + formatTime(apTime) + "</span><br><span id='apDateSurface'>" + strTimeDate.split("@")[0] + '<br>' + strTimeDate.split("@")[1] + "</span> UTC</center>", { autoClose: false });
+      currObj.obtData.events.ap.marker.bindPopup("<center>" + numeral(KSA_CALCULATIONS.obtDataCalcSfc.obt[apTime].alt).format('0,0.000') + "km<br>Time to Apoapsis<br><span id='apTimeSurface'>" + formatTime(apTime) + "</span><br><span id='apDateSurface'>" + strTimeDate.split("@")[0] + '<br>' + strTimeDate.split("@")[1] + "</span> UTC</center>", { autoClose: false });
       currObj.obtData.events.ap.marker.on('click', function(e) {
         $('#apTimeSurface').html(formatTime(currObj.obtData.events.ap.UT - currUT()));
       });
@@ -2576,7 +2577,7 @@ function renderBodyOrbit() {
     if (peTime < KSA_CALCULATIONS.obtDataCalcSfc.obt.length) { 
       currObj.obtData.events.pe.marker = L.marker(KSA_CALCULATIONS.obtDataCalcSfc.obt[peTime].latlng, {icon: KSA_MAP_ICONS.peIcon}); 
       var strTimeDate = UTtoDateTime(KSA_CALCULATIONS.obtDataCalcSfc.UT-KSA_CALCULATIONS.obtDataCalcSfc.obt.length + peTime);
-      currObj.obtData.events.pe.marker.bindPopup("<center>Time to Periapsis<br><span id='peTimeSurface'>" + formatTime(peTime) + "</span><br><span id='peDateSurface'>" + strTimeDate.split("@")[0] + '<br>' + strTimeDate.split("@")[1] + "</span> UTC</center>", { autoClose: false });
+      currObj.obtData.events.pe.marker.bindPopup("<center>" + numeral(KSA_CALCULATIONS.obtDataCalcSfc.obt[peTime].alt).format('0,0.000') + "km<br>Time to Periapsis<br><span id='peTimeSurface'>" + formatTime(peTime) + "</span><br><span id='peDateSurface'>" + strTimeDate.split("@")[0] + '<br>' + strTimeDate.split("@")[1] + "</span> UTC</center>", { autoClose: false });
       currObj.obtData.events.pe.marker.on('click', function(e) {
         $('#peTimeSurface').html(formatTime(currObj.obtData.events.pe.UT - currUT()));
       });
