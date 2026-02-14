@@ -273,19 +273,8 @@ function setupContent() {
       window.location.href = newUrl;
     });
     $("#advanceEvent").click(function() {
-      if (ops.updatesList.length == 0) {
-        $("#siteDialog").html("There are no further historical events to fast forward to");
-        $("#siteDialog").dialog("option", "title", "Notice");
-        $("#siteDialog").dialog( "option", "buttons", [{
-          text: "Close",
-          click: function() {
-            $("#siteDialog").dialog("close");
-          }
-        }]);
-        $("#siteDialog").dialog("open");
-        return;
-      }
 
+      // cancel the FF or start a new one depending on current state
       if ($("#advanceEvent").html().includes("fa-beat")) {
         KSA_TIMERS.tickTimer = null;
         $("#advanceEvent").css('cursor', 'pointer').html("<i class=\"fa-solid fa-forward-fast\" style=\"color: #000000;\"></i>");
@@ -306,19 +295,21 @@ function setupContent() {
         if (bClickAllow) {
 
           // get the next event UT for a crew or vessel if that is what is being viewed
-          var nextEventUT;
-          if (ops.pageType == "vessel" && ops.currentVessel) {
-            nextEventUT = ops.updatesList.find(o => o.id === ops.currentVessel.Catalog.DB);
-            if (nextEventUT) nextEventUT = nextEventUT.UT;
-          } else if (ops.pageType == "crew" && ops.currentCrew) {
-            nextEventUT = ops.updatesList.find(o => o.id === ops.currentCrew.Background.Kerbal);
-            if (nextEventUT) nextEventUT = nextEventUT.UT;
-          } else {
-            nextEventUT = ops.updatesList[0].UT;
+          var nextEventUT = null;
+          if (ops.updatesList.length) {
+            if (ops.pageType == "vessel" && ops.currentVessel) {
+              nextEventUT = ops.updatesList.find(o => o.id === ops.currentVessel.Catalog.DB);
+              if (nextEventUT) nextEventUT = nextEventUT.UT;
+            } else if (ops.pageType == "crew" && ops.currentCrew) {
+              nextEventUT = ops.updatesList.find(o => o.id === ops.currentCrew.Background.Kerbal);
+              if (nextEventUT) nextEventUT = nextEventUT.UT;
+            } else {
+              nextEventUT = ops.updatesList[0].UT;
+            }
           }
 
           // make sure this event doesn't take us past the current live UT
-          if (!nextEventUT || nextEventUT > dateToUT(luxon.DateTime.utc())) {
+          if (!nextEventUT || (nextEventUT && nextEventUT > dateToUT(luxon.DateTime.utc()))) {
             if (ops.pageType == "vessel" || ops.pageType == "crew") $("#siteDialog").html("There are no further historical events for this " + ops.pageType + " to fast forward to");
             else $("#siteDialog").html("There are no further historical events to fast forward to");
             $("#siteDialog").dialog("option", "title", "Notice");
@@ -368,6 +359,13 @@ function setupContent() {
     
     // Setup 1s time advance icon mousedown/mouseup handlers
     $("#advanceTime1s").on('mousedown', function() {
+
+      // guard against advancing past the real time
+      if (currUT() >= dateToUT(luxon.DateTime.utc())-1) {
+        flashUpdate("#ksctime", "#FF0000", "#77C6FF");
+        return;
+      }
+
       clearTimeout(KSA_TIMERS.rapidFireTimer);
       clearTimeout(KSA_TIMERS.tickTimer);
       KSA_TIMERS.tickTimer = setTimeout(tick, 1);
@@ -394,6 +392,12 @@ function setupContent() {
     // Setup 1m time advance icon mousedown/mouseup handlers
     $("#advanceTime1m").on('mousedown', function() {
 
+      // guard against advancing past the real time
+      if (currUT() >= dateToUT(luxon.DateTime.utc())-61) {
+        flashUpdate("#ksctime", "#FF0000", "#77C6FF");
+        return;
+      }
+      
       // if there is a countdown clock, we are viewing that vessel, there is ascent data and the countdown is within 2 minutes, block time advance
       var bClickAllow = true;
       if (!isNaN(KSA_CALCULATIONS.launchCountdown)) {
@@ -1568,6 +1572,14 @@ function tick(utDelta = 1000, rapidFireMode = false) {
   
   // update the UT if timer hasn't been canceled
   if (KSA_TIMERS.tickTimer) ops.tickDelta += utDelta;
+
+  // make sure we don't FF or skip to an update later than the actual real time
+  if (KSA_UI_STATE.isLivePastUT && rapidFireMode && currUT() >= dateToUT(luxon.DateTime.utc())) {
+    ops.tickDelta = (dateToUT(luxon.DateTime.utc()) - ops.UT) * 1000;
+    KSA_TIMERS.tickTimer = null;
+    flashUpdate("#ksctime", "#FF0000", "#77C6FF");
+  }
+
   if (!rapidFireMode && KSA_TIMERS.tickTimer) { 
     
     // if this is viewing current time, keep track of any tab inactivity or time drift

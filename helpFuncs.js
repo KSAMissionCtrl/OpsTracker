@@ -502,10 +502,27 @@ function openTimePicker(currentUT) {
       // Convert to New York time zone
       var nyDateTime = utcDateTime.setZone("America/New_York");
       
-      // Format the display string
-      var displayStr = "UTC: " + utcDateTime.toLocaleString(luxon.DateTime.DATETIME_FULL_WITH_SECONDS);
-      displayStr += "<br>KSC Local: " + nyDateTime.toLocaleString(luxon.DateTime.DATETIME_FULL_WITH_SECONDS);
-      displayStr += " (UTC" + (nyDateTime.offset >= 0 ? "+" : "") + (nyDateTime.offset / 60) + ")";
+      // Format the display string with NaN detection
+      var utcStr = utcDateTime.toLocaleString(luxon.DateTime.DATETIME_FULL_WITH_SECONDS);
+      var nyStr = nyDateTime.toLocaleString(luxon.DateTime.DATETIME_FULL_WITH_SECONDS);
+      var offsetValue = nyDateTime.offset / 60;
+      
+      // Check for invalid values and format in bold red if NaN
+      if (utcStr === "Invalid DateTime" || utcStr.includes("NaN")) {
+        utcStr = '<strong style="color: red;">' + utcStr + '</strong>';
+      }
+      if (nyStr === "Invalid DateTime" || nyStr.includes("NaN")) {
+        nyStr = '<strong style="color: red;">' + nyStr + '</strong>';
+      }
+      if (isNaN(offsetValue)) {
+        offsetValue = '<strong style="color: red;">NaN</strong>';
+      } else {
+        offsetValue = (nyDateTime.offset >= 0 ? "+" : "") + offsetValue;
+      }
+      
+      var displayStr = "UTC: " + utcStr;
+      displayStr += "<br>KSC Local: " + nyStr;
+      displayStr += " (UTC" + offsetValue + ")";
       
       $("#timePickerDisplay").html(displayStr);
     } catch (e) {
