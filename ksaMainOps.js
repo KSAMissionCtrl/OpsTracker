@@ -888,39 +888,45 @@ function updatePage(updateEvent, rapidFireMode = false) {
   // just subtract ops.UT (page load) from the updateEvent.UT to get the delta
   if (KSA_UI_STATE.isLivePastUT) ops.tickDelta = (updateEvent.UT - ops.UT) * 1000;
 
-  // if rapid fire mode is active, we need to reset the tick timer?
-  if (rapidFireMode) {
+  // we only need to kill rapid fire mode if this isn't an orbital-only update and we aren't looking at the vessel it is for
+  // easier logic to just wrap this in a function to skip when needed
+  if (rapidFireMode) killRapidFire(updateEvent);
 
-    // if the ffCancelOnOtherUpdates is not checked, only stop FF for current vessel/crew updates
-    if (!$("#ffCancelOnOtherUpdates").is(":checked")) {
-      if (updateEvent.type == "object" && 
-         ((ops.pageType == "vessel" && ops.currentVessel && updateEvent.id == ops.currentVessel.Catalog.DB) ||
-          (ops.pageType == "crew" && ops.currentCrew && updateEvent.id == ops.currentCrew.Background.Kerbal))) {
-            KSA_TIMERS.tickTimer = null;
-      }
-    } else KSA_TIMERS.tickTimer = null;
-
-    // stop the next event icon from beating if timer was cancelled
-    if (!KSA_TIMERS.tickTimer && $("#advanceEvent").html().includes("fa-beat")) {
-      $("#advanceEvent").css('cursor', 'pointer').html("<i class=\"fa-solid fa-forward-fast\" style=\"color: #000000;\"></i>");
-      Tipped.remove('#advanceEvent');
-      Tipped.create('#advanceEvent', 'FF to next event<br>(reloads if >6hrs to next event)', { showOn: showOpt, hideOnClickOutside: is_touch_device(), position: 'bottom' });
-      $("#ffCancelOnOtherUpdates").prop('checked', KSA_UI_STATE.optUpdateInterrupt);
-    }
-  }
-      
   KSA_UI_STATE.menuSaveSelected = w2ui['menu'].find({selected: true});
   if (KSA_UI_STATE.menuSaveSelected.length == 0) KSA_UI_STATE.menuSaveSelected = null;
   if (updateEvent.type.includes("menu")) menuUpdate(updateEvent.type.split(";")[1], updateEvent.id);
   else if (updateEvent.type == "event") loadDB("loadEventData.asp?UT=" + currUT(), loadEventsAJAX);
-  else if (updateEvent.type == "object") {
+  else if (updateEvent.type == "object" || updateEvent.type == "orbit") {
     var obj = ops.updateData.find(o => o.id === updateEvent.id);
     if (!obj) console.log("unknown object", updateEvent);
     else {
       if (obj.type == "crew") updateCrewData(obj);
-      else if (obj.type == "vessel") updateVesselData(obj);
-      else console.log("unknown update type", obj);
+      else if (obj.type == "vessel") {
+        if (updateEvent.type == "orbit") updateVesselData(obj, false);
+        else updateVesselData(obj);
+      } else console.log("unknown update type", obj);
     }
+  }
+}
+
+function killRapidFire(updateObj) {
+  if (updateObj.type == "orbit" && (ops.pageType != "vessel" || (ops.currentVessel && updateObj.id != ops.currentVessel.Catalog.DB))) return;
+
+  // if the ffCancelOnOtherUpdates is not checked, only stop FF for current vessel/crew updates
+  if (!$("#ffCancelOnOtherUpdates").is(":checked")) {
+    if (updateObj.type == "object" && 
+        ((ops.pageType == "vessel" && ops.currentVessel && updateObj.id == ops.currentVessel.Catalog.DB) ||
+        (ops.pageType == "crew" && ops.currentCrew && updateObj.id == ops.currentCrew.Background.Kerbal))) {
+          KSA_TIMERS.tickTimer = null;
+    }
+  } else KSA_TIMERS.tickTimer = null;
+
+  // stop the next event icon from beating if timer was cancelled
+  if (!KSA_TIMERS.tickTimer && $("#advanceEvent").html().includes("fa-beat")) {
+    $("#advanceEvent").css('cursor', 'pointer').html("<i class=\"fa-solid fa-forward-fast\" style=\"color: #000000;\"></i>");
+    Tipped.remove('#advanceEvent');
+    Tipped.create('#advanceEvent', 'FF to next event<br>(reloads if >6hrs to next event)', { showOn: showOpt, hideOnClickOutside: is_touch_device(), position: 'bottom' });
+    $("#ffCancelOnOtherUpdates").prop('checked', KSA_UI_STATE.optUpdateInterrupt);
   }
 }
 
@@ -1072,7 +1078,20 @@ function loadOpsDataAJAX(xhttp, args = null) {
         updateUT = object.FutureData[prop].UT
       }
     }
-    if (updateUT) ops.updatesList.push({ type: "object", id: object.id, UT: updateUT });
+
+    // we need to do a bit of extra legwork if this object is a vessel and determine if this update is just for orbital data, which 
+    // updates more frequently than the other tables and would cause a lot of unnecessary badging if we treated it like a normal update
+    if (updateUT && xhttp.responseText.includes("Typ3vessel")) {
+      var isOrbitalUpdate = true;
+      for (var prop in object.FutureData) {
+        if (object.FutureData[prop] && object.FutureData[prop].UT && object.FutureData[prop].UT == updateUT && prop != "Orbit") {
+          isOrbitalUpdate = false;
+        }
+      }
+      if (isOrbitalUpdate) ops.updatesList.push({ type: "orbit", id: object.id, UT: updateUT });
+      else ops.updatesList.push({ type: "object", id: object.id, UT: updateUT });
+    }
+    else if (updateUT) ops.updatesList.push({ type: "object", id: object.id, UT: updateUT });
   }
   
   // is there anything that has not been loaded yet?

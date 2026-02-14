@@ -1181,7 +1181,7 @@ function assignPartInfo() {
 }
 
 // called only to update the vessel data after it has already been loaded initially
-function updateVesselData(vessel) {
+function updateVesselData(vessel, isNonObtUpdate = true) {
 
   // check if this vessel has any orbital data to update
   if (vessel.FutureData.Orbit && vessel.FutureData.Orbit.UT <= currUT()) {
@@ -1280,7 +1280,7 @@ function updateVesselData(vessel) {
 
   // fetch new data. Add a second just to make sure we don't get the same current data
   vessel.isLoading = true;
-  loadDB("loadOpsData.asp?db=" + vessel.id + "&UT=" + (currUT()+1) + "&type=" + vessel.type + "&pastUT=NaN", loadOpsDataAJAX, {isRealTimeUpdate: true, id: vessel.id});
+  loadDB("loadOpsData.asp?db=" + vessel.id + "&UT=" + (currUT()+1) + "&type=" + vessel.type + "&pastUT=NaN", loadOpsDataAJAX, {isRealTimeUpdate: isNonObtUpdate, id: vessel.id});
 }
 
 // following functions perform parsing on data strings
