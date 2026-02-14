@@ -1188,9 +1188,8 @@ function updateVesselData(vessel) {
     loadDB("loadVesselOrbitData.asp?db=" + vessel.id + "&ut=" + currUT(), addGGBOrbitAJAX);
     var currObj = KSA_CATALOGS.bodyPaths.paths.find(o => o.name === vessel.id);
     currObj.isCalculated = false;
-    currObj.isCalculating = false;
     currObj.orbit = vessel.FutureData.Orbit;
-    calculateSurfaceTracks(currObj.name, "refresh");
+    calculateSurfaceTracks();
   }
 
   // perform a live data update if we are looking at the vessel in question at the moment 

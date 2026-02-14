@@ -1412,13 +1412,14 @@ function tick(utDelta = 1000, rapidFireMode = false) {
             // if we've hit or exceeded the entry time, remove the vessel marker and update the entry marker popup
             if (ops.currentVesselPlot.events.soi.UT <= currUT()) {
               ops.currentVesselPlot.events.soi.marker.closePopup();
+              ops.currentVesselPlot.events.soi.marker.bindPopup("<center>" + UTtoDateTime(parseInt(ops.currentVessel.Orbit.SOIEvent.split(";")[0])).split("@")[1] + " UTC<br>Telemetry data invalid due to " + ops.currentVessel.Orbit.SOIEvent.split(";")[2] + "<br>Please stand by for update</center>", { autoClose: false });
+              ops.currentVesselPlot.events.soi.marker.openPopup();
               ops.surface.map.removeLayer(KSA_MAP_CONTROLS.vesselMarker);
               if (KSA_LAYERS.groundMarkers.layerGroundStations.hasLayer(KSA_MAP_CONTROLS.vesselHorizon.vessel)) KSA_LAYERS.groundMarkers.layerGroundStations.removeLayer(KSA_MAP_CONTROLS.vesselHorizon.vessel);
               KSA_MAP_CONTROLS.vesselMarker = null;
               ops.currentVesselPlot.isCentered = false;
               KSA_MAP_CONTROLS.vesselHorizon.vessel = null;
-              ops.currentVesselPlot.events.soi.marker.bindPopup("<center>" + UTtoDateTime(parseInt(ops.currentVessel.Orbit.SOIEvent.split(";")[0])).split("@")[1] + " UTC<br>Telemetry data invalid due to " + ops.currentVessel.Orbit.SOIEvent.split(";")[2] + "<br>Please stand by for update</center>", { autoClose: false });
-              ops.currentVesselPlot.events.soi.marker.openPopup();
+              removeMapRefreshButton();
             }
           }
 
@@ -1466,8 +1467,9 @@ function tick(utDelta = 1000, rapidFireMode = false) {
             }
           }
 
-          // check if we have run out of plot data
-          if (!getPlotIndex()) console.log("Ran out of plot data to display for vessel " + ops.currentVessel.Name + " at UT " + currUT() + ". Consider loading more data if this is a past event or waiting for an update if this is a live event.");
+          // check if we have run out of plot data and call for more
+          // except if the vessel marker was removed because of an SOI event
+          if (!getPlotIndex() && KSA_MAP_CONTROLS.vesselMarker) renderMapData();
         }
       }
     }
@@ -1480,7 +1482,7 @@ function tick(utDelta = 1000, rapidFireMode = false) {
         var currLayer = KSA_CATALOGS.bodyPaths.layers.find(o => o.type === object.type);
 
         // we could have FF'd beyond the end of the plot, so just clamp to the end if that happens
-        if (currUT() > object.obtData.endUT) var now = object.obtData.orbit.length-1;
+        if (currUT() >= object.obtData.endUT) var now = object.obtData.orbit.length-1;
         else var now = currUT() - object.obtData.startUT;
 
         // update craft position and popup content
@@ -1505,7 +1507,6 @@ function tick(utDelta = 1000, rapidFireMode = false) {
             }
 
             // if the vessel marker has its popup open, keep the map centered on it
-            // only if it was opened by centering from the path popup
             if (object.obtData.marker.isPopupOpen() && object.isCentered) {
               ops.surface.map.setView(object.obtData.marker.getLatLng());
             }
@@ -1517,12 +1518,19 @@ function tick(utDelta = 1000, rapidFireMode = false) {
 
             // if we've hit or exceeded the entry time, remove the vessel marker and update the entry marker popup
             if (object.obtData.events.soi.UT <= currUT()) {
+
+              // save the state of the popup since we didn't save the popup object to directly modify its contents
+              var bPopped = object.obtData.events.soi.marker.isPopupOpen();
               object.obtData.events.soi.marker.closePopup();
+              object.obtData.events.soi.marker.bindPopup("<center>" + UTtoDateTime(parseInt(object.orbit.SOIEvent.split(";")[0])).split("@")[1] + " UTC<br>Telemetry data for " + currName(ops.activeVessels.find(o => o.db === object.name)) + " invalid due to " + object.obtData.events.soi.reason + "<br>Please stand by for update<br><br><span class='fauxLink' onclick='markerHandler(\"" + object.name + "\", " + object.isVessel + ")'>View Vessel Page</span></center>", { autoClose: false });
+
+              // if the object has its vessel popup open or the SOI popup open, show this notification
+              if (object.obtData.marker.isPopupOpen() || bPopped) {
+                object.obtData.events.soi.marker.openPopup();
+              }
               currLayer.group.removeLayer(object.obtData.marker);
               object.obtData.marker = null;
               object.isCentered = false;
-              object.obtData.events.soi.marker.bindPopup("<center>" + UTtoDateTime(parseInt(object.orbit.SOIEvent.split(";")[0])).split("@")[1] + " UTC<br>Telemetry data for " + currName(ops.activeVessels.find(o => o.db === object.name)) + " invalid due to " + object.obtData.events.soi.reason + "<br>Please stand by for update<br><br><span class='fauxLink' onclick='markerHandler(\"" + object.name + "\", " + object.isVessel + ")'>View Vessel Page</span></center>", { autoClose: false });
-              object.obtData.events.soi.marker.openPopup();
             }
           }
 
@@ -1543,6 +1551,13 @@ function tick(utDelta = 1000, rapidFireMode = false) {
                 object.obtData.events.pe.marker = null;
             }
           }
+        }
+
+        // check if we have run out of plot data and call for more
+        // except if the vessel marker was removed because of an SOI event
+        if (currUT() >= object.obtData.endUT && object.obtData.marker) {
+          object.isCalculated = false;
+          calculateSurfaceTracks();
         }
       }
     });

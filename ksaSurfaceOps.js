@@ -805,21 +805,20 @@ function loadFltDataAJAX(xhttp) {
 }
 
 function renderMapData(updated = false) {
-  if (!ops.currentVesselPlot) {
-    ops.currentVesselPlot = {
-      obtData: [],
-      numOrbitRenders: 3,
-      isCentered: false,
-      events: {
-        pe: { marker: null, UT: null },
-        ap: { marker: null, UT: null },
-        soi: { marker: null },
-        node: { marker: null}
-      },
-      id: ops.currentVessel.Catalog.DB,
-      eph: ops.currentVessel.Orbit.Eph
-    };
-  }
+  var bPopped = clearSurfacePlots();
+  ops.currentVesselPlot = {
+    obtData: [],
+    numOrbitRenders: 3,
+    isCentered: bPopped,
+    events: {
+      pe: { marker: null, UT: null },
+      ap: { marker: null, UT: null },
+      soi: { marker: null },
+      node: { marker: null}
+    },
+    id: ops.currentVessel.Catalog.DB,
+    eph: ops.currentVessel.Orbit.Eph
+  };
 
   // check if we need to wait for the vessel to finish loading or if we need to wait for the base map layers to finish loading
   // or if we have to wait for the GGB to finish loading or if we need to wait for the content area to stop moving
@@ -898,23 +897,8 @@ function renderMapData(updated = false) {
 // does the initial display and configuration for vessel orbital data loading
 function beginOrbitalCalc(numOrbitRenders = 3) {
 
-  clearSurfacePlots();
   KSA_LAYERS.surfaceTracksDataLoad.obtTrackDataLoad = null;
   KSA_CALCULATIONS.strPausedVesselCalculation = null;
-
-  if (ops.currentVesselPlot) ops.currentVesselPlot.obtData.length = 0;
-  ops.currentVesselPlot = {
-    obtData: [],
-    numOrbitRenders: 3,
-    events: {
-      pe: { marker: null, UT: null },
-      ap: { marker: null, UT: null },
-      soi: { marker: null },
-      node: { marker: null}
-    },
-    id: ops.currentVessel.Catalog.DB,
-    eph: ops.currentVessel.Orbit.Eph
-  };
   KSA_CALCULATIONS.obtDataCalcVes.obt.length = 0;
   KSA_UI_STATE.isOrbitRenderCancelled = false;
   KSA_UI_STATE.isVesObtRenderTerminated = false;
@@ -1144,14 +1128,13 @@ function renderVesselOrbit() {
       else $('#centerVesselLink').text("Lock off Vessel");
     });
     
-    // focus in on the vessel position
-    ops.surface.map.setView(KSA_MAP_CONTROLS.vesselMarker.getLatLng(), 3);
-    
-    // open the vessel popup then hide it after 5s
-    if (!KSA_MAP_CONTROLS.vesselMarker.getPopup().isOpen()) {
+    // focus in on the vessel position?
+    if (ops.currentVesselPlot.isCentered) {
+      ops.currentVesselPlot.isCentered = false;
+      ops.surface.map.setView(KSA_MAP_CONTROLS.vesselMarker.getLatLng(), 3);
       KSA_MAP_CONTROLS.vesselMarker.openPopup();
-      setTimeout(function() { if (KSA_MAP_CONTROLS.vesselMarker) KSA_MAP_CONTROLS.vesselMarker.closePopup(); }, 5000);
     }
+    addMapRefreshButton();
   }
 }
 
@@ -1387,10 +1370,10 @@ function orbitalCalc(callback, orbit, dataArray, batchCount = 1000, limit) {
     dataArray.UT++;
     
     // exit the batch prematurely if we've reached the end of the calculation period
-    if (dataArray.obt.length >= limit) break; 
+    if (dataArray.obt.length > limit) break; 
 
     // exit the batch prematurely if we've hit an SOI event
-    if (orbit.SOIEvent && parseInt(orbit.SOIEvent.split(";")[0]) <= dataArray.UT) { 
+    if (orbit.SOIEvent && parseInt(orbit.SOIEvent.split(";")[0]) < dataArray.UT) { 
       bSOILimit = true;
       break;
     }
@@ -1465,6 +1448,7 @@ function removeMapViewButton() {
 function removeVesselMapButtons() {
   removeMapResizeButton();
   removeMapViewButton();
+  removeMapRefreshButton();
 }
 
 // these buttons will go on both vessel and body maps
@@ -1540,15 +1524,25 @@ function showMap() {
         if (!strType.endsWith("s")) strType += "s";
         ops.surface.layerControl.addOverlay(layer.group, "<img src='icon_" + layer.type + ".png' style='width: 15px;'> " + strType, "Orbital Tracks");
       }
+      const allLoaded = KSA_CATALOGS.bodyPaths.layers.every(layer => layer.isLoaded);
 
       // check if anything is still loading
-      if (KSA_CATALOGS.bodyPaths.paths.find(o => o.isCalculating === true)) {
+      var currObj = KSA_CATALOGS.bodyPaths.paths.find(o => o.isCalculating === true);
+      if (currObj) {
         ops.surface.layerControl._expand();
         ops.surface.layerControl.options.collapsed = false;
 
-        // at the break means this is what's still loading
-        if (!KSA_LAYERS.surfaceTracksDataLoad.bodiesTrackDataLoad) KSA_LAYERS.surfaceTracksDataLoad.bodiesTrackDataLoad = L.layerGroup();
-        ops.surface.layerControl.addOverlay(KSA_LAYERS.surfaceTracksDataLoad.bodiesTrackDataLoad, "<i class='fa fa-cog fa-spin'></i> Loading " + capitalizeFirstLetter(strType) + " Data...", "Orbital Tracks");
+        // if there was a break that means strType is what's still loading
+        // otherwise we are refreshing some data
+        if (!allLoaded) {
+          if (!KSA_LAYERS.surfaceTracksDataLoad.bodiesTrackDataLoad) KSA_LAYERS.surfaceTracksDataLoad.bodiesTrackDataLoad = L.layerGroup();
+          ops.surface.layerControl.addOverlay(KSA_LAYERS.surfaceTracksDataLoad.bodiesTrackDataLoad, "<i class='fa fa-cog fa-spin'></i> Loading " + strType + " Data...", "Orbital Tracks");
+        } else {
+          if (currObj.isVessel) var strObjName = currName(ops.activeVessels.find(o => o.db === currObj.name));
+          else var strObjName = currObj.name;
+          if (!KSA_LAYERS.surfaceTracksDataLoad.bodiesTrackDataLoad) KSA_LAYERS.surfaceTracksDataLoad.bodiesTrackDataLoad = L.layerGroup();
+          ops.surface.layerControl.addOverlay(KSA_LAYERS.surfaceTracksDataLoad.bodiesTrackDataLoad, "<i class='fa fa-cog fa-spin'></i> Refreshing " + strObjName + " Data...", "Orbital Tracks");
+        }
       }
     } else if (ops.pageType == "vessel") {
       $("#content").fadeOut();
@@ -1856,21 +1850,29 @@ function getLatLngCompass(latlng) {
 }
 
 // removes all ground plots from the map along with any associated markers
+// checks for any markers with an open popup
 function clearSurfacePlots() {
+  var bPopped = false;
   if (ops.currentVesselPlot) {
+    for (var event in ops.currentVesselPlot.events) {
+      if (ops.currentVesselPlot.events[event].marker) {
+        if (ops.currentVesselPlot.events[event].marker.isPopupOpen()) bPopped = true;
+        ops.surface.map.removeLayer(ops.currentVesselPlot.events[event].marker);
+      }
+    }
+    if (KSA_MAP_CONTROLS.vesselMarker) {
+      if (KSA_MAP_CONTROLS.vesselMarker.isPopupOpen()) bPopped = true;
+      ops.surface.map.removeLayer(KSA_MAP_CONTROLS.vesselMarker);
+    }
+    if (KSA_MAP_CONTROLS.vesselHorizon.vessel) KSA_LAYERS.groundMarkers.layerGroundStations.removeLayer(KSA_MAP_CONTROLS.vesselHorizon.vessel);
+    KSA_MAP_CONTROLS.vesselHorizon.vessel = null;
     ops.currentVesselPlot.obtData.forEach(function(item) { 
       if (item.layer) {
         ops.surface.layerControl.removeLayer(item.layer); 
         ops.surface.map.removeLayer(item.layer);
       }
     });
-    for (var event in ops.currentVesselPlot.events) {
-      if (ops.currentVesselPlot.events[event].marker) ops.surface.map.removeLayer(ops.currentVesselPlot.events[event].marker);
-    }
-    if (KSA_MAP_CONTROLS.vesselMarker) ops.surface.map.removeLayer(KSA_MAP_CONTROLS.vesselMarker);
-    if (KSA_MAP_CONTROLS.vesselHorizon.vessel) KSA_LAYERS.groundMarkers.layerGroundStations.removeLayer(KSA_MAP_CONTROLS.vesselHorizon.vessel);
-    KSA_MAP_CONTROLS.vesselHorizon.vessel = null;
-  }
+  } else bPopped = true;  // first load, so do center on marker
   if (KSA_CATALOGS.fltPaths.length) {
     KSA_CATALOGS.fltPaths.forEach(function(path) {
       ops.surface.layerControl.removeLayer(path.layer); 
@@ -1891,7 +1893,8 @@ function clearSurfacePlots() {
       }
     });
   }
-removeMapRefreshButton();
+  removeMapRefreshButton();
+  return bPopped;
 }
 
 // puts an existing plot of vessel orbits back onto the map
@@ -1911,13 +1914,9 @@ function redrawVesselPlots() {
   }
   if (KSA_MAP_CONTROLS.vesselMarker) {
     KSA_MAP_CONTROLS.vesselMarker.addTo(ops.surface.map);
-    
-    // open the vessel popup then hide it after 5s
+    addMapRefreshButton();
     ops.surface.map.setView(KSA_MAP_CONTROLS.vesselMarker.getLatLng(), 3); 
-    if (!KSA_MAP_CONTROLS.vesselMarker.getPopup().isOpen()) {
-      KSA_MAP_CONTROLS.vesselMarker.openPopup();
-      setTimeout(function() { KSA_MAP_CONTROLS.vesselMarker.closePopup(); }, 5000);
-    }
+    KSA_MAP_CONTROLS.vesselMarker.openPopup();
     if (KSA_MAP_CONTROLS.vesselHorizon.vessel) KSA_LAYERS.groundMarkers.layerGroundStations.addLayer(KSA_MAP_CONTROLS.vesselHorizon.vessel);
   }
   ops.surface.map.invalidateSize();
@@ -2304,13 +2303,14 @@ function loadSurfaceTracks() {
   }
   
   // search the menu for any vessels within the current map SOI
+  var vesselPaths = [];
   ops.activeVessels.forEach(function(item) {
     if (item.bodyRef == bodyData.ID) {
-      KSA_CATALOGS.bodyPaths.paths.push({
+      vesselPaths.push({
         name: item.db,
         orbit: null,
         obtData: null,
-        index: KSA_CATALOGS.bodyPaths.paths.length,
+        index: vesselPaths.length,
         isVessel: true,
         isCalculated: false,
         isCalculating: false,
@@ -2327,46 +2327,64 @@ function loadSurfaceTracks() {
       }
     }
   });
+  if (vesselPaths.length) {
+
+    // sort vessel paths alphabetically by type
+    vesselPaths.sort((a, b) => a.type.localeCompare(b.type));
+
+    // append sorted vessel paths to the main paths array
+    vesselPaths.forEach(function(vessel) {
+      vessel.index = KSA_CATALOGS.bodyPaths.paths.length;
+      KSA_CATALOGS.bodyPaths.paths.push(vessel);
+    });
+  }
 
   // if this body has vessels or moons that need rendering then get it done
-  if (KSA_CATALOGS.bodyPaths.paths.length) calculateSurfaceTracks(KSA_CATALOGS.bodyPaths.paths[0].name, KSA_CATALOGS.bodyPaths.paths[0].type);
+  if (KSA_CATALOGS.bodyPaths.paths.length) calculateSurfaceTracks();
 }
 
 // run through all surface tracks that need to be calculated for any body
-function calculateSurfaceTracks(currentName, currentType) {
+function calculateSurfaceTracks(currObj = null) {
 
-  // setup the layer control to show data load in progress only if we're looking at a body page
-  if (!KSA_LAYERS.surfaceTracksDataLoad.bodiesTrackDataLoad && ops.pageType == "body") {
-    if (currentType != "refresh") {
-      ops.surface.layerControl._expand();
-      ops.surface.layerControl.options.collapsed = false;
-      KSA_CATALOGS.bodyPaths.layers.forEach(function(layer) {
-        if (layer.isLoaded) {
-          var strType = capitalizeFirstLetter(layer.type);
-          if (!strType.endsWith("s")) strType += "s";
-          ops.surface.layerControl.addOverlay(layer.group, "<img src='icon_" + layer.type + ".png' style='width: 15px;'> " + strType, "Orbital Tracks");
-        }
-      });
-      KSA_LAYERS.surfaceTracksDataLoad.bodiesTrackDataLoad = L.layerGroup();
-      ops.surface.layerControl.addOverlay(KSA_LAYERS.surfaceTracksDataLoad.bodiesTrackDataLoad, "<i class='fa fa-cog fa-spin'></i> Loading " + capitalizeFirstLetter(currentType) + " Data...", "Orbital Tracks");
-    } else {
-      $(".leaflet-top.leaflet-right").fadeIn();
-      ops.surface.layerControl._expand();
-      ops.surface.layerControl.options.collapsed = false;
-      KSA_LAYERS.surfaceTracksDataLoad.bodiesTrackDataLoad = L.layerGroup();
-      ops.surface.layerControl.addOverlay(KSA_LAYERS.surfaceTracksDataLoad.bodiesTrackDataLoad, "<i class='fa fa-cog fa-spin'></i> Refreshing " + currName(ops.activeVessels.find(o => o.db === currentName)) + " Data...", "Orbital Tracks");
+  // if there are already objects being calculated then just exit
+  if (KSA_CATALOGS.bodyPaths.paths.find(o => o.isCalculating)) return;
+
+  // get the next object that hasn't been calculated if one wasn't passed in
+  if (!currObj) {
+    currObj = KSA_CATALOGS.bodyPaths.paths.find(o => o.isCalculated === false);
+    if (!currObj) {
+      checkDataLoad();
+      return;
     }
   }
 
-  // remove the layer entirely if we switched to a vessel page
-  if (KSA_LAYERS.surfaceTracksDataLoad.bodiesTrackDataLoad && ops.pageType == "vessel") ops.surface.layerControl.removeLayer(KSA_LAYERS.surfaceTracksDataLoad.bodiesTrackDataLoad);
-
-  // get the current object being worked on
-  var currObj = KSA_CATALOGS.bodyPaths.paths.find(o => o.name === currentName);
+  // setup the layer control to show data load in progress only if we're looking at a body page
+  // use the allLoaded flag to check whether this is an initial load or a refresh
+  const allLoaded = KSA_CATALOGS.bodyPaths.layers.every(layer => layer.isLoaded);
+  if (!KSA_LAYERS.surfaceTracksDataLoad.bodiesTrackDataLoad && ops.pageType == "body") {
+    $(".leaflet-top.leaflet-right").fadeIn();
+    ops.surface.layerControl._expand();
+    ops.surface.layerControl.options.collapsed = false;
+    KSA_LAYERS.surfaceTracksDataLoad.bodiesTrackDataLoad = L.layerGroup();
+    if (!allLoaded) {
+      var strType;
+      for (const layer of KSA_CATALOGS.bodyPaths.layers) {
+        strType = capitalizeFirstLetter(layer.type);
+        if (!layer.isLoaded) break;
+        if (!strType.endsWith("s")) strType += "s";
+        ops.surface.layerControl.addOverlay(layer.group, "<img src='icon_" + layer.type + ".png' style='width: 15px;'> " + strType, "Orbital Tracks");
+      }
+      ops.surface.layerControl.addOverlay(KSA_LAYERS.surfaceTracksDataLoad.bodiesTrackDataLoad, "<i class='fa fa-cog fa-spin'></i> Loading " + strType + " Data...", "Orbital Tracks");
+    } else {
+      if (currObj.isVessel) var strObjName = currName(ops.activeVessels.find(o => o.db === currObj.name));
+      else var strObjName = currObj.name;
+      ops.surface.layerControl.addOverlay(KSA_LAYERS.surfaceTracksDataLoad.bodiesTrackDataLoad, "<i class='fa fa-cog fa-spin'></i> Refreshing " + strObjName + " Data...", "Orbital Tracks");
+    }
+  }
 
   // if the object is not loaded, we need to send out for data
   if (!currObj.isLoaded) {
-    loadDB("loadVesselOrbitData.asp?db=" + currObj.name + "&ut=" + currUT(), loadVesselOrbitAJAX, {name: currentName, type: currentType});
+    loadDB("loadVesselOrbitData.asp?db=" + currObj.name + "&ut=" + currUT(), loadVesselOrbitAJAX, currObj);
     return;
   }
 
@@ -2384,81 +2402,74 @@ function calculateSurfaceTracks(currentName, currentType) {
     return;
   } else {
 
-    // determine if KSA_LAYERS.surfaceTracksDataLoad.bodiesTrackDataLoad has "refresh" in its title
-    // if so we don't need to look for more calculations to do, we just need to remove the loading layer and show the new data
-    if (KSA_LAYERS.surfaceTracksDataLoad.bodiesTrackDataLoad && ops.surface.layerControl._layers) {
-      // check if any layer name contains "refresh" (case-insensitive)
-      var hasRefreshLayer = Object.keys(ops.surface.layerControl._layers).some(function(layerId) {
-        var layer = ops.surface.layerControl._layers[layerId];
-        return layer.name && layer.name.toLowerCase().includes("refresh");
-      });
-      if (hasRefreshLayer) {
-        ops.surface.layerControl.removeLayer(KSA_LAYERS.surfaceTracksDataLoad.bodiesTrackDataLoad);
-        KSA_LAYERS.surfaceTracksDataLoad.bodiesTrackDataLoad = null;
-        checkDataLoad();
-        return;
-      }
-    }
+    // if there are any layers not loaded then this is an initial load of all orbital data
+    if (!allLoaded) {
 
-    // find the next object of the current type to begin loading
-    currentName = null;
-    KSA_CATALOGS.bodyPaths.paths.forEach(function(obj) {
-      if (obj.type == currentType && !obj.isCalculated) currentName = obj.name;
-    });
-    if (!currentName) {
-
-      // show the current group we were loading?
-      // the group only has an object if an orbit completed calculation for it
-      var currLayer = KSA_CATALOGS.bodyPaths.layers.find(o => o.type === currentType)
-      if (currLayer.group) {
-        currLayer.isLoaded = true;
-        if (ops.pageType == "body") {
-          if (KSA_LAYERS.surfaceTracksDataLoad.bodiesTrackDataLoad) {
-            ops.surface.layerControl.removeLayer(KSA_LAYERS.surfaceTracksDataLoad.bodiesTrackDataLoad);
-            KSA_LAYERS.surfaceTracksDataLoad.bodiesTrackDataLoad = L.layerGroup();
-          }
-          var strType = capitalizeFirstLetter(currentType);
-          if (!strType.endsWith("s")) strType += "s";
-          ops.surface.layerControl.addOverlay(currLayer.group, "<img src='icon_" + currentType + ".png' style='width: 15px'> " + strType, "Orbital Tracks");
-          
-          // check if this layer should be automatically selected based on URL parameters
-          if (getParameterByName("layers").includes(currentType) || getParameterByName("layers").includes(strType.toLowerCase())) {
-            currLayer.group.addTo(ops.surface.map);
-          }
-        }
-      }
-
-      // look for a new type of object to load
-      KSA_CATALOGS.bodyPaths.paths.forEach(function(obj) {
-        if (!currentName && obj.type != currentType && !obj.isCalculated) {
-          currentName = obj.name;
-          currentType = obj.type;
-        }
-      });
-      
-      // if we found a new object, start a new loading layer otherwise we are done
-      if (currentName) {
-        if (ops.pageType == "body") {
-          if (KSA_LAYERS.surfaceTracksDataLoad.bodiesTrackDataLoad) {
-            ops.surface.layerControl.removeLayer(KSA_LAYERS.surfaceTracksDataLoad.bodiesTrackDataLoad);
-            KSA_LAYERS.surfaceTracksDataLoad.bodiesTrackDataLoad = L.layerGroup();
-          }
-          ops.surface.layerControl.addOverlay(KSA_LAYERS.surfaceTracksDataLoad.bodiesTrackDataLoad, "<i class='fa fa-cog fa-spin'></i> Loading " + capitalizeFirstLetter(currentType) + " Data...", "Orbital Tracks");
-        }
-      } else {
+      // check if this object is the last one 
+      if (currObj.index == KSA_CATALOGS.bodyPaths.paths.length-1) {
         if (KSA_LAYERS.surfaceTracksDataLoad.bodiesTrackDataLoad) {
           ops.surface.layerControl.removeLayer(KSA_LAYERS.surfaceTracksDataLoad.bodiesTrackDataLoad);
           KSA_LAYERS.surfaceTracksDataLoad.bodiesTrackDataLoad = null;
         }
+        var currLayer = KSA_CATALOGS.bodyPaths.layers.find(o => o.type === currObj.type)
+        currLayer.isLoaded = true;
+        if (currLayer.group) {
+          if (ops.pageType == "body") {
+            if (KSA_LAYERS.surfaceTracksDataLoad.bodiesTrackDataLoad) {
+              ops.surface.layerControl.removeLayer(KSA_LAYERS.surfaceTracksDataLoad.bodiesTrackDataLoad);
+              KSA_LAYERS.surfaceTracksDataLoad.bodiesTrackDataLoad = L.layerGroup();
+            }
+            var strType = capitalizeFirstLetter(currObj.type);
+            if (!strType.endsWith("s")) strType += "s";
+            ops.surface.layerControl.addOverlay(currLayer.group, "<img src='icon_" + currObj.type + ".png' style='width: 15px'> " + strType, "Orbital Tracks");
+            
+            // check if this layer should be automatically selected based on URL parameters
+            if (getParameterByName("layers").includes(currObj.type) || getParameterByName("layers").includes(strType.toLowerCase())) {
+              currLayer.group.addTo(ops.surface.map);
+            }
+          }
+        }
         checkDataLoad();
         console.log(KSA_CATALOGS.bodyPaths)
         return;
+
+      // or if the next object is not of the same type we need to update the layer control
+      } else if (currObj.type != KSA_CATALOGS.bodyPaths.paths[currObj.index + 1].type) {
+      
+        // show the current group we were loading?
+        // the group only has an object if an orbit completed calculation for it
+        var currLayer = KSA_CATALOGS.bodyPaths.layers.find(o => o.type === currObj.type)
+        currLayer.isLoaded = true;
+        if (currLayer.group) {
+          if (ops.pageType == "body") {
+            ops.surface.layerControl.removeLayer(KSA_LAYERS.surfaceTracksDataLoad.bodiesTrackDataLoad);
+            var strType = capitalizeFirstLetter(currObj.type);
+            if (!strType.endsWith("s")) strType += "s";
+            ops.surface.layerControl.addOverlay(currLayer.group, "<img src='icon_" + currObj.type + ".png' style='width: 15px'> " + strType, "Orbital Tracks");
+            
+            // check if this layer should be automatically selected based on URL parameters
+            if (getParameterByName("layers").includes(currObj.type) || getParameterByName("layers").includes(strType.toLowerCase())) {
+              currLayer.group.addTo(ops.surface.map);
+            }
+
+            // set the next group to loading
+            KSA_LAYERS.surfaceTracksDataLoad.bodiesTrackDataLoad = L.layerGroup();
+            ops.surface.layerControl.addOverlay(KSA_LAYERS.surfaceTracksDataLoad.bodiesTrackDataLoad, "<i class='fa fa-cog fa-spin'></i> Loading " + capitalizeFirstLetter(KSA_CATALOGS.bodyPaths.paths[currObj.index + 1].type) + " Data...", "Orbital Tracks");
+          }
+        }
+      }
+
+    // if all layers are loaded but not all objects are calculated, then we must be refreshing data for a single object
+    } else {
+      if (ops.pageType == "body" && KSA_LAYERS.surfaceTracksDataLoad.bodiesTrackDataLoad) {
+        ops.surface.layerControl.removeLayer(KSA_LAYERS.surfaceTracksDataLoad.bodiesTrackDataLoad);
+        KSA_LAYERS.surfaceTracksDataLoad.bodiesTrackDataLoad = null;
       }
     }
-  }
 
-  // keep calling ourselves until everything is loaded
-  setTimeout(calculateSurfaceTracks, 100, currentName, currentType);
+    // check for more objects to calculate
+    calculateSurfaceTracks();
+  }
 }
 
 // create the orbital polygons and add them to the current layer
@@ -2525,7 +2536,7 @@ function renderBodyOrbit() {
 
   // if there is no orbit then this was removed from the map and we can end here
   if (!currObj.obtData.orbit.length) {
-    calculateSurfaceTracks(currObj.name, currObj.type);
+    calculateSurfaceTracks(currObj);
     return;
   }
 
@@ -2642,11 +2653,6 @@ function renderBodyOrbit() {
   currObj.obtData.marker._myId = currObj.name;
   currLayer.group.addLayer(currObj.obtData.marker);
 
-  // if we need to return focus to an open popup after re-rendering, do that now
-  if (bReturnFocus) {
-    currObj.obtData.marker.openPopup();
-  }
-
   // set up a listener for popup events so we can immediately update the information and not have to wait for the next tick event
   currObj.obtData.marker.on('popupopen', function(e) {
 
@@ -2718,8 +2724,14 @@ function renderBodyOrbit() {
     }
   });
 
+  // if we need to return focus to an open popup after re-rendering, do that now
+  if (bReturnFocus) {
+    ops.surface.map.setView(currObj.obtData.marker.getLatLng(), 3);
+    currObj.obtData.marker.openPopup();
+  }
+
   // continue to calculate any additional paths
-  calculateSurfaceTracks(currObj.name, currObj.type);
+  calculateSurfaceTracks(currObj);
 }
 
 // take care of all the details that need to be applied to a surface track as this needs to be done in two separate places
@@ -2792,8 +2804,7 @@ function setupSurfacePath(path, object) {
 }
 
 // store orbital data for active vessels drawn on the map surface
-function loadVesselOrbitAJAX(xhttp, data) {
-  var currObj = KSA_CATALOGS.bodyPaths.paths.find(o => o.name === data.name);
+function loadVesselOrbitAJAX(xhttp, currObj) {
   if (xhttp.responseText.split("*")[1].split("|")[0] != "null") {
     currObj.orbit = rsToObj(xhttp.responseText.split("*")[1].split("|")[0])
   } else {
@@ -2807,7 +2818,7 @@ function loadVesselOrbitAJAX(xhttp, data) {
     currObj.isCalculated = true;
   }
   currObj.isLoaded = true;
-  calculateSurfaceTracks(data.name, data.type);
+  calculateSurfaceTracks(currObj);
 }
 
 // determines if a flight is currently active and adjusts the map accordingly
