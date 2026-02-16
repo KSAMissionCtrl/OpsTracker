@@ -935,7 +935,6 @@ function checkPageUpdate(rapidFireMode = false) {
   if (!KSA_UI_STATE.isMenuDataLoaded) return;
   if (ops.updatesList.length && currUT() >= ops.updatesList[0].UT) {
     updatePage(ops.updatesList.shift(), rapidFireMode);
-    ops.updatesListSize = ops.updatesList.length;
     return checkPageUpdate(rapidFireMode);
   } else return;
 }
@@ -1114,6 +1113,9 @@ function loadOpsDataAJAX(xhttp, args = null) {
   // test for loading complete
   if (!ops.updateData.find(o => o.isLoading === true)) {
 
+    // resort the updatesList
+    ops.updatesList.sort(function(a,b) { return (a.UT > b.UT) ? 1 : ((b.UT > a.UT) ? -1 : 0); });
+
     // check if any crew need to be resorted
     if (ops.updateData.find(o => o.needsSorting)) {
       filterCrewMenu($("input[name=roster]").filter(":checked").val());
@@ -1244,11 +1246,7 @@ function tick(utDelta = 1000, rapidFireMode = false) {
     KSA_TIMERS.maneuverRefreshTimeout = setTimeout(function() { loadDB("loadEventData.asp?UT=" + currUT(), loadEventsAJAX); }, 5000);
   }
 
-  // sort the update times if new ones have been added since our last check, then look for updates
-  if (ops.updatesList.length > ops.updatesListSize) {
-    ops.updatesListSize = ops.updatesList.length;
-    ops.updatesList.sort(function(a,b) { return (a.UT > b.UT) ? 1 : ((b.UT > a.UT) ? -1 : 0); });
-  }
+  // look for updates
   checkPageUpdate(rapidFireMode);
 
   // update the terminator & sun display if a marker exists and the current body has a solar day length (is not the sun)

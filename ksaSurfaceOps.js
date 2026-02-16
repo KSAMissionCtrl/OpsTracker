@@ -323,10 +323,11 @@ function loadMap(map) {
   ops.surface.layerControl.addOverlay(ops.surface.loadingLayer, "<i class='fa fa-cog fa-spin'></i> Loading Data...");
   ops.surface.layerControl._expand();
   ops.surface.layerControl.options.collapsed = false;
+  $(".leaflet-top.leaflet-right").fadeIn();
 
   // call up the map data to load 
   // any orbital calcs in progress should have been paused with content swap
-  loadDB("loadMapData.asp?map=" + map + "&UT=" + currUT(), loadMapDataAJAX);
+  loadDB("loadMapData.asp?refID=" + ops.bodyCatalog.find(o => o.Body === map).ID, loadMapDataAJAX);
   ops.surface.isLoading = true;
 }
 
@@ -336,31 +337,50 @@ function loadMapDataAJAX(xhttp) {
   // could be nothing to load, so just exit
   if (xhttp.responseText == "null") {
     ops.surface.layerControl.removeLayer(ops.surface.loadingLayer);
-    ops.surface.layerControl._collapse();
-    ops.surface.layerControl.options.collapsed = true;
+    checkDataLoad();
     ops.surface.Data = null;
     return;
   }
 
-  // parse out the data
-  var data = xhttp.responseText.split("^");
-
   // assign the map data
-  ops.surface.Data = rsToObj(data[0]);
-  if (data[1] != "null") ops.updatesList.push({ type: "map", 
-                                                id: ops.bodyCatalog.find(o => o.selected === true).Body, 
-                                                UT: parseFloat(data[1]) });
+  ops.surface.Data = rsToObj(xhttp.responseText);
+  ops.surface.Data.Name = ops.bodyCatalog.find(o => o.selected === true).Body;
   
   // clean up any existing Ground Markers and loading indicator layers before loading new ones
   cleanupGroundMarkersLayers();
   cleanupLoadingLayers();
+
+  // remove any updates from the list with a type that includes "map"
+  ops.updatesList = ops.updatesList.filter(function(update) {
+    return !update.type.includes("map");
+  });
+
+  // get the earliest UT that this surface is available
+  var mapUpdateTimes = [];
+  var earliestMapUpdate = null;
+  if (ops.surface.Data.Aerial >= 0) mapUpdateTimes.push(ops.surface.Data.Aerial);
+  if (ops.surface.Data.Satellite >= 0) mapUpdateTimes.push(ops.surface.Data.Satellite);
+  if (ops.surface.Data.Terrain >= 0) mapUpdateTimes.push(ops.surface.Data.Terrain);
+  if (ops.surface.Data.Slope >= 0) mapUpdateTimes.push(ops.surface.Data.Slope);
+  if (ops.surface.Data.Biome >= 0) mapUpdateTimes.push(ops.surface.Data.Biome);
+  earliestMapUpdate = Math.min(...mapUpdateTimes);
+
+  // check if this map is already available and if not add an update for when it will be
+  if (earliestMapUpdate > currUT()) {
+    ops.updatesList.push({ type: "map:surface", UT: earliestMapUpdate, id: ops.surface.Data.Name });
+    ops.surface.layerControl.removeLayer(ops.surface.loadingLayer);
+    checkDataLoad();
+    ops.surface.Data = null;
+    return;
+  }
   
   // remove the previous control and load the base layer
   if (ops.surface.layerControl) ops.surface.map.removeControl(ops.surface.layerControl);
   ops.surface.layerControl = L.control.groupedLayers().addTo(ops.surface.map);
   
-  if (ops.surface.Data.Aerial) { var strSatLabel = "Aerial"; }
-  if (ops.surface.Data.Satellite) { var strSatLabel = "Satellite"; }
+  // these labels are dependent on the actual time not whatever historic time we might be in
+  if (ops.surface.Data.Aerial >= 0 && ops.surface.Data.Aerial < dateToUT(luxon.DateTime.utc())) { var strSatLabel = "Aerial"; }
+  if (ops.surface.Data.Satellite >= 0 && ops.surface.Data.Satellite < dateToUT(luxon.DateTime.utc())) { var strSatLabel = "Satellite"; }
   ops.surface.layerControl.addBaseLayer(
     L.tileLayer.kerbalMaps({
         body: ops.bodyCatalog.find(o => o.selected === true).Body.toLowerCase(),
@@ -389,34 +409,36 @@ function loadMapDataAJAX(xhttp) {
     attributeFilter: ['class']
   });
 
-  // show the entire control until everything is finished loading
-  ops.surface.layerControl._expand();
-  ops.surface.layerControl.options.collapsed = false;
-  
   // load the rest of the tile layers, where available
-  if (ops.surface.Data.Slope) {
-    var slopeBase = L.tileLayer.kerbalMaps({
-        body: ops.bodyCatalog.find(o => o.selected === true).Body.toLowerCase(),
-        style: "slope"
-      }
-    );
-    ops.surface.layerControl.addBaseLayer(slopeBase, "Slope");
-  }
-  if (ops.surface.Data.Terrain) {
-    var reliefBase = L.tileLayer.kerbalMaps({
-        body: ops.bodyCatalog.find(o => o.selected === true).Body.toLowerCase(),
-        style: "color"
-      }
-    );
-    ops.surface.layerControl.addBaseLayer(reliefBase, "Color Relief");
-  }
-  if (ops.surface.Data.Biome) {
-    var biomeBase = L.tileLayer.kerbalMaps({
-        body: ops.bodyCatalog.find(o => o.selected === true).Body.toLowerCase(),
-        style: "biome"
-      }
-    );
-    ops.surface.layerControl.addBaseLayer(biomeBase, "Biome");
+  if (ops.surface.Data.Slope >= 0) {
+    if (ops.surface.Data.Slope < currUT()) {
+      var slopeBase = L.tileLayer.kerbalMaps({
+          body: ops.surface.Data.Name.toLowerCase(),
+          style: "slope"
+        }
+      );
+      ops.surface.layerControl.addBaseLayer(slopeBase, "Slope");
+    } else ops.updatesList.push({ type: "map:surface", UT: ops.surface.Data.Slope, id: ops.surface.Data.Name });
+  } 
+  if (ops.surface.Data.Terrain >= 0) {
+    if (ops.surface.Data.Terrain < currUT()) {
+      var reliefBase = L.tileLayer.kerbalMaps({
+          body: ops.surface.Data.Name.toLowerCase(),
+          style: "color"
+        }
+      );
+      ops.surface.layerControl.addBaseLayer(reliefBase, "Color Relief");
+    } else ops.updatesList.push({ type: "map:surface", UT: ops.surface.Data.Terrain, id: ops.surface.Data.Name });
+  } 
+  if (ops.surface.Data.Biome >= 0) {
+    if (ops.surface.Data.Biome < currUT()) {
+      var biomeBase = L.tileLayer.kerbalMaps({
+          body: ops.surface.Data.Name.toLowerCase(),
+          style: "biome"
+        }
+      );
+      ops.surface.layerControl.addBaseLayer(biomeBase, "Biome");
+    } else ops.updatesList.push({ type: "map:surface", UT: ops.surface.Data.Biome, id: ops.surface.Data.Name });
   }
   
   // the following only works for Kerbin at the moment
@@ -437,155 +459,249 @@ function loadMapDataAJAX(xhttp) {
     if (getParameterByName("layers").includes("sun") || getParameterByName("layers").includes("terminator")) {
       KSA_LAYERS.groundMarkers.layerSolar.addTo(ops.surface.map);
     }
-  }
+  } else KSA_LAYERS.groundMarkers.layerSolar = null;
 
-  // place any and all labels
+  // place any labels
   if (ops.surface.Data.Labels) {
     var labelData = ops.surface.Data.Labels.split("|");
     var labelMarker;
     KSA_LAYERS.groundMarkers.layerLabels = L.layerGroup();
     labelData.forEach(function(item) {
       var label = item.split(";");
-      labelMarker = L.marker([label[0],label[1]], { icon: KSA_MAP_ICONS.labelIcon, zIndexOffset: 100 }).bindTooltip(label[2], { direction: 'top', offset: [0,-10] });
-      KSA_LAYERS.groundMarkers.layerLabels.addLayer(labelMarker);
-      labelMarker._myId = -1;
-      
-      // zoom the map all the way in and center on this marker when clicked
-      labelMarker.on('click', function(e) { ops.surface.map.setView(e.target.getLatLng(), 5); });
+
+      // check this marker is able to be shown
+      if (label[0] <= currUT()) {
+
+        // get the current title for the label
+        var titles = label[3].split(":");
+        if (titles.length > 1) {
+          var strTitle = "";
+          titles.forEach(function(title) {
+            if (title.split("=")[0] <= currUT()) strTitle = title.split("=")[1];
+          });
+        } else var strTitle = label[3];
+
+        labelMarker = L.marker([label[1],label[2]], { icon: KSA_MAP_ICONS.labelIcon, zIndexOffset: 100 }).bindTooltip(strTitle, { direction: 'top', offset: [0,-10] });
+        KSA_LAYERS.groundMarkers.layerLabels.addLayer(labelMarker);
+
+        // set the id to make the map click function ignore this popup
+        labelMarker._myId = -1;
+
+        // zoom the map all the way in and center on this marker when clicked
+        labelMarker.on('click', function(e) { ops.surface.map.setView(e.target.getLatLng(), 5); });
+      } else ops.updatesList.push({ type: "map:label", UT: label[0], id: ops.surface.Data.Name });
     });
-    ops.surface.layerControl.addOverlay(KSA_LAYERS.groundMarkers.layerLabels, "<img src='label.png' style='vertical-align: 1px;'> Labels", "Ground Markers");
-    if (getParameterByName("layers").includes("label") || getParameterByName("layers").includes("lbl")) {
-      KSA_LAYERS.groundMarkers.layerLabels.addTo(ops.surface.map);
-    }
+
+    // were any markers added to the layer?
+    if (KSA_LAYERS.groundMarkers.layerLabels.getLayers().length > 0) {
+      ops.surface.layerControl.addOverlay(KSA_LAYERS.groundMarkers.layerLabels, "<img src='label.png' style='vertical-align: 1px;'> Labels", "Ground Markers");
+      if (getParameterByName("layers").includes("label") || getParameterByName("layers").includes("lbl")) {
+        KSA_LAYERS.groundMarkers.layerLabels.addTo(ops.surface.map);
+      }
+    } else KSA_LAYERS.groundMarkers.layerLabels = null;
   }
 
-  // place any and all flags
+  // place any flags
   if (ops.surface.Data.Flags) {
     var flagData = ops.surface.Data.Flags.split("|");
     var flagMarker;
     KSA_LAYERS.groundMarkers.layerFlags = L.layerGroup();
     flagData.forEach(function(item) {
       var flag = item.split(";");
-      flagMarker = L.marker([flag[0],flag[1]], { icon: KSA_MAP_ICONS.flagIcon, zIndexOffset: 100 });
-      if (flag[4] == 'null') var strCrew = "";
-      else var strCrew = flag[4] + "<br />";
-      if (flag[8] == 'null') var strLink = "<span class='fauxLink' onclick=\"swapContent('vessel','" + flag[7] + "')\">View Vessel</span>";
-      else var strLink = "<a target='_blank' href='" + flag[7] + "'>" + flag[8] + "</a>";
-      if (flag[2] != "0") var strAlt = numeral(flag[2]/1000).format('0.000') + "km<br />";
-      else var strAlt = "";
-      flagMarker.bindPopup("<b>" + flag[3] + "</b><br />" + strCrew + UTtoDateTime(parseInt(flag[6])).split(" ")[0] + "<br />" + strAlt + "<br />&quot;" + flag[5] + "&quot;<br /><br />" + strLink, { offset: new L.Point(0,-9), autoClose: true });
-      KSA_LAYERS.groundMarkers.layerFlags.addLayer(flagMarker);
 
-      // set the id to make the map click function ignore this popup and add it to the map
-      flagMarker._myId = -1;
+      // check this marker is able to be shown
+      if (flag[6] <= currUT()) {
+        flagMarker = L.marker([flag[0],flag[1]], { icon: KSA_MAP_ICONS.flagIcon, zIndexOffset: 100 });
+        if (flag[4] == 'null') var strCrew = "";
+        else var strCrew = flag[4] + "<br />";
+        if (flag[8] == 'null') var strLink = "<span class='fauxLink' onclick=\"swapContent('vessel','" + flag[7] + "')\">View Vessel</span>";
+        else var strLink = "<a target='_blank' href='" + flag[7] + "'>" + flag[8] + "</a>";
+        if (flag[2] != "0") var strAlt = numeral(flag[2]/1000).format('0.000') + "km<br />";
+        else var strAlt = "";
+        flagMarker.bindPopup("<b>" + flag[3] + "</b><br />" + strCrew + UTtoDateTime(parseInt(flag[6])).split(" ")[0] + "<br />" + strAlt + "<br />&quot;" + flag[5] + "&quot;<br /><br />" + strLink, { offset: new L.Point(0,-9), autoClose: true });
+        KSA_LAYERS.groundMarkers.layerFlags.addLayer(flagMarker);
+        flagMarker._myId = -1;
+      } else ops.updatesList.push({ type: "map:flag", UT: flag[6], id: ops.surface.Data.Name });
     });
     
-    // add the layer to the map and if it is asked for in the URL variable show it immediately
-    ops.surface.layerControl.addOverlay(KSA_LAYERS.groundMarkers.layerFlags, "<img src='button_vessel_flag.png' style='width: 10px; vertical-align: 1px;'> Flags", "Ground Markers");
-    if (getParameterByName("layers").includes("flag")) KSA_LAYERS.groundMarkers.layerFlags.addTo(ops.surface.map);
+    // were any markers added to the layer?
+    if (KSA_LAYERS.groundMarkers.layerFlags.getLayers().length > 0) {
+      ops.surface.layerControl.addOverlay(KSA_LAYERS.groundMarkers.layerFlags, "<img src='button_vessel_flag.png' style='width: 10px; vertical-align: 1px;'> Flags", "Ground Markers");
+      if (getParameterByName("layers").includes("flag")) KSA_LAYERS.groundMarkers.layerFlags.addTo(ops.surface.map);
+    } else KSA_LAYERS.groundMarkers.layerFlags = null;
   }
   
-  // place any and all points of interest
+  // place any points of interest
   if (ops.surface.Data.POI) {
     var POIData = ops.surface.Data.POI.split("|");
     var POIMarker;
     KSA_LAYERS.groundMarkers.layerPOI = L.layerGroup();
     POIData.forEach(function(item) {
       var POI = item.split(";");
-      POIMarker = L.marker([POI[0],POI[1]], { icon: KSA_MAP_ICONS.POIIcon, zIndexOffset: 100 });
-      strHTML = "<b>" + POI[3] + "</b><br>" + numeral(POI[2]/1000).format('0.000') + " km";
-      if (POI[4] != "null") strHTML += "<p>" + POI[4] + "</p>";
-      POIMarker.bindPopup(strHTML, { autoClose: false });
-      KSA_LAYERS.groundMarkers.layerPOI.addLayer(POIMarker);
-      POIMarker._myId = -1;
+
+      // check this marker is able to be shown
+      if (POI[0] <= currUT()) {
+
+        // get the current title for the POI
+        var titles = POI[4].split(":");
+        if (titles.length > 1) {
+          var strTitle = "";
+          titles.forEach(function(title) {
+            if (title.split("=")[0] <= currUT()) strTitle = title.split("=")[1];
+          });
+        } else var strTitle = POI[4];
+
+        POIMarker = L.marker([POI[1],POI[2]], { icon: KSA_MAP_ICONS.POIIcon, zIndexOffset: 100 });
+        strHTML = "<b>" + strTitle + "</b><br>" + numeral(POI[3]/1000).format('0.000') + " km";
+        if (POI[5] != "null") strHTML += "<p>" + POI[5] + "</p>";
+        POIMarker.bindPopup(strHTML, { autoClose: false });
+        KSA_LAYERS.groundMarkers.layerPOI.addLayer(POIMarker);
+        POIMarker._myId = -1;
+      } else ops.updatesList.push({ type: "map:poi", UT: POI[0], id: ops.surface.Data.Name });
     });
-    ops.surface.layerControl.addOverlay(KSA_LAYERS.groundMarkers.layerPOI, "<img src='poi.png' style='width: 10px; vertical-align: 1px;'> Points of Interest", "Ground Markers");
-    if (getParameterByName("layers").includes("poi") || getParameterByName("layers").includes("interest")) {
-      KSA_LAYERS.groundMarkers.layerPOI.addTo(ops.surface.map);
-    }
+
+    // were any markers added to the layer?
+    if (KSA_LAYERS.groundMarkers.layerPOI.getLayers().length > 0) {
+      ops.surface.layerControl.addOverlay(KSA_LAYERS.groundMarkers.layerPOI, "<img src='poi.png' style='width: 10px; vertical-align: 1px;'> Points of Interest", "Ground Markers");
+      if (getParameterByName("layers").includes("poi") || getParameterByName("layers").includes("interest")) {
+        KSA_LAYERS.groundMarkers.layerPOI.addTo(ops.surface.map);
+      }
+    } else KSA_LAYERS.groundMarkers.layerPOI = null;
   }
   
-  // place any and all anomalies
+  // place any anomalies
   if (ops.surface.Data.Anomalies) {
     var anomalyData = ops.surface.Data.Anomalies.split("|");
     var anomalyMarker;
     KSA_LAYERS.groundMarkers.layerAnomalies = L.layerGroup();
     anomalyData.forEach(function(item) {
       var anomaly = item.split(";");
-      anomalyMarker = L.marker([anomaly[0],anomaly[1]], { icon: KSA_MAP_ICONS.anomalyIcon, zIndexOffset: 100 });
-      strHTML = "<b>";
-      if (anomaly[3] != "null") strHTML += anomaly[3];
-      else strHTML += "Unknown Anomaly";
-      strHTML += "</b><br>" + numeral(anomaly[2]/1000).format('0.000') + " km";
-      anomalyMarker.bindPopup(strHTML, { autoClose: false });
-      KSA_LAYERS.groundMarkers.layerAnomalies.addLayer(anomalyMarker);
-      anomalyMarker._myId = -1;
+
+      // check this marker is able to be shown
+      if (anomaly[0] <= currUT()) {
+
+        // get the current title for the anomaly
+        var titles = anomaly[4].split(":");
+        if (titles.length > 1) {
+          var strTitle = "";
+          titles.forEach(function(title) {
+            if (title.split("=")[0] <= currUT()) strTitle = title.split("=")[1];
+          });
+        } else var strTitle = anomaly[4];
+
+        anomalyMarker = L.marker([anomaly[1],anomaly[2]], { icon: KSA_MAP_ICONS.anomalyIcon, zIndexOffset: 100 });
+        strHTML = "<b>";
+        if (strTitle != "null") strHTML += strTitle;
+        else strHTML += "Unknown Anomaly";
+        strHTML += "</b><br>" + numeral(anomaly[2]/1000).format('0.000') + " km";
+        anomalyMarker.bindPopup(strHTML, { autoClose: false });
+        KSA_LAYERS.groundMarkers.layerAnomalies.addLayer(anomalyMarker);
+        anomalyMarker._myId = -1;
+      } else ops.updatesList.push({ type: "map:anomaly", UT: anomaly[0], id: ops.surface.Data.Name });
     });
-    ops.surface.layerControl.addOverlay(KSA_LAYERS.groundMarkers.layerAnomalies, "<img src='anomaly.png' style='width: 10px; vertical-align: 1px;'> Anomalies", "Ground Markers");
-    if (getParameterByName("layers").includes("anom")) KSA_LAYERS.groundMarkers.layerAnomalies.addTo(ops.surface.map);
+
+    // were any markers added to the layer?
+    if (KSA_LAYERS.groundMarkers.layerAnomalies.getLayers().length > 0) {
+      ops.surface.layerControl.addOverlay(KSA_LAYERS.groundMarkers.layerAnomalies, "<img src='anomaly.png' style='width: 10px; vertical-align: 1px;'> Anomalies", "Ground Markers");
+      if (getParameterByName("layers").includes("anom")) KSA_LAYERS.groundMarkers.layerAnomalies.addTo(ops.surface.map);
+    } else KSA_LAYERS.groundMarkers.layerAnomalies = null;
   }
   
-  // place any and all ground stations
+  // place any ground stations
   if (ops.surface.Data.GroundStations) {
     var grndData = ops.surface.Data.GroundStations.split("|");
     var grndMarker;
-    var layerGrndStn = L.layerGroup();
+    KSA_LAYERS.groundMarkers.layerGroundStations = L.layerGroup();
     grndData.forEach(function(item) {
       var station = item.split(";");
-      if (station[4] == "0") grndMarker = L.marker([station[0],station[1]], { icon: KSA_MAP_ICONS.dishIcon, zIndexOffset: 100 });
-      else grndMarker = L.marker([station[0],station[1]], { icon: KSA_MAP_ICONS.omniIcon, zIndexOffset: 100 });
-      strHTML = "<b>";
-      strHTML += station[3];
-      strHTML += "</b><br>Altitude: " + numeral(station[2]/1000).format('0.000') + " km";
-      if (station[4] == "0") strHTML += "<br>Range: Entire Kerbin System";
-      else strHTML += "<br>Range: " + numeral(station[4]/1000).format('0.000') + " km";
-      grndMarker.bindPopup(strHTML, { autoClose: false });
-      grndMarker._myId = station[4];
-      layerGrndStn.addLayer(grndMarker);
 
-      // create the range of visibility to the horizon for this station and add it to the layer group
-      var stationHorizon = addHorizonCircle(
-        [parseFloat(station[0]), parseFloat(station[1])],
-        parseFloat(station[2]),
-        { color: "#FFD800" }
-      );
-      layerGrndStn.addLayer(stationHorizon);
+      // check this marker is able to be shown
+      if (station[0] <= currUT()) {
+
+        // get the current title for the station
+        var titles = station[4].split(":");
+        if (titles.length > 1) {
+          var strTitle = "";
+          titles.forEach(function(title) {
+            if (title.split("=")[0] <= currUT()) strTitle = title.split("=")[1];
+          });
+        } else var strTitle = station[4];
+
+        if (station[5] == "0") grndMarker = L.marker([station[1],station[2]], { icon: KSA_MAP_ICONS.dishIcon, zIndexOffset: 100 });
+        else grndMarker = L.marker([station[1],station[2]], { icon: KSA_MAP_ICONS.omniIcon, zIndexOffset: 100 });
+        strHTML = "<b>";
+        strHTML += strTitle;
+        strHTML += "</b><br>Altitude: " + numeral(station[3]/1000).format('0.000') + " km";
+        if (station[5] == "0") strHTML += "<br>Range: Entire " + ops.surface.Data.Name + " System";
+        else strHTML += "<br>Range: " + numeral(station[5]/1000).format('0.000') + " km";
+        grndMarker.bindPopup(strHTML, { autoClose: false });
+        grndMarker._myId = station[4];
+        KSA_LAYERS.groundMarkers.layerGroundStations.addLayer(grndMarker);
+
+        // create the range of visibility to the horizon for this station and add it to the layer group
+        var stationHorizon = addHorizonCircle(
+          [parseFloat(station[1]), parseFloat(station[2])],
+          parseFloat(station[3]),
+          { color: "#FFD800" }
+        );
+        KSA_LAYERS.groundMarkers.layerGroundStations.addLayer(stationHorizon);
+      } else ops.updatesList.push({ type: "map:grndstn", UT: station[0], id: ops.surface.Data.Name });
     });
 
-    // Store the layer globally so vessel/body horizons can be added to it
-    KSA_LAYERS.groundMarkers.layerGroundStations = layerGrndStn;
-
-    ops.surface.layerControl.addOverlay(layerGrndStn, "<img src='pinGrndStation.png' style='width: 10px; vertical-align: 1px;'> Ground Stations", "Ground Markers");
-    if (getParameterByName("layers").includes("ground") || getParameterByName("layers").includes("grnd") || getParameterByName("layers").includes("station")) {
-      layerGrndStn.addTo(ops.surface.map);
-    }
+    // were any markers added to the layer?
+    if (KSA_LAYERS.groundMarkers.layerGroundStations.getLayers().length > 0) {
+      ops.surface.layerControl.addOverlay(KSA_LAYERS.groundMarkers.layerGroundStations, "<img src='pinGrndStation.png' style='width: 10px; vertical-align: 1px;'> Ground Stations", "Ground Markers");
+      if (getParameterByName("layers").includes("ground") || getParameterByName("layers").includes("grnd") || getParameterByName("layers").includes("station")) {
+        KSA_LAYERS.groundMarkers.layerGroundStations.addTo(ops.surface.map);
+      }
+    } else KSA_LAYERS.groundMarkers.layerGroundStations = null;
   }
 
-  // place any and all airports
+  // place any airports
   if (ops.surface.Data.Airports) {
     var aptData = ops.surface.Data.Airports.split("|");
     var aptMarker;
     KSA_LAYERS.groundMarkers.layerAirports = L.layerGroup();
     aptData.forEach(function(item) {
       var airport = item.split(";");
-      aptMarker = L.marker([airport[0],airport[1]], { icon: KSA_MAP_ICONS.airportIcon, zIndexOffset: 100 });
-      strHTML = "<b>";
-      strHTML += airport[3];
-      strHTML += "</b><br>Altitude: " + numeral(airport[2]/1000).format('0.000') + " km";
-      aptMarker.bindPopup(strHTML, { autoClose: false });
-      KSA_LAYERS.groundMarkers.layerAirports.addLayer(aptMarker);
-      aptMarker._myId = -1;
+
+      // check this marker is able to be shown
+      if (airport[0] <= currUT()) {
+
+        // get the current title for the airport
+        var titles = airport[3].split(":");
+        if (titles.length > 1) {
+          var strTitle = "";
+          titles.forEach(function(title) {
+            if (title.split("=")[0] <= currUT()) strTitle = title.split("=")[1];
+          });
+        } else var strTitle = airport[3];
+
+        aptMarker = L.marker([airport[1],airport[2]], { icon: KSA_MAP_ICONS.airportIcon, zIndexOffset: 100 });
+        strHTML = "<b>";
+        strHTML += strTitle;
+        strHTML += "</b><br>Altitude: " + numeral(airport[3]/1000).format('0.000') + " km";
+        aptMarker.bindPopup(strHTML, { autoClose: false });
+        KSA_LAYERS.groundMarkers.layerAirports.addLayer(aptMarker);
+        aptMarker._myId = -1;
+      } else ops.updatesList.push({ type: "map:airport", UT: airport[0], id: ops.surface.Data.Name });
     });
-    ops.surface.layerControl.addOverlay(KSA_LAYERS.groundMarkers.layerAirports, "<img src='airport.png' style='width: 10px; vertical-align: 1px;'> Airports", "Ground Markers");
-    if (getParameterByName("layers").includes("apt") || getParameterByName("layers").includes("airport")) {
-      KSA_LAYERS.groundMarkers.layerAirports.addTo(ops.surface.map);
-    }
+
+    // were any markers added to the layer?
+    if (KSA_LAYERS.groundMarkers.layerAirports.getLayers().length > 0) {
+      ops.surface.layerControl.addOverlay(KSA_LAYERS.groundMarkers.layerAirports, "<img src='airport.png' style='width: 10px; vertical-align: 1px;'> Airports", "Ground Markers");
+      if (getParameterByName("layers").includes("apt") || getParameterByName("layers").includes("airport")) {
+        KSA_LAYERS.groundMarkers.layerAirports.addTo(ops.surface.map);
+      }
+    } else KSA_LAYERS.groundMarkers.layerAirports = null;
   }
 
+  // resort the updatesList
+  ops.updatesList.sort(function(a,b) { return (a.UT > b.UT) ? 1 : ((b.UT > a.UT) ? -1 : 0); });
+  
   // if this is a different map than any orbit data already loaded, dump the other data
   if (KSA_CATALOGS.bodyPaths.bodyName && KSA_CATALOGS.bodyPaths.bodyName != ops.surface.Data.Name) {
     KSA_CATALOGS.bodyPaths.bodyName = ops.surface.Data.Name;
-    // Ground Markers layers are now cleaned up in cleanupGroundMarkersLayers()
   } else if (!KSA_CATALOGS.bodyPaths.bodyName) KSA_CATALOGS.bodyPaths.bodyName = ops.surface.Data.Name;
 
   // load surface track data for any vessels and moons in orbit around this body

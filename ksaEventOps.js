@@ -64,17 +64,13 @@ function loadEventsAJAX(xhttp) {
     }
     writeLaunchInfo(launchData);
 
-    // find the next update attributed to the launch vessel
+    // find any future update
     launchEventList.forEach(function(vessel) {
-      if (vessel.UT > currUT() && vessel.db == KSA_CALCULATIONS.strCurrentLaunchVessel && ops.updatesList.length == ops.updatesListSize) ops.updatesList.push({ type: "event", UT: vessel.UT });
-    });
-
-    // if we didn't find a future update for the current launch vehicle, try to find any future update
-    if (ops.updatesList.length == ops.updatesListSize) {
-      launchEventList.forEach(function(vessel) {
-        if (vessel.UT > currUT() && ops.updatesList.length == ops.updatesListSize) ops.updatesList.push({ type: "event", UT: vessel.UT });
-      }); 
-    }
+      if (vessel.UT > currUT()) ops.updatesList.push({ type: "event", UT: vessel.UT });
+      
+      // resort the updatesList
+      ops.updatesList.sort(function(a,b) { return (a.UT > b.UT) ? 1 : ((b.UT > a.UT) ? -1 : 0); });
+    }); 
   } else writeLaunchInfo();
 
   // is there an upcoming maneuver?

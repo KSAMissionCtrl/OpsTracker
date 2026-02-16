@@ -54,7 +54,6 @@ var ops = {
   lastVisit: null,        // time of the user's last visit to badge new updates since then
 
   maxMenuHeight: KSA_CONSTANTS.DEFAULT_MAX_MENU_HEIGHT,  // default value for the menu on page load, changed dynamically based on contents of event box or menu resize
-  updatesListSize: 0,     // the current size of the updatesList structure since it was last checked so any added items can be detected
 
   vesselsToLoad: [],      // uses extractIDs() to hold the ids of all the vessels in the current SOI that need to have GGB orbits rendered & loads them
   updatesList: [],        // all the updates to various vessels, crew and events that will happen next while the page is loaded

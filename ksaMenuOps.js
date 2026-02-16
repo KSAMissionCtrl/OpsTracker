@@ -882,7 +882,12 @@ function currSOI(vessel, updateCheck = false, utCheck) {
   }
 
   // check for a future SOI update?
-  if (updateCheck && refIndex < soi.length) ops.updatesList.push({ type: "menu;soi", id: vessel.db, UT: parseInt(soi[refIndex].split(";")[0]) });
+  if (updateCheck && refIndex < soi.length) {
+    ops.updatesList.push({ type: "menu;soi", id: vessel.db, UT: parseInt(soi[refIndex].split(";")[0]) });
+
+    // resort the updatesList
+    ops.updatesList.sort(function(a,b) { return (a.UT > b.UT) ? 1 : ((b.UT > a.UT) ? -1 : 0); });
+  }
   return [refNum, refUT];
 }
 
@@ -905,7 +910,12 @@ function currName(vessel, updateCheck = false, utCheck) {
       if (parseFloat(pair[0]) > utCheck) break;
       strVesselName = pair[1];
     }
-    if (updateCheck && nameIndex < names.length) { ops.updatesList.push({ type: "menu;name", id: vessel.db, UT: parseInt(names[nameIndex].split(";")[0]) }); }
+    if (updateCheck && nameIndex < names.length) { 
+      ops.updatesList.push({ type: "menu;name", id: vessel.db, UT: parseInt(names[nameIndex].split(";")[0]) });
+
+      // resort the updatesList
+      ops.updatesList.sort(function(a,b) { return (a.UT > b.UT) ? 1 : ((b.UT > a.UT) ? -1 : 0); });
+    }
   } else strVesselName = strNames;
   return strVesselName;
 }

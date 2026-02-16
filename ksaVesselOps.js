@@ -422,6 +422,9 @@ function vesselTimelineUpdate(update) {
       // not yet to the time, so setup an update call, but don't bother if this mission is over
       } else if (!isMissionEnded()) {
         ops.updatesList.push({ type: "object", id: ops.currentVessel.Catalog.DB, UT: parseFloat(ops.currentVessel.Catalog.Timeline.split(";")[0]) });
+      
+        // resort the updatesList
+        ops.updatesList.sort(function(a,b) { return (a.UT > b.UT) ? 1 : ((b.UT > a.UT) ? -1 : 0); });
       }
     } else if (!update) swapTwitterSource("Mission Feed", ops.currentVessel.Catalog.Timeline);
   }
@@ -784,7 +787,12 @@ function vesselAddlInfoUpdate(update) {
 
       // there could be data but turns out we can't show it yet
       } else $("#dataField11").fadeOut();
-      if (newRes) ops.updatesList.push({ type: "object", id: ops.currentVessel.Catalog.DB, UT: newRes });
+      if (newRes) {
+        ops.updatesList.push({ type: "object", id: ops.currentVessel.Catalog.DB, UT: newRes });
+        
+        // resort the updatesList
+        ops.updatesList.sort(function(a,b) { return (a.UT > b.UT) ? 1 : ((b.UT > a.UT) ? -1 : 0); });
+      }
     } else {
 
       // if the craft is inactive then show all the resources, otherwise hide them
