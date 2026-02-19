@@ -127,7 +127,7 @@ var ops = {
   },
   surface: {              // contains anything related to the surface map
     map: null,                    // leaflet object reference
-    Data: {},                     // contains record fields for the current UT from the Maps DB of the current body
+    Data: {},                     // contains all layer and marker data for the current surface map body
     layerControl: null,           // contains the instance of the Leaflet layer control that shows various map markers and paths
     isLoading: false,             // whether an ajax call to load map data is awaiting a response or not
     loadingLayer: L.layerGroup()  // general message in layers box that new map data is being requested

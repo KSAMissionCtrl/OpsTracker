@@ -457,6 +457,7 @@ function setupContent() {
   loadDB("loadMenuData.asp?UT=" + currUT(), loadMenuAJAX);
   loadDB("loadBodyData.asp", loadBodyAJAX);
   loadDB("loadPartsData.asp", loadPartsAJAX);
+  loadDB("loadMapData.asp?refID=-1", loadSurfaceUpdatesAJAX);
   
   // JQuery UI theme the buttons used to page through mission history
   // diabled by default, will enable as needed when vessel loads
@@ -895,6 +896,7 @@ function updatePage(updateEvent, rapidFireMode = false) {
   KSA_UI_STATE.menuSaveSelected = w2ui['menu'].find({selected: true});
   if (KSA_UI_STATE.menuSaveSelected.length == 0) KSA_UI_STATE.menuSaveSelected = null;
   if (updateEvent.type.includes("menu")) menuUpdate(updateEvent.type.split(";")[1], updateEvent.id);
+  else if (updateEvent.type.includes("map")) surfaceUpdate(updateEvent.type, updateEvent.UT, updateEvent.id);
   else if (updateEvent.type == "event") loadDB("loadEventData.asp?UT=" + currUT(), loadEventsAJAX);
   else if (updateEvent.type == "object" || updateEvent.type == "orbit") {
     var obj = ops.updateData.find(o => o.id === updateEvent.id);

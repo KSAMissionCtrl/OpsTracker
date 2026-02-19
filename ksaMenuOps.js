@@ -708,6 +708,8 @@ function menuUpdate(type, id) {
 
   if (type == "soi") {
     w2ui['menu'].remove(id);
+    console.log(id);
+    console.log(currSOI(ops.craftsMenu.find(o => o.db === id, true)));
     addMenuItem(ops.craftsMenu.find(o => o.db === id), true);
    
     // are we looking at it?
@@ -756,7 +758,7 @@ function addMenuItem(item, newAdd = false) {
 
     // if this body has moons, it is defined as a system
     var strSys = "";
-    if (body.Moons.length) strSys = "-System";
+    if (body.Moons && body.Moons.length) strSys = "-System";
 
     // if this body is not visible, make it so
     if (w2ui['menu'].get('activeVessels', body.Body + strSys).hidden) w2ui['menu'].set('activeVessels', body.Body + strSys, { hidden: false });

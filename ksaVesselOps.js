@@ -896,6 +896,9 @@ function vesselHistoryUpdate() {
 
 function vesselContentUpdate(update) {
 
+  // this is for when calling to see if dynamic orbit data was loaded when a surface update was triggered
+  var bMapShown = false;
+
   // we can't know whether this body has a surface map if we are still waiting for map data to load
   // since map data is called after GGB load, make sure that's not happening either
   // finally, ops data could still be loading as well
@@ -965,10 +968,11 @@ function vesselContentUpdate(update) {
       if (ops.currentVessel.CraftData.pastEvent || strLaunchIconCaption) {
         KSA_TIMERS.mapMarkerTimeout = setTimeout(function () { if (KSA_MAP_CONTROLS.launchsiteMarker) KSA_MAP_CONTROLS.launchsiteMarker.closePopup(); }, 5000);
       }
+      bMapShown = true;
     }
 
   // dynamic map with orbital information
-  } else if (ops.currentVessel.CraftData.Content.charAt(0) == "!" && !ops.currentVessel.CraftData.Content.includes("[")) {
+  } else if (ops.currentVessel.CraftData.Content.charAt(0) == "!") {
   
     // extract the data
     var data = ops.currentVessel.CraftData.Content.split("!")[1].split("|");
@@ -1007,6 +1011,7 @@ function vesselContentUpdate(update) {
 
         // no call made to renderMapData means if the dialog is open we don't need it
         else $("#mapDialog").dialog("close");
+        bMapShown = true;
       }
       
     // we're looking at old orbital data
@@ -1062,6 +1067,7 @@ function vesselContentUpdate(update) {
   if (is_touch_device()) showOpt = 'click';
   else showOpt = 'mouseenter';
   Tipped.create('.contentTip', { showOn: showOpt, hideOnClickOutside: is_touch_device(), target: 'mouse', hideOn: {element: 'mouseleave'} });
+  return bMapShown;
 }
 
 // JQuery callbacks
@@ -1192,7 +1198,8 @@ function assignPartInfo() {
 function updateVesselData(vessel, isNonObtUpdate = true) {
 
   // check if this vessel has any orbital data to update
-  if (vessel.FutureData.Orbit && vessel.FutureData.Orbit.UT <= currUT()) {
+  if (vessel.FutureData.Orbit && vessel.FutureData.Orbit.UT <= currUT() && 
+      ops.bodyCatalog.find(o => o.selected === true).Body === getCurrrentSOIName()) {
     loadDB("loadVesselOrbitData.asp?db=" + vessel.id + "&ut=" + currUT(), addGGBOrbitAJAX);
     var currObj = KSA_CATALOGS.bodyPaths.paths.find(o => o.name === vessel.id);
     currObj.isCalculated = false;
@@ -1307,6 +1314,39 @@ function getPartsHTML() {
 function getMissionEndTime() {
   if (!ops.currentVessel.Catalog.MissionEnd) return null;
   else return parseInt(ops.currentVessel.Catalog.MissionEnd.split(";")[1]);
+}
+function getCurrentName() {
+  if (!ops.currentVessel) return null;
+  var strVesselName = ops.currentVessel.Catalog.Vessel;
+  if (strVesselName.includes("|")) {
+    strVesselName.split("|").forEach(function(name, index) {
+      var pair = name.split(";");
+      if (parseFloat(pair[0]) <= currUT()) strVesselName = pair[1];
+    });
+  }
+  return strVesselName;
+}
+function getCurrrentSOIRef() {
+  if (!ops.currentVessel) return null;
+  var strSOI = ops.currentVessel.Catalog.SOI;
+  if (strSOI.includes("|")) {
+    strSOI.split("|").forEach(function(name, index) {
+      var pair = name.split(";");
+      if (parseFloat(pair[0]) <= currUT()) strSOI = pair[1];
+    });
+  } else strSOI = strSOI.split(";")[1];
+  return parseInt(strSOI);
+}
+function getCurrrentSOIName() {
+  if (!ops.currentVessel) return null;
+  var strSOI = ops.currentVessel.Catalog.SOI;
+  if (strSOI.includes("|")) {
+    strSOI.split("|").forEach(function(name, index) {
+      var pair = name.split(";");
+      if (parseFloat(pair[0]) <= currUT()) strSOI = pair[1];
+    });
+  } else strSOI = strSOI.split(";")[1];
+  return ops.bodyCatalog.find(o => o.ID === parseInt(strSOI)).Body;
 }
 function getMissionEndMsg() {
   if (!ops.currentVessel.Catalog.MissionEnd) return null;

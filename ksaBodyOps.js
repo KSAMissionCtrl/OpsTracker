@@ -166,6 +166,7 @@ function ggbOnInit() {
 
   // prepare to reload any orbiting objects
   ops.ggbOrbits.length = 0;
+  ops.vesselsToLoad.length = 0;
   
   // loop through and catalog all the pre-made objects
   var bodyIDs = [];

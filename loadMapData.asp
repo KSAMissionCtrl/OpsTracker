@@ -24,19 +24,46 @@ conn.Open(sConnection)
 'create the tables
 set rsMap = Server.CreateObject("ADODB.recordset")
 
-'query the data 
-rsMap.open "select * from Bodies where RefID=" & mapRef, conn, 2
+'query the data based on mapRef value
+if mapRef = "-1" then
 
-'output the record in name/value pairs for each field if a record exists for this time period
-if not rsMap.eof then
-  for each field in rsMap.fields
-    output = output & replace(field.name, " ", "") & "~" & field.value & "`"
-  next
+  'get all records
+  rsMap.open "select * from Bodies", conn, 2
   
-  'get rid of the last semicolon and ouput
-  output = left(output, len(output)-1)
+  'output all records
+  if not rsMap.eof then
+    do until rsMap.eof
+      recordOutput = ""
+      for each field in rsMap.fields
+        recordOutput = recordOutput & replace(field.name, " ", "") & "~" & field.value & "`"
+      next
+
+      'remove last backtick from record
+      recordOutput = left(recordOutput, len(recordOutput)-1)
+      output = output & recordOutput & "^"
+      rsMap.movenext
+    loop
+    
+    'remove last ^ separator
+    output = left(output, len(output)-1)
+  else
+    output = output & "null"
+  end if
 else
-  output = output & "null"
+  'get specific record
+  rsMap.open "select * from Bodies where RefID=" & mapRef, conn, 2
+  
+  'output the record in name/value pairs for each field if a record exists for this time period
+  if not rsMap.eof then
+    for each field in rsMap.fields
+      output = output & replace(field.name, " ", "") & "~" & field.value & "`"
+    next
+    
+    'get rid of the last backtick and ouput
+    output = left(output, len(output)-1)
+  else
+    output = output & "null"
+  end if
 end if
 
 'post the final results
