@@ -634,6 +634,27 @@ function dateToUT(dateTime) {
   return luxon.Interval.fromDateTimes(KSA_CONSTANTS.FOUNDING_MOMENT, dateTime).count("milliseconds")/1000;
 }
 
+// Check if any elements have an active spinner
+// Only checks elements with jQuery data attached for efficiency
+function stillSpinning() {
+  var hasSpinner = false;
+  $('*').each(function() {
+
+    // Only check elements that have jQuery data (much faster than checking all elements)
+    if ($.hasData(this)) {
+      var data = $(this).data();
+      
+      // Check if spinner exists and is active (has an el property)
+      if (data && data.spinner && data.spinner.el) {
+        hasSpinner = true;
+        return false; // break out of each() loop early
+      }
+    }
+  });
+  
+  return hasSpinner;
+}
+
 // https://stackoverflow.com/questions/1026069/how-do-i-make-the-first-letter-of-a-string-uppercase-in-javascript
 function capitalizeFirstLetter(string) { return string.charAt(0).toUpperCase() + string.slice(1); }
 

@@ -310,15 +310,69 @@ function setupContent() {
 
           // make sure this event doesn't take us past the current live UT
           if (!nextEventUT || (nextEventUT && nextEventUT > dateToUT(luxon.DateTime.utc()))) {
-            if (ops.pageType == "vessel" || ops.pageType == "crew") $("#siteDialog").html("There are no further historical events for this " + ops.pageType + " to fast forward to");
-            else $("#siteDialog").html("There are no further historical events to fast forward to");
-            $("#siteDialog").dialog("option", "title", "Notice");
-            $("#siteDialog").dialog( "option", "buttons", [{
+            var dialogButtons = [];
+            if (!nextEventUT && (ops.pageType == "vessel" || ops.pageType == "crew")) {
+
+              // if a next event is not beyond the current real time, offer to FF to it anyway
+              if (ops.updatesList.length && ops.updatesList[0].UT < dateToUT(luxon.DateTime.utc())) {
+                dialogButtons.push({
+                  text: "Next General Event",
+                  click: function() {
+                    $("#siteDialog").dialog("close");
+
+                    // if there is more than 6 hours to the next event, just reload the page
+                    if (ops.updatesList[0].UT - currUT() > 21600) {
+                      var newUrl = "http://ops.kerbalspace.agency/?";
+
+                      // figure out the next event type for the proper URL
+                      // do nothing for menu and events so the site reloads to the default system
+                      if (ops.updatesList[0].type.includes("map")) newUrl += "body=" + ops.updatesList[0].id;
+                      else if (ops.updatesList[0].type == "object" || ops.updatesList[0].type == "orbit") {
+                        var obj = ops.updateData.find(o => o.id === ops.updatesList[0].id);
+                        if (!obj) console.log("unknown object", ops.updatesList[0]);
+                        else {
+                          if (obj.type == "crew") newUrl += "crew=" + obj.id;
+                          else if (obj.type == "vessel") newUrl += "vessel=" + obj.id;
+                        }
+                      }
+
+                      // back up the UT 5s so user sees the event trigger
+                      // originally was 15s but historical clock doesn't start running until after site load
+                      newUrl += "&ut=" + (ops.updatesList[0].UT - 5);
+                      newUrl += "&live&reload";
+
+                      // reshow the map if it is open
+                      if (KSA_UI_STATE.isMapShown) newUrl += "&map";
+                      window.location.href = newUrl;
+                    
+                    // otherwise, swap content and start FF'd to next event
+                    // menu and event types will just stay on the current page
+                    } else {
+                      if (ops.updatesList[0].type.includes("map")) swapContent("body", ops.updatesList[0].id);
+                      else if (ops.updatesList[0].type == "object" || ops.updatesList[0].type == "orbit") {
+                        var obj = ops.updateData.find(o => o.id === ops.updatesList[0].id);
+                        if (!obj) console.log("unknown object", ops.updatesList[0]);
+                        else {
+                          if (obj.type == "crew") swapContent("crew", obj.id);
+                          else if (obj.type == "vessel") swapContent("vessel", obj.id);
+                        }
+                      }
+                      afterLoadFF();
+                    }
+                  }
+                });
+              }
+            }
+            dialogButtons.push({
               text: "Close",
               click: function() {
                 $("#siteDialog").dialog("close");
               }
-            }]);
+            });
+            if (ops.pageType == "vessel" || ops.pageType == "crew") $("#siteDialog").html("There are no further historical events for this " + ops.pageType + " to fast forward to");
+            else $("#siteDialog").html("There are no further historical events to fast forward to");
+            $("#siteDialog").dialog("option", "title", "Notice");
+            $("#siteDialog").dialog( "option", "buttons", dialogButtons);
             $("#siteDialog").dialog("open");
             return;
           }
@@ -330,18 +384,15 @@ function setupContent() {
           KSA_UI_STATE.optUpdateInterrupt = $("#ffCancelOnOtherUpdates").prop('checked');
           if (ops.pageType == "vessel" || ops.pageType == "crew") $("#ffCancelOnOtherUpdates").prop('checked', false);
 
-          // if there is more than 6 hours to the next event, just reload the page
+          // handle the FF logic - same as above click handler
           if (nextEventUT - currUT() > 21600) {
             var newUrl = window.location.href;
-
-            // back up the UT 15s so user sees the event trigger
-            nextEventUT -= 15;
+            nextEventUT -= 5;
             if (!getParameterByName("ut")) newUrl += "&ut=" + nextEventUT;
             else newUrl = newUrl.replace(/(&|\?)ut=[^&]*/, "$1ut=" + nextEventUT);
             newUrl += "&live&reload";
+            if (KSA_UI_STATE.isMapShown) newUrl += "&map";
             window.location.href = newUrl;
-          
-          // otherwise, start rapid fire mode to the next event
           } else {
             clearTimeout(KSA_TIMERS.tickTimer);
             KSA_TIMERS.tickTimer = setTimeout(tick, 1, 60000, true);
@@ -835,13 +886,6 @@ function swapContent(newPageType, id, ut, flt) {
         KSA_LAYERS.groundMarkers.layerPins.addTo(ops.surface.map);
         ops.surface.layerControl.addOverlay(KSA_LAYERS.groundMarkers.layerPins, "<img src='defPin.png' style='width: 10px; height: 14px; vertical-align: 1px;'> Custom Pins", "Ground Markers");
       }
-      // KSA_CATALOGS.bodyPaths.layers.forEach(function(layer) {
-      //   if (layer.isLoaded) {
-      //     var strType = capitalizeFirstLetter(layer.type);
-      //     if (!strType.endsWith("s")) strType += "s";
-      //     ops.surface.layerControl.addOverlay(layer.group, "<img src='icon_" + layer.type + ".png' style='width: 15px;'> " + strType, "Orbital Tracks");
-      //   }
-      // });
       loadBody(id, flt); 
     }, 600);
   } else if (ops.pageType == "vessel") {
@@ -879,6 +923,16 @@ function swapContent(newPageType, id, ut, flt) {
     setTimeout(function() { $("#fullRoster").fadeIn(); }, 250);
     loadCrew(id);
   }
+}
+
+// once no more spinners are detected - it's zoom time
+function afterLoadFF() {
+  if (stillSpinning()) return setTimeout(afterLoadFF, 150);
+  clearTimeout(KSA_TIMERS.tickTimer);
+  KSA_TIMERS.tickTimer = setTimeout(tick, 1, 60000, true);
+  $("#advanceEvent").css('cursor', 'pointer').html("<i class=\"fa-solid fa-forward-fast fa-beat\" style=\"color: #000000;\"></i>");
+  Tipped.remove('#advanceEvent');
+  Tipped.create('#advanceEvent', 'Click to cancel', { showOn: showOpt, hideOnClickOutside: is_touch_device(), position: 'bottom' });
 }
 
 // updates various content on the page depending on what update event has been triggered
