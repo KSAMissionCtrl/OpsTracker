@@ -18,11 +18,6 @@
   <!-- use this image link to force reddit to use a certain image for its thumbnail -->
   <meta property="og:image" content="https://i.imgur.com/ugGunHB.png" />
   
-  <!-- cache of Font Awesome 
-  <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.8.1/css/all.css" 
-  integrity="sha384-50oBUHEmvpQ+1lW4y57PTFmhCaXp0ML5d60M1M7uH2+nqUivzIebhndOJK28anvf" 
-  crossorigin="anonymous">
-  -->
   <script src="https://kit.fontawesome.com/72c8db4d15.js" crossorigin="anonymous"></script>
 
   <!-- CSS stylesheets -->
@@ -42,25 +37,6 @@
   <link rel="stylesheet" href="../lib/leaflet.contextmenu.min.css">
   <link rel="stylesheet" href="styles.css?v=1.0">
   <link rel="stylesheet" href="../lib/tweet-display.css">
-
-   <!-- allows for use of X/Twitter JS API functions
-   <script>window.twttr = (function(d, s, id) {
-    var js, fjs = d.getElementsByTagName(s)[0],
-      t = window.twttr || {};
-    if (d.getElementById(id)) return t;
-    js = d.createElement(s);
-    js.id = id;
-    js.src = "https://platform.x.com/widgets.js";
-    fjs.parentNode.insertBefore(js, fjs);
-  
-    t._e = [];
-    t.ready = function(f) {
-      t._e.push(f);
-    };
-  
-    return t;
-  }(document, "script", "twitter-wjs"));</script>
-   -->
 </head>
 
 <body onload='setupContent()'>
@@ -196,14 +172,21 @@
         <div id='maneuver'><strong>Next Maneuver</strong><br>Checking...</div>
       </div>
       
-      <!-- Twitter/X display -->
+      <!-- Social feed display -->
 
-      <div id='twitterBox'><a href="https://twitter.com/KSA_MissionCtrl" class="twitter-follow-button" data-show-count="true">Follow @KSA_MissionCtrl</a><script async src="//platform.twitter.com/widgets.js" charset="utf-8"></script>
-      <div id='twitterTimelineSelection' style='font-size: 12px'>Source: <strong>KSA Main Feed</strong></div>
-      <div id='twitterTimeline'></div>
+      <div id='twitterBox'>
+        <div id='socialIcons'>
+          <i class="fa-brands fa-x-twitter" data-social="x-twitter" data-url="https://x.com/KSA_MissionCtrl"></i>
+          <i class="fa-brands fa-bluesky" data-social="bluesky" data-url="https://bsky.app/profile/ksa-missionctrl.bsky.social"></i>
+          <i class="fa-brands fa-threads" data-social="threads" data-url="https://www.threads.com/@ksa_missionctrl"></i>
+          <i class="fa-brands fa-mastodon" data-social="mastodon" data-url="https://mastodon.social/@KSA_MissionCtrl"></i>
+        </div>
+        <div id='twitterTimelineSelection' style='font-size: 12px; padding: 5px'>Source: <strong>KSA Main Feed</strong></div>
+        <div id='twitterTimeline'></div>
       </div>
     </div>
   </div>
+  
   <!-- JS files  -->
   <script src="http://ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js"></script>
   <script src="https://cdn.geogebra.org/apps/deployggb.js"></script>

@@ -22,6 +22,7 @@ var TweetDisplay = (function() {
     index: 0
   };
 
+  var tweetsDataCache = {}; // Store tweets for lightbox display
   var engageIds = [];
   var requestCounter = 0;
   var activeRequests = {};
@@ -59,6 +60,29 @@ var TweetDisplay = (function() {
     // Fallback to current date if parsing fails
     console.warn('Could not parse date:', dateString);
     return new Date();
+  }
+
+  // Helper: Get profile URL based on localStorage selection
+  function getProfileUrl() {
+    try {
+      var selectedSocial = localStorage.getItem('ksaOps_selectedSocialIcon');
+      if (selectedSocial) {
+        // Find the social icon element with matching data-social attribute
+        var socialElement = document.querySelector('i[data-social="' + selectedSocial + '"]');
+        if (socialElement) {
+          var profileUrl = socialElement.getAttribute('data-url');
+          if (profileUrl) {
+            window.open(profileUrl, '_blank');
+            return;
+          }
+        }
+      }
+      // Fallback to X/Twitter if no match found
+      window.open('https://x.com/' + config.accountHandle, '_blank');
+    } catch (e) {
+      // If localStorage not available or error, default to X/Twitter
+      window.open('https://x.com/' + config.accountHandle, '_blank');
+    }
   }
 
   // Helper: Load text file
@@ -275,7 +299,7 @@ var TweetDisplay = (function() {
     html += '<img class="tweet-profile-img" src="' + config.profileImage + '" alt="Profile picture">';
     html += '<div class="tweet-content">';
     html += '<div class="tweet-header">';
-    html += '<span class="tweet-name"><a href="https://x.com/' + config.accountHandle + '" target="_blank">' + config.accountName + '</a></span>';
+    html += '<span class="tweet-name" onclick="TweetDisplay.getProfileUrl()">' + config.accountName + '</span>';
     html += handleHtml;
     html += '</div>';
     html += '<div class="tweet-text">' + tweetText + '</div>';
@@ -287,6 +311,7 @@ var TweetDisplay = (function() {
     html += conversationLink;
     html += '</div>';
     html += '</div>';
+    html += '<i class="fa-solid fa-expand tweet-expand-icon" data-tweet-id="' + tweet.id + '"></i>';
     html += '</div>';
 
     return html;
@@ -303,6 +328,117 @@ var TweetDisplay = (function() {
       "'": '&#039;'
     };
     return text.replace(/[&<>"']/g, function(m) { return map[m]; });
+  }
+
+  // Helper: Format tweet for lightbox (full size)
+  function formatTweetForLightbox(tweet) {
+    var mediaHtml = '';
+    var tweetText = tweet.text;
+
+    // Replace URLs with links
+    if (tweet.urls && tweet.urls.length > 0) {
+      tweet.urls.forEach(function(url) {
+        var link = '<a href="' + escapeHtml(url.expanded_url) + '" target="_blank">' + escapeHtml(url.display_url) + '</a>';
+        tweetText = tweetText.split(url.url).join(link);
+      });
+    }
+
+    // Process media
+    if (tweet.media && tweet.media.length > 0) {
+      var firstMedia = tweet.media[0];
+      
+      if (firstMedia.type === 'video' || firstMedia.type === 'animated_gif') {
+        mediaHtml += '<a href="https://x.com/' + config.accountHandle + '/status/' + tweet.id + '" target="_blank">';
+        mediaHtml += '<div class="overlay-container">';
+        mediaHtml += '<img class="tweet-image" src="' + escapeHtml(firstMedia.media_url) + '" alt="Tweet media">';
+        mediaHtml += '<div class="play-overlay">▶</div>';
+        mediaHtml += '</div></a>';
+      } else {
+        mediaHtml += '<div class="grid-container images-' + tweet.media.length + '" data-tweet-id="' + tweet.id + '">';
+        tweet.media.forEach(function(media, index) {
+          var mediaUrl = media.media_url;
+          var fullUrl = mediaUrl;
+          
+          // For Twitter images, request high quality
+          if (media.type !== 'custom') {
+            fullUrl = mediaUrl.replace(/\.\w+$/, '') + '?format=png&name=large';
+          } else {
+            fullUrl = media.url || mediaUrl;
+          }
+          
+          var altText = media.alt_text || '';
+          mediaHtml += '<a href="#" class="media-wrapper lightbox-trigger" data-tweet-id="' + tweet.id + '" data-image-index="' + index + '" data-image-url="' + escapeHtml(fullUrl) + '" data-alt-text="' + escapeHtml(altText) + '">';
+          mediaHtml += '<img class="grid-img" src="' + escapeHtml(mediaUrl) + '" alt="Tweet media">';
+          if (altText) {
+            mediaHtml += '<span class="alt-text-indicator" title="Image has description">💬</span>';
+          }
+          mediaHtml += '</a>';
+        });
+        mediaHtml += '</div>';
+      }
+      
+      // Remove media URL from tweet text
+      if (firstMedia.url) {
+        tweetText = tweetText.split(firstMedia.url).join('');
+      }
+    }
+
+    // Remove self-mentions
+    tweetText = tweetText.split('@' + config.accountHandle).join('');
+    
+    // Replace @handles with links
+    tweetText = tweetText.replace(/@(\w+)/g, '<a href="https://x.com/$1" target="_blank">@$1</a>');
+
+    // Replace consecutive spaces with non-breaking spaces
+    tweetText = tweetText.replace(/  +/g, function(match) {
+      return '&nbsp;'.repeat(match.length);
+    });
+
+    // Replace newlines with <br>
+    tweetText = tweetText.replace(/\n/g, '<br>');
+
+    // Format timestamp to Eastern Time
+    var date = parseTwitterDate(tweet.created_at);
+    var estOptions = { 
+      timeZone: 'America/New_York',
+      weekday: 'short',
+      month: 'short', 
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      timeZoneName: 'short',
+      year: 'numeric'
+    };
+    var timestamp = date.toLocaleString('en-US', estOptions);
+
+    // Handle display
+    var handleHtml = '<span class="tweet-handle">@' + config.accountHandle + '</span>';
+    
+    // Conversation link
+    var conversationLink = '';
+    if (engageIds.indexOf(tweet.id) !== -1) {
+      conversationLink = '<a class="tweet-action" href="https://x.com/' + config.accountHandle + '/status/' + tweet.id + '" target="_blank"><span>💬</span> View Conversation</a>';
+    }
+
+    var html = '<div class="tweet" id="lightbox-tweet-' + tweet.id + '">';
+    html += '<img class="tweet-profile-img" src="' + config.profileImage + '" alt="Profile picture">';
+    html += '<div class="tweet-content">';
+    html += '<div class="tweet-header">';
+    html += '<span class="tweet-name" onclick="TweetDisplay.getProfileUrl()">' + config.accountName + '</span>';
+    html += handleHtml;
+    html += '</div>';
+    html += '<div class="tweet-text">' + tweetText + '</div>';
+    html += mediaHtml;
+    html += '<p class="full-timestamp"><a href="https://x.com/' + config.accountHandle + '/status/' + tweet.id + '" target="_blank">' + timestamp + '</a></p>';
+    html += '<div class="tweet-actions">';
+    html += '<div class="tweet-action' + (tweet.retweet_count > 0 ? '' : ' zero') + '"><span>🔄</span> ' + tweet.retweet_count + '</div>';
+    html += '<div class="tweet-action' + (tweet.favorite_count > 0 ? '' : ' zero') + '"><span>❤️</span> ' + tweet.favorite_count + '</div>';
+    html += conversationLink;
+    html += '</div>';
+    html += '</div>';
+    html += '</div>';
+
+    return html;
   }
 
   // Display tweets in container
@@ -391,6 +527,9 @@ var TweetDisplay = (function() {
           // Sort tweets data by order
           var tweetsArray = tweetIds.map(function(id) { return tweetsData[id]; });
 
+          // Cache tweets data for lightbox and timestamp links
+          tweetsDataCache = tweetsData;
+
           // Render tweets with inline styling
           var html = '<div id="tweet-container" class="inline-tweets" data-order="' + order + '" data-collection="' + collectionFile + '">';
 
@@ -427,8 +566,9 @@ var TweetDisplay = (function() {
           html += '</div>';
           containerEl.innerHTML = html;
 
-          // Initialize lightbox
+          // Initialize lightboxes
           initializeLightbox();
+          initializeTweetLightbox();
         });
       });
     });
@@ -462,6 +602,12 @@ var TweetDisplay = (function() {
     var nextBtn = document.querySelector('.lightbox-next');
 
     function openLightbox(tweetId, imageIndex) {
+      // Close tweet lightbox if it's open
+      var tweetLightbox = document.getElementById('tweet-display-lightbox');
+      if (tweetLightbox && tweetLightbox.style.display === 'flex') {
+        tweetLightbox.style.display = 'none';
+      }
+
       currentLightbox.tweetId = tweetId;
       currentLightbox.index = imageIndex;
 
@@ -585,9 +731,82 @@ var TweetDisplay = (function() {
     });
   }
 
+  // Initialize tweet lightbox
+  function initializeTweetLightbox() {
+    var tweetLightbox = document.getElementById('tweet-display-lightbox');
+    if (!tweetLightbox) {
+      // Create tweet lightbox if it doesn't exist
+      var lightboxHtml = '<div id="tweet-display-lightbox" class="tweet-lightbox" style="display: none;">';
+      lightboxHtml += '<span class="tweet-lightbox-close">&times;</span>';
+      lightboxHtml += '<div class="tweet-lightbox-content lightbox-tweet-container">';
+      lightboxHtml += '</div>';
+      lightboxHtml += '</div>';
+      document.body.insertAdjacentHTML('beforeend', lightboxHtml);
+      tweetLightbox = document.getElementById('tweet-display-lightbox');
+    }
+
+    var closeBtn = document.querySelector('.tweet-lightbox-close');
+
+    function openTweetLightbox(tweetId) {
+      var tweet = tweetsDataCache[tweetId];
+      if (!tweet) {
+        console.error('Tweet not found:', tweetId);
+        return;
+      }
+
+      var content = document.querySelector('.tweet-lightbox-content');
+      content.innerHTML = formatTweetForLightbox(tweet);
+      
+      // Re-initialize image lightbox for images in the lightbox tweet
+      initializeLightbox();
+      
+      tweetLightbox.style.display = 'flex';
+      document.body.style.overflow = 'hidden';
+    }
+
+    function closeTweetLightbox() {
+      tweetLightbox.style.display = 'none';
+      document.body.style.overflow = '';
+    }
+
+    // Event listeners for tweet lightbox triggers
+    document.querySelectorAll('.tweet-lightbox-trigger').forEach(function(trigger) {
+      trigger.addEventListener('click', function(e) {
+        e.preventDefault();
+        var tweetId = this.getAttribute('data-tweet-id');
+        openTweetLightbox(tweetId);
+      });
+    });
+
+    // Event listeners for expand icons
+    document.querySelectorAll('.tweet-expand-icon').forEach(function(icon) {
+      icon.addEventListener('click', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        var tweetId = this.getAttribute('data-tweet-id');
+        openTweetLightbox(tweetId);
+      });
+    });
+
+    if (closeBtn) closeBtn.onclick = closeTweetLightbox;
+    if (tweetLightbox) {
+      tweetLightbox.onclick = function(e) {
+        if (e.target === tweetLightbox) closeTweetLightbox();
+      };
+    }
+
+    // Keyboard navigation
+    document.addEventListener('keydown', function(e) {
+      if (tweetLightbox.style.display === 'flex') {
+        if (e.key === 'Escape') closeTweetLightbox();
+      }
+    });
+  }
+
   // Public API
   return {
     displayTweets: displayTweets,
+    getProfileUrl: getProfileUrl,
     config: config
   };
 })();

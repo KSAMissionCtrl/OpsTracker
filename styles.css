@@ -379,6 +379,32 @@ input:disabled+label {
   text-align: center;
 }
 
+#socialIcons {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 15px;
+}
+
+#socialIcons i {
+  cursor: pointer;
+  transition: all 0.2s ease;
+  color: #333;
+  padding: 8px;
+  border-radius: 8px;
+  background: transparent;
+}
+
+#socialIcons i:hover {
+  transform: scale(1.15);
+  color: #000;
+}
+
+#socialIcons i.active {
+  background: linear-gradient(135deg, #339ADC 0%, #07204A 100%);
+  color: #fff;
+}
+
 #filters {
   position: absolute; 
   margin-top: 5px; 

@@ -222,6 +222,41 @@ function setupContent() {
     window.open("admin.htm", "_blank");
   });
 
+  // restore selected social icon from localStorage
+  var savedSocial = localStorage.getItem('ksaOps_selectedSocialIcon') || 'x-twitter';
+  $('#socialIcons i').removeClass('active');
+  $('#socialIcons i[data-social="' + savedSocial + '"]').addClass('active');
+
+  // setup social icons handlers
+  $('#socialIcons i').on('click', function(e) {
+    e.preventDefault();
+    var url = $(this).data('url');
+    window.open(url, '_blank');
+  });
+
+  $('#socialIcons i').on('contextmenu', function(e) {
+    e.preventDefault();
+    
+    // Remove active class from all icons
+    $('#socialIcons i').removeClass('active');
+    
+    // Add active class to clicked icon
+    $(this).addClass('active');
+    
+    // Save to localStorage
+    var social = $(this).data('social');
+    localStorage.setItem('ksaOps_selectedSocialIcon', social);
+  });
+
+  // setup tooltips for social icons
+  var showOpt = 'mouseenter';
+  if (is_touch_device()) showOpt = 'click';
+  Tipped.create('#socialIcons i', 'Left-click: Open social profile<br>Right-click: Set default platform<br>to open via update timestamps', {
+    position: 'top',
+    showOn: showOpt,
+    hideOnClickOutside: is_touch_device()
+  });
+
   // setup the clock
   var tzOffset = luxon.DateTime.fromMillis(KSA_CONSTANTS.MS_FROM_1970_TO_KSA_FOUNDING + (ops.UT * 1000)).setZone("America/New_York");
   var clockHTML = "<strong>Current Time @ KSC (UTC <span id='utcOffset'>" + tzOffset.offset/60 + "</span>)</strong><br>";
@@ -400,8 +435,6 @@ function setupContent() {
         }
       }
     });
-    var showOpt = 'mouseenter';
-    if (is_touch_device()) showOpt = 'click';
     Tipped.create('#ffCancelOnOtherUpdates', 'Checked: FF time stops on any vessel/crew updates<br>Unchecked: FF only stops for current vessel/crew updates', { showOn: showOpt, hideOnClickOutside: is_touch_device(), position: 'bottom' });
     Tipped.create('#resetHistoricTime', 'Left click: Reset time to page load<br>Right click: Reset time to current event', { showOn: showOpt, hideOnClickOutside: is_touch_device(), position: 'bottom' });
     Tipped.create('#advanceTime1s', 'Advance time 1sec', { showOn: showOpt, hideOnClickOutside: is_touch_device(), position: 'bottom' });
@@ -604,8 +637,6 @@ function setupContent() {
 
   // setup the header
   $("#contentHeader").html("<span id='patches'></span>&nbsp;<span id='contentTitle'></span>&nbsp;<span id='tags' style='display:none'><i class='fa-solid fa-tag fa-2xs' style='color: #000000;'></i></span>");
-  var showOpt = 'mouseenter';
-  if (is_touch_device()) showOpt = 'click';
   Tipped.create('#tags', 'Left click: Open posts on KSA website<br>Right click: Open images on flickr<br>Middle click: Open both', { showOn: showOpt, hideOnClickOutside: is_touch_device(), position: 'right' });
 
   // setup click handlers for tags element

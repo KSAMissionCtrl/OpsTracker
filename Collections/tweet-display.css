@@ -1,4 +1,4 @@
-/* Twitter-style Tweet Display - Compact Inline Mode Only */
+/* Twitter-style Tweet Display - Compact Inline Mode + Lightbox Full Display */
 /* Based on tweet.css from Collections folder - Inline mode as default */
 
 .tweet-loading,
@@ -7,6 +7,145 @@
   padding: 20px;
   color: #657786;
   font-family: Arial, sans-serif;
+}
+
+/* Full-size tweet styling for lightbox display */
+.lightbox-tweet-container .tweet {
+  display: flex;
+  align-items: flex-start;
+  border: 1px solid #e1e8ed;
+  border-radius: 10px;
+  padding: 12px;
+  background: #fff;
+  font-family: Arial, sans-serif;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  margin-bottom: 15px;
+  max-width: 600px;
+}
+
+.lightbox-tweet-container .tweet-profile-img {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  margin-right: 12px;
+  margin-top: 0px;
+  float: none;
+}
+
+.lightbox-tweet-container .tweet-content {
+  flex: 1;
+}
+
+.lightbox-tweet-container .tweet-header {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 5px;
+}
+
+.lightbox-tweet-container .tweet-name {
+  font-weight: bold;
+  color: #14171a;
+  font-size: 15px;
+  cursor: pointer;
+}
+
+.lightbox-tweet-container .tweet-name:hover {
+  text-decoration: underline;
+}
+
+.lightbox-tweet-container .tweet-handle {
+  color: #657786;
+  font-size: 14px;
+  margin-left: 0;
+}
+
+.lightbox-tweet-container .tweet-timestamp {
+  color: #657786;
+  font-size: 14px;
+}
+
+.lightbox-tweet-container .tweet-text {
+  margin-top: 4px;
+  font-size: 15px;
+  line-height: 1.4;
+  color: #14171a;
+  text-align: left;
+  clear: none;
+}
+
+.lightbox-tweet-container .tweet-text a {
+  color: #1da1f2;
+  text-decoration: none;
+}
+
+.lightbox-tweet-container .tweet-text a:hover {
+  text-decoration: underline;
+}
+
+.lightbox-tweet-container .full-timestamp {
+  font-size: 14px;
+  color: #657786;
+  margin-top: 10px;
+  margin-bottom: 10px;
+  text-align: left;
+  clear: none;
+}
+
+.lightbox-tweet-container .full-timestamp a {
+  color: #657786;
+  text-decoration: none;
+}
+
+.lightbox-tweet-container .full-timestamp a:hover {
+  text-decoration: underline;
+}
+
+.lightbox-tweet-container .tweet-actions {
+  display: flex;
+  gap: 20px;
+  padding-top: 8px;
+  margin-top: 4px;
+  font-size: 13px;
+  clear: none;
+}
+
+.lightbox-tweet-container .tweet-action {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: #657786;
+  font-size: 13px;
+  text-decoration: none;
+}
+
+.lightbox-tweet-container .grid-container {
+  margin: 0 auto;
+  margin-right: 5px;
+  display: grid;
+  gap: 2px;
+  border-radius: 8px;
+  margin-top: 10px;
+  margin-bottom: 15px;
+  clear: none;
+}
+
+.lightbox-tweet-container .tweet-image {
+  width: 100%;
+  border-radius: 10px;
+  margin-top: 10px;
+}
+
+/* Lightbox image grid layouts - allow natural aspect ratios */
+.lightbox-tweet-container .images-1 .grid-img {
+  object-fit: contain;
+  max-height: none;
+}
+
+.lightbox-tweet-container .images-2,
+.lightbox-tweet-container .images-3,
+.lightbox-tweet-container .images-4 {
+  max-height: 400px;
 }
 
 /* Container - fills parent width with vertical scrolling */
@@ -27,6 +166,25 @@
   font-family: Arial, sans-serif;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
   margin-bottom: 10px;
+  position: relative;
+}
+
+/* Expand icon in lower-right corner */
+.tweet-expand-icon {
+  position: absolute;
+  bottom: 8px;
+  right: 8px;
+  color: #657786;
+  font-size: 14px;
+  cursor: pointer;
+  opacity: 0.6;
+  transition: opacity 0.2s, color 0.2s;
+  z-index: 10;
+}
+
+.tweet-expand-icon:hover {
+  opacity: 1;
+  color: #1da1f2;
 }
 
 /* Date boundary styling */
@@ -88,14 +246,10 @@
   font-weight: bold;
   color: #14171a;
   font-size: 13px;
+  cursor: pointer;
 }
 
-.tweet-name a {
-  color: #14171a;
-  text-decoration: none;
-}
-
-.tweet-name a:hover {
+.tweet-name:hover {
   text-decoration: underline;
 }
 
@@ -379,7 +533,44 @@ a.tweet-action {
   grid-template-rows: 1fr 1fr;
 }
 
-/* Lightbox styling */
+/* Tweet Lightbox - for displaying full tweet */
+.tweet-lightbox {
+  display: none;
+  position: fixed;
+  z-index: 10000;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.85);
+  align-items: center;
+  justify-content: center;
+  overflow-y: auto;
+}
+
+.tweet-lightbox-content {
+  position: relative;
+  max-width: 600px;
+  width: 90%;
+  margin: 40px auto;
+}
+
+.tweet-lightbox-close {
+  position: fixed;
+  top: 20px;
+  right: 40px;
+  color: #fff;
+  font-size: 40px;
+  font-weight: bold;
+  cursor: pointer;
+  z-index: 10001;
+}
+
+.tweet-lightbox-close:hover {
+  color: #ccc;
+}
+
+/* Image Lightbox styling */
 .lightbox {
   display: none;
   position: fixed;
