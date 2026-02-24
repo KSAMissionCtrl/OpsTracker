@@ -1308,6 +1308,58 @@ function updateTerminator() {
   }
 }
 
+// opens a social post in the selected client
+function openSocialPost(tweetid) {
+  var bOpened = true;
+  var tweet = TweetDisplay.getPost(tweetid);
+  if (!tweet) {
+    console.log("could not find tweet with id", tweetid);
+    return;
+  }
+  var selectedSocial = localStorage.getItem('ksaOps_selectedSocialIcon');
+  if (selectedSocial && selectedSocial != "x-twitter") {
+    if (selectedSocial == "bluesky") {
+      if (tweet.bsky) window.open('https://bsky.app/profile/ksa-missionctrl.bsky.social/post/' + tweet.bsky, '_blank');
+      else {
+        window.open('https://bsky.app/profile/ksa-missionctrl.bsky.social', '_blank');
+        bOpened = false;
+      }
+    } else if (selectedSocial == "threads") {
+      if (tweet.threads) window.open('https://www.threads.com/@ksa_missionctrl/post/' + tweet.threads, '_blank');
+      else {
+        window.open('https://www.threads.com/@ksa_missionctrl', '_blank');
+        bOpened = false;
+      }
+    } else if (selectedSocial == "mastodon") {
+      if (tweet.mstdn) window.open('https://mastodon.social/@ksa_missionctrl/' + tweet.mstdn, '_blank');
+      else {
+        window.open('https://mastodon.social/@ksa_missionctrl', '_blank');
+        bOpened = false;
+      }
+    }
+  } else {
+
+    // 15 chars is a temp token, actual X post IDs are 19+ chars
+    if (tweet.id.length == 15) {
+      bOpened = false;
+      window.open('https://x.com/ksa_missionctrl', '_blank');
+    } else window.open('https://x.com/ksa_missionctrl/status/' + tweet.id, '_blank');
+  }
+
+  if (!bOpened && !localStorage.getItem('ksaOps_socialMsgSeen')) {
+    $("#siteDialog").html("We can't yet take you directly to this post, but you will likely have found it easily within the main profile feed as this issue generally only affects posts within the past few days. For more information <a href='https://github.com/KSAMissionCtrl/OpsTracker/wiki/Social-Feed' target='_blank'>see our wiki</a><br><br><label style='cursor: pointer;'><input type='checkbox' id='socialMsgDontShow' checked style='cursor: pointer;'> Don't show again</label>");
+    $("#siteDialog").dialog("option", "title", "Social Feeds Notice");
+    $("#siteDialog").dialog( "option", "buttons", [{
+      text: "Close",
+      click: function() { 
+        if ($("#socialMsgDontShow").is(":checked")) localStorage.setItem('ksaOps_socialMsgSeen', 'true');
+        $("#siteDialog").dialog("close");
+      }
+    }]);
+    $("#siteDialog").dialog("open");
+  }
+}
+
 // loop and update the page every second
 // no longer using setInterval, as suggested via
 // http://stackoverflow.com/questions/6685396/execute-the-first-time-the-setinterval-without-delay

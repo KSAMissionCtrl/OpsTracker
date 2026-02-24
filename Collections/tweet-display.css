@@ -60,11 +60,6 @@
   margin-left: 0;
 }
 
-.lightbox-tweet-container .tweet-timestamp {
-  color: #657786;
-  font-size: 14px;
-}
-
 .lightbox-tweet-container .tweet-text {
   margin-top: 4px;
   font-size: 15px;
@@ -259,11 +254,6 @@
   margin-left: 0;
 }
 
-.tweet-timestamp {
-  color: #657786;
-  font-size: 11px;
-}
-
 /* Tweet text - compact */
 .tweet-text {
   margin-top: 4px;
@@ -291,6 +281,11 @@
   margin-bottom: 6px;
   text-align: left;
   clear: both;
+  cursor: pointer;
+}
+
+.full-timestamp:hover {
+  text-decoration: underline;
 }
 
 .full-timestamp a {
@@ -333,58 +328,6 @@ a.tweet-action:hover {
 
 a.tweet-action {
   cursor: pointer;
-}
-
-.tweet-action.cookies-disabled {
-  cursor: default !important;
-  opacity: 0.6;
-}
-
-/* Prevent clicks but allow hover */
-.tweet-action.cookies-disabled:active,
-.tweet-action.cookies-disabled:focus {
-  pointer-events: none;
-}
-
-.tweet-action.liked {
-  color: #e0245e;
-}
-
-.tweet-action.retweeted {
-  color: #17bf63;
-}
-
-/* Tooltip styling */
-.tweet-action[aria-label] {
-  position: relative;
-}
-
-.tweet-action[aria-label]:hover::before {
-  content: attr(aria-label);
-  position: absolute;
-  bottom: 100%;
-  left: 50%;
-  transform: translateX(-50%);
-  padding: 5px 10px;
-  background: rgba(0, 0, 0, 0.8);
-  color: white;
-  font-size: 12px;
-  white-space: nowrap;
-  border-radius: 4px;
-  margin-bottom: 5px;
-  z-index: 1000;
-}
-
-.tweet-action[aria-label]:hover::after {
-  content: '';
-  position: absolute;
-  bottom: 100%;
-  left: 50%;
-  transform: translateX(-50%);
-  border: 5px solid transparent;
-  border-top-color: rgba(0, 0, 0, 0.8);
-  margin-bottom: -5px;
-  z-index: 1000;
 }
 
 /* Overlay Image Style */
@@ -450,49 +393,6 @@ a.tweet-action {
   pointer-events: none;
   z-index: 1;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
-}
-
-.alt-text-icon {
-  position: absolute;
-  bottom: 8px;
-  left: 8px;
-  background: rgba(0, 0, 0, 0.8);
-  color: white;
-  width: 20px;
-  height: 20px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 12px;
-  opacity: 1;
-  transition: opacity 0.3s ease;
-  pointer-events: none;
-  z-index: 1;
-}
-
-.media-wrapper:hover .alt-text-icon {
-  opacity: 0;
-}
-
-.alt-text-overlay {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  background: rgba(0, 0, 0, 0.8);
-  color: white;
-  padding: 6px 8px;
-  font-size: 11px;
-  line-height: 1.4;
-  opacity: 0;
-  transition: opacity 0.3s ease;
-  pointer-events: none;
-  z-index: 2;
-}
-
-.media-wrapper:hover .alt-text-overlay {
-  opacity: 1;
 }
 
 .grid-container .grid-img {

@@ -85,6 +85,13 @@ var TweetDisplay = (function() {
     }
   }
 
+  // Helper: Get post URL
+  function getPost(tweetId) {
+    var tweet = tweetsDataCache[tweetId];
+    if (!tweet) return null;
+    return tweet;
+  }
+
   // Helper: Load text file
   function loadTextFile(url, callback) {
     var xhr = new XMLHttpRequest();
@@ -115,6 +122,9 @@ var TweetDisplay = (function() {
       tweetIds.forEach(function(id) {
         tweetsData[id] = {
           id: id,
+          bsky: null,
+          threads: null,
+          mstdn: null,
           text: '',
           created_at: '',
           media: [],
@@ -162,6 +172,9 @@ var TweetDisplay = (function() {
             if (tweetIds.indexOf(jsonObj.id) !== -1) {
               tweetsData[jsonObj.id] = {
                 id: jsonObj.id,
+                bsky: jsonObj.bsky || null,
+                threads: jsonObj.threads || null,
+                mstdn: jsonObj.mstdn || null,
                 text: jsonObj.text || '',
                 created_at: jsonObj.created_at || '',
                 media: jsonObj.media || [],
@@ -304,10 +317,14 @@ var TweetDisplay = (function() {
     html += '</div>';
     html += '<div class="tweet-text">' + tweetText + '</div>';
     html += mediaHtml;
-    html += '<p class="full-timestamp"><a href="https://x.com/' + config.accountHandle + '/status/' + tweet.id + '" target="_blank">' + timestamp + '</a></p>';
+    html += '<p class="full-timestamp" onclick="openSocialPost(\'' + tweet.id + '\')">' + timestamp + '</p>';
     html += '<div class="tweet-actions">';
-    html += '<div class="tweet-action' + (tweet.retweet_count > 0 ? '' : ' zero') + '"><span>🔄</span> ' + tweet.retweet_count + '</div>';
-    html += '<div class="tweet-action' + (tweet.favorite_count > 0 ? '' : ' zero') + '"><span>❤️</span> ' + tweet.favorite_count + '</div>';
+    if (tweet.retweet_count !== null) {
+      html += '<div class="tweet-action' + (tweet.retweet_count > 0 ? '' : ' zero') + '"><span>🔄</span> ' + tweet.retweet_count + '</div>';
+    }
+    if (tweet.favorite_count !== null) {
+      html += '<div class="tweet-action' + (tweet.favorite_count > 0 ? '' : ' zero') + '"><span>❤️</span> ' + tweet.favorite_count + '</div>';
+    }
     html += conversationLink;
     html += '</div>';
     html += '</div>';
@@ -429,10 +446,14 @@ var TweetDisplay = (function() {
     html += '</div>';
     html += '<div class="tweet-text">' + tweetText + '</div>';
     html += mediaHtml;
-    html += '<p class="full-timestamp"><a href="https://x.com/' + config.accountHandle + '/status/' + tweet.id + '" target="_blank">' + timestamp + '</a></p>';
+    html += '<p class="full-timestamp" onclick="openSocialPost(\'' + tweet.id + '\')">' + timestamp + '</p>';
     html += '<div class="tweet-actions">';
-    html += '<div class="tweet-action' + (tweet.retweet_count > 0 ? '' : ' zero') + '"><span>🔄</span> ' + tweet.retweet_count + '</div>';
-    html += '<div class="tweet-action' + (tweet.favorite_count > 0 ? '' : ' zero') + '"><span>❤️</span> ' + tweet.favorite_count + '</div>';
+    if (tweet.retweet_count !== null) {
+      html += '<div class="tweet-action' + (tweet.retweet_count > 0 ? '' : ' zero') + '"><span>🔄</span> ' + tweet.retweet_count + '</div>';
+    }
+    if (tweet.favorite_count !== null) {
+      html += '<div class="tweet-action' + (tweet.favorite_count > 0 ? '' : ' zero') + '"><span>❤️</span> ' + tweet.favorite_count + '</div>';
+    }
     html += conversationLink;
     html += '</div>';
     html += '</div>';
@@ -807,6 +828,7 @@ var TweetDisplay = (function() {
   return {
     displayTweets: displayTweets,
     getProfileUrl: getProfileUrl,
+    getPost: getPost,
     config: config
   };
 })();
