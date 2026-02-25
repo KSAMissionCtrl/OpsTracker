@@ -1046,25 +1046,19 @@ function swapTwitterSource(swap, source) {
     ops.twitterSource = source;
   }
   
-  // Determine if source is a URL (old Twitter widget) or a collection ID (new system)
-  if (source.startsWith("http://") || source.startsWith("https://")) {
-    // Old Twitter/X widget system - kept for backward compatibility if needed
-    $("#twitterTimeline").html("<a class='twitter-timeline' data-chrome='nofooter noheader' data-height='500' href='"+ source + "'>Loading Tweets...</a> <script async src='https://platform.x.com/widgets.js' charset='utf-8'>");
-  } else {
-    // New custom tweet display system - source is a collection ID
-    // Determine order based on mission status - ascending if mission ended, descending otherwise
-    var tweetOrder = 'desc';
-    if (swap && (swap == "Mission Feed" && ops.currentVessel && isMissionEnded()) && source != "13573") {
-      tweetOrder = 'asc';
-    }
-    
-    TweetDisplay.displayTweets({
-      containerId: 'twitterTimeline',
-      collectionFile: source,
-      order: tweetOrder,
-      maxTweets: 25
-    });
+  // Determine order based on mission status - ascending if mission ended, descending otherwise
+  var tweetOrder = 'desc';
+  if (swap && (swap == "Mission Feed" && ops.currentVessel && isMissionEnded()) && source != "13573") {
+    tweetOrder = 'asc';
   }
+  
+  TweetDisplay.displayTweets({
+    containerId: 'twitterTimeline',
+    collectionFile: source,
+    order: tweetOrder,
+    maxTweets: 25,
+    UT: currUT()
+  });
 }
 
 // loads future data for all active vessels and crew so they can be updated without fetch delay
@@ -1311,11 +1305,13 @@ function updateTerminator() {
 // opens a social post in the selected client
 function openSocialPost(tweetid) {
   var bOpened = true;
-  var tweet = TweetDisplay.getPost(tweetid);
+  var tweet = TweetDisplay.getTweetData(tweetid);
+
   if (!tweet) {
     console.log("could not find tweet with id", tweetid);
     return;
   }
+
   var selectedSocial = localStorage.getItem('ksaOps_selectedSocialIcon');
   if (selectedSocial && selectedSocial != "x-twitter") {
     if (selectedSocial == "bluesky") {
@@ -1339,15 +1335,21 @@ function openSocialPost(tweetid) {
     }
   } else {
 
-    // 15 chars is a temp token, actual X post IDs are 19+ chars
-    if (tweet.id.length == 15) {
+    // so when the pyscript imports the tweet archive and cleans it up it adds the xtwit copy of the id
+    // however then the edits are loaded in and overwrite the cleaned tweet data, and none of them have the xtwit
+    // I'm not adding that manually to every edited tweet in the file so just check if no other socials are defined as well
+    // this means its an edited tweet and also an older update that will only be on X so just use the original ID
+    // really could have just done this for all the old tweets but wanted to test the xtwit property
+    if (!tweet.xtwit && !tweet.bsky && !tweet.threads && !tweet.mstdn) window.open('https://x.com/ksa_missionctrl/status/' + tweet.id, '_blank');
+    else if (tweet.xtwit) window.open('https://x.com/ksa_missionctrl/status/' + tweet.xtwit, '_blank');
+    else {
       bOpened = false;
       window.open('https://x.com/ksa_missionctrl', '_blank');
-    } else window.open('https://x.com/ksa_missionctrl/status/' + tweet.id, '_blank');
+    }
   }
 
   if (!bOpened && !localStorage.getItem('ksaOps_socialMsgSeen')) {
-    $("#siteDialog").html("We can't yet take you directly to this post, but you will likely have found it easily within the main profile feed as this issue generally only affects posts within the past few days. For more information <a href='https://github.com/KSAMissionCtrl/OpsTracker/wiki/Social-Feed' target='_blank'>see our wiki</a><br><br><label style='cursor: pointer;'><input type='checkbox' id='socialMsgDontShow' checked style='cursor: pointer;'> Don't show again</label>");
+    $("#siteDialog").html("We can't take you directly to this post, but you will likely have found it easily within the main profile feed as this issue generally only affects posts within the past few days. There is also the chance that it was not posted at all here. For more information <a href='https://github.com/KSAMissionCtrl/OpsTracker/wiki/Social-Feed' target='_blank'>see our wiki</a><br><br><label style='cursor: pointer;'><input type='checkbox' id='socialMsgDontShow' checked style='cursor: pointer;'> Don't show again</label>");
     $("#siteDialog").dialog("option", "title", "Social Feeds Notice");
     $("#siteDialog").dialog( "option", "buttons", [{
       text: "Close",

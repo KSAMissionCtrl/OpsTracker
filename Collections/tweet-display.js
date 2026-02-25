@@ -85,8 +85,8 @@ var TweetDisplay = (function() {
     }
   }
 
-  // Helper: Get post URL
-  function getPost(tweetId) {
+  // Helper: Get tweet data by ID from cache
+  function getTweetData(tweetId) {
     var tweet = tweetsDataCache[tweetId];
     if (!tweet) return null;
     return tweet;
@@ -94,8 +94,16 @@ var TweetDisplay = (function() {
 
   // Helper: Load text file
   function loadTextFile(url, callback) {
+
+    // Add cache-busting parameter to prevent browser caching
+    // using the last visit will mean a new request each time the user returns
+    // but within the same session it will allow caching for better performance and also during live history mode
+    // ops.UT is not as good but still works better than a changing timestamp each load
+    var cacheBuster = localStorage.getItem("ksaOps_lastVisit") || ops.UT;
+    var urlWithCacheBuster = url + (url.indexOf('?') !== -1 ? '&_=' : '?_=') + cacheBuster;
+    
     var xhr = new XMLHttpRequest();
-    xhr.open('GET', url, true);
+    xhr.open('GET', urlWithCacheBuster, true);
     xhr.onload = function() {
       if (xhr.status === 200) {
         callback(null, xhr.responseText);
@@ -122,6 +130,7 @@ var TweetDisplay = (function() {
       tweetIds.forEach(function(id) {
         tweetsData[id] = {
           id: id,
+          xtwit: null,
           bsky: null,
           threads: null,
           mstdn: null,
@@ -172,6 +181,7 @@ var TweetDisplay = (function() {
             if (tweetIds.indexOf(jsonObj.id) !== -1) {
               tweetsData[jsonObj.id] = {
                 id: jsonObj.id,
+                xtwit: jsonObj.xtwit || null,
                 bsky: jsonObj.bsky || null,
                 threads: jsonObj.threads || null,
                 mstdn: jsonObj.mstdn || null,
@@ -482,6 +492,7 @@ var TweetDisplay = (function() {
 
     // Load tweet IDs
     loadTextFile(config.tweetsPath + collectionFile + '.txt', function(err, data) {
+
       // Check if this request is still active
       if (activeRequests[options.containerId] !== requestId) {
         console.log('Tweet request cancelled (superseded by newer request)');
@@ -509,16 +520,9 @@ var TweetDisplay = (function() {
         tweetIds.sort(function(a, b) { return Number(a) - Number(b); });
       }
 
-      // Track total before limiting
-      var totalTweets = tweetIds.length;
-
-      // Limit
-      if (maxTweets > 0) {
-        tweetIds = tweetIds.slice(0, maxTweets);
-      }
-
       // Load engage list
       loadTextFile(config.tweetsPath + 'engage.txt', function(engageErr, engageData) {
+
         // Check if this request is still active
         if (activeRequests[options.containerId] !== requestId) {
           console.log('Tweet request cancelled (superseded by newer request)');
@@ -533,6 +537,7 @@ var TweetDisplay = (function() {
 
         // Load tweets data
         loadTweetsJson(tweetIds, function(tweetsErr, tweetsData) {
+          
           // Check if this request is still active
           if (activeRequests[options.containerId] !== requestId) {
             console.log('Tweet request cancelled (superseded by newer request)');
@@ -551,34 +556,50 @@ var TweetDisplay = (function() {
           // Cache tweets data for lightbox and timestamp links
           tweetsDataCache = tweetsData;
 
+          // count how mant tweets were found prior to the current UT
+          var totalTweets = 0;
+          var forbreak = false;
+
           // Render tweets with inline styling
           var html = '<div id="tweet-container" class="inline-tweets" data-order="' + order + '" data-collection="' + collectionFile + '">';
 
           for (var i = 0; i < tweetsArray.length; i++) {
+
+            // check here for a break since we could have incremented totalTweets to equal maxTweets at the end of the array
+            // if the loop comes around again then there are more tweets after
+            if (maxTweets > 0 && totalTweets >= maxTweets) {
+              forbreak = true;
+              break;
+            }
+
             var tweet = tweetsArray[i];
             var isDateBoundary = false;
 
-            // Check for date boundary
-            if (i > 0 || i < tweetsArray.length - 1) {
-              var currentDate = parseTwitterDate(tweet.created_at);
-              var currentDay = currentDate.toISOString().split('T')[0];
+            // Only add the tweet if its timestamp is prior or equal to options.UT
+            var currentDate = parseTwitterDate(tweet.created_at);
+            if (!options.UT || dateToUT(luxon.DateTime.fromJSDate(currentDate)) <= options.UT) {
+              
+              // Check for date boundary
+              if (i > 0 || i < tweetsArray.length - 1) {
+                var currentDay = currentDate.toISOString().split('T')[0];
 
-              if (order === 'desc' && i > 0) {
-                var prevDate = parseTwitterDate(tweetsArray[i - 1].created_at);
-                var prevDay = prevDate.toISOString().split('T')[0];
-                isDateBoundary = (currentDay !== prevDay);
-              } else if (order === 'asc' && i < tweetsArray.length - 1) {
-                var nextDate = parseTwitterDate(tweetsArray[i + 1].created_at);
-                var nextDay = nextDate.toISOString().split('T')[0];
-                isDateBoundary = (currentDay !== nextDay);
+                if (order === 'desc' && i > 0) {
+                  var prevDate = parseTwitterDate(tweetsArray[i - 1].created_at);
+                  var prevDay = prevDate.toISOString().split('T')[0];
+                  isDateBoundary = (currentDay !== prevDay);
+                } else if (order === 'asc' && i < tweetsArray.length - 1) {
+                  var nextDate = parseTwitterDate(tweetsArray[i + 1].created_at);
+                  var nextDay = nextDate.toISOString().split('T')[0];
+                  isDateBoundary = (currentDay !== nextDay);
+                }
               }
+              html += formatTweet(tweet, isDateBoundary, order);
+              totalTweets++;
             }
-
-            html += formatTweet(tweet, isDateBoundary, order);
           }
 
           // Only show "View Full Collection" link if tweets were limited
-          if (maxTweets > 0 && totalTweets > maxTweets) {
+          if (forbreak) {
             html += '<div style="text-align: center; padding: 5px 0;">';
             html += '<a href="http://www.kerbalspace.agency/?p=' + collectionFile + '" target="_blank" style="font-size: 16px; color: #1da1f2; text-decoration: none; font-weight: 500;">View Full Collection →</a>';
             html += '</div>';
@@ -828,7 +849,7 @@ var TweetDisplay = (function() {
   return {
     displayTweets: displayTweets,
     getProfileUrl: getProfileUrl,
-    getPost: getPost,
+    getTweetData: getTweetData,
     config: config
   };
 })();
