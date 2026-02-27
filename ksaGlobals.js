@@ -58,6 +58,7 @@ var ops = {
   vesselsToLoad: [],      // uses extractIDs() to hold the ids of all the vessels in the current SOI that need to have GGB orbits rendered & loads them
   updatesList: [],        // all the updates to various vessels, crew and events that will happen next while the page is loaded
   updateData: [],         // precaches new data on all crew and vessels that are active and have updates that could occur while the page is loaded
+  updateTweets: [],       // precaches the tweets for all updates to show while the page is loaded
   craftsMenu: [],         // holds all data for displaying vessels in the menu
                             // badged - bool
                             // bodyRef - current SOI
@@ -139,6 +140,7 @@ ops.currentCrew = null;
 ops.currentVessel = null;
 ops.currentVesselPlot = null;
 ops.surface.Data = null;
+ops.updateTweets = null;
 
 // ------------------------------------------------------------------------------
 // UI STATE MODULE

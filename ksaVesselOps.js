@@ -280,13 +280,8 @@ function loadVesselAJAX(xhttp, flags) {
   // update with the vessel name for this record
   vesselTitleUpdate();
   
-  // update the twitter timeline only if the current one loaded isn't already the one we want to load
-  var thisTimeline = '';
-  if (ops.currentVessel.Catalog.Timeline) {
-    thisTimeline = ops.currentVessel.Catalog.Timeline.split(";")[1];
-    if (!thisTimeline) thisTimeline = ops.currentVessel.Catalog.Timeline;
-  }
-  if (thisTimeline != ops.twitterSource) vesselTimelineUpdate();
+  // update the twitter timeline 
+  vesselTimelineUpdate();
   
   if (ops.currentVessel.Catalog.Patches) {
 
@@ -405,29 +400,11 @@ function loadVesselAJAX(xhttp, flags) {
 
 function vesselTimelineUpdate(update) {
 
-  // if there are multiple sources and this isn't an update then clear to just the main source
-  if ($("#twitterTimelineSelection").html().includes("|") && !update) swapTwitterSource();
+  // if there are multiple sources and this doesn't have a timeline then clear to just the main source
+  if ($("#twitterTimelineSelection").html().includes("|") && !ops.currentVessel.Catalog.Timeline) swapTwitterSource();
   
-  // only check for an existing mission feed if this is an update call, otherwise it could alredy exist from another craft when only switching vessels
-  if (ops.currentVessel.Catalog.Timeline) { 
-    
-    // if this timeline is date stamped, don't show it unless we are past the date
-    if (ops.currentVessel.Catalog.Timeline.split(";").length > 1) {
-      if (currUT() > parseFloat(ops.currentVessel.Catalog.Timeline.split(";")[0])) { 
-        if (!update || (update && !$("#twitterTimelineSelection").html().includes("Mission Feed"))) {
-          swapTwitterSource("Mission Feed", ops.currentVessel.Catalog.Timeline.split(";")[1]);
-          if (update) flashUpdate("#twitterTimelineSelection", "#77C6FF", "#FFF");
-        }
-      
-      // not yet to the time, so setup an update call, but don't bother if this mission is over
-      } else if (!isMissionEnded()) {
-        ops.updatesList.push({ type: "object", id: ops.currentVessel.Catalog.DB, UT: parseFloat(ops.currentVessel.Catalog.Timeline.split(";")[0]) });
-      
-        // resort the updatesList
-        ops.updatesList.sort(function(a,b) { return (a.UT > b.UT) ? 1 : ((b.UT > a.UT) ? -1 : 0); });
-      }
-    } else if (!update) swapTwitterSource("Mission Feed", ops.currentVessel.Catalog.Timeline);
-  }
+  // only check for an existing mission feed if this is not an update call, otherwise it already exists from craft load
+  if (ops.currentVessel.Catalog.Timeline && !update) swapTwitterSource("Mission Feed", ops.currentVessel.Catalog.Timeline) 
 }
 
 function vesselTitleUpdate(update) {

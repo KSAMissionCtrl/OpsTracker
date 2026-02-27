@@ -1035,9 +1035,7 @@ function swapTwitterSource(swap, source) {
     $("#twitterTimelineSelection").html("Source: <span class='fauxLink' onclick=\"swapTwitterSource('" + swap + "')\">KSA Main Feed</span> | <b>" + swap + "</b>");
     ops.twitterSource = source;
   } else if (swap && !source) {
-    if (ops.twitterSource.includes(";")) src = ops.twitterSource.split(";")[1];
-    else src = ops.twitterSource;
-    $("#twitterTimelineSelection").html("Source: <b>KSA Main Feed</b> | <span class='fauxLink' onclick=\"swapTwitterSource('" + swap + "', '" + src + "')\">" + swap + "</span>");
+    $("#twitterTimelineSelection").html("Source: <b>KSA Main Feed</b> | <span class='fauxLink' onclick=\"swapTwitterSource('" + swap + "', '" + ops.twitterSource + "')\">" + swap + "</span>");
   } else if (!swap && !source) {
     $("#twitterTimelineSelection").html("Source: <b>KSA Main Feed</b>");
   }
@@ -1045,17 +1043,11 @@ function swapTwitterSource(swap, source) {
     source = "13573";
     ops.twitterSource = source;
   }
-  
-  // Determine order based on mission status - ascending if mission ended, descending otherwise
-  var tweetOrder = 'desc';
-  if (swap && (swap == "Mission Feed" && ops.currentVessel && isMissionEnded()) && source != "13573") {
-    tweetOrder = 'asc';
-  }
-  
+
   TweetDisplay.displayTweets({
     containerId: 'twitterTimeline',
     collectionFile: source,
-    order: tweetOrder,
+    order: 'desc',
     maxTweets: 25,
     UT: currUT()
   });
@@ -1362,6 +1354,40 @@ function openSocialPost(tweetid) {
   }
 }
 
+// iterative function to avoid lagging the browser
+function processTweetUpdates(step = 0) {
+  switch (step) {
+
+    // sort the tweets highest to lowest by UT
+    case 0:
+      ops.updateTweets.sort(function(a,b) { return (a.UT < b.UT) ? 1 : ((b.UT < a.UT) ? -1 : 0); });
+      step = 1;
+      setTimeout(processTweetUpdates, 100, step);
+      break;
+
+    // loop through and find the first tweet that is earlier than the current UT, 
+    // then slice the array to only keep the future tweets that we need to update for
+    case 1:
+      var index = ops.updateTweets.findIndex(tweet => tweet.UT < currUT());
+      if (index > -1) ops.updateTweets = ops.updateTweets.slice(0, index);
+      else ops.updateTweets = [];
+      step = 2;
+      setTimeout(processTweetUpdates, 100, step);
+      break;
+
+    // resort lowest to highest and add just the next tweet update to the update list if there are any and resort
+    case 2:
+      if (ops.updateTweets.length) {
+        ops.updateTweets.sort(function(a,b) { return (a.UT > b.UT) ? 1 : ((b.UT > a.UT) ? -1 : 0); });
+        ops.updatesList.push({ type: "tweet", data: ops.updateTweets[0], UT: ops.updateTweets[0].UT });
+
+        ops.updateTweets.shift();
+        ops.updatesList.sort(function(a,b) { return (a.UT > b.UT) ? 1 : ((b.UT > a.UT) ? -1 : 0); });
+      }
+      break;
+  }
+}
+
 // loop and update the page every second
 // no longer using setInterval, as suggested via
 // http://stackoverflow.com/questions/6685396/execute-the-first-time-the-setinterval-without-delay
@@ -1385,6 +1411,12 @@ function tick(utDelta = 1000, rapidFireMode = false) {
     $('#maneuverCountdown').html("EXECUTE!!"); 
     KSA_CALCULATIONS.maneuverCountdown = "null";
     KSA_TIMERS.maneuverRefreshTimeout = setTimeout(function() { loadDB("loadEventData.asp?UT=" + currUT(), loadEventsAJAX); }, 5000);
+  }
+
+  // check if the tweets update is available for fetching
+  if (!ops.updateTweets && TweetDisplay.config.isLoaded) {
+    ops.updateTweets = TweetDisplay.fetchUpdateData();
+    processTweetUpdates();
   }
 
   // look for updates

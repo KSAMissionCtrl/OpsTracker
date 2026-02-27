@@ -631,7 +631,7 @@ function openTimePicker(currentUT) {
 }
 
 function dateToUT(dateTime) {
-  return luxon.Interval.fromDateTimes(KSA_CONSTANTS.FOUNDING_MOMENT, dateTime).count("milliseconds")/1000;
+  return Math.floor(luxon.Interval.fromDateTimes(KSA_CONSTANTS.FOUNDING_MOMENT, dateTime).count("milliseconds")/1000);
 }
 
 // Check if any elements have an active spinner

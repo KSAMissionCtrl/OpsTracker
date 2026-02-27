@@ -13,7 +13,8 @@ var TweetDisplay = (function() {
     accountHandle: 'KSA_MissionCtrl',
     accountName: 'Kerbal Space Agency',
     defaultMaxTweets: 0, // 0 = all tweets
-    defaultOrder: 'desc' // 'asc' or 'desc'
+    defaultOrder: 'desc', // 'asc' or 'desc'
+    isLoaded: false
   };
 
   var currentLightbox = {
@@ -23,6 +24,7 @@ var TweetDisplay = (function() {
   };
 
   var tweetsDataCache = {}; // Store tweets for lightbox display
+  var updatesDataCache = []; // Store updates for unpublished tweets
   var engageIds = [];
   var requestCounter = 0;
   var activeRequests = {};
@@ -92,6 +94,14 @@ var TweetDisplay = (function() {
     return tweet;
   }
 
+  // Helper: Pass a copy of the update array and erase the cached version to prevent reuse
+  function fetchUpdateData() {
+    if (updatesDataCache.length === 0) return null;
+    var dataCopy = updatesDataCache.slice();
+    updatesDataCache = [];
+    return dataCopy;
+  }
+
   // Helper: Load text file
   function loadTextFile(url, callback) {
 
@@ -142,7 +152,9 @@ var TweetDisplay = (function() {
           retweet_count: 0,
           favorite_count: 0,
           retweeted: false,
-          favorited: false
+          favorited: false,
+          UT: null,
+          collections: []
         };
       });
 
@@ -150,7 +162,6 @@ var TweetDisplay = (function() {
       var buffer = '';
       var insideObject = false;
       var insideSubobj = false;
-      var foundCount = 0;
       var foundIds = [];
 
       for (var i = 0; i < lines.length; i++) {
@@ -178,6 +189,9 @@ var TweetDisplay = (function() {
           buffer += '}';
           try {
             var jsonObj = JSON.parse(buffer);
+            jsonObj.UT = dateToUT(luxon.DateTime.fromJSDate(parseTwitterDate(jsonObj.created_at))) || null;
+            jsonObj.collections = jsonObj.collections ? jsonObj.collections.split(',') : [];
+            updatesDataCache.push(jsonObj);
             if (tweetIds.indexOf(jsonObj.id) !== -1) {
               tweetsData[jsonObj.id] = {
                 id: jsonObj.id,
@@ -193,10 +207,11 @@ var TweetDisplay = (function() {
                 retweet_count: jsonObj.retweet_count || 0,
                 favorite_count: jsonObj.favorite_count || 0,
                 retweeted: jsonObj.retweeted || false,
-                favorited: jsonObj.favorited || false
+                favorited: jsonObj.favorited || false,
+                UT: jsonObj.UT || null,
+                collections: jsonObj.collections
               };
               foundIds.push(jsonObj.id);
-              foundCount++;
               // Don't break early - continue searching through entire file
               // to ensure we find all requested tweets regardless of their position
             }
@@ -474,6 +489,7 @@ var TweetDisplay = (function() {
 
   // Display tweets in container
   function displayTweets(options) {
+    config.isLoaded = false;
     var containerEl = document.getElementById(options.containerId);
     if (!containerEl) {
       console.error('Tweet container not found:', options.containerId);
@@ -488,7 +504,7 @@ var TweetDisplay = (function() {
     var requestId = ++requestCounter;
     activeRequests[options.containerId] = requestId;
 
-    containerEl.innerHTML = '<div class="tweet-loading">Loading tweets...</div>';
+    containerEl.innerHTML = '<div class="tweet-loading">Loading updates...</div>';
 
     // Load tweet IDs
     loadTextFile(config.tweetsPath + collectionFile + '.txt', function(err, data) {
@@ -500,7 +516,7 @@ var TweetDisplay = (function() {
       }
 
       if (err) {
-        containerEl.innerHTML = '<p class="tweet-error">No tweets found.</p>';
+        containerEl.innerHTML = '<p class="tweet-error">No updates found.</p>';
         return;
       }
 
@@ -545,7 +561,7 @@ var TweetDisplay = (function() {
           }
 
           if (tweetsErr) {
-            containerEl.innerHTML = '<p class="tweet-error">Failed to load tweets.</p>';
+            containerEl.innerHTML = '<p class="tweet-error">Failed to load updates.</p>';
             console.error(tweetsErr);
             return;
           }
@@ -576,11 +592,11 @@ var TweetDisplay = (function() {
             var isDateBoundary = false;
 
             // Only add the tweet if its timestamp is prior or equal to options.UT
-            var currentDate = parseTwitterDate(tweet.created_at);
-            if (!options.UT || dateToUT(luxon.DateTime.fromJSDate(currentDate)) <= options.UT) {
+            if (options.UT == null || tweet.UT <= options.UT) {
               
               // Check for date boundary
               if (i > 0 || i < tweetsArray.length - 1) {
+                var currentDate = parseTwitterDate(tweet.created_at);
                 var currentDay = currentDate.toISOString().split('T')[0];
 
                 if (order === 'desc' && i > 0) {
@@ -605,12 +621,20 @@ var TweetDisplay = (function() {
             html += '</div>';
           }
 
+          // could have set a past time to where no tweets are yet published
+          if (totalTweets === 0) {
+            html += '<p class="tweet-error">No updates available</p>';
+          }
+
           html += '</div>';
           containerEl.innerHTML = html;
 
           // Initialize lightboxes
           initializeLightbox();
           initializeTweetLightbox();
+
+          // let the main program know we can fetch update data now that the tweets are loaded
+          config.isLoaded = true;
         });
       });
     });
@@ -850,6 +874,7 @@ var TweetDisplay = (function() {
     displayTweets: displayTweets,
     getProfileUrl: getProfileUrl,
     getTweetData: getTweetData,
+    fetchUpdateData: fetchUpdateData,
     config: config
   };
 })();

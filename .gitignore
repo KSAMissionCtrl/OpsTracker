@@ -51,3 +51,5 @@ DB Relation.pptx
 flags.txt
 mapObjects.txt
 Collections/tweets.json
+Collections/collections.json
+Collections/process_collections.py
