@@ -53,3 +53,4 @@ mapObjects.txt
 Collections/tweets.json
 Collections/collections.json
 Collections/process_collections.py
+Collections/socialUpdates.json

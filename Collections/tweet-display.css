@@ -185,7 +185,6 @@
 /* Date boundary styling */
 .tweet.date-boundary {
   border-bottom: 2px solid #657786;
-  margin-bottom: 15px;
   position: relative;
 }
 
@@ -205,7 +204,6 @@
 .tweet.date-boundary.desc-order {
   border-bottom: 1px solid #e1e8ed;
   border-top: 2px solid #657786;
-  margin-top: 15px;
   margin-bottom: 10px;
 }
 

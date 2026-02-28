@@ -25,6 +25,7 @@ function loadMenuAJAX(xhttp) {
                           end: parseInt(fields[5]),
                           program: fields[6],
                           vessel: fields[7],
+                          timeline: fields[8] ? fields[8] : null,
                           bodyRef: bodyRef,
                           badged: false });
   });
@@ -36,6 +37,7 @@ function loadMenuAJAX(xhttp) {
                         assignment: fields[3],
                         db: fields[4],
                         UT: parseInt(fields[5]),
+                        timeline: fields[7] ? fields[7] : null,
                         badged: false });
 
     // check if crew has an activation date that is still in the future

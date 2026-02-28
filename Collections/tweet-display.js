@@ -94,6 +94,22 @@ var TweetDisplay = (function() {
     return tweet;
   }
 
+  // Helper: Get the next tweet after the top-most one currently visible in the container
+  // Returns the tweet ID, or null if the top tweet is the last in the collection
+  function getNextTweetInCollection(collection) {
+    var tweetContainer = document.getElementById('tweet-container');
+    if (!tweetContainer) return null;
+
+    var firstTweetEl = tweetContainer.querySelector('.tweet');
+    if (!firstTweetEl) return null;
+
+    var topId = firstTweetEl.id.replace('tweet-', '');
+    var idx = collection.indexOf(topId);
+    if (idx === -1 || idx - 1 < 0) return null;
+
+    return collection[idx - 1] || null;
+  }
+
   // Helper: Pass a copy of the update array and erase the cached version to prevent reuse
   function fetchUpdateData() {
     if (updatesDataCache.length === 0) return null;
@@ -236,15 +252,47 @@ var TweetDisplay = (function() {
     });
   }
 
+  // Helper: Build a link element for a tweet URL
+  // If the URL points to ops.kerbalspace.agency, return a fauxLink span that calls swapContent()
+  // Otherwise return a standard anchor tag
+  function buildUrlLink(url) {
+    if (url.expanded_url && url.expanded_url.indexOf('ops.kerbalspace.agency') !== -1) {
+      var queryString = url.expanded_url.split('?')[1];
+      if (queryString) {
+        var params = {};
+        queryString.split('&').forEach(function(pair) {
+          var kv = pair.split('=');
+          if (kv.length === 2) params[decodeURIComponent(kv[0])] = decodeURIComponent(kv[1]);
+        });
+
+        var type, id, ut;
+        if (params.db && params.db !== 'bodies') { type = 'vessel'; id = params.db; }
+        else if (params.vessel) { type = 'vessel'; id = params.vessel; }
+        else if (params.body) { type = 'body'; id = params.body; }
+        else if (params.crew) {
+          type = params.crew === 'crewFull' ? 'crewFull' : 'crew';
+          id = params.crew;
+        }
+        if (params.ut) ut = params.ut;
+
+        if (type && id) {
+          var onclick = "swapContent('" + type + "','" + id + "'" + (ut ? "," + ut : "") + ")";
+          return '<span class="fauxLink" onclick="' + onclick + '">' + escapeHtml(url.display_url) + '</span>';
+        }
+      }
+    }
+    return '<a href="' + escapeHtml(url.expanded_url) + '" target="_blank">' + escapeHtml(url.display_url) + '</a>';
+  }
+
   // Helper: Format tweet HTML
   function formatTweet(tweet, isDateBoundary, order) {
     var mediaHtml = '';
     var tweetText = tweet.text;
 
-    // Replace URLs with links
+    // Replace URLs with links (ops.kerbalspace.agency URLs become fauxLinks)
     if (tweet.urls && tweet.urls.length > 0) {
       tweet.urls.forEach(function(url) {
-        var link = '<a href="' + escapeHtml(url.expanded_url) + '" target="_blank">' + escapeHtml(url.display_url) + '</a>';
+        var link = buildUrlLink(url);
         tweetText = tweetText.split(url.url).join(link);
       });
     }
@@ -317,11 +365,8 @@ var TweetDisplay = (function() {
     };
     var timestamp = date.toLocaleString('en-US', estOptions);
 
-    // Date boundary classes
+    // Date boundary classes - always on bottom of tweet
     var dateBoundaryClass = isDateBoundary ? ' date-boundary' : '';
-    if (isDateBoundary && order === 'desc') {
-      dateBoundaryClass += ' desc-order';
-    }
 
     // Handle display
     var handleHtml = '<span class="tweet-handle">@' + config.accountHandle + '</span>';
@@ -377,10 +422,10 @@ var TweetDisplay = (function() {
     var mediaHtml = '';
     var tweetText = tweet.text;
 
-    // Replace URLs with links
+    // Replace URLs with links (ops.kerbalspace.agency URLs become fauxLinks)
     if (tweet.urls && tweet.urls.length > 0) {
       tweet.urls.forEach(function(url) {
-        var link = '<a href="' + escapeHtml(url.expanded_url) + '" target="_blank">' + escapeHtml(url.display_url) + '</a>';
+        var link = buildUrlLink(url);
         tweetText = tweetText.split(url.url).join(link);
       });
     }
@@ -496,7 +541,7 @@ var TweetDisplay = (function() {
       return;
     }
 
-    var collectionFile = options.collectionFile || 'main';
+    var collectionFile = options.collectionFile || '13573';
     var order = options.order || config.defaultOrder;
     var maxTweets = options.maxTweets || config.defaultMaxTweets;
 
@@ -534,6 +579,16 @@ var TweetDisplay = (function() {
         tweetIds.sort(function(a, b) { return Number(b) - Number(a); });
       } else {
         tweetIds.sort(function(a, b) { return Number(a) - Number(b); });
+      }
+
+      // if there is an active vessel or crew that has this timeline, add the tweets to it
+      if (ops.currentVessel && !ops.currentVessel.timelineTweets) {
+        var craft = ops.craftsMenu.find(o => o.timeline === options.collectionFile);
+        if (craft && craft.db == ops.currentVessel.Catalog.DB) ops.currentVessel.timelineTweets = tweetIds.slice();
+      }
+      if (ops.currentCrew && !ops.currentCrew.timelineTweets) {
+        var crew = ops.crewMenu.find(o => o.timeline === options.collectionFile);
+        if (crew && crew.db == ops.currentCrew.Background.Kerbal) ops.currentCrew.timelineTweets = tweetIds.slice();
       }
 
       // Load engage list
@@ -575,6 +630,7 @@ var TweetDisplay = (function() {
           // count how mant tweets were found prior to the current UT
           var totalTweets = 0;
           var forbreak = false;
+          var lastIncludedId = null;
 
           // Render tweets with inline styling
           var html = '<div id="tweet-container" class="inline-tweets" data-order="' + order + '" data-collection="' + collectionFile + '">';
@@ -594,22 +650,16 @@ var TweetDisplay = (function() {
             // Only add the tweet if its timestamp is prior or equal to options.UT
             if (options.UT == null || tweet.UT <= options.UT) {
               
-              // Check for date boundary
-              if (i > 0 || i < tweetsArray.length - 1) {
+              // Check for date boundary - always on bottom of tweet
+              if (i < tweetsArray.length - 1) {
                 var currentDate = parseTwitterDate(tweet.created_at);
                 var currentDay = currentDate.toISOString().split('T')[0];
-
-                if (order === 'desc' && i > 0) {
-                  var prevDate = parseTwitterDate(tweetsArray[i - 1].created_at);
-                  var prevDay = prevDate.toISOString().split('T')[0];
-                  isDateBoundary = (currentDay !== prevDay);
-                } else if (order === 'asc' && i < tweetsArray.length - 1) {
-                  var nextDate = parseTwitterDate(tweetsArray[i + 1].created_at);
-                  var nextDay = nextDate.toISOString().split('T')[0];
-                  isDateBoundary = (currentDay !== nextDay);
-                }
+                var nextDate = parseTwitterDate(tweetsArray[i + 1].created_at);
+                var nextDay = nextDate.toISOString().split('T')[0];
+                isDateBoundary = (currentDay !== nextDay);
               }
               html += formatTweet(tweet, isDateBoundary, order);
+              lastIncludedId = tweet.id;
               totalTweets++;
             }
           }
@@ -617,7 +667,7 @@ var TweetDisplay = (function() {
           // Only show "View Full Collection" link if tweets were limited
           if (forbreak) {
             html += '<div style="text-align: center; padding: 5px 0;">';
-            html += '<a href="http://www.kerbalspace.agency/?p=' + collectionFile + '" target="_blank" style="font-size: 16px; color: #1da1f2; text-decoration: none; font-weight: 500;">View Full Collection →</a>';
+            html += '<a href="http://www.kerbalspace.agency/?p=' + collectionFile + '#' + lastIncludedId + '" target="_blank" style="font-size: 16px; color: #1da1f2; text-decoration: none; font-weight: 500;">View Full Collection →</a>';
             html += '</div>';
           }
 
@@ -633,11 +683,82 @@ var TweetDisplay = (function() {
           initializeLightbox();
           initializeTweetLightbox();
 
+          // Add notification badge to the first tweet if this is an update
+          if (options.update && totalTweets > 0) {
+            var firstTweetEl = tweetContainer.querySelector('.tweet');
+            if (firstTweetEl) {
+              firstTweetEl.insertAdjacentHTML('beforeend', '<i class="fa-solid fa-certificate fa-1xs change-indicator" style="color: #1da1f2; cursor: pointer; position: absolute; top: 10px; right: 10px;"></i>');
+            }
+          }
+
           // let the main program know we can fetch update data now that the tweets are loaded
           config.isLoaded = true;
         });
       });
     });
+  }
+
+  function addTweet(tweet) {
+    if (!tweet || !tweet.id) {
+      console.error('[TweetDisplay] addTweet: invalid tweet object');
+      return;
+    }
+
+    // Ensure required fields have defaults
+    tweet.text = tweet.text || '';
+    tweet.media = tweet.media || [];
+    tweet.urls = tweet.urls || [];
+    tweet.reply_count = tweet.reply_count || 0;
+    tweet.retweet_count = tweet.retweet_count !== undefined ? tweet.retweet_count : null;
+    tweet.favorite_count = tweet.favorite_count !== undefined ? tweet.favorite_count : null;
+    tweet.retweeted = tweet.retweeted || false;
+    tweet.favorited = tweet.favorited || false;
+    tweet.created_at = tweet.created_at || '';
+    tweet.UT = tweet.UT || dateToUT(luxon.DateTime.fromJSDate(parseTwitterDate(tweet.created_at))) || null;
+    tweet.collections = tweet.collections || [];
+
+    // Add to lightbox cache
+    tweetsDataCache[tweet.id] = tweet;
+
+    // Find the tweet container
+    var tweetContainer = document.getElementById('tweet-container');
+    if (!tweetContainer) {
+      console.warn('[TweetDisplay] addTweet: #tweet-container not found, tweet cached only');
+      return;
+    }
+
+    var order = tweetContainer.getAttribute('data-order') || config.defaultOrder;
+
+    // Determine if this tweet creates a date boundary with the current first tweet
+    var isDateBoundary = false;
+    var firstTweet = tweetContainer.querySelector('.tweet');
+    if (firstTweet && order === 'desc') {
+      var newDay = parseTwitterDate(tweet.created_at).toISOString().split('T')[0];
+      var firstTweetId = firstTweet.id.replace('tweet-', '');
+      var firstTweetData = tweetsDataCache[firstTweetId];
+      if (firstTweetData) {
+        var firstDay = parseTwitterDate(firstTweetData.created_at).toISOString().split('T')[0];
+        isDateBoundary = (newDay !== firstDay);
+      }
+    }
+
+    // Render and prepend the new tweet
+    var tweetHtml = formatTweet(tweet, isDateBoundary, order);
+    tweetContainer.insertAdjacentHTML('afterbegin', tweetHtml);
+
+    // Add a certificate icon in the upper-right corner to signal a new tweet
+    // The change-indicator class is globally handled by ksaMainOps.js to fade/slide out on hover
+    var newTweetEl = document.getElementById('tweet-' + tweet.id);
+    if (newTweetEl) {
+      newTweetEl.insertAdjacentHTML('beforeend', '<i class="fa-solid fa-certificate fa-1xs change-indicator" style="color: #1da1f2; cursor: pointer; position: absolute; top: 10px; right: 10px;"></i>');
+    }
+
+    // Flash the new tweet to draw attention to it
+    flashUpdate('#tweet-' + tweet.id, '#1da1f233', '');
+
+    // Re-initialize lightbox event listeners to pick up the new tweet's elements
+    initializeLightbox();
+    initializeTweetLightbox();
   }
 
   // Initialize lightbox
@@ -874,7 +995,9 @@ var TweetDisplay = (function() {
     displayTweets: displayTweets,
     getProfileUrl: getProfileUrl,
     getTweetData: getTweetData,
+    getNextTweetInCollection: getNextTweetInCollection,
     fetchUpdateData: fetchUpdateData,
+    addTweet: addTweet,
     config: config
   };
 })();

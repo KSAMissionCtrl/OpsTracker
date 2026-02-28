@@ -333,11 +333,29 @@ function setupContent() {
           var nextEventUT = null;
           if (ops.updatesList.length) {
             if (ops.pageType == "vessel" && ops.currentVessel) {
-              nextEventUT = ops.updatesList.find(o => o.id === ops.currentVessel.Catalog.DB);
+
+              // check for both an update object and tweet
+              nextEventUT = ops.updatesList.find(o =>
+                (Array.isArray(o.id) && o.id.includes(ops.currentVessel.Catalog.DB)) ||
+                (!Array.isArray(o.id) && o.id === ops.currentVessel.Catalog.DB)
+              );
               if (nextEventUT) nextEventUT = nextEventUT.UT;
+              else if (!nextEventUT && ops.currentVessel.timelineTweets) {
+
+                // there could still be a tweet update further than the current next one that's not associated with the vessel DB
+                var nextTweet = TweetDisplay.getNextTweetInCollection(ops.currentVessel.timelineTweets);
+                if (nextTweet) nextEventUT = ops.updateTweets.find(t => t.id === nextTweet).UT;
+              }
             } else if (ops.pageType == "crew" && ops.currentCrew) {
-              nextEventUT = ops.updatesList.find(o => o.id === ops.currentCrew.Background.Kerbal);
+              nextEventUT = ops.updatesList.find(o =>
+                (Array.isArray(o.id) && o.id.includes(ops.currentCrew.Background.Kerbal)) ||
+                (!Array.isArray(o.id) && o.id === ops.currentCrew.Background.Kerbal)
+              );
               if (nextEventUT) nextEventUT = nextEventUT.UT;
+              else if (!nextEventUT && ops.currentCrew.timelineTweets) {
+                var nextTweet = TweetDisplay.getNextTweetInCollection(ops.currentCrew.timelineTweets);
+                if (nextTweet) nextEventUT = ops.updateTweets.find(t => t.id === nextTweet).UT;
+              }
             } else {
               nextEventUT = ops.updatesList[0].UT;
             }
@@ -745,8 +763,8 @@ function swapContent(newPageType, id, ut, flt) {
   if (!flt && isNaN(ut)) flt = ut;
 
   // ignore any attempts to change content layout if request is to load what is already loaded (if something is already loaded)
-  // but allow reload if currently viewing a past event and requesting current data
-  if (ops.currentVessel && (newPageType == "vessel" && ops.pageType == "vessel" && ops.currentVessel.Catalog.DB == id) && ut == currUT() && !ops.currentVessel.CraftData.pastEvent) return;
+  // but allow reload if currently viewing a past event and requesting new data
+  if (ops.currentVessel && (newPageType == "vessel" && ops.pageType == "vessel" && ops.currentVessel.Catalog.DB == id) && ut == ops.currentVessel.CraftData.UT) return;
   if (ops.currentCrew && (newPageType == "crew" && ops.pageType == "crew" && ops.currentCrew.Background.Kerbal == id)) return;
   if (ops.bodyCatalog && (newPageType == "body" && ops.pageType == "body" && ops.bodyCatalog.find(o => o.selected === true).Body == id.replace("-System", ""))) {
 
@@ -974,13 +992,16 @@ function updatePage(updateEvent, rapidFireMode = false) {
   // just subtract ops.UT (page load) from the updateEvent.UT to get the delta
   if (KSA_UI_STATE.isLivePastUT) ops.tickDelta = (updateEvent.UT - ops.UT) * 1000;
 
-  // we only need to kill rapid fire mode if this isn't an orbital-only update and we aren't looking at the vessel it is for
   // easier logic to just wrap this in a function to skip when needed
   if (rapidFireMode) killRapidFire(updateEvent);
 
+  // save the current selection so we can reselect it if needed after a menu refresh
+  // this is needed for the vessel list to avoid losing the user's place when a new vessel update comes in
   KSA_UI_STATE.menuSaveSelected = w2ui['menu'].find({selected: true});
   if (KSA_UI_STATE.menuSaveSelected.length == 0) KSA_UI_STATE.menuSaveSelected = null;
+
   if (updateEvent.type.includes("menu")) menuUpdate(updateEvent.type.split(";")[1], updateEvent.id);
+  else if (updateEvent.type.includes("tweet")) socialUpdate(updateEvent);
   else if (updateEvent.type.includes("map")) surfaceUpdate(updateEvent.type, updateEvent.UT, updateEvent.id);
   else if (updateEvent.type == "event") loadDB("loadEventData.asp?UT=" + currUT(), loadEventsAJAX);
   else if (updateEvent.type == "object" || updateEvent.type == "orbit") {
@@ -997,13 +1018,18 @@ function updatePage(updateEvent, rapidFireMode = false) {
 }
 
 function killRapidFire(updateObj) {
+
+  // don't kill rapid fire mode if this is an orbital-only update and we aren't looking at the vessel it is for
   if (updateObj.type == "orbit" && (ops.pageType != "vessel" || (ops.currentVessel && updateObj.id != ops.currentVessel.Catalog.DB))) return;
+
+  // also don't kill rapid fire mode if this is a tweet update and the collection visible isn't what its for
+  if (updateObj.type == "tweet" && !updateObj.data.collections.includes(ops.twitterSource)) return;
 
   // if the ffCancelOnOtherUpdates is not checked, only stop FF for current vessel/crew updates
   if (!$("#ffCancelOnOtherUpdates").is(":checked")) {
-    if (updateObj.type == "object" && 
-        ((ops.pageType == "vessel" && ops.currentVessel && updateObj.id == ops.currentVessel.Catalog.DB) ||
-        (ops.pageType == "crew" && ops.currentCrew && updateObj.id == ops.currentCrew.Background.Kerbal))) {
+    if ((updateObj.type == "object" || updateObj.type == "tweet") && 
+        ((ops.pageType == "vessel" && ops.currentVessel && updateObj.id.includes(ops.currentVessel.Catalog.DB)) ||
+        (ops.pageType == "crew" && ops.currentCrew && updateObj.id.includes(ops.currentCrew.Background.Kerbal)))) {
           KSA_TIMERS.tickTimer = null;
     }
   } else KSA_TIMERS.tickTimer = null;
@@ -1026,7 +1052,11 @@ function checkPageUpdate(rapidFireMode = false) {
   } else return;
 }
 
-function swapTwitterSource(swap, source) {
+function swapTwitterSource(swap, source, update=false) {
+
+  // it can take a little while for the ops data to load and reset the last visit time that is used for cache busting
+  // so make sure that is complete before allowing this to proceed. Check on the update array too so this is only done once
+  if (!ops.updateData.length || (!ops.updateTweets && ops.updateData.find(o => o.isLoading === true))) return setTimeout(swapTwitterSource, 250, swap, source, update);
 
   // Ensure source is a string (in case it comes from ASP as a number)
   if (source) source = String(source);
@@ -1049,7 +1079,8 @@ function swapTwitterSource(swap, source) {
     collectionFile: source,
     order: 'desc',
     maxTweets: 25,
-    UT: currUT()
+    UT: currUT(),
+    update: update
   });
 }
 
@@ -1375,17 +1406,54 @@ function processTweetUpdates(step = 0) {
       setTimeout(processTweetUpdates, 100, step);
       break;
 
-    // resort lowest to highest and add just the next tweet update to the update list if there are any and resort
+    // resort lowest to highest
     case 2:
       if (ops.updateTweets.length) {
         ops.updateTweets.sort(function(a,b) { return (a.UT > b.UT) ? 1 : ((b.UT > a.UT) ? -1 : 0); });
-        ops.updatesList.push({ type: "tweet", data: ops.updateTweets[0], UT: ops.updateTweets[0].UT });
+        step = 3;
+        setTimeout(processTweetUpdates, 100, step);
+      }
+      break;
+
+    // add just the next tweet update to the update list if there are any and resort
+    case 3:
+      if (ops.updateTweets.length) {
+        
+        // we need to check if any of the collections in this tweet match a vessel or crew
+        var objIDs = [];
+        ops.craftsMenu.forEach(function(craft) { 
+          if (craft.timeline && ops.updateTweets[0].collections.includes(craft.timeline)) objIDs.push(craft.db); 
+        });
+        ops.crewMenu.forEach(function(crew) { 
+          if (crew.timeline && ops.updateTweets[0].collections.includes(crew.timeline)) objIDs.push(crew.db); 
+        });
+
+        ops.updatesList.push({ type: "tweet", data: ops.updateTweets[0], UT: ops.updateTweets[0].UT, id: objIDs.length ? objIDs : null });
 
         ops.updateTweets.shift();
         ops.updatesList.sort(function(a,b) { return (a.UT > b.UT) ? 1 : ((b.UT > a.UT) ? -1 : 0); });
       }
       break;
   }
+}
+
+function socialUpdate(updateObj) {
+
+  // make sure tweets aren't being loaded because if so then this add will already happen
+  if (TweetDisplay.config.isLoaded) {
+
+    // if we are looking at the proper timeline, add the tweet
+    if (updateObj.data.collections.includes(ops.twitterSource)) TweetDisplay.addTweet(updateObj.data);
+
+    // if not, then check if the current vessel or crew has this timeline and switch to it
+    else if (ops.pageType == "vessel" && ops.currentVessel && ops.currentVessel.Catalog.Timeline && updateObj.data.collections.includes(ops.currentVessel.Catalog.Timeline)) {
+      swapTwitterSource("Mission Feed", ops.currentVessel.Catalog.Timeline, true);
+    }
+    else if (ops.pageType == "crew" && ops.currentCrew && ops.currentCrew.Background.Timeline && updateObj.data.collections.includes(ops.currentCrew.Background.Timeline)) {
+      swapTwitterSource("Crew Feed", ops.currentCrew.Background.Timeline, true);
+    }
+  }
+  processTweetUpdates(3);
 }
 
 // loop and update the page every second

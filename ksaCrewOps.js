@@ -88,7 +88,8 @@ function loadCrewAJAX(xhttp) {
                         History: history,
                         Background: catalog,
                         Missions: missions,
-                        Ribbons: ribbons }
+                        Ribbons: ribbons,
+                        timelineTweets: null }
   }
     
   // what to do with it?
@@ -104,12 +105,14 @@ function loadCrewAJAX(xhttp) {
     if (ops.currentCrew) {
       ops.currentCrew.Ribbons.length = 0;
       ops.currentCrew.Missions.length = 0;
+      ops.currentCrew.timelineTweets = null;
       ops.currentCrew = null;
     }
   
     // call for another?
     var strCrewID = showFullRoster();
     if (strCrewID) loadDB("loadCrewData.asp?db=" + strCrewID + "&ut=" + currUT(), loadCrewAJAX);
+    else swapTwitterSource('Crew Feed', "13627");
   
   // individual crew page
   } else {

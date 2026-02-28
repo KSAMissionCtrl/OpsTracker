@@ -265,6 +265,7 @@ function loadVesselAJAX(xhttp, flags) {
                         LaunchTimes: launches,
                         OrbitalHistory: obtHist,
                         AscentData: ascentData,
+                        timelineTweets: null,
                         initLoad: null };
   if (ops.currentVessel.Resources) ops.currentVessel.Resources.resIndex = 0;
   if (flags) ops.currentVessel.initLoad = flags.initLoad;
@@ -404,7 +405,10 @@ function vesselTimelineUpdate(update) {
   if ($("#twitterTimelineSelection").html().includes("|") && !ops.currentVessel.Catalog.Timeline) swapTwitterSource();
   
   // only check for an existing mission feed if this is not an update call, otherwise it already exists from craft load
-  if (ops.currentVessel.Catalog.Timeline && !update) swapTwitterSource("Mission Feed", ops.currentVessel.Catalog.Timeline) 
+  // don't bother swapping the feed if it is still the same
+  if (ops.currentVessel.Catalog.Timeline && !update && ops.twitterSource != ops.currentVessel.Catalog.Timeline) {
+    swapTwitterSource("Mission Feed", ops.currentVessel.Catalog.Timeline);
+  }
 }
 
 function vesselTitleUpdate(update) {

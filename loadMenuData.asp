@@ -58,11 +58,16 @@ do
     response.write(defaultTime & "~")
     end if
 
+    'use the patches to get the program and vessel name
     if not isNull(rsCrafts.fields.item("Patches")) then
       response.write(split(split(rsCrafts.fields.item("Patches"), "|")(0), ";")(0) & "~" &_
                     split(split(rsCrafts.fields.item("Patches"), "|")(1), ";")(0))
     else
       response.write("null~null")
+    end if
+
+    if not isNull(rsCrafts.fields.item("Timeline")) then
+      response.write("~" & rsCrafts.fields.item("Timeline"))
     end if
   end if
   
@@ -97,11 +102,18 @@ do
                  rsKerbal.fields.item("Rank") & "~" &_
                  rsKerbal.fields.item("Assignment") & "~" &_
                  rsCrew.fields.item("Kerbal") & "~" &_
-                 rsKerbal.fields.item("UT") & "~")
+                 rsKerbal.fields.item("UT"))
 
   if not isNull(rsCrew.fields.item("Deactivation")) then
-    response.write(rsCrew.fields.item("Deactivation"))
+    response.write("~" & rsCrew.fields.item("Deactivation"))
+  else
+    response.write("~")
   end if
+
+  if not isNull(rsCrew.fields.item("Timeline")) then
+    response.write("~" & rsCrew.fields.item("Timeline"))
+  end if
+
   conn2.Close
   Set conn2 = nothing
   rsCrew.movenext
