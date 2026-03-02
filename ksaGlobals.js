@@ -156,7 +156,9 @@ const KSA_UI_STATE = {
   isVesObtRenderTerminated: false,  // whether the orbital calc was stopped due to changing a vessel or view
   isSfcObtRenderTerminated: false,  // whether the surface orbital calc was stopped due to changing a body
   isLivePastUT: false,              // whether the page was loaded with &live param to auto-update from a past UT
-  optUpdateInterrupt: null,         // the state of the optional update interrupt checkbox
+  optUpdateInterrupt: null,         // true: stop FF for any event
+                                    // false: only stop for events of the currently viewed vessel/crew
+                                    // null: no FF in progress
   
   // Loading states
   isMenuDataLoaded: false,       // when all the menu data has been loaded from AJAX

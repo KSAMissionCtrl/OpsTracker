@@ -47,6 +47,7 @@
   <div id='periodTip' style='display: none'></div>
   <div id='distanceTip' style='display: none'></div>
   <div id='crewMissionTip' style='display: none'></div>
+  <div id='advTimeTip' data-ut='0' data-type='' data-id='' style='display: none'></div>
 
   <div id='contentContainer'>
     <div id='mainContent'>

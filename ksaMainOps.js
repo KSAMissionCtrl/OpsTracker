@@ -262,13 +262,12 @@ function setupContent() {
   var clockHTML = "<strong>Current Time @ KSC (UTC <span id='utcOffset'>" + tzOffset.offset/60 + "</span>)</strong><br>";
   if (KSA_UI_STATE.isLivePastUT) {
     clockHTML += "<div style=\"position: relative;\">";
-    clockHTML += "<input type='checkbox' id='ffCancelOnOtherUpdates' style=\"position: absolute; left: 18px; cursor: pointer; display: none;\" checked>";
     clockHTML += "<span id='resetHistoricTime' style=\"position: absolute; left: 42px; cursor: pointer; display: none;\"><i class=\"fa-solid fa-arrow-rotate-right\" style=\"color: #000000;\"></i></span>";
-    clockHTML += "<span id='ksctime' style='font-size: 16px; display: block; text-align: center;' title='Click to set time'></span>";
+    clockHTML += "<span id='ksctime' style='font-size: 16px; display: block; text-align: center;'></span>";
     clockHTML += "<span id='liveControlIcons' style=\"position: absolute; right: 0; top: 0; display: none;\">";
     clockHTML += "<span id='advanceTime1s' style=\"cursor: pointer;\"><i class=\"fa-solid fa-play\" style=\"color: #000000;\"></i></span> ";
     clockHTML += "<span id='advanceTime1m' style=\"cursor: pointer;\"><i class=\"fa-solid fa-forward\" style=\"color: #000000;\"></i></span> ";
-    clockHTML += "<span id='advanceEvent' style=\"cursor: pointer;\"><i class=\"fa-solid fa-forward-fast\" style=\"color: #000000;\"></i></span>";
+    clockHTML += "<span id='advanceEvent' style=\"cursor: pointer;\" class='time-update' data-tipped-options=\"inline: 'advTimeTip'\"><i class=\"fa-solid fa-forward-fast\" style=\"color: #000000;\"></i></span>";
     clockHTML += "</span>";
     clockHTML += "</div>";
   } else {
@@ -313,152 +312,60 @@ function setupContent() {
       if ($("#advanceEvent").html().includes("fa-beat")) {
         KSA_TIMERS.tickTimer = null;
         $("#advanceEvent").css('cursor', 'pointer').html("<i class=\"fa-solid fa-forward-fast\" style=\"color: #000000;\"></i>");
-        Tipped.remove('#advanceEvent');
-        Tipped.create('#advanceEvent', 'FF to next event<br>(reloads if >6hrs to next event)', { showOn: showOpt, hideOnClickOutside: is_touch_device(), position: 'bottom' });
-        $("#ffCancelOnOtherUpdates").prop('checked', KSA_UI_STATE.optUpdateInterrupt);
-      } else {      
+        if (ops.pageType == "vessel") var strText = 'Left click: FF to any next event<br>Right click: FF to next event for this vessel';
+        else if (ops.pageType == "crew") var strText = 'Left click: FF to any next event<br>Right click: FF to next event for this crew';
+        else var strText = 'Left click: FF to any next event<br>Right click: Inop - No vessel/crew selected';
+        $("#advTimeTip").html(strText);
+        KSA_UI_STATE.optUpdateInterrupt = null;
+      } else setupFFNextEvent(true);
+    });
+    $('#advanceEvent').on('contextmenu', function(e) {
+      e.preventDefault();
 
-        // if there is a countdown clock, we are viewing that vessel, there is ascent data and the countdown is within 2 minutes, block time advance
-        var bClickAllow = true;
-        if (!isNaN(KSA_CALCULATIONS.launchCountdown)) {
-          if (ops.pageType == "vessel") {
-            if (ops.currentVessel && ops.currentVessel.AscentData.length > 0 && ops.currentVessel.Catalog.DB == $("#launchLink").attr("db")) {
-              if (KSA_CALCULATIONS.launchCountdown - currUT() <= 120) bClickAllow = false;
-            }
+      // jump to the event or start FF depending on the current state
+      if ($("#advanceEvent").html().includes("fa-beat")) {
+        var newUrl = "http://ops.kerbalspace.agency/?";
+        var eventType = $("#advTimeTip").attr("data-type");
+        var eventID = $("#advTimeTip").attr("data-id");
+
+        // figure out the next event type for the proper URL
+        // do nothing for menu and events so the site reloads to the default system
+        if (eventType.includes("map")) newUrl += "body=" + eventID;
+        else if (eventType == "object" || eventType == "orbit" || (eventType.includes("tweet") && eventID != "Kerbol")) {
+          var obj = ops.updateData.find(o => o.id === eventID);
+          if (!obj) console.log("unknown ID", eventID);
+          else {
+            if (obj.type == "crew") newUrl += "crew=" + obj.id;
+            else if (obj.type == "vessel") newUrl += "vessel=" + obj.id;
           }
         }
-        if (bClickAllow) {
 
-          // get the next event UT for a crew or vessel if that is what is being viewed
-          var nextEventUT = null;
-          if (ops.updatesList.length) {
-            if (ops.pageType == "vessel" && ops.currentVessel) {
+        // back up the UT 7s so user sees the event trigger
+        // originally was 15s but historical clock doesn't start running until after site load
+        newUrl += "&ut=" + (parseFloat($("#advTimeTip").attr("data-ut")) - 7);
+        newUrl += "&live&reload";
 
-              // check for both an update object and tweet
-              nextEventUT = ops.updatesList.find(o =>
-                (Array.isArray(o.id) && o.id.includes(ops.currentVessel.Catalog.DB)) ||
-                (!Array.isArray(o.id) && o.id === ops.currentVessel.Catalog.DB)
-              );
-              if (nextEventUT) nextEventUT = nextEventUT.UT;
-              else if (!nextEventUT && ops.currentVessel.timelineTweets) {
+        // reshow the map if it is open
+        if (KSA_UI_STATE.isMapShown) newUrl += "&map";
+        window.location.href = newUrl;
 
-                // there could still be a tweet update further than the current next one that's not associated with the vessel DB
-                var nextTweet = TweetDisplay.getNextTweetInCollection(ops.currentVessel.timelineTweets);
-                if (nextTweet) nextEventUT = ops.updateTweets.find(t => t.id === nextTweet).UT;
-              }
-            } else if (ops.pageType == "crew" && ops.currentCrew) {
-              nextEventUT = ops.updatesList.find(o =>
-                (Array.isArray(o.id) && o.id.includes(ops.currentCrew.Background.Kerbal)) ||
-                (!Array.isArray(o.id) && o.id === ops.currentCrew.Background.Kerbal)
-              );
-              if (nextEventUT) nextEventUT = nextEventUT.UT;
-              else if (!nextEventUT && ops.currentCrew.timelineTweets) {
-                var nextTweet = TweetDisplay.getNextTweetInCollection(ops.currentCrew.timelineTweets);
-                if (nextTweet) nextEventUT = ops.updateTweets.find(t => t.id === nextTweet).UT;
-              }
-            } else {
-              nextEventUT = ops.updatesList[0].UT;
-            }
-          }
-
-          // make sure this event doesn't take us past the current live UT
-          if (!nextEventUT || (nextEventUT && nextEventUT > dateToUT(luxon.DateTime.utc()))) {
-            var dialogButtons = [];
-            if (!nextEventUT && (ops.pageType == "vessel" || ops.pageType == "crew")) {
-
-              // if a next event is not beyond the current real time, offer to FF to it anyway
-              if (ops.updatesList.length && ops.updatesList[0].UT < dateToUT(luxon.DateTime.utc())) {
-                dialogButtons.push({
-                  text: "Next General Event",
-                  click: function() {
-                    $("#siteDialog").dialog("close");
-
-                    // if there is more than 6 hours to the next event, just reload the page
-                    if (ops.updatesList[0].UT - currUT() > 21600) {
-                      var newUrl = "http://ops.kerbalspace.agency/?";
-
-                      // figure out the next event type for the proper URL
-                      // do nothing for menu and events so the site reloads to the default system
-                      if (ops.updatesList[0].type.includes("map")) newUrl += "body=" + ops.updatesList[0].id;
-                      else if (ops.updatesList[0].type == "object" || ops.updatesList[0].type == "orbit") {
-                        var obj = ops.updateData.find(o => o.id === ops.updatesList[0].id);
-                        if (!obj) console.log("unknown object", ops.updatesList[0]);
-                        else {
-                          if (obj.type == "crew") newUrl += "crew=" + obj.id;
-                          else if (obj.type == "vessel") newUrl += "vessel=" + obj.id;
-                        }
-                      }
-
-                      // back up the UT 5s so user sees the event trigger
-                      // originally was 15s but historical clock doesn't start running until after site load
-                      newUrl += "&ut=" + (ops.updatesList[0].UT - 5);
-                      newUrl += "&live&reload";
-
-                      // reshow the map if it is open
-                      if (KSA_UI_STATE.isMapShown) newUrl += "&map";
-                      window.location.href = newUrl;
-                    
-                    // otherwise, swap content and start FF'd to next event
-                    // menu and event types will just stay on the current page
-                    } else {
-                      if (ops.updatesList[0].type.includes("map")) swapContent("body", ops.updatesList[0].id);
-                      else if (ops.updatesList[0].type == "object" || ops.updatesList[0].type == "orbit") {
-                        var obj = ops.updateData.find(o => o.id === ops.updatesList[0].id);
-                        if (!obj) console.log("unknown object", ops.updatesList[0]);
-                        else {
-                          if (obj.type == "crew") swapContent("crew", obj.id);
-                          else if (obj.type == "vessel") swapContent("vessel", obj.id);
-                        }
-                      }
-                      afterLoadFF();
-                    }
-                  }
-                });
-              }
-            }
-            dialogButtons.push({
-              text: "Close",
-              click: function() {
-                $("#siteDialog").dialog("close");
-              }
-            });
-            if (ops.pageType == "vessel" || ops.pageType == "crew") $("#siteDialog").html("There are no further historical events for this " + ops.pageType + " to fast forward to");
-            else $("#siteDialog").html("There are no further historical events to fast forward to");
-            $("#siteDialog").dialog("option", "title", "Notice");
-            $("#siteDialog").dialog( "option", "buttons", dialogButtons);
-            $("#siteDialog").dialog("open");
-            return;
-          }
-          $("#advanceEvent").css('cursor', 'pointer').html("<i class=\"fa-solid fa-forward-fast fa-beat\" style=\"color: #000000;\"></i>");
-          Tipped.remove('#advanceEvent');
-          Tipped.create('#advanceEvent', 'Click to cancel', { showOn: showOpt, hideOnClickOutside: is_touch_device(), position: 'bottom' });
-
-          // save the current option and make sure we don't get interrupted if we are viewing a crew or vessel
-          KSA_UI_STATE.optUpdateInterrupt = $("#ffCancelOnOtherUpdates").prop('checked');
-          if (ops.pageType == "vessel" || ops.pageType == "crew") $("#ffCancelOnOtherUpdates").prop('checked', false);
-
-          // handle the FF logic - same as above click handler
-          if (nextEventUT - currUT() > 21600) {
-            var newUrl = window.location.href;
-            nextEventUT -= 5;
-            if (!getParameterByName("ut")) newUrl += "&ut=" + nextEventUT;
-            else newUrl = newUrl.replace(/(&|\?)ut=[^&]*/, "$1ut=" + nextEventUT);
-            newUrl += "&live&reload";
-            if (KSA_UI_STATE.isMapShown) newUrl += "&map";
-            window.location.href = newUrl;
-          } else {
-            clearTimeout(KSA_TIMERS.tickTimer);
-            KSA_TIMERS.tickTimer = setTimeout(tick, 1, 60000, true);
-          }
-        }
+      // make sure we are looking at a vessel or crew with loaded data before starting FF to next event for that vessel/crew
+      } else if ((ops.pageType == "vessel" && ops.currentVessel) || (ops.pageType == "crew" && ops.currentCrew)) {
+        setupFFNextEvent(false);
       }
     });
-    Tipped.create('#ffCancelOnOtherUpdates', 'Checked: FF time stops on any vessel/crew updates<br>Unchecked: FF only stops for current vessel/crew updates', { showOn: showOpt, hideOnClickOutside: is_touch_device(), position: 'bottom' });
-    Tipped.create('#resetHistoricTime', 'Left click: Reset time to page load<br>Right click: Reset time to current event', { showOn: showOpt, hideOnClickOutside: is_touch_device(), position: 'bottom' });
-    Tipped.create('#advanceTime1s', 'Advance time 1sec', { showOn: showOpt, hideOnClickOutside: is_touch_device(), position: 'bottom' });
-    Tipped.create('#advanceTime1m', 'Advance time 1min', { showOn: showOpt, hideOnClickOutside: is_touch_device(), position: 'bottom' });
-    Tipped.create('#advanceEvent', 'FF to next event<br>(reloads if >6hrs to next event)', { showOn: showOpt, hideOnClickOutside: is_touch_device(), position: 'bottom' });
-    
+    Tipped.create('#resetHistoricTime', 'Left click: Reset time to page load<br>Right click: Reset time to current event', { showOn: showOpt, hideOnClickOutside: is_touch_device() });
+    Tipped.create('#ksctime', 'Click to set time', { showOn: showOpt, hideOnClickOutside: is_touch_device() });
+    Tipped.create('#advanceTime1s', 'Advance time 1sec<br>Click and hold to FF', { showOn: showOpt, hideOnClickOutside: is_touch_device() });
+    Tipped.create('#advanceTime1m', 'Advance time 1min<br>Click and hold to FF', { showOn: showOpt, hideOnClickOutside: is_touch_device() });
+    $("#advTimeTip").html("temp");
+    Tipped.create('.time-update', { 
+      showOn: showOpt, 
+      hideOnClickOutside: is_touch_device(), 
+      detach: false, 
+      hideOn: {element: 'mouseleave'}
+    });
+
     // Setup 1s time advance icon mousedown/mouseup handlers
     $("#advanceTime1s").on('mousedown', function() {
 
@@ -721,10 +628,7 @@ function setupContent() {
   }
   
   // Initialize twitter source to use collection system by default
-  // Load after other content to avoid blocking if it's a large dataset
-  setTimeout(function() {
-    swapTwitterSource();
-  }, 500);
+  swapTwitterSource();
 
   // start the heartbeat after everything is loaded
   checkInitDataLoad();
@@ -747,7 +651,6 @@ function checkInitDataLoad() {
     if (KSA_UI_STATE.isLivePastUT) {
       $('#ksctime').html(UTtoDateTime(currUT(), true));
       $("#ksctime").addClass("fauxLink tipped");
-      $("#ffCancelOnOtherUpdates").delay(100).fadeIn();
       $("#resetHistoricTime").delay(100).fadeIn();
       if (!ops.ascentData.active) $("#liveControlIcons").delay(100).fadeIn();
     }
@@ -773,16 +676,22 @@ function swapContent(newPageType, id, ut, flt) {
     return;
   }
 
-  // if the next event icon is beating, stop it
-  // this also means we are in rapid time advance mode, so stop that too
-  if (KSA_UI_STATE.isLivePastUT) {
-    if ($("#advanceEvent").html().includes("fa-beat")) {
+  // if there is a T/F value for optUpdateInterrupt then we are FF'd to an event
+  if (KSA_UI_STATE.isLivePastUT && KSA_UI_STATE.optUpdateInterrupt != null) {
+
+    // stop FF'd if user is progressing towards a vessel/crew specific event
+    if (!KSA_UI_STATE.optUpdateInterrupt) {
       $("#advanceEvent").css('cursor', 'pointer').html("<i class=\"fa-solid fa-forward-fast\" style=\"color: #000000;\"></i>");
       KSA_TIMERS.tickTimer = null;
-      Tipped.remove('#advanceEvent');
-      Tipped.create('#advanceEvent', 'FF to next event<br>(reloads if >6hrs to next event)', { showOn: showOpt, hideOnClickOutside: is_touch_device(), position: 'bottom' });
-      $("#ffCancelOnOtherUpdates").prop('checked', KSA_UI_STATE.optUpdateInterrupt);
+      if (newPageType == "vessel") var strText = 'Left click: FF to any next event<br>Right click: FF to next event for this vessel';
+      else if (newPageType == "crew") var strText = 'Left click: FF to any next event<br>Right click: FF to next event for this crew';
+      else var strText = 'Left click: FF to any next event<br>Right click: Inop - No vessel/crew selected';
+      $("#advTimeTip").html(strText);
+      KSA_UI_STATE.optUpdateInterrupt = null;
     }
+
+    // pause FF if user is progressing towards a non-vessel/crew specific event
+    else KSA_TIMERS.tickTimer = null;
   }
 
   // Clean up resources from previous view to prevent memory leaks
@@ -850,6 +759,19 @@ function swapContent(newPageType, id, ut, flt) {
       Tipped.create('#liveReloadIcon', strCaption, { showOn: showOpt, hideOnClickOutside: is_touch_device(), position: 'bottom' });
       Tipped.create('#copyLinkIcon', 'Copy permalink to clipboard', { showOn: showOpt, hideOnClickOutside: is_touch_device(), position: 'bottom' });
     }, 500);
+
+    if (ops.pageType == "vessel") var strText = 'Left click: FF to any next event<br>Right click: FF to next event for this vessel';
+    else if (ops.pageType == "crew") var strText = 'Left click: FF to any next event<br>Right click: FF to next event for this crew';
+    else var strText = 'Left click: FF to any next event<br>Right click: Inop - No vessel/crew selected';
+    $("#advTimeTip").html(strText);
+    var showOpt = 'mouseenter';
+    if (is_touch_device()) showOpt = 'click';
+    Tipped.create('.time-update', { 
+      showOn: showOpt, 
+      hideOnClickOutside: is_touch_device(), 
+      detach: false, 
+      hideOn: {element: 'mouseleave'}
+    });
 
     return;
   }
@@ -972,16 +894,163 @@ function swapContent(newPageType, id, ut, flt) {
     setTimeout(function() { $("#fullRoster").fadeIn(); }, 250);
     loadCrew(id);
   }
+
+  // if this is true then we paused the FF earlier so continue after swap completes
+  if (KSA_UI_STATE.isLivePastUT && KSA_UI_STATE.optUpdateInterrupt) afterLoadFF();
 }
 
-// once no more spinners are detected - it's zoom time
-function afterLoadFF() {
-  if (stillSpinning()) return setTimeout(afterLoadFF, 150);
+// same setup for FF to next event just diff in when to stop
+function setupFFNextEvent(bStopAny) {
+
+  // if there is a countdown clock, we are viewing that vessel, there is ascent data and the countdown is within 2 minutes, block time advance
+  var bClickAllow = true;
+  if (!isNaN(KSA_CALCULATIONS.launchCountdown)) {
+    if (ops.pageType == "vessel") {
+      if (ops.currentVessel && ops.currentVessel.AscentData.length > 0 && ops.currentVessel.Catalog.DB == $("#launchLink").attr("db")) {
+        if (KSA_CALCULATIONS.launchCountdown - currUT() <= 120) bClickAllow = false;
+      }
+    }
+  }
+  if (bClickAllow) {
+
+    // get the next event UT for a crew or vessel if that is what is being viewed
+    var nextEventUT = null;
+    if (ops.updatesList.length) {
+      if (ops.pageType == "vessel" && !bStopAny) {
+
+        // check for both an update object and tweet
+        nextEventUT = ops.updatesList.find(o =>
+          (Array.isArray(o.id) && o.id.includes(ops.currentVessel.Catalog.DB)) ||
+          (!Array.isArray(o.id) && o.id === ops.currentVessel.Catalog.DB)
+        );
+        if (nextEventUT) {
+
+          // fill the data needed to jump to the event
+          $("#advTimeTip").attr("data-type", nextEventUT.type);
+          $("#advTimeTip").attr("data-id", nextEventUT.id);
+          nextEventUT = nextEventUT.UT;
+        } else if (!nextEventUT && ops.currentVessel.timelineTweets) {
+
+          // there could still be a tweet update further than the current next one that's not associated with the vessel DB
+          var nextTweet = TweetDisplay.getNextTweetInCollection(ops.currentVessel.timelineTweets);
+          if (nextTweet) {
+            $("#advTimeTip").attr("data-type", "tweet");
+            $("#advTimeTip").attr("data-id", ops.currentVessel.Catalog.DB);
+            nextEventUT = ops.updateTweets.find(t => t.id === nextTweet).UT;
+          }
+        }
+
+      } else if (ops.pageType == "crew" && !bStopAny) {
+        nextEventUT = ops.updatesList.find(o =>
+          (Array.isArray(o.id) && o.id.includes(ops.currentCrew.Background.Kerbal)) ||
+          (!Array.isArray(o.id) && o.id === ops.currentCrew.Background.Kerbal)
+        );
+        if (nextEventUT) {
+          $("#advTimeTip").attr("data-type", nextEventUT.type);
+          $("#advTimeTip").attr("data-id", nextEventUT.id);
+          nextEventUT = nextEventUT.UT;
+        }
+        else if (!nextEventUT && ops.currentCrew.timelineTweets) {
+          var nextTweet = TweetDisplay.getNextTweetInCollection(ops.currentCrew.timelineTweets);
+          if (nextTweet) {
+            $("#advTimeTip").attr("data-type", "tweet");
+            $("#advTimeTip").attr("data-id", ops.currentCrew.Background.Kerbal);
+            nextEventUT = ops.updateTweets.find(t => t.id === nextTweet).UT;
+          }
+        }
+      } else {
+        nextEventUT = ops.updatesList[0].UT;
+      }
+    }
+
+    // make sure this event doesn't take us past the current live UT
+    if (!nextEventUT || (nextEventUT && nextEventUT > dateToUT(luxon.DateTime.utc()))) {
+      var dialogButtons = [];
+      var dialogText = "";
+
+      // if we were looking for a next vessel/crew event and didn't find one, check again for a general event
+      if (!bStopAny) {
+
+        // if a next event is not beyond the current real time, offer to FF to it anyway
+        if (ops.updatesList.length && ops.updatesList[0].UT < dateToUT(luxon.DateTime.utc())) {
+          dialogButtons.push({
+            text: "Next General Event",
+            click: function() {
+              $("#siteDialog").dialog("close");
+
+              // just go to the default view if no ID is specified
+              var objID = "Kerbol";
+
+              // swap content and start FF'd to next event
+              // menu and event types will just stay on the current page
+              if (ops.updatesList[0].type.includes("map")) {
+                swapContent("body", ops.updatesList[0].id);
+                objID = ops.updatesList[0].id;
+              }
+              else if (ops.updatesList[0].type == "object" || ops.updatesList[0].type == "orbit") {
+                var obj = ops.updateData.find(o => o.id === ops.updatesList[0].id);
+                if (!obj) console.log("unknown object", ops.updatesList[0]);
+                else {
+                  if (obj.type == "crew") swapContent("crew", obj.id);
+                  else if (obj.type == "vessel") swapContent("vessel", obj.id);
+                  objID = obj.id;
+                }
+              } else if (ops.updatesList[0].type.includes("tweet")) {
+
+                // if we can id this tweet then go to that vessel/crew
+                if (Array.isArray(ops.updatesList[0].id) && ops.updatesList[0].id.length == 1) {
+                  if (ops.craftsMenu.find(o => o.db == ops.updatesList[0].id[0])) swapContent("vessel", ops.updatesList[0].id[0]);
+                  else if (ops.crewMenu.find(o => o.db == ops.updatesList[0].id[0])) swapContent("crew", ops.updatesList[0].id[0]);
+                  objID = ops.updatesList[0].id[0];
+                } else if (!Array.isArray(ops.updatesList[0].id)) {
+                  if (ops.craftsMenu.find(o => o.db == ops.updatesList[0].id)) swapContent("vessel", ops.updatesList[0].id);
+                  else if (ops.crewMenu.find(o => o.db == ops.updatesList[0].id)) swapContent("crew", ops.updatesList[0].id);
+                  objID = ops.updatesList[0].id;
+                }
+
+                // otherwise just switch to the main feed
+                else swapTwitterSource((ops.pageType == "vessel" ? "Mission" : "Crew") + "Feed");
+              }
+              KSA_UI_STATE.optUpdateInterrupt = bStopAny;
+              $("#advTimeTip").attr("data-ut", ops.updatesList[0].UT);
+              $("#advTimeTip").attr("data-type", ops.updatesList[0].type);
+              $("#advTimeTip").attr("data-id", objID);
+              afterLoadFF();
+            }
+          });
+        }
+        dialogText = "There are no further historical events for this " + ops.pageType + " to fast forward to";
+      }
+      dialogButtons.push({
+        text: "Close",
+        click: function() {
+          $("#siteDialog").dialog("close");
+        }
+      });
+      if (!dialogText) dialogText = "There are no further historical events to fast forward to";
+      $("#siteDialog").html(dialogText);
+      $("#siteDialog").dialog("option", "title", "Notice");
+      $("#siteDialog").dialog("option", "buttons", dialogButtons);
+      $("#siteDialog").dialog("open");
+      return;
+    }
+    $("#advanceEvent").css('cursor', 'pointer').html("<i class=\"fa-solid fa-forward-fast fa-beat\" style=\"color: #000000;\"></i>");
+    $("#advTimeTip").html("Time to event: " + formatTime(nextEventUT - currUT()) + "<br>Left click: Cancel time advance<br>Right click: Reload to event -7s");
+    $("#advTimeTip").attr("data-ut", nextEventUT);
+    KSA_UI_STATE.optUpdateInterrupt = bStopAny;
+    clearTimeout(KSA_TIMERS.tickTimer);
+    KSA_TIMERS.tickTimer = setTimeout(tick, 1, 60000, true);
+  }
+}
+
+// once no more spinners are detected and the proper social feed is loaded - it's zoom time
+function afterLoadFF(updateUT) {
+  if (stillSpinning() && !TweetDisplay.config.isLoaded) return setTimeout(afterLoadFF, 150, updateUT);
   clearTimeout(KSA_TIMERS.tickTimer);
   KSA_TIMERS.tickTimer = setTimeout(tick, 1, 60000, true);
   $("#advanceEvent").css('cursor', 'pointer').html("<i class=\"fa-solid fa-forward-fast fa-beat\" style=\"color: #000000;\"></i>");
-  Tipped.remove('#advanceEvent');
-  Tipped.create('#advanceEvent', 'Click to cancel', { showOn: showOpt, hideOnClickOutside: is_touch_device(), position: 'bottom' });
+  $("#advTimeTip").html("Time to event: " + formatTime(updateUT - currUT()) + "<br>Left click: Cancel time advance<br>Right click: Reload to event -7s");
+  $("#advTimeTip").attr("data-ut", updateUT);
 }
 
 // updates various content on the page depending on what update event has been triggered
@@ -1025,21 +1094,19 @@ function killRapidFire(updateObj) {
   // also don't kill rapid fire mode if this is a tweet update and the collection visible isn't what its for
   if (updateObj.type == "tweet" && !updateObj.data.collections.includes(ops.twitterSource)) return;
 
-  // if the ffCancelOnOtherUpdates is not checked, only stop FF for current vessel/crew updates
-  if (!$("#ffCancelOnOtherUpdates").is(":checked")) {
-    if ((updateObj.type == "object" || updateObj.type == "tweet") && 
-        ((ops.pageType == "vessel" && ops.currentVessel && updateObj.id.includes(ops.currentVessel.Catalog.DB)) ||
-        (ops.pageType == "crew" && ops.currentCrew && updateObj.id.includes(ops.currentCrew.Background.Kerbal)))) {
-          KSA_TIMERS.tickTimer = null;
-    }
+  // if we are FF'd to a specific crew/vessel event then don't stop unless we reached the UT saved for that event
+  if (KSA_UI_STATE.optUpdateInterrupt === false) {
+    if (updateObj.UT === parseFloat($("#advTimeTip").attr("data-ut"))) KSA_TIMERS.tickTimer = null;
   } else KSA_TIMERS.tickTimer = null;
 
   // stop the next event icon from beating if timer was cancelled
   if (!KSA_TIMERS.tickTimer && $("#advanceEvent").html().includes("fa-beat")) {
     $("#advanceEvent").css('cursor', 'pointer').html("<i class=\"fa-solid fa-forward-fast\" style=\"color: #000000;\"></i>");
-    Tipped.remove('#advanceEvent');
-    Tipped.create('#advanceEvent', 'FF to next event<br>(reloads if >6hrs to next event)', { showOn: showOpt, hideOnClickOutside: is_touch_device(), position: 'bottom' });
-    $("#ffCancelOnOtherUpdates").prop('checked', KSA_UI_STATE.optUpdateInterrupt);
+    if (ops.pageType == "vessel") var strText = 'Left click: FF to any next event<br>Right click: FF to next event for this vessel';
+    else if (ops.pageType == "crew") var strText = 'Left click: FF to any next event<br>Right click: FF to next event for this crew';
+    else var strText = 'Left click: FF to any next event<br>Right click: Inop - No vessel/crew selected';
+    $("#advTimeTip").html(strText);
+    KSA_UI_STATE.optUpdateInterrupt = null;
   }
 }
 
@@ -1480,6 +1547,9 @@ function tick(utDelta = 1000, rapidFireMode = false) {
     KSA_CALCULATIONS.maneuverCountdown = "null";
     KSA_TIMERS.maneuverRefreshTimeout = setTimeout(function() { loadDB("loadEventData.asp?UT=" + currUT(), loadEventsAJAX); }, 5000);
   }
+  if (KSA_UI_STATE.optUpdateInterrupt != null) {
+    $("#advTimeTip").html("Time to event: " + formatTime(parseFloat($("#advTimeTip").attr("data-ut")) - currUT()) + "<br>Left click: Cancel time advance<br>Right click: Reload to event -7s");
+  }
 
   // check if the tweets update is available for fetching
   if (!ops.updateTweets && TweetDisplay.config.isLoaded) {
@@ -1827,6 +1897,7 @@ function tick(utDelta = 1000, rapidFireMode = false) {
   
   // update any tooltips
   Tipped.refresh(".tip-update");  
+  Tipped.refresh(".time-update");  
   
   // update the UT if timer hasn't been canceled
   if (KSA_TIMERS.tickTimer) ops.tickDelta += utDelta;
@@ -1887,9 +1958,11 @@ function tick(utDelta = 1000, rapidFireMode = false) {
       // also stop the next event icon from beating
       if ($("#advanceEvent").html().includes("fa-beat")) {
         $("#advanceEvent").css('cursor', 'pointer').html("<i class=\"fa-solid fa-forward-fast\" style=\"color: #000000;\"></i>");
-        Tipped.remove('#advanceEvent');
-        Tipped.create('#advanceEvent', 'FF to next event<br>(reloads if >6hrs to next event)', { showOn: showOpt, hideOnClickOutside: is_touch_device(), position: 'bottom' });
-        $("#ffCancelOnOtherUpdates").prop('checked', KSA_UI_STATE.optUpdateInterrupt);
+        if (ops.pageType == "vessel") var strText = 'Left click: FF to any next event<br>Right click: FF to next event for this vessel';
+        else if (ops.pageType == "crew") var strText = 'Left click: FF to any next event<br>Right click: FF to next event for this crew';
+        else var strText = 'Left click: FF to any next event<br>Right click: Inop - No vessel/crew selected';
+        $("#advTimeTip").html(strText);
+        KSA_UI_STATE.optUpdateInterrupt = null;
       }
     } else KSA_TIMERS.tickTimer = setTimeout(tick, 125, utDelta, true);
   }
