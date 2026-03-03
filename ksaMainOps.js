@@ -1122,8 +1122,10 @@ function checkPageUpdate(rapidFireMode = false) {
 function swapTwitterSource(swap, source, update=false) {
 
   // it can take a little while for the ops data to load and reset the last visit time that is used for cache busting
-  // so make sure that is complete before allowing this to proceed. Check on the update array too so this is only done once
-  if (!ops.updateData.length || (!ops.updateTweets && ops.updateData.find(o => o.isLoading === true))) return setTimeout(swapTwitterSource, 250, swap, source, update);
+  // so make sure that is complete before allowing this to proceed. Also don't allow a double data load call
+  if (!ops.updateData.length || (!ops.updateTweets && ops.updateData.find(o => o.isLoading === true)) || !TweetDisplay.config.isLoaded) {
+    return setTimeout(swapTwitterSource, 250, swap, source, update);
+  }
 
   // Ensure source is a string (in case it comes from ASP as a number)
   if (source) source = String(source);
@@ -1141,10 +1143,14 @@ function swapTwitterSource(swap, source, update=false) {
     ops.twitterSource = source;
   }
 
+  if (KSA_UI_STATE.isLivePastUT) var tweetDB = "tweets";
+  else var tweetDB = "tweetstrimmed";
+
   TweetDisplay.displayTweets({
     containerId: 'twitterTimeline',
     collectionFile: source,
     order: 'desc',
+    tweetDB: tweetDB,
     maxTweets: 25,
     UT: currUT(),
     update: update

@@ -10,11 +10,12 @@ var TweetDisplay = (function() {
   var config = {
     tweetsPath: 'http://www.kerbalspace.agency/KSA/wp-content/plugins/tweet-loader/tweets/',
     profileImage: 'https://pbs.twimg.com/profile_images/1064251777845850112/SPkeEIWH_400x400.jpg',
+    tweetDB: 'tweets',
     accountHandle: 'KSA_MissionCtrl',
     accountName: 'Kerbal Space Agency',
     defaultMaxTweets: 0, // 0 = all tweets
     defaultOrder: 'desc', // 'asc' or 'desc'
-    isLoaded: false
+    isLoaded: true
   };
 
   var currentLightbox = {
@@ -119,17 +120,20 @@ var TweetDisplay = (function() {
   }
 
   // Helper: Load text file
-  function loadTextFile(url, callback) {
+  // progressCallback(loaded, total, lengthComputable) - optional, called as bytes arrive
+  function loadTextFile(url, callback, progressCallback) {
 
-    // Add cache-busting parameter to prevent browser caching
-    // using the last visit will mean a new request each time the user returns
-    // but within the same session it will allow caching for better performance and also during live history mode
-    // ops.UT is not as good but still works better than a changing timestamp each load
-    var cacheBuster = localStorage.getItem("ksaOps_lastVisit") || ops.UT;
+    // Add cache-busting parameter to prevent browser caching (date-based so same-day visits use cache)
+    var cacheBuster = new Date().toISOString().split('T')[0];
     var urlWithCacheBuster = url + (url.indexOf('?') !== -1 ? '&_=' : '?_=') + cacheBuster;
     
     var xhr = new XMLHttpRequest();
     xhr.open('GET', urlWithCacheBuster, true);
+    if (progressCallback) {
+      xhr.onprogress = function(e) {
+        progressCallback(e.loaded, e.total, e.lengthComputable);
+      };
+    }
     xhr.onload = function() {
       if (xhr.status === 200) {
         callback(null, xhr.responseText);
@@ -144,8 +148,9 @@ var TweetDisplay = (function() {
   }
 
   // Helper: Load JSON file line by line (tweets.txt format - .json has MIME type issues on server)
-  function loadTweetsJson(tweetIds, callback) {
-    var url = config.tweetsPath + 'tweets.json.txt';
+  // progressCallback(loaded, total, lengthComputable) - optional, forwarded to loadTextFile
+  function loadTweetsJson(tweetIds, callback, progressCallback) {
+    var url = config.tweetsPath + config.tweetDB + '.json.txt';
     loadTextFile(url, function(err, data) {
       if (err) {
         callback(err, null);
@@ -249,7 +254,7 @@ var TweetDisplay = (function() {
       }
 
       callback(null, tweetsData);
-    });
+    }, progressCallback);
   }
 
   // Helper: Build a link element for a tweet URL
@@ -535,6 +540,7 @@ var TweetDisplay = (function() {
   // Display tweets in container
   function displayTweets(options) {
     config.isLoaded = false;
+    config.tweetDB = options.tweetDB ? options.tweetDB : "tweets";
     var containerEl = document.getElementById(options.containerId);
     if (!containerEl) {
       console.error('Tweet container not found:', options.containerId);
@@ -549,7 +555,7 @@ var TweetDisplay = (function() {
     var requestId = ++requestCounter;
     activeRequests[options.containerId] = requestId;
 
-    containerEl.innerHTML = '<div class="tweet-loading">Loading updates...</div>';
+    containerEl.innerHTML = '<div class="tweet-loading">Requesting updates...</div>';
 
     // Load tweet IDs
     loadTextFile(config.tweetsPath + collectionFile + '.txt', function(err, data) {
@@ -606,9 +612,33 @@ var TweetDisplay = (function() {
             .filter(function(line) { return line.length > 0; });
         }
 
+        // Progress callback: update the loading indicator as tweets.json.txt downloads
+        function onJsonProgress(loaded, total, lengthComputable) {
+          var loadingEl = containerEl.querySelector('.tweet-loading');
+          if (!loadingEl) return;
+          if (lengthComputable && total > 0) {
+            var pct = Math.round((loaded / total) * 100);
+            if (config.tweetDB === 'tweets') {
+              loadingEl.textContent = 'Loading full history\u2026 ' + pct + '%';
+            } else {
+              loadingEl.textContent = 'Loading recent history\u2026 ' + pct + '%';
+            }
+          } else {
+            var kb = Math.round(loaded / 1024);
+            if (config.tweetDB === 'tweets') {
+              loadingEl.textContent = 'Loading full history\u2026 ' + kb + ' KB';
+            } else {
+              loadingEl.textContent = 'Loading recent history\u2026 ' + kb + ' KB';
+            }
+          }
+        }
+
         // Load tweets data
         loadTweetsJson(tweetIds, function(tweetsErr, tweetsData) {
-          
+          // Switch loading message to parsing while we process the data
+          var loadingEl = containerEl.querySelector('.tweet-loading');
+          if (loadingEl) loadingEl.textContent = 'Parsing updates\u2026';
+
           // Check if this request is still active
           if (activeRequests[options.containerId] !== requestId) {
             console.log('Tweet request cancelled (superseded by newer request)');
@@ -693,7 +723,7 @@ var TweetDisplay = (function() {
 
           // let the main program know we can fetch update data now that the tweets are loaded
           config.isLoaded = true;
-        });
+        }, onJsonProgress);
       });
     });
   }
