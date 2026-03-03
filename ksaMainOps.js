@@ -197,7 +197,17 @@ function setupContent() {
   $("#copyLinkIcon").click(function() {
     var queryString = window.location.search;
     var sanitizedUrl = "http://ops.kerbalspace.agency/" + queryString;
-    
+    if (KSA_UI_STATE.isMapShown && !sanitizedUrl.includes("map")) sanitizedUrl += "&map";
+
+    // we need to maker sure there is a ut param for past live events
+    if (KSA_UI_STATE.isLivePastUT) {
+      if (!sanitizedUrl.includes("ut=")) {
+        if (ops.pageType == "vessel" && ops.currentVessel && ops.currentVessel.CraftData) sanitizedUrl += "&ut=" + ops.currentVessel.CraftData.UT;
+        else sanitizedUrl += "&ut=" + currUT();
+      }
+      sanitizedUrl += "&live";
+    }
+
     // Copy to clipboard
     if (navigator.clipboard && navigator.clipboard.writeText) {
       navigator.clipboard.writeText(sanitizedUrl).then(function() {
@@ -208,6 +218,32 @@ function setupContent() {
       });
     } else {
       // Fallback for older browsers
+      var temp = $("<input>");
+      $("body").append(temp);
+      temp.val(sanitizedUrl).select();
+      document.execCommand("copy");
+      temp.remove();
+      $("#copyLinkIcon").html("<i class=\"fa-solid fa-link fa-bounce\"></i>");
+      setTimeout(function() { $("#copyLinkIcon").html("<i class=\"fa-solid fa-link\"></i>"); }, 800);
+    }
+  });
+  $('#copyLinkIcon').on('contextmenu', function(e) {
+    e.preventDefault();
+
+    var queryString = window.location.search;
+    var sanitizedUrl = "http://ops.kerbalspace.agency/" + queryString;
+    sanitizedUrl += (sanitizedUrl.includes("ut=") ? "" : "&ut=" + currUT());
+    if (KSA_UI_STATE.isMapShown && !sanitizedUrl.includes("map")) sanitizedUrl += "&map";
+    if (KSA_UI_STATE.isLivePastUT) sanitizedUrl += "&live";
+
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(sanitizedUrl).then(function() {
+        $("#copyLinkIcon").html("<i class=\"fa-solid fa-link fa-bounce\"></i>");
+        setTimeout(function() { $("#copyLinkIcon").html("<i class=\"fa-solid fa-link\"></i>"); }, 800);
+      }).catch(function(err) {
+        console.error("Failed to copy: ", err);
+      });
+    } else {
       var temp = $("<input>");
       $("body").append(temp);
       temp.val(sanitizedUrl).select();
@@ -229,7 +265,6 @@ function setupContent() {
 
   // setup social icons handlers
   $('#socialIcons i').on('click', function(e) {
-    e.preventDefault();
     var url = $(this).data('url');
     window.open(url, '_blank');
   });
@@ -757,7 +792,7 @@ function swapContent(newPageType, id, ut, flt) {
       var showOpt = 'mouseenter';
       if (is_touch_device()) showOpt = 'click';
       Tipped.create('#liveReloadIcon', strCaption, { showOn: showOpt, hideOnClickOutside: is_touch_device(), position: 'bottom' });
-      Tipped.create('#copyLinkIcon', 'Copy permalink to clipboard', { showOn: showOpt, hideOnClickOutside: is_touch_device(), position: 'bottom' });
+      Tipped.create('#copyLinkIcon', 'Copy permalink to clipboard<br>Right click: always include time', { showOn: showOpt, hideOnClickOutside: is_touch_device(), position: 'bottom' });
     }, 500);
 
     if (ops.pageType == "vessel") var strText = 'Left click: FF to any next event<br>Right click: FF to next event for this vessel';
