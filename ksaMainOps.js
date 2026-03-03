@@ -890,7 +890,7 @@ function swapContent(newPageType, id, ut, flt) {
       $("#contentBox").fadeIn();
       if (KSA_LAYERS.groundMarkers.layerPins) {
         KSA_LAYERS.groundMarkers.layerPins.addTo(ops.surface.map);
-        ops.surface.layerControl.addOverlay(KSA_LAYERS.groundMarkers.layerPins, "<img src='defPin.png' style='width: 10px; height: 14px; vertical-align: 1px;'> Custom Pins", "Ground Markers");
+        ops.surface.layerControl.addOverlay(KSA_LAYERS.groundMarkers.layerPins, "<img src='images/defPin.png' style='width: 10px; height: 14px; vertical-align: 1px;'> Custom Pins", "Ground Markers");
       }
       loadBody(id, flt); 
     }, 600);

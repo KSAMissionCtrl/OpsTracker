@@ -472,7 +472,7 @@ function crewInfoUpdate(update) {
   var strBackgrnd = "<b>Birth Date:</b> " + (bday.getUTCMonth() + 1) + "/" + bday.getUTCDate() + "/" + bday.getUTCFullYear() + strAge + numeral(age).format('0.00') + ")";
   
   // family name with help icon for more info
-  strBackgrnd += "<p><b>Family Name:</b> " + ops.currentCrew.Background.FamName + "&nbsp;<img src='qmark.png' style='margin-bottom: 10px; left: initial; cursor: help' class='tip' data-tipped-options=\"position: 'right', maxWidth: 135\" title='as a show of global unity, all adult kerbals take the surname of the first planetary leader'></p>";
+  strBackgrnd += "<p><b>Family Name:</b> " + ops.currentCrew.Background.FamName + "&nbsp;<img src='images/qmark.png' style='margin-bottom: 10px; left: initial; cursor: help' class='tip' data-tipped-options=\"position: 'right', maxWidth: 135\" title='as a show of global unity, all adult kerbals take the surname of the first planetary leader'></p>";
   
   // rest of the bio stuff
   strBackgrnd += "<p><b>Specialty:</b> " + sanitizeHTML(ops.currentCrew.Background.Speciality) + "</p><p><b>Hobbies:</b> " + sanitizeHTML(ops.currentCrew.Background.Hobbies) + "</p><p><b>Biography:</b> " + ops.currentCrew.Background.Bio + "</p><p><b>Service History:</b> " + ops.currentCrew.History.History + "</p>";

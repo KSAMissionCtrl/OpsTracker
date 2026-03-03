@@ -28,88 +28,88 @@ function initializeMap() {
   
   // define the icons for the various layer markers and events
   KSA_MAP_ICONS.flagIcon = L.icon({
-    iconUrl: 'button_vessel_flag.png',
+    iconUrl: 'images/button_vessel_flag.png',
     iconSize: [16, 16],
     iconAnchor: [6,21] 
   });
   KSA_MAP_ICONS.POIIcon = L.icon({
     popupAnchor: [0, -43], 
-    iconUrl: 'poi.png', 
+    iconUrl: 'images/poi.png', 
     iconSize: [30, 40], 
     iconAnchor: [15, 40], 
-    shadowUrl: 'markers-shadow.png', 
+    shadowUrl: 'images/markers-shadow.png', 
     shadowSize: [35, 16], 
     shadowAnchor: [10, 12]
   });
   KSA_MAP_ICONS.anomalyIcon = L.icon({
     popupAnchor: [0, -43], 
-    iconUrl: 'anomaly.png', 
+    iconUrl: 'images/anomaly.png', 
     iconSize: [30, 40], 
     iconAnchor: [15, 40], 
-    shadowUrl: 'markers-shadow.png', 
+    shadowUrl: 'images/markers-shadow.png', 
     shadowSize: [35, 16], 
     shadowAnchor: [10, 12]
   });
   KSA_MAP_ICONS.airportIcon = L.icon({
     popupAnchor: [0, -43], 
-    iconUrl: 'airport.png', 
+    iconUrl: 'images/airport.png', 
     iconSize: [30, 40], 
     iconAnchor: [15, 40], 
-    shadowUrl: 'markers-shadow.png', 
+    shadowUrl: 'images/markers-shadow.png', 
     shadowSize: [35, 16], 
     shadowAnchor: [10, 12]
   });
   KSA_MAP_ICONS.omniIcon = L.icon({
     popupAnchor: [0, -43], 
-    iconUrl: 'pinOmni.png', 
+    iconUrl: 'images/pinOmni.png', 
     iconSize: [30, 40], 
     iconAnchor: [15, 40], 
-    shadowUrl: 'markers-shadow.png', 
+    shadowUrl: 'images/markers-shadow.png', 
     shadowSize: [35, 16], 
     shadowAnchor: [10, 12]
   });
   KSA_MAP_ICONS.dishIcon = L.icon({
     popupAnchor: [0, -43], 
-    iconUrl: 'pinDish.png', 
+    iconUrl: 'images/pinDish.png', 
     iconSize: [30, 40], 
     iconAnchor: [15, 40], 
-    shadowUrl: 'markers-shadow.png', 
+    shadowUrl: 'images/markers-shadow.png', 
     shadowSize: [35, 16], 
     shadowAnchor: [10, 12]
   });
   KSA_MAP_ICONS.labelIcon = L.icon({
-    iconUrl: 'label.png',
+    iconUrl: 'images/label.png',
     iconSize: [10, 10],
   });
   KSA_MAP_ICONS.sunIcon = L.icon({
-    iconUrl: 'sun.png',
+    iconUrl: 'images/sun.png',
     iconSize: [16, 16],
     iconAnchor: [8, 8]
   });
   KSA_MAP_ICONS.apIcon = L.icon({
-    iconUrl: 'ap.png',
+    iconUrl: 'images/ap.png',
     iconSize: [16, 16],
     iconAnchor: [8, 18],
     popupAnchor: [0, -4]
   });
   KSA_MAP_ICONS.peIcon = L.icon({
-    iconUrl: 'pe.png',
+    iconUrl: 'images/pe.png',
     iconSize: [16, 16],
     iconAnchor: [8, 18],
     popupAnchor: [0, -4]
   });
   KSA_MAP_ICONS.soiExitIcon = L.icon({
-    iconUrl: 'soiexit.png',
+    iconUrl: 'images/soiexit.png',
     iconSize: [16, 12],
     iconAnchor: [9, 6]
   });
   KSA_MAP_ICONS.soiEntryIcon = L.icon({
-    iconUrl: 'soientry.png',
+    iconUrl: 'images/soientry.png',
     iconSize: [16, 12],
     iconAnchor: [9, 6]
   });
   KSA_MAP_ICONS.nodeIcon = L.icon({
-    iconUrl: 'node.png',
+    iconUrl: 'images/node.png',
     iconSize: [16, 16],
     iconAnchor: [8, 8]
   });
@@ -482,7 +482,7 @@ function loadMapDataAJAX(xhttp) {
 
     // were any markers added to the layer?
     if (KSA_LAYERS.groundMarkers.layerLabels.getLayers().length > 0) {
-      ops.surface.layerControl.addOverlay(KSA_LAYERS.groundMarkers.layerLabels, "<img src='label.png' style='vertical-align: 1px;'> Labels", "Ground Markers");
+      ops.surface.layerControl.addOverlay(KSA_LAYERS.groundMarkers.layerLabels, "<img src='images/label.png' style='vertical-align: 1px;'> Labels", "Ground Markers");
       
       // check if the user wants these markers to be shown by default
       if (getParameterByName("layers").includes("label") || getParameterByName("layers").includes("lbl")) {
@@ -512,7 +512,7 @@ function loadMapDataAJAX(xhttp) {
       }
     });
     if (KSA_LAYERS.groundMarkers.layerFlags.getLayers().length > 0) {
-      ops.surface.layerControl.addOverlay(KSA_LAYERS.groundMarkers.layerFlags, "<img src='button_vessel_flag.png' style='width: 10px; vertical-align: 1px;'> Flags", "Ground Markers");
+      ops.surface.layerControl.addOverlay(KSA_LAYERS.groundMarkers.layerFlags, "<img src='images/button_vessel_flag.png' style='width: 10px; vertical-align: 1px;'> Flags", "Ground Markers");
       if (getParameterByName("layers").includes("flag")) KSA_LAYERS.groundMarkers.layerFlags.addTo(ops.surface.map);
     } else KSA_LAYERS.groundMarkers.layerFlags = null;
   }
@@ -541,7 +541,7 @@ function loadMapDataAJAX(xhttp) {
       }
     });
     if (KSA_LAYERS.groundMarkers.layerPOI.getLayers().length > 0) {
-      ops.surface.layerControl.addOverlay(KSA_LAYERS.groundMarkers.layerPOI, "<img src='poi.png' style='width: 10px; vertical-align: 1px;'> Points of Interest", "Ground Markers");
+      ops.surface.layerControl.addOverlay(KSA_LAYERS.groundMarkers.layerPOI, "<img src='images/poi.png' style='width: 10px; vertical-align: 1px;'> Points of Interest", "Ground Markers");
       if (getParameterByName("layers").includes("poi") || getParameterByName("layers").includes("interest")) {
         KSA_LAYERS.groundMarkers.layerPOI.addTo(ops.surface.map);
       }
@@ -574,7 +574,7 @@ function loadMapDataAJAX(xhttp) {
       }
     });
     if (KSA_LAYERS.groundMarkers.layerAnomalies.getLayers().length > 0) {
-      ops.surface.layerControl.addOverlay(KSA_LAYERS.groundMarkers.layerAnomalies, "<img src='anomaly.png' style='width: 10px; vertical-align: 1px;'> Anomalies", "Ground Markers");
+      ops.surface.layerControl.addOverlay(KSA_LAYERS.groundMarkers.layerAnomalies, "<img src='images/anomaly.png' style='width: 10px; vertical-align: 1px;'> Anomalies", "Ground Markers");
       if (getParameterByName("layers").includes("anom")) KSA_LAYERS.groundMarkers.layerAnomalies.addTo(ops.surface.map);
     } else KSA_LAYERS.groundMarkers.layerAnomalies = null;
   }
@@ -615,7 +615,7 @@ function loadMapDataAJAX(xhttp) {
       }
     });
     if (KSA_LAYERS.groundMarkers.layerGroundStations.getLayers().length > 0) {
-      ops.surface.layerControl.addOverlay(KSA_LAYERS.groundMarkers.layerGroundStations, "<img src='pinGrndStation.png' style='width: 10px; vertical-align: 1px;'> Ground Stations", "Ground Markers");
+      ops.surface.layerControl.addOverlay(KSA_LAYERS.groundMarkers.layerGroundStations, "<img src='images/pinGrndStation.png' style='width: 10px; vertical-align: 1px;'> Ground Stations", "Ground Markers");
       if (getParameterByName("layers").includes("ground") || getParameterByName("layers").includes("grnd") || getParameterByName("layers").includes("station")) {
         KSA_LAYERS.groundMarkers.layerGroundStations.addTo(ops.surface.map);
       }
@@ -647,7 +647,7 @@ function loadMapDataAJAX(xhttp) {
       }
     });
     if (KSA_LAYERS.groundMarkers.layerAirports.getLayers().length > 0) {
-      ops.surface.layerControl.addOverlay(KSA_LAYERS.groundMarkers.layerAirports, "<img src='airport.png' style='width: 10px; vertical-align: 1px;'> Airports", "Ground Markers");
+      ops.surface.layerControl.addOverlay(KSA_LAYERS.groundMarkers.layerAirports, "<img src='images/airport.png' style='width: 10px; vertical-align: 1px;'> Airports", "Ground Markers");
       if (getParameterByName("layers").includes("apt") || getParameterByName("layers").includes("airport")) {
         KSA_LAYERS.groundMarkers.layerAirports.addTo(ops.surface.map);
       }
@@ -708,7 +708,7 @@ function loadMapDataAJAX(xhttp) {
 
     // place the pins and size the map to show them all
     KSA_LAYERS.groundMarkers.layerPins.addTo(ops.surface.map);
-    ops.surface.layerControl.addOverlay(KSA_LAYERS.groundMarkers.layerPins, "<img src='defPin.png' style='width: 10px; height: 14px; vertical-align: 1px;'> Custom Pins", "Ground Markers");
+    ops.surface.layerControl.addOverlay(KSA_LAYERS.groundMarkers.layerPins, "<img src='images/defPin.png' style='width: 10px; height: 14px; vertical-align: 1px;'> Custom Pins", "Ground Markers");
     ops.surface.map.fitBounds(KSA_LAYERS.groundMarkers.layerPins.getBounds());
     
     // if only one marker was placed, open its popup and zoom back out
@@ -907,7 +907,7 @@ function surfaceUpdate(type, markerUT, id) {
     var labelData = ops.surface.Data.Labels.split("|");
     if (!KSA_LAYERS.groundMarkers.layerLabels && isSelectedBody) {
       KSA_LAYERS.groundMarkers.layerLabels = L.layerGroup();
-      ops.surface.layerControl.addOverlay(KSA_LAYERS.groundMarkers.layerLabels, "<img src='label.png' style='vertical-align: 1px;'> Labels", "Ground Markers");
+      ops.surface.layerControl.addOverlay(KSA_LAYERS.groundMarkers.layerLabels, "<img src='images/label.png' style='vertical-align: 1px;'> Labels", "Ground Markers");
     }
     labelData.forEach(function(item) {
       var label = item.split(";");
@@ -931,7 +931,7 @@ function surfaceUpdate(type, markerUT, id) {
     var flagData = ops.surface.Data.Flags.split("|");
     if (!KSA_LAYERS.groundMarkers.layerFlags && isSelectedBody) {
       KSA_LAYERS.groundMarkers.layerFlags = L.layerGroup();
-      ops.surface.layerControl.addOverlay(KSA_LAYERS.groundMarkers.layerFlags, "<img src='button_vessel_flag.png' style='width: 10px; vertical-align: 1px;'> Flags", "Ground Markers");
+      ops.surface.layerControl.addOverlay(KSA_LAYERS.groundMarkers.layerFlags, "<img src='images/button_vessel_flag.png' style='width: 10px; vertical-align: 1px;'> Flags", "Ground Markers");
     }
     flagData.forEach(function(item) {
       var flag = item.split(";");
@@ -962,7 +962,7 @@ function surfaceUpdate(type, markerUT, id) {
     var POIData = ops.surface.Data.POI.split("|");
     if (!KSA_LAYERS.groundMarkers.layerPOI && isSelectedBody) {
       KSA_LAYERS.groundMarkers.layerPOI = L.layerGroup();
-      ops.surface.layerControl.addOverlay(KSA_LAYERS.groundMarkers.layerPOI, "<img src='poi.png' style='width: 10px; vertical-align: 1px;'> Points of Interest", "Ground Markers");
+      ops.surface.layerControl.addOverlay(KSA_LAYERS.groundMarkers.layerPOI, "<img src='images/poi.png' style='width: 10px; vertical-align: 1px;'> Points of Interest", "Ground Markers");
     }
     POIData.forEach(function(item) {
       var POI = item.split(";");
@@ -996,7 +996,7 @@ function surfaceUpdate(type, markerUT, id) {
     var anomalyData = ops.surface.Data.Anomalies.split("|");
     if (!KSA_LAYERS.groundMarkers.layerAnomalies && isSelectedBody) {
       KSA_LAYERS.groundMarkers.layerAnomalies = L.layerGroup();
-      ops.surface.layerControl.addOverlay(KSA_LAYERS.groundMarkers.layerAnomalies, "<img src='anomaly.png' style='width: 10px; vertical-align: 1px;'> Anomalies", "Ground Markers");
+      ops.surface.layerControl.addOverlay(KSA_LAYERS.groundMarkers.layerAnomalies, "<img src='images/anomaly.png' style='width: 10px; vertical-align: 1px;'> Anomalies", "Ground Markers");
     }
     anomalyData.forEach(function(item) {
       var anomaly = item.split(";");
@@ -1032,7 +1032,7 @@ function surfaceUpdate(type, markerUT, id) {
     var grndData = ops.surface.Data.GroundStations.split("|");
     if (!KSA_LAYERS.groundMarkers.layerGroundStations && isSelectedBody) {
       KSA_LAYERS.groundMarkers.layerGroundStations = L.layerGroup();
-      ops.surface.layerControl.addOverlay(KSA_LAYERS.groundMarkers.layerGroundStations, "<img src='pinGrndStation.png' style='width: 10px; vertical-align: 1px;'> Ground Stations", "Ground Markers");
+      ops.surface.layerControl.addOverlay(KSA_LAYERS.groundMarkers.layerGroundStations, "<img src='images/pinGrndStation.png' style='width: 10px; vertical-align: 1px;'> Ground Stations", "Ground Markers");
     }
     grndData.forEach(function(item) {
       var station = item.split(";");
@@ -1081,7 +1081,7 @@ function surfaceUpdate(type, markerUT, id) {
     var aptData = ops.surface.Data.Airports.split("|");
     if (!KSA_LAYERS.groundMarkers.layerAirports && isSelectedBody) {
       KSA_LAYERS.groundMarkers.layerAirports = L.layerGroup();
-      ops.surface.layerControl.addOverlay(KSA_LAYERS.groundMarkers.layerAirports, "<img src='airport.png' style='width: 10px; vertical-align: 1px;'> Airports", "Ground Markers");
+      ops.surface.layerControl.addOverlay(KSA_LAYERS.groundMarkers.layerAirports, "<img src='images/airport.png' style='width: 10px; vertical-align: 1px;'> Airports", "Ground Markers");
     }
     aptData.forEach(function(item) {
       var airport = item.split(";");
@@ -1604,7 +1604,7 @@ function renderVesselOrbit() {
     KSA_UI_STATE.isVesObtRenderTerminated = false;
 
     // place the craft marker and assign its popup
-    KSA_MAP_ICONS.vesselIcon = L.icon({iconUrl: 'button_vessel_' + currType(ops.currentVessel.Catalog.Type) + '.png', iconSize: [16, 16]});
+    KSA_MAP_ICONS.vesselIcon = L.icon({iconUrl: 'images/button_vessel_' + currType(ops.currentVessel.Catalog.Type) + '.png', iconSize: [16, 16]});
     KSA_MAP_CONTROLS.vesselMarker = L.marker(ops.currentVesselPlot.obtData[0].orbit[0].latlng, {icon: KSA_MAP_ICONS.vesselIcon, zIndexOffset: 100}).addTo(ops.surface.map);
     var strPopupContent = "Latitude: <span id='lat'>-000.0000&deg;S</span><br>";
     strPopupContent += "Longitude: <span id='lng'>-000.0000&deg;W</span><br>";
@@ -2030,7 +2030,7 @@ function showMap() {
         strType = capitalizeFirstLetter(layer.type);
         if (!layer.isLoaded) break;
         if (!strType.endsWith("s")) strType += "s";
-        if (layer.group) ops.surface.layerControl.addOverlay(layer.group, "<img src='icon_" + layer.type + ".png' style='width: 15px;'> " + strType, "Orbital Tracks");
+        if (layer.group) ops.surface.layerControl.addOverlay(layer.group, "<img src='images/icon_" + layer.type + ".png' style='width: 15px;'> " + strType, "Orbital Tracks");
       }
       const allLoaded = KSA_CATALOGS.bodyPaths.layers.every(layer => layer.isLoaded);
 
@@ -2881,7 +2881,7 @@ function calculateSurfaceTracks(currObj = null) {
         strType = capitalizeFirstLetter(layer.type);
         if (!layer.isLoaded) break;
         if (!strType.endsWith("s")) strType += "s";
-        ops.surface.layerControl.addOverlay(layer.group, "<img src='icon_" + layer.type + ".png' style='width: 15px;'> " + strType, "Orbital Tracks");
+        ops.surface.layerControl.addOverlay(layer.group, "<img src='images/icon_" + layer.type + ".png' style='width: 15px;'> " + strType, "Orbital Tracks");
       }
       ops.surface.layerControl.addOverlay(KSA_LAYERS.surfaceTracksDataLoad.bodiesTrackDataLoad, "<i class='fa fa-cog fa-spin'></i> Loading " + strType + " Data...", "Orbital Tracks");
     } else {
@@ -2930,7 +2930,7 @@ function calculateSurfaceTracks(currObj = null) {
             }
             var strType = capitalizeFirstLetter(currObj.type);
             if (!strType.endsWith("s")) strType += "s";
-            ops.surface.layerControl.addOverlay(currLayer.group, "<img src='icon_" + currObj.type + ".png' style='width: 15px'> " + strType, "Orbital Tracks");
+            ops.surface.layerControl.addOverlay(currLayer.group, "<img src='images/icon_" + currObj.type + ".png' style='width: 15px'> " + strType, "Orbital Tracks");
             
             // check if this layer should be automatically selected based on URL parameters
             if (getParameterByName("layers").includes(currObj.type) || getParameterByName("layers").includes(strType.toLowerCase())) {
@@ -2954,7 +2954,7 @@ function calculateSurfaceTracks(currObj = null) {
             ops.surface.layerControl.removeLayer(KSA_LAYERS.surfaceTracksDataLoad.bodiesTrackDataLoad);
             var strType = capitalizeFirstLetter(currObj.type);
             if (!strType.endsWith("s")) strType += "s";
-            ops.surface.layerControl.addOverlay(currLayer.group, "<img src='icon_" + currObj.type + ".png' style='width: 15px'> " + strType, "Orbital Tracks");
+            ops.surface.layerControl.addOverlay(currLayer.group, "<img src='images/icon_" + currObj.type + ".png' style='width: 15px'> " + strType, "Orbital Tracks");
             
             // check if this layer should be automatically selected based on URL parameters
             if (getParameterByName("layers").includes(currObj.type) || getParameterByName("layers").includes(strType.toLowerCase())) {
@@ -3144,7 +3144,7 @@ function renderBodyOrbit() {
   currLayer.group.addLayer(currObj.obtData.pathData[currObj.obtData.pathData.length-1]);
 
   // place the craft marker and assign its popup
-  var icon = L.icon({iconUrl: 'icon_' + currObj.type + '.png', iconSize: [16, 16]});
+  var icon = L.icon({iconUrl: 'images/icon_' + currObj.type + '.png', iconSize: [16, 16]});
   currObj.obtData.marker = L.marker(currObj.obtData.orbit[0].latlng, {icon: icon, zIndexOffset: 100});
   var now = currUT() - currObj.obtData.startUT;
   var cardinal = getLatLngCompass(currObj.obtData.orbit[now].latlng);

@@ -718,7 +718,7 @@ function vesselCommsUpdate(update) {
 
           // clear up confusion by replacing Connection with Target when referencing the ground station we are intending to communicate with
           // this is so it doesn't imply a connection when status is shown as not connected via icon
-          strHTML += "<img class='tipped' title='" + item.split(";")[1].replace("Connection", "Target") + "' style='cursor:help' src='" + iconStr + item.split(";")[0] + ".png'></a>&nbsp;";
+          strHTML += "<img class='tipped' title='" + item.split(";")[1].replace("Connection", "Target") + "' style='cursor:help' src='images/" + iconStr + item.split(";")[0] + ".png'></a>&nbsp;";
         });
       } else strHTML += "None";
       $("#dataField9").html(strHTML);
@@ -918,7 +918,7 @@ function vesselContentUpdate(update) {
       }
       
       // set launchsite icon
-      launchsiteIcon = L.icon({ popupAnchor: [0, -43], iconUrl: 'markers-spacecenter.png', iconSize: [30, 40], iconAnchor: [15, 40], shadowUrl: 'markers-shadow.png', shadowSize: [35, 16], shadowAnchor: [10, 12] });
+      launchsiteIcon = L.icon({ popupAnchor: [0, -43], iconUrl: 'images/markers-spacecenter.png', iconSize: [30, 40], iconAnchor: [15, 40], shadowUrl: 'images/markers-shadow.png', shadowSize: [35, 16], shadowAnchor: [10, 12] });
       
       // decide if this is still pre-launch or not
       var strLaunchIconCaption = "<b>Launch Location</b><br>"
@@ -1281,7 +1281,7 @@ function updateVesselData(vessel, isNonObtUpdate = true) {
 
 // following functions perform parsing on data strings
 function getVesselImage() {
-  if (!ops.currentVessel.CraftData.CraftImg) return "nadaOp.png";
+  if (!ops.currentVessel.CraftData.CraftImg) return "images/nadaOp.png";
   else return ops.currentVessel.CraftData.CraftImg.split("|")[KSA_UI_STATE.vesselRotationIndex].split("~")[0];
 }
 function getPartsHTML() {
@@ -1396,7 +1396,7 @@ function updateResourceIcons(update) {
   var resourceList = ops.currentVessel.Resources.Resources.split("|");
   for (resCount=0; resCount<5; resCount++) {
     if (resCount+ops.currentVessel.Resources.resIndex == resourceList.length) break;
-    $("#resImg" + resCount).attr("src", resourceList[resCount+ops.currentVessel.Resources.resIndex].split(";")[0] + ".png");
+    $("#resImg" + resCount).attr("src", "images/" + resourceList[resCount+ops.currentVessel.Resources.resIndex].split(";")[0] + ".png");
     $("#resImg" + resCount).fadeIn();
     $("#resTip" + resCount).html(resourceList[resCount+ops.currentVessel.Resources.resIndex].split(";")[1]);
   }
@@ -1717,7 +1717,7 @@ function setupStreamingAscent() {
   KSA_MAP_CONTROLS.vesselHorizon.vessel = null;
 
   // place the craft marker 
-  KSA_MAP_ICONS.vesselIcon = L.icon({iconUrl: 'button_vessel_' + currType(ops.currentVessel.Catalog.Type) + '.png', iconSize: [16, 16]});
+  KSA_MAP_ICONS.vesselIcon = L.icon({iconUrl: 'images/button_vessel_' + currType(ops.currentVessel.Catalog.Type) + '.png', iconSize: [16, 16]});
   KSA_MAP_CONTROLS.vesselMarker = L.marker([ops.ascentData.telemetry[ops.activeAscentFrame.ascentIndex].Lat, ops.ascentData.telemetry[ops.activeAscentFrame.ascentIndex].Lon], {icon: KSA_MAP_ICONS.vesselIcon, zIndexOffset: 100, interactive: false}).addTo(ops.surface.map);
   
   // add a horizon circle at the marker location
@@ -2217,7 +2217,7 @@ function updateSurfacePlot(index) {
   // add a new marker if one exists
   if (ops.ascentData.telemetry[index].EventMark) {
     var labelIcon = L.icon({
-      iconUrl: 'label.png',
+      iconUrl: 'images/label.png',
       iconSize: [5, 5],
     });
     KSA_CATALOGS.ascentMarks.push(L.marker([ops.ascentData.telemetry[index].Lat, ops.ascentData.telemetry[index].Lon], {icon: labelIcon}).addTo(ops.surface.map));
