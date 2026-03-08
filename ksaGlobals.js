@@ -256,7 +256,8 @@ const KSA_MAP_ICONS = {
   labelIcon: null,
   airportIcon: null,
   omniIcon: null,
-  dishIcon: null
+  dishIcon: null,
+  balloonIcon: null
 };
 
 // ------------------------------------------------------------------------------
@@ -321,6 +322,7 @@ const KSA_LAYERS = {
     layerPOI: null,
     layerAnomalies: null,
     layerAirports: null,
+    layerKerballoon: null,
     layerGroundStations: null,   // layer showing/hiding ground stations and vessel/body horizons
     layerSolar: null,            // layer group containing sun marker and terminator polygon
     layerPins: null              // layer showing/hiding custom pins on surface map

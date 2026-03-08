@@ -53,7 +53,7 @@ else
   'get specific record
   rsMap.open "select * from Bodies where RefID=" & mapRef, conn, 2
   
-  'output the record in name/value pairs for each field if a record exists for this time period
+  'output the record in name/value pairs for each field
   if not rsMap.eof then
     for each field in rsMap.fields
       output = output & replace(field.name, " ", "") & "~" & field.value & "`"

@@ -1962,6 +1962,9 @@ function tick(utDelta = 1000, rapidFireMode = false) {
 
       // if tab was inactive for more than 3 minutes, reload the page to ensure fresh state
       if (diff > 180000) {
+        if (KSA_UI_STATE.isMapShown) {
+          if (!window.location.href.includes("&map")) window.location.href += "&map";
+        }
         window.location.reload();
         return;
       }

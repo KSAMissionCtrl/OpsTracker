@@ -28,6 +28,7 @@ function initializeMap() {
   
   // define the icons for the various layer markers and events
   KSA_MAP_ICONS.flagIcon = L.icon({
+    popupAnchor: [0, -10], 
     iconUrl: 'images/button_vessel_flag.png',
     iconSize: [16, 16],
     iconAnchor: [6,21] 
@@ -53,6 +54,15 @@ function initializeMap() {
   KSA_MAP_ICONS.airportIcon = L.icon({
     popupAnchor: [0, -43], 
     iconUrl: 'images/airport.png', 
+    iconSize: [30, 40], 
+    iconAnchor: [15, 40], 
+    shadowUrl: 'images/markers-shadow.png', 
+    shadowSize: [35, 16], 
+    shadowAnchor: [10, 12]
+  });
+  KSA_MAP_ICONS.balloonIcon = L.icon({
+    popupAnchor: [0, -30], 
+    iconUrl: 'images/balloon.png', 
     iconSize: [30, 40], 
     iconAnchor: [15, 40], 
     shadowUrl: 'images/markers-shadow.png', 
@@ -251,6 +261,14 @@ function cleanupGroundMarkersLayers() {
     KSA_LAYERS.groundMarkers.layerGroundStations = null;
   }
   
+  // remove kerballoon layer
+  if (KSA_LAYERS.groundMarkers.layerKerballoon) {
+    if (ops.surface.map.hasLayer(KSA_LAYERS.groundMarkers.layerKerballoon)) {
+      ops.surface.map.removeLayer(KSA_LAYERS.groundMarkers.layerKerballoon);
+    }
+    KSA_LAYERS.groundMarkers.layerKerballoon = null;
+  }
+  
   // remove Custom Pins layer
   if (KSA_LAYERS.groundMarkers.layerPins) {
     if (ops.surface.map.hasLayer(KSA_LAYERS.groundMarkers.layerPins)) {
@@ -262,6 +280,7 @@ function cleanupGroundMarkersLayers() {
 
 // cleanup function to remove all loading indicator layers
 function cleanupLoadingLayers() {
+
   // remove Orbital Tracks loading indicator
   if (KSA_LAYERS.surfaceTracksDataLoad.obtTrackDataLoad) {
     if (ops.surface.layerControl && ops.surface.layerControl._layers) {
@@ -654,6 +673,31 @@ function loadMapDataAJAX(xhttp) {
     } else KSA_LAYERS.groundMarkers.layerAirports = null;
   }
 
+  if (ops.surface.Data.Kerballoons) {
+    var kerbData = ops.surface.Data.Kerballoons.split("|");
+    var kerbMarker;
+    KSA_LAYERS.groundMarkers.layerKerballoon = L.layerGroup();
+    kerbData.forEach(function(item) {
+      var kerballoon = item.split(";");
+      if (kerballoon[0] <= currUT()) {
+        kerbMarker = L.marker([parseFloat(kerballoon[1].split(",")[0]), parseFloat(kerballoon[1].split(",")[1])], { icon: KSA_MAP_ICONS.balloonIcon, zIndexOffset: 100 });
+        var strLink = "<a target='_blank' href='http://www.kerbalspace.agency/ksa/?p=" + kerballoon[4] + "'>Mission Report</a>";
+        kerbMarker.bindPopup("<b>" + kerballoon[2] + "</b><br /><br />&quot;" + kerballoon[3] + "&quot;<br /><br />" + strLink, { offset: new L.Point(0,-9), autoClose: true });
+        kerbMarker._myId = -1;
+        kerbMarker._myUT = parseFloat(kerballoon[0]);
+        kerbMarker._myDate = UTtoDateTime(parseFloat(kerballoon[0]), true);
+        kerbMarker._myCrew = kerballoon[5].split(",");
+        kerbMarker._myCrew.forEach(function(kerbal) { if (kerbal != "none") capitalizeFirstLetter(kerbal); });
+        kerbMarker._myType = capitalizeFirstLetter(kerballoon[6]);
+        KSA_LAYERS.groundMarkers.layerKerballoon.addLayer(kerbMarker);
+      }
+    });
+    if (KSA_LAYERS.groundMarkers.layerKerballoon.getLayers().length > 0) {
+      ops.surface.layerControl.addOverlay(KSA_LAYERS.groundMarkers.layerKerballoon, "<img src='images/balloon.png' style='width: 10px; vertical-align: 1px;'> KerBalloon Launches", "Ground Markers");
+      if (getParameterByName("layers").includes("kerballoon") || getParameterByName("layers").includes("kb") || getParameterByName("layers").includes("balloon")) KSA_LAYERS.groundMarkers.layerKerballoon.addTo(ops.surface.map);
+    } else KSA_LAYERS.groundMarkers.layerKerballoon = null;
+  }
+
   // resort the updatesList
   ops.updatesList.sort(function(a,b) { return (a.UT > b.UT) ? 1 : ((b.UT > a.UT) ? -1 : 0); });
   
@@ -849,6 +893,12 @@ function loadSurfaceUpdatesAJAX(xhttp) {
         } 
       });
     }
+    if (surfaceObj.Kerballoons) {
+      surfaceObj.Kerballoons.split("|").forEach(function(item) {
+        var kerballoon = item.split(";");
+        if (kerballoon[0] > currUT()) ops.updatesList.push({ type: "map:kerballoon", UT: parseFloat(kerballoon[0]), id: surfaceObj.Name });
+      });
+    }
   });
 
   // sort the updatesList by UT
@@ -947,6 +997,28 @@ function surfaceUpdate(type, markerUT, id) {
         markerUpdate._myId = -1;
         markerUpdate._myUT = parseFloat(flag[6]);
         if (isSelectedBody) KSA_LAYERS.groundMarkers.layerFlags.addLayer(markerUpdate);
+      }
+    });
+  }
+  else if (type.includes("kerballoon")) {
+    var kerbData = ops.surface.Data.Kerballoons.split("|");
+    if (!KSA_LAYERS.groundMarkers.layerKerballoon && isSelectedBody) {
+      KSA_LAYERS.groundMarkers.layerKerballoon = L.layerGroup();
+      ops.surface.layerControl.addOverlay(KSA_LAYERS.groundMarkers.layerKerballoon, "<img src='images/balloon.png' style='width: 10px; vertical-align: 1px;'> KerBalloon Launches", "Ground Markers");
+    }
+    kerbData.forEach(function(item) {
+      var kerballoon = item.split(";");
+      if (parseFloat(kerballoon[0]) === markerUT) {
+        markerUpdate = L.marker([parseFloat(kerballoon[1].split(",")[0]), parseFloat(kerballoon[1].split(",")[1])], { icon: KSA_MAP_ICONS.kerballoonIcon, zIndexOffset: 100 });
+        var strLink = "<a target='_blank' href='http://www.kerbalspace.agency/ksa/?p=" + kerballoon[4] + "'>Mission Report</a>";
+        markerUpdate.bindPopup("<b>" + kerballoon[2] + "</b><br /><br />&quot;" + kerballoon[3] + "&quot;<br /><br />" + strLink, { offset: new L.Point(0,-9), autoClose: true });
+        markerUpdate._myId = -1;
+        markerUpdate._myUT = parseFloat(kerballoon[0]);
+        markerUpdate._myDate = UTtoDateTime(parseFloat(kerballoon[0]), true);
+        markerUpdate._myCrew = kerballoon[5].split(",");
+        markerUpdate._myCrew.forEach(function(kerbal) { if (kerbal != "none") capitalizeFirstLetter(kerbal); });
+        markerUpdate._myType = capitalizeFirstLetter(kerballoon[6]);
+        if (isSelectedBody) KSA_LAYERS.groundMarkers.layerKerballoon.addLayer(markerUpdate);
       }
     });
   }
@@ -1139,6 +1211,7 @@ function surfaceUpdate(type, markerUT, id) {
   if (type.includes("avail")) var strButton = "View New Surface Map";
   else if (type.includes("surface")) var strButton = "View New Surface Data";
   else if (type.includes("flag")) var strButton = "View New Flag";
+  else if (type.includes("kerballoon")) var strButton = "View New KerBalloon Launch";
   else if (type.includes("label")) var strButton = "View " + (type.includes("refresh") ? "Updated" : "New ") + " Label";
   else if (type.includes("poi")) var strButton = "View " + (type.includes("refresh") ? "Updated" : "New ") + " Point of Interest";
   else if (type.includes("anomaly")) var strButton = "View " + (type.includes("refresh") ? "Updated" : "New ") + " Anomaly";
