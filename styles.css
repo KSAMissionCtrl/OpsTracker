@@ -343,6 +343,19 @@ input:disabled+label {
   z-index: 1;
 }
 
+#mapFilterControls {
+  position: absolute;
+  top: 10px;
+  left: 55px;
+  z-index: 1001;
+  white-space: nowrap;
+}
+
+#mapFilterControls select {
+  font-size: 12px;
+  margin-right: 5px;
+}
+
 #menuBox {
   background-color: #EDF1F6; 
   margin-top: 5px;

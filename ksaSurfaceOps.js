@@ -129,11 +129,13 @@ function initializeMap() {
     if (KSA_MAP_CONTROLS.mapCloseButton) KSA_MAP_CONTROLS.mapCloseButton.disable();
     if (KSA_MAP_CONTROLS.mapResizeButton) KSA_MAP_CONTROLS.mapResizeButton.disable();
     KSA_UI_STATE.isMapFullscreen = true;
+    $("#mapFilterControls").appendTo(ops.surface.map.getContainer());
   });
   ops.surface.map.on('exitFullscreen', function() {
     if (KSA_MAP_CONTROLS.mapCloseButton) KSA_MAP_CONTROLS.mapCloseButton.enable();
     if (KSA_MAP_CONTROLS.mapResizeButton) KSA_MAP_CONTROLS.mapResizeButton.enable();
     KSA_UI_STATE.isMapFullscreen = false;
+    $("#mapFilterControls").appendTo("#contentBox").css({ position: '', top: '', left: '' });
   });
   
   // set up event listener for when layers are added
@@ -141,19 +143,39 @@ function initializeMap() {
     if (e.layer === KSA_LAYERS.groundMarkers.layerSolar) {
       updateTerminator();
     }
+    if (e.layer === KSA_LAYERS.groundMarkers.layerKerballoon) {
+      $("#mapFilterControls").fadeIn();
+    }
+  });
+  ops.surface.map.on('overlayremove', function(e) {
+    if (e.layer === KSA_LAYERS.groundMarkers.layerKerballoon) {
+      $("#mapFilterControls").fadeOut();
+    }
   });
   
   // show controls only when the cursor is over the map, unless this is a touch device
-  if (!is_touch_device()) { 
+  if (!is_touch_device()) {
     ops.surface.map.on('mouseover', function(e) {
       $(".leaflet-top.leaflet-right").fadeIn();
       $(".leaflet-top.leaflet-left").fadeIn();
       $(".leaflet-bottom.leaflet-left").fadeIn();
+      if (KSA_LAYERS.groundMarkers.layerKerballoon && ops.surface.map.hasLayer(KSA_LAYERS.groundMarkers.layerKerballoon)) {
+        $("#mapFilterControls").fadeIn();
+      }
     });
     ops.surface.map.on('mouseout', function(e) {
+      if ($(e.originalEvent.relatedTarget).closest('#mapFilterControls').length) return;
       if (!checkDataLoad()) $(".leaflet-top.leaflet-right").fadeOut();
       $(".leaflet-top.leaflet-left").fadeOut();
       $(".leaflet-bottom.leaflet-left").fadeOut();
+      $("#mapFilterControls").fadeOut();
+    });
+    $("#mapFilterControls").on('mouseleave', function(e) {
+      if ($(e.relatedTarget).closest('#map').length) return;
+      if (!checkDataLoad()) $(".leaflet-top.leaflet-right").fadeOut();
+      $(".leaflet-top.leaflet-left").fadeOut();
+      $(".leaflet-bottom.leaflet-left").fadeOut();
+      $("#mapFilterControls").fadeOut();
     });
     ops.surface.map.on('mousemove', function(e) {
     
@@ -712,12 +734,13 @@ function loadMapDataAJAX(xhttp) {
 
   // hide map controls after 3 seconds if the user cursor isn't over the map (or dialog) at that time
   // unless this is a touchscreen device
-  if (!is_touch_device()) { 
+  if (!is_touch_device()) {
     setTimeout(function() {
-      if (!$('#map').is(":hover")) { 
+      if (!$('#map').is(":hover") && !$('#mapFilterControls').is(":hover")) {
         if (!checkDataLoad()) $(".leaflet-top.leaflet-right").fadeOut();
         $(".leaflet-top.leaflet-left").fadeOut();
         $(".leaflet-bottom.leaflet-left").fadeOut();
+        $("#mapFilterControls").fadeOut();
       }
     }, 3000);
   }
@@ -2131,16 +2154,20 @@ function showMap() {
 
     $("#map").css("visibility", "visible");
     $("#map").fadeIn();
+    if (KSA_LAYERS.groundMarkers.layerKerballoon && ops.surface.map.hasLayer(KSA_LAYERS.groundMarkers.layerKerballoon)) {
+      $("#mapFilterControls").fadeIn();
+    }
     KSA_UI_STATE.isMapShown = true;
 
     // hide map controls after 3 seconds if the user cursor isn't over the map (or dialog) at that time
     // unless this is a touchscreen device
-    if (!is_touch_device()) { 
+    if (!is_touch_device()) {
       setTimeout(function() {
-        if (!$('#map').is(":hover")) { 
+        if (!$('#map').is(":hover") && !$('#mapFilterControls').is(":hover")) {
           if (!checkDataLoad()) $(".leaflet-top.leaflet-right").fadeOut();
           $(".leaflet-top.leaflet-left").fadeOut();
           $(".leaflet-bottom.leaflet-left").fadeOut();
+          $("#mapFilterControls").fadeOut();
         }
       }, 3000);
     }
@@ -2150,6 +2177,7 @@ function showMap() {
 function hideMap() {
   if (KSA_UI_STATE.isMapShown) {
     if ($("#map").css("visibility") != "hidden") $("#map").fadeOut();
+    $("#mapFilterControls").fadeOut();
     $("#mapDialog").dialog("close");
     $("#aircraftAltitudeKey").fadeOut();
     removeMapRefreshButton();
@@ -2532,8 +2560,8 @@ function checkDataLoad() {
     if (!ops.surface.layerControl.options.collapsed && !isHovered) ops.surface.layerControl._collapse();
     ops.surface.layerControl.options.collapsed = true;
 
-    // if the cursor is not on the map, hide the layer control
-    if (!$('#map').is(":hover")) $('.leaflet-top.leaflet-right').fadeOut();
+    // if the cursor is not on the map or the filter controls, hide the layer control
+    if (!$('#map').is(":hover") && !$('#mapFilterControls').is(":hover")) $('.leaflet-top.leaflet-right').fadeOut();
   }
   return isDataLoading;
 }

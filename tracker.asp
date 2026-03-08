@@ -63,6 +63,12 @@
         <div id='map' class='map'></div>
         <div id='content'></div>
         <div id='fullRoster'></div>
+        <div id='mapFilterControls' style='display:none'>
+          <select id='filterMonth'><option value=''>Month</option></select>
+          <select id='filterYear'><option value=''>Year</option></select>
+          <select id='filterCrew'><option value=''>Crew</option></select>
+          <select id='filterBalloonType'><option value=''>Balloon Type</option></select>
+        </div>
       </div>
       <div id='infoBox' style='width: 650px; height: 400px;'>
         <div id='infoImg' class='overlay'></div>
