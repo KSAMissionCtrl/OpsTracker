@@ -719,7 +719,11 @@ function CrewMissionsUpdate(update) {
       
       // open the mission in a new window/tab if it is a link
       // otherwise switch to the vessel ID
-      if (selectedValue.startsWith("http")) window.open(selectedValue);
+      if (selectedValue.startsWith("http")) {
+
+        // check if this is a KB mission that we can show on the map before just opening the link
+        if (!showKB(selectedValue)) window.open(selectedValue);
+      }
       else if (selectedValue.startsWith("flt")) loadFlt(selectedValue.replace("flt=", ""), false);
       else swapContent('vessel', selectedValue);
     }

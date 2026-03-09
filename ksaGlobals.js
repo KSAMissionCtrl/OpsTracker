@@ -59,6 +59,7 @@ var ops = {
   updatesList: [],        // all the updates to various vessels, crew and events that will happen next while the page is loaded
   updateData: [],         // precaches new data on all crew and vessels that are active and have updates that could occur while the page is loaded
   updateTweets: [],       // precaches the tweets for all updates to show while the page is loaded
+  kbLinks: [],            // holds all kerballoon mission links prior to current UT for quick reference
   craftsMenu: [],         // holds all data for displaying vessels in the menu
                             // badged - bool
                             // bodyRef - current SOI

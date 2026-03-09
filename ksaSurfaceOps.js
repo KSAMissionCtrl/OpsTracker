@@ -289,6 +289,7 @@ function cleanupGroundMarkersLayers() {
       ops.surface.map.removeLayer(KSA_LAYERS.groundMarkers.layerKerballoon);
     }
     KSA_LAYERS.groundMarkers.layerKerballoon = null;
+    $('#filterMonth, #filterYear, #filterCrew, #filterBalloonType').off('change.kerbFilter').find('option:not(:first)').remove();
   }
   
   // remove Custom Pins layer
@@ -711,12 +712,14 @@ function loadMapDataAJAX(xhttp) {
         kerbMarker._myCrew = kerballoon[5].split(",");
         kerbMarker._myCrew.forEach(function(kerbal) { if (kerbal != "none") capitalizeFirstLetter(kerbal); });
         kerbMarker._myType = capitalizeFirstLetter(kerballoon[6]);
+        kerbMarker._myLink = kerballoon[4];
         KSA_LAYERS.groundMarkers.layerKerballoon.addLayer(kerbMarker);
       }
     });
     if (KSA_LAYERS.groundMarkers.layerKerballoon.getLayers().length > 0) {
       ops.surface.layerControl.addOverlay(KSA_LAYERS.groundMarkers.layerKerballoon, "<img src='images/balloon.png' style='width: 10px; vertical-align: 1px;'> KerBalloon Launches", "Ground Markers");
       if (getParameterByName("layers").includes("kerballoon") || getParameterByName("layers").includes("kb") || getParameterByName("layers").includes("balloon")) KSA_LAYERS.groundMarkers.layerKerballoon.addTo(ops.surface.map);
+      populateKerballoonFilters();
     } else KSA_LAYERS.groundMarkers.layerKerballoon = null;
   }
 
@@ -919,7 +922,8 @@ function loadSurfaceUpdatesAJAX(xhttp) {
     if (surfaceObj.Kerballoons) {
       surfaceObj.Kerballoons.split("|").forEach(function(item) {
         var kerballoon = item.split(";");
-        if (kerballoon[0] > currUT()) ops.updatesList.push({ type: "map:kerballoon", UT: parseFloat(kerballoon[0]), id: surfaceObj.Name });
+        if (kerballoon[0] <= currUT()) ops.kbLinks.push(kerballoon[4]);
+        else ops.updatesList.push({ type: "map:kerballoon", UT: parseFloat(kerballoon[0]), id: surfaceObj.Name });
       });
     }
   });
@@ -1041,7 +1045,49 @@ function surfaceUpdate(type, markerUT, id) {
         markerUpdate._myCrew = kerballoon[5].split(",");
         markerUpdate._myCrew.forEach(function(kerbal) { if (kerbal != "none") capitalizeFirstLetter(kerbal); });
         markerUpdate._myType = capitalizeFirstLetter(kerballoon[6]);
-        if (isSelectedBody) KSA_LAYERS.groundMarkers.layerKerballoon.addLayer(markerUpdate);
+        markerUpdate._myLink = kerballoon[4];
+        ops.kbLinks.push(kerballoon[4]);
+        if (isSelectedBody) {
+          KSA_LAYERS.groundMarkers.layerKerballoon.addLayer(markerUpdate);
+
+          // rebuild dropdowns to include the new marker's values, then force-check
+          // its specific properties so it is never hidden by active filters
+          populateKerballoonFilters();
+          var monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+          if (markerUpdate._myDate) {
+            var dp = markerUpdate._myDate.split('/');
+            var newMonth = parseInt(dp[0]);
+            var newYear = dp[2].split(' ')[0];
+            var newMonthName = monthNames[newMonth - 1];
+            $('#filterMonth option:not(:first)').each(function() {
+              var bare = $(this).text().replace(/^\u2714 /, '');
+              if (bare === newMonthName && !$(this).text().startsWith('\u2714 ')) $(this).text('\u2714 ' + bare);
+            });
+            $('#filterYear option:not(:first)').each(function() {
+              var bare = $(this).text().replace(/^\u2714 /, '');
+              if (bare === newYear && !$(this).text().startsWith('\u2714 ')) $(this).text('\u2714 ' + bare);
+            });
+          }
+          if (markerUpdate._myCrew) {
+            markerUpdate._myCrew.forEach(function(kerbal) {
+              var trimmed = kerbal.trim();
+              if (trimmed && trimmed !== 'none') {
+                var cap = capitalizeFirstLetter(trimmed);
+                $('#filterCrew option:not(:first)').each(function() {
+                  var bare = $(this).text().replace(/^\u2714 /, '');
+                  if (bare === cap && !$(this).text().startsWith('\u2714 ')) $(this).text('\u2714 ' + bare);
+                });
+              }
+            });
+          }
+          if (markerUpdate._myType) {
+            $('#filterBalloonType option:not(:first)').each(function() {
+              var bare = $(this).text().replace(/^\u2714 /, '');
+              if (bare === markerUpdate._myType && !$(this).text().startsWith('\u2714 ')) $(this).text('\u2714 ' + bare);
+            });
+          }
+          applyKerballoonFilters();
+        }
       }
     });
   }
@@ -3812,4 +3858,149 @@ function setObjectCenterFlag() {
     if (!obj.isCentered) $('#centerObjectLink').text(obj.isVessel ? "Lock on Vessel" : "Lock on Body");
     else $('#centerObjectLink').text(obj.isVessel ? "Lock off Vessel" : "Lock off Body");
   }
+}
+
+// checks if a URL matches any kerballoon mission link and, if so, navigates to it on the map
+// uses ops.kbLinks for a quick match even before surface marker data is loaded
+// returns true if a match was found (caller should NOT open the URL), false if not (caller should open the URL)
+function showKB(url) {
+  var matchedLink = null;
+  if (ops.kbLinks) {
+    for (var i = 0; i < ops.kbLinks.length; i++) {
+      if (url.includes(ops.kbLinks[i])) { matchedLink = ops.kbLinks[i]; break; }
+    }
+  }
+  if (!matchedLink) return false;
+
+  if (ops.pageType != "body") {
+    swapContent("body", "Kerbin-System");
+    setTimeout(function() { activateKBLink(matchedLink); }, 1000);
+  } else {
+    activateKBLink(matchedLink);
+  }
+  return true;
+}
+
+// finds the kerballoon marker with the given link ID once surface data is loaded, then activates it
+function activateKBLink(link) {
+  // wait for the GGB applet to finish (it triggers loadMap), then wait for the map AJAX to complete
+  if (!KSA_UI_STATE.isGGBAppletLoaded || ops.surface.isLoading) return setTimeout(activateKBLink, 200, link);
+
+  var foundMarker = null;
+  if (KSA_LAYERS.groundMarkers.layerKerballoon) {
+    KSA_LAYERS.groundMarkers.layerKerballoon.eachLayer(function(marker) {
+      if (marker._myLink === link) foundMarker = marker;
+    });
+  }
+
+  if (foundMarker) activateKBMarker(foundMarker);
+}
+
+function activateKBMarker(marker) {
+  if (ops.surface.isLoading) return setTimeout(activateKBMarker, 200, marker);
+
+  // ensure the kerballoon layer is on the map
+  if (!ops.surface.map.hasLayer(KSA_LAYERS.groundMarkers.layerKerballoon)) {
+    KSA_LAYERS.groundMarkers.layerKerballoon.addTo(ops.surface.map);
+  }
+
+  // show the map if not already visible
+  if (!KSA_UI_STATE.isMapShown) showMap();
+
+  // make sure this specific marker is not filtered out
+  marker.setOpacity(1);
+  var el = marker.getElement();
+  if (el) el.style.pointerEvents = '';
+
+  ops.surface.map.setView(marker.getLatLng(), 3);
+  marker.openPopup();
+}
+
+function populateKerballoonFilters() {
+  var months = {}, years = {}, crew = {}, types = {};
+  var monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+
+  KSA_LAYERS.groundMarkers.layerKerballoon.eachLayer(function(marker) {
+    if (marker._myDate) {
+      var dateParts = marker._myDate.split('/');
+      var monthNum = parseInt(dateParts[0]);
+      var yearStr = dateParts[2].split(' ')[0];
+      months[monthNum] = monthNames[monthNum - 1];
+      years[yearStr] = yearStr;
+    }
+    if (marker._myCrew) {
+      marker._myCrew.forEach(function(kerbal) {
+        var trimmed = kerbal.trim();
+        if (trimmed && trimmed !== 'none') crew[trimmed] = capitalizeFirstLetter(trimmed);
+      });
+    }
+    if (marker._myType) types[marker._myType] = marker._myType;
+  });
+
+  $('#filterMonth').find('option:not(:first)').remove();
+  Object.keys(months).map(Number).sort(function(a, b) { return a - b; }).forEach(function(num) {
+    $('#filterMonth').append($('<option>').val(num).text(months[num]));
+  });
+
+  $('#filterYear').find('option:not(:first)').remove();
+  Object.keys(years).sort().forEach(function(y) {
+    $('#filterYear').append($('<option>').val(y).text(y));
+  });
+
+  $('#filterCrew').find('option:not(:first)').remove();
+  Object.keys(crew).sort().forEach(function(k) {
+    $('#filterCrew').append($('<option>').val(k).text(crew[k]));
+  });
+
+  $('#filterBalloonType').find('option:not(:first)').remove();
+  Object.keys(types).sort().forEach(function(t) {
+    $('#filterBalloonType').append($('<option>').val(t).text(t));
+  });
+
+  $('#filterMonth, #filterYear, #filterCrew, #filterBalloonType').off('change.kerbFilter').on('change.kerbFilter', function() {
+    var selectedIdx = this.selectedIndex;
+    if (selectedIdx === 0) return;
+    var $opt = $(this).find('option').eq(selectedIdx);
+    var txt = $opt.text();
+    if (txt.startsWith('\u2714 ')) {
+      $opt.text(txt.substring(2));
+    } else {
+      $opt.text('\u2714 ' + txt);
+    }
+    this.selectedIndex = 0;
+    applyKerballoonFilters();
+  });
+}
+
+function applyKerballoonFilters() {
+  if (!KSA_LAYERS.groundMarkers.layerKerballoon) return;
+
+  var activeMonths = [], activeYears = [], activeCrew = [], activeTypes = [];
+  $('#filterMonth option:not(:first)').each(function() { if ($(this).text().startsWith('\u2714 ')) activeMonths.push($(this).val()); });
+  $('#filterYear option:not(:first)').each(function() { if ($(this).text().startsWith('\u2714 ')) activeYears.push($(this).val()); });
+  $('#filterCrew option:not(:first)').each(function() { if ($(this).text().startsWith('\u2714 ')) activeCrew.push($(this).val()); });
+  $('#filterBalloonType option:not(:first)').each(function() { if ($(this).text().startsWith('\u2714 ')) activeTypes.push($(this).val()); });
+
+  KSA_LAYERS.groundMarkers.layerKerballoon.eachLayer(function(marker) {
+    var show = true;
+    if (activeMonths.length) {
+      var monthNum = marker._myDate ? parseInt(marker._myDate.split('/')[0]).toString() : '';
+      if (!activeMonths.includes(monthNum)) show = false;
+    }
+    if (activeYears.length && show) {
+      var yearStr = marker._myDate ? marker._myDate.split('/')[2].split(' ')[0] : '';
+      if (!activeYears.includes(yearStr)) show = false;
+    }
+    if (activeCrew.length && show) {
+      var hasMatch = marker._myCrew && marker._myCrew.some(function(k) { return activeCrew.includes(k.trim()); });
+      if (!hasMatch) show = false;
+    }
+    if (activeTypes.length && show) {
+      if (!activeTypes.includes(marker._myType)) show = false;
+    }
+    marker.setOpacity(show ? 1 : 0);
+    var el = marker.getElement();
+    if (el) el.style.pointerEvents = show ? '' : 'none';
+    if (!show) marker.closePopup();
+  });
 }
