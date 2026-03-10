@@ -245,11 +245,13 @@ var TweetDisplay = (function() {
         }
       }
 
-      // Find missing tweets
+      // Find missing tweets 
       var missingIds = tweetIds.filter(function(id) {
         return foundIds.indexOf(id) === -1;
       });
-      if (missingIds.length > 0) {
+
+      // only note a couple missing since we may be pulling from the trimmed file
+      if (missingIds.length <= 5) {
         console.warn('[Tweet Loader] Missing ' + missingIds.length + ' tweets:', missingIds);
       }
 
