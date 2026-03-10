@@ -501,7 +501,7 @@ function figureClick(object) {
       if (isNaN(bodyData.Radius)) {
         strHTML += "<p>Equatorial radius: " + bodyData.Radius + " <br>";
       } else {
-        strHTML += "<p>Equatorial radius: " + numeral(parseInt(bodyData.Radius)*1000).format('0,0') + " m<br>";
+        strHTML += "<p>Equatorial radius: " + numeral(parseInt(bodyData.Radius)).multiply(1000).format('0,0') + " m<br>";
       }
       strHTML += "Mass: " + bodyData.Mass.replace("+", "e") + " kg<br>";
       strHTML += "Density: " + bodyData.Density + " kg/m<sup>3</sup><br>";

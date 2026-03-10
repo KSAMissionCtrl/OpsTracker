@@ -545,7 +545,7 @@ function loadMapDataAJAX(xhttp) {
         else var strCrew = flag[4] + "<br />";
         if (flag[8] == 'null') var strLink = "<span class='fauxLink' onclick=\"swapContent('vessel','" + flag[7] + "')\">View Vessel</span>";
         else var strLink = "<a target='_blank' href='" + flag[7] + "'>" + flag[8] + "</a>";
-        if (flag[2] != "0") var strAlt = numeral(flag[2]/1000).format('0.000') + "km<br />";
+        if (flag[2] != "0") var strAlt = numeral(flag[2]).divide(1000).format('0.000') + "km<br />";
         else var strAlt = "";
         flagMarker.bindPopup("<b>" + flag[3] + "</b><br />" + strCrew + UTtoDateTime(parseInt(flag[6])).split(" ")[0] + "<br />" + strAlt + "<br />&quot;" + flag[5] + "&quot;<br /><br />" + strLink, { offset: new L.Point(0,-9), autoClose: true });
         flagMarker._myId = -1;
@@ -574,7 +574,7 @@ function loadMapDataAJAX(xhttp) {
           });
         } else var strTitle = POI[4];
         POIMarker = L.marker([POI[1],POI[2]], { icon: KSA_MAP_ICONS.POIIcon, zIndexOffset: 100 });
-        strHTML = "<b>" + strTitle + "</b><br>" + numeral(POI[3]/1000).format('0.000') + " km";
+        strHTML = "<b>" + strTitle + "</b><br>" + numeral(POI[3]).divide(1000).format('0.000') + " km";
         if (POI[5] != "null") strHTML += "<p>" + POI[5] + "</p>";
         POIMarker.bindPopup(strHTML, { autoClose: false });
         POIMarker._myId = -1;
@@ -608,7 +608,7 @@ function loadMapDataAJAX(xhttp) {
         strHTML = "<b>";
         if (strTitle != "null") strHTML += strTitle;
         else strHTML += "Unknown Anomaly";
-        strHTML += "</b><br>" + numeral(anomaly[2]/1000).format('0.000') + " km";
+        strHTML += "</b><br>" + numeral(anomaly[2]).divide(1000).format('0.000') + " km";
         anomalyMarker.bindPopup(strHTML, { autoClose: false });
         anomalyMarker._myId = -1;
         anomalyMarker._myUT = parseFloat(anomaly[0]);
@@ -639,9 +639,9 @@ function loadMapDataAJAX(xhttp) {
         else grndMarker = L.marker([station[1],station[2]], { icon: KSA_MAP_ICONS.omniIcon, zIndexOffset: 100 });
         strHTML = "<b>";
         strHTML += strTitle;
-        strHTML += "</b><br>Altitude: " + numeral(station[3]/1000).format('0.000') + " km";
+        strHTML += "</b><br>Altitude: " + numeral(station[3]).divide(1000).format('0.000') + " km";
         if (station[5] == "0") strHTML += "<br>Range: Entire " + ops.surface.Data.Name + " System";
-        else strHTML += "<br>Range: " + numeral(station[5]/1000).format('0.000') + " km";
+        else strHTML += "<br>Range: " + numeral(station[5]).divide(1000).format('0.000') + " km";
         grndMarker.bindPopup(strHTML, { autoClose: false });
         grndMarker._myId = station[4];
         grndMarker._myUT = parseFloat(station[0]);
@@ -681,7 +681,7 @@ function loadMapDataAJAX(xhttp) {
         aptMarker = L.marker([airport[1],airport[2]], { icon: KSA_MAP_ICONS.airportIcon, zIndexOffset: 100 });
         strHTML = "<b>";
         strHTML += strTitle;
-        strHTML += "</b><br>Altitude: " + numeral(airport[3]/1000).format('0.000') + " km";
+        strHTML += "</b><br>Altitude: " + numeral(airport[3]).divide(1000).format('0.000') + " km";
         aptMarker.bindPopup(strHTML, { autoClose: false });
         aptMarker._myId = -1;
         aptMarker._myUT = parseFloat(airport[0]);
@@ -1018,7 +1018,7 @@ function surfaceUpdate(type, markerUT, id) {
         else var strCrew = flag[4] + "<br />";
         if (flag[8] == 'null') var strLink = "<span class='fauxLink' onclick=\"swapContent('vessel','" + flag[7] + "')\">View Vessel</span>";
         else var strLink = "<a target='_blank' href='" + flag[7] + "'>" + flag[8] + "</a>";
-        if (flag[2] != "0") var strAlt = numeral(flag[2]/1000).format('0.000') + "km<br />";
+        if (flag[2] != "0") var strAlt = numeral(flag[2]).divide(1000).format('0.000') + "km<br />";
         else var strAlt = "";
         markerUpdate.bindPopup("<b>" + flag[3] + "</b><br />" + strCrew + UTtoDateTime(parseInt(flag[6])).split(" ")[0] + "<br />" + strAlt + "<br />&quot;" + flag[5] + "&quot;<br /><br />" + strLink, { offset: new L.Point(0,-9), autoClose: true });
         markerUpdate._myId = -1;
@@ -1116,7 +1116,7 @@ function surfaceUpdate(type, markerUT, id) {
           });
         } else var strTitle = POI[4];
         markerUpdate = L.marker([POI[1],POI[2]], { icon: KSA_MAP_ICONS.POIIcon, zIndexOffset: 100 });
-        strHTML = "<b>" + strTitle + "</b><br>" + numeral(POI[3]/1000).format('0.000') + " km";
+        strHTML = "<b>" + strTitle + "</b><br>" + numeral(POI[3]).divide(1000).format('0.000') + " km";
         if (POI[5] != "null") strHTML += "<p>" + POI[5] + "</p>";
         markerUpdate.bindPopup(strHTML, { autoClose: false });
         markerUpdate._myId = -1;
@@ -1153,7 +1153,7 @@ function surfaceUpdate(type, markerUT, id) {
         strHTML = "<b>";
         if (strTitle != "null") strHTML += strTitle;
         else strHTML += "Unknown Anomaly";
-        strHTML += "</b><br>" + numeral(anomaly[2]/1000).format('0.000') + " km";
+        strHTML += "</b><br>" + numeral(anomaly[2]).divide(1000).format('0.000') + " km";
         markerUpdate.bindPopup(strHTML, { autoClose: false });
         markerUpdate._myId = -1;
         markerUpdate._myUT = parseFloat(anomaly[0]);
@@ -1189,9 +1189,9 @@ function surfaceUpdate(type, markerUT, id) {
         else markerUpdate = L.marker([station[1],station[2]], { icon: KSA_MAP_ICONS.omniIcon, zIndexOffset: 100 });
         strHTML = "<b>";
         strHTML += strTitle;
-        strHTML += "</b><br>Altitude: " + numeral(station[3]/1000).format('0.000') + " km";
+        strHTML += "</b><br>Altitude: " + numeral(station[3]).divide(1000).format('0.000') + " km";
         if (station[5] == "0") strHTML += "<br>Range: Entire " + ops.surface.Data.Name + " System";
-        else strHTML += "<br>Range: " + numeral(station[5]/1000).format('0.000') + " km";
+        else strHTML += "<br>Range: " + numeral(station[5]).divide(1000).format('0.000') + " km";
         markerUpdate.bindPopup(strHTML, { autoClose: false });
         markerUpdate._myId = station[4];
         markerUpdate._myUT = parseFloat(station[0]);
@@ -1237,7 +1237,7 @@ function surfaceUpdate(type, markerUT, id) {
         markerUpdate = L.marker([airport[1],airport[2]], { icon: KSA_MAP_ICONS.airportIcon, zIndexOffset: 100 });
         strHTML = "<b>";
         strHTML += strTitle;
-        strHTML += "</b><br>Altitude: " + numeral(airport[3]/1000).format('0.000') + " km";
+        strHTML += "</b><br>Altitude: " + numeral(airport[3]).divide(1000).format('0.000') + " km";
         markerUpdate.bindPopup(strHTML, { autoClose: false });
         markerUpdate._myId = -1;
         markerUpdate._myUT = parseFloat(airport[0]);
@@ -2702,14 +2702,14 @@ function fltElev(index, checkOtherDataDisplayed = true) {
   renderFltPath(index);
   if (KSA_CATALOGS.fltPaths[index].elev) {
     ops.surface.layerControl.addOverlay(KSA_CATALOGS.fltPaths[index].layer, "<i class='far fa-chart-bar'></i>" + KSA_CATALOGS.fltPaths[index].info.Title, "Flight Tracks");
-    $("#alt1").html("&nbsp;" + numeral(KSA_CATALOGS.fltPaths[index].minASL).format('0.000') + " - " + numeral(KSA_CATALOGS.fltPaths[index].maxASL*0.125).format('0.000') + " km");
-    $("#alt2").html("&nbsp;" + numeral(KSA_CATALOGS.fltPaths[index].maxASL*0.125).format('0.000') + " - " + numeral(KSA_CATALOGS.fltPaths[index].maxASL*0.25).format('0.000') + " km");
-    $("#alt3").html("&nbsp;" + numeral(KSA_CATALOGS.fltPaths[index].maxASL*0.25).format('0.000') + " - " + numeral(KSA_CATALOGS.fltPaths[index].maxASL*0.375).format('0.000') + " km");
-    $("#alt4").html("&nbsp;" + numeral(KSA_CATALOGS.fltPaths[index].maxASL*0.375).format('0.000') + " - " + numeral(KSA_CATALOGS.fltPaths[index].maxASL*0.5).format('0.000') + " km");
-    $("#alt5").html("&nbsp;" + numeral(KSA_CATALOGS.fltPaths[index].maxASL*0.5).format('0.000') + " - " + numeral(KSA_CATALOGS.fltPaths[index].maxASL*0.625).format('0.000') + " km");
-    $("#alt6").html("&nbsp;" + numeral(KSA_CATALOGS.fltPaths[index].maxASL*0.625).format('0.000') + " - " + numeral(KSA_CATALOGS.fltPaths[index].maxASL*0.75).format('0.000') + " km");
-    $("#alt7").html("&nbsp;" + numeral(KSA_CATALOGS.fltPaths[index].maxASL*0.75).format('0.000') + " - " + numeral(KSA_CATALOGS.fltPaths[index].maxASL*0.875).format('0.000') + " km");
-    $("#alt8").html("&nbsp;" + numeral(KSA_CATALOGS.fltPaths[index].maxASL*0.875).format('0.000') + " - " + numeral(KSA_CATALOGS.fltPaths[index].maxASL).format('0.000') + " km");
+    $("#alt1").html("&nbsp;" + numeral(KSA_CATALOGS.fltPaths[index].minASL).format('0.000') + " - " + numeral(KSA_CATALOGS.fltPaths[index].maxASL).multiply(0.125).format('0.000') + " km");
+    $("#alt2").html("&nbsp;" + numeral(KSA_CATALOGS.fltPaths[index].maxASL).multiply(0.125).format('0.000') + " - " + numeral(KSA_CATALOGS.fltPaths[index].maxASL).multiply(0.25).format('0.000') + " km");
+    $("#alt3").html("&nbsp;" + numeral(KSA_CATALOGS.fltPaths[index].maxASL).multiply(0.25).format('0.000') + " - " + numeral(KSA_CATALOGS.fltPaths[index].maxASL).multiply(0.375).format('0.000') + " km");
+    $("#alt4").html("&nbsp;" + numeral(KSA_CATALOGS.fltPaths[index].maxASL).multiply(0.375).format('0.000') + " - " + numeral(KSA_CATALOGS.fltPaths[index].maxASL).multiply(0.5).format('0.000') + " km");
+    $("#alt5").html("&nbsp;" + numeral(KSA_CATALOGS.fltPaths[index].maxASL).multiply(0.5).format('0.000') + " - " + numeral(KSA_CATALOGS.fltPaths[index].maxASL).multiply(0.625).format('0.000') + " km");
+    $("#alt6").html("&nbsp;" + numeral(KSA_CATALOGS.fltPaths[index].maxASL).multiply(0.625).format('0.000') + " - " + numeral(KSA_CATALOGS.fltPaths[index].maxASL).multiply(0.75).format('0.000') + " km");
+    $("#alt7").html("&nbsp;" + numeral(KSA_CATALOGS.fltPaths[index].maxASL).multiply(0.75).format('0.000') + " - " + numeral(KSA_CATALOGS.fltPaths[index].maxASL).multiply(0.875).format('0.000') + " km");
+    $("#alt8").html("&nbsp;" + numeral(KSA_CATALOGS.fltPaths[index].maxASL).multiply(0.875).format('0.000') + " - " + numeral(KSA_CATALOGS.fltPaths[index].maxASL).format('0.000') + " km");
     $("#alt9").html("&nbsp;" + numeral(KSA_CATALOGS.fltPaths[index].maxASL).format('0.000') + " km");
     $("#aircraftAltitudeKey").fadeIn();
   } else {
@@ -2870,7 +2870,7 @@ function prevFltDataOnce() {
   var latlngData = { lat: KSA_CATALOGS.fltPaths[KSA_CALCULATIONS.currentFlightIndex].fltData[KSA_CALCULATIONS.currentFlightTimelineIndex].Lat, lng: KSA_CATALOGS.fltPaths[KSA_CALCULATIONS.currentFlightIndex].fltData[KSA_CALCULATIONS.currentFlightTimelineIndex].Lng };
   KSA_MAP_CONTROLS.flightPositionPopup.setLatLng(latlngData);
   ops.surface.map.setView(latlngData);
-  $("#fltTimelineData").html(UTtoDateTime(KSA_CATALOGS.fltPaths[KSA_CALCULATIONS.currentFlightIndex].fltData[KSA_CALCULATIONS.currentFlightTimelineIndex].UT) + ' UTC<br>Latitude: ' + numeral(KSA_CATALOGS.fltPaths[KSA_CALCULATIONS.currentFlightIndex].fltData[KSA_CALCULATIONS.currentFlightTimelineIndex].Lat).format('0.0000') + '&deg;' + getLatLngCompass(latlngData).lat + '<br>Longitude: ' + numeral(KSA_CATALOGS.fltPaths[KSA_CALCULATIONS.currentFlightIndex].fltData[KSA_CALCULATIONS.currentFlightTimelineIndex].Lng).format('0.0000') + '&deg;' + getLatLngCompass(latlngData).lng + '<br>Altitude ASL: ' + numeral(KSA_CATALOGS.fltPaths[KSA_CALCULATIONS.currentFlightIndex].fltData[KSA_CALCULATIONS.currentFlightTimelineIndex].ASL/1000).format('0,0.000') + ' km<br>Altitude AGL: ' + numeral(KSA_CATALOGS.fltPaths[KSA_CALCULATIONS.currentFlightIndex].fltData[KSA_CALCULATIONS.currentFlightTimelineIndex].AGL/1000).format('0,0.000') + " km<br>Velocity: " + numeral(KSA_CATALOGS.fltPaths[KSA_CALCULATIONS.currentFlightIndex].fltData[KSA_CALCULATIONS.currentFlightTimelineIndex].Spd).format('0,0.000') + " m/s" + '<br>Distance from KSC: ' + numeral(KSA_CATALOGS.fltPaths[KSA_CALCULATIONS.currentFlightIndex].fltData[KSA_CALCULATIONS.currentFlightTimelineIndex].Dist/1000).format('0,0.000') + " km");
+  $("#fltTimelineData").html(UTtoDateTime(KSA_CATALOGS.fltPaths[KSA_CALCULATIONS.currentFlightIndex].fltData[KSA_CALCULATIONS.currentFlightTimelineIndex].UT) + ' UTC<br>Latitude: ' + numeral(KSA_CATALOGS.fltPaths[KSA_CALCULATIONS.currentFlightIndex].fltData[KSA_CALCULATIONS.currentFlightTimelineIndex].Lat).format('0.0000') + '&deg;' + getLatLngCompass(latlngData).lat + '<br>Longitude: ' + numeral(KSA_CATALOGS.fltPaths[KSA_CALCULATIONS.currentFlightIndex].fltData[KSA_CALCULATIONS.currentFlightTimelineIndex].Lng).format('0.0000') + '&deg;' + getLatLngCompass(latlngData).lng + '<br>Altitude ASL: ' + numeral(KSA_CATALOGS.fltPaths[KSA_CALCULATIONS.currentFlightIndex].fltData[KSA_CALCULATIONS.currentFlightTimelineIndex].ASL).divide(1000).format('0,0.000') + ' km<br>Altitude AGL: ' + numeral(KSA_CATALOGS.fltPaths[KSA_CALCULATIONS.currentFlightIndex].fltData[KSA_CALCULATIONS.currentFlightTimelineIndex].AGL).divide(1000).format('0,0.000') + " km<br>Velocity: " + numeral(KSA_CATALOGS.fltPaths[KSA_CALCULATIONS.currentFlightIndex].fltData[KSA_CALCULATIONS.currentFlightTimelineIndex].Spd).format('0,0.000') + " m/s" + '<br>Distance from KSC: ' + numeral(KSA_CATALOGS.fltPaths[KSA_CALCULATIONS.currentFlightIndex].fltData[KSA_CALCULATIONS.currentFlightTimelineIndex].Dist).divide(1000).format('0,0.000') + " km");
 }
 function nextFltData() {
   clearInterval(KSA_TIMERS.flightTimelineInterval);
@@ -2908,7 +2908,7 @@ function nextFltDataOnce() {
   var latlngData = { lat: KSA_CATALOGS.fltPaths[KSA_CALCULATIONS.currentFlightIndex].fltData[KSA_CALCULATIONS.currentFlightTimelineIndex].Lat, lng: KSA_CATALOGS.fltPaths[KSA_CALCULATIONS.currentFlightIndex].fltData[KSA_CALCULATIONS.currentFlightTimelineIndex].Lng };
   KSA_MAP_CONTROLS.flightPositionPopup.setLatLng(latlngData);
   ops.surface.map.setView(latlngData);
-  $("#fltTimelineData").html(UTtoDateTime(KSA_CATALOGS.fltPaths[KSA_CALCULATIONS.currentFlightIndex].fltData[KSA_CALCULATIONS.currentFlightTimelineIndex].UT) + ' UTC<br>Latitude: ' + numeral(KSA_CATALOGS.fltPaths[KSA_CALCULATIONS.currentFlightIndex].fltData[KSA_CALCULATIONS.currentFlightTimelineIndex].Lat).format('0.0000') + '&deg;' + getLatLngCompass(latlngData).lat + '<br>Longitude: ' + numeral(KSA_CATALOGS.fltPaths[KSA_CALCULATIONS.currentFlightIndex].fltData[KSA_CALCULATIONS.currentFlightTimelineIndex].Lng).format('0.0000') + '&deg;' + getLatLngCompass(latlngData).lng + '<br>Altitude ASL: ' + numeral(KSA_CATALOGS.fltPaths[KSA_CALCULATIONS.currentFlightIndex].fltData[KSA_CALCULATIONS.currentFlightTimelineIndex].ASL/1000).format('0,0.000') + ' km<br>Altitude AGL: ' + numeral(KSA_CATALOGS.fltPaths[KSA_CALCULATIONS.currentFlightIndex].fltData[KSA_CALCULATIONS.currentFlightTimelineIndex].AGL/1000).format('0,0.000') + " km<br>Velocity: " + numeral(KSA_CATALOGS.fltPaths[KSA_CALCULATIONS.currentFlightIndex].fltData[KSA_CALCULATIONS.currentFlightTimelineIndex].Spd).format('0,0.000') + " m/s" + '<br>Distance from KSC: ' + numeral(KSA_CATALOGS.fltPaths[KSA_CALCULATIONS.currentFlightIndex].fltData[KSA_CALCULATIONS.currentFlightTimelineIndex].Dist/1000).format('0,0.000') + " km");
+  $("#fltTimelineData").html(UTtoDateTime(KSA_CATALOGS.fltPaths[KSA_CALCULATIONS.currentFlightIndex].fltData[KSA_CALCULATIONS.currentFlightTimelineIndex].UT) + ' UTC<br>Latitude: ' + numeral(KSA_CATALOGS.fltPaths[KSA_CALCULATIONS.currentFlightIndex].fltData[KSA_CALCULATIONS.currentFlightTimelineIndex].Lat).format('0.0000') + '&deg;' + getLatLngCompass(latlngData).lat + '<br>Longitude: ' + numeral(KSA_CATALOGS.fltPaths[KSA_CALCULATIONS.currentFlightIndex].fltData[KSA_CALCULATIONS.currentFlightTimelineIndex].Lng).format('0.0000') + '&deg;' + getLatLngCompass(latlngData).lng + '<br>Altitude ASL: ' + numeral(KSA_CATALOGS.fltPaths[KSA_CALCULATIONS.currentFlightIndex].fltData[KSA_CALCULATIONS.currentFlightTimelineIndex].ASL).divide(1000).format('0,0.000') + ' km<br>Altitude AGL: ' + numeral(KSA_CATALOGS.fltPaths[KSA_CALCULATIONS.currentFlightIndex].fltData[KSA_CALCULATIONS.currentFlightTimelineIndex].AGL).divide(1000).format('0,0.000') + " km<br>Velocity: " + numeral(KSA_CATALOGS.fltPaths[KSA_CALCULATIONS.currentFlightIndex].fltData[KSA_CALCULATIONS.currentFlightTimelineIndex].Spd).format('0,0.000') + " m/s" + '<br>Distance from KSC: ' + numeral(KSA_CATALOGS.fltPaths[KSA_CALCULATIONS.currentFlightIndex].fltData[KSA_CALCULATIONS.currentFlightTimelineIndex].Dist).divide(1000).format('0,0.000') + " km");
 }
 
 // load surface track data for any vessels and moons in orbit around this body
@@ -3545,7 +3545,7 @@ function flightTrackHover(e) {
   if (KSA_MAP_CONTROLS.timePopup) ops.surface.map.closePopup(KSA_MAP_CONTROLS.timePopup); 
   KSA_MAP_CONTROLS.timePopup = new L.Rrose({ offset: new L.Point(0,-1), closeButton: false, autoPan: false });
   KSA_MAP_CONTROLS.timePopup.setLatLng(e.latlng);
-  KSA_MAP_CONTROLS.timePopup.setContent(UTtoDateTime(KSA_CATALOGS.fltPaths[indexFlt].fltData[index].UT) + ' UTC<br>Latitude: ' + numeral(KSA_CATALOGS.fltPaths[indexFlt].fltData[index].Lat).format('0.0000') + '&deg;' + cardinal.lat + '<br>Longitude: ' + numeral(KSA_CATALOGS.fltPaths[indexFlt].fltData[index].Lng).format('0.0000') + '&deg;' + cardinal.lng + '<br>Altitude ASL: ' + numeral(KSA_CATALOGS.fltPaths[indexFlt].fltData[index].ASL/1000).format('0,0.000') + ' km<br>Altitude AGL: ' + numeral(KSA_CATALOGS.fltPaths[indexFlt].fltData[index].AGL/1000).format('0,0.000') + " km<br>Velocity: " + numeral(KSA_CATALOGS.fltPaths[indexFlt].fltData[index].Spd).format('0,0.000') + " m/s" + '<br>Distance from KSC: ' + numeral(KSA_CATALOGS.fltPaths[indexFlt].fltData[index].Dist/1000).format('0,0.000') + " km<p>Click for additional options</p>");
+  KSA_MAP_CONTROLS.timePopup.setContent(UTtoDateTime(KSA_CATALOGS.fltPaths[indexFlt].fltData[index].UT) + ' UTC<br>Latitude: ' + numeral(KSA_CATALOGS.fltPaths[indexFlt].fltData[index].Lat).format('0.0000') + '&deg;' + cardinal.lat + '<br>Longitude: ' + numeral(KSA_CATALOGS.fltPaths[indexFlt].fltData[index].Lng).format('0.0000') + '&deg;' + cardinal.lng + '<br>Altitude ASL: ' + numeral(KSA_CATALOGS.fltPaths[indexFlt].fltData[index].ASL).divide(1000).format('0,0.000') + ' km<br>Altitude AGL: ' + numeral(KSA_CATALOGS.fltPaths[indexFlt].fltData[index].AGL).divide(1000).format('0,0.000') + " km<br>Velocity: " + numeral(KSA_CATALOGS.fltPaths[indexFlt].fltData[index].Spd).format('0,0.000') + " m/s" + '<br>Distance from KSC: ' + numeral(KSA_CATALOGS.fltPaths[indexFlt].fltData[index].Dist).divide(1000).format('0,0.000') + " km<p>Click for additional options</p>");
   KSA_MAP_CONTROLS.timePopup.openOn(ops.surface.map);
 }
 
@@ -3571,12 +3571,12 @@ function downloadFlightDataCSV(indexFlt) {
     csv += data.Lat + ',';
     csv += '"' + numeral(data.Lng).format('0.0000') + ' ' + cardinal.lng + '",';
     csv += data.Lng + ',';
-    csv += numeral(data.ASL/1000).format('0,0.000') + ',';
+    csv += numeral(data.ASL).divide(1000).format('0,0.000') + ',';
     csv += data.ASL + ',';
-    csv += numeral(data.AGL/1000).format('0,0.000') + ',';
+    csv += numeral(data.AGL).divide(1000).format('0,0.000') + ',';
     csv += data.AGL + ',';
     csv += data.Spd + ',';
-    csv += numeral(data.Dist/1000).format('0,0.000') + ',';
+    csv += numeral(data.Dist).divide(1000).format('0,0.000') + ',';
     csv += data.Dist + '\n';
   });
   

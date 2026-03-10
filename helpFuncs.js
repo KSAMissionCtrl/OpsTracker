@@ -437,15 +437,7 @@ function formatTime(time, precision = false, format = "0 ") {
 
 // take a date object of a given time and output "mm/dd/yyyy hh:mm:ss"
 function formatDateTime(time) {
-  var hours = time.hour; 
-  var day = time.day;
-  if (hours < 0) hours += 24;
-  if (hours < 10) hours = "0" + hours;
-  var minutes = time.minute;
-  if (minutes < 10) minutes = "0" + minutes;
-  var seconds = time.second;
-  if (seconds < 10) seconds = "0" + seconds;
-  return ((time.month) + '/' + day + '/' + time.year + ' @ ' + hours + ':' + minutes + ':' + seconds);
+  return time.toFormat("M/d/yyyy '@' HH:mm:ss");
 }
 
 // convert a given game UT time into the equivalent "mm/dd/yyyy hh:mm:ss" in UTC
@@ -456,14 +448,8 @@ function UTtoDateTime(setUT, local = false, fullYear = true) {
   if (local) d = d.setZone("America/New_York");
   
   // take off the first two digits of the year?
-  if (!fullYear) {
-    var strDateTime = formatDateTime(d);
-    var strDateTrunc = strDateTime.substr(0, strDateTime.lastIndexOf("/")+1);
-    var strDateYear = strDateTime.split("/")[2].split(" ")[0];
-    strDateYear = strDateYear.substr(2, 2);
-    var strTime = strDateTime.split("@")[1];
-    return strDateTrunc + strDateYear + " @" + strTime;
-  } else return formatDateTime(d);
+  if (!fullYear) return d.toFormat("M/d/yy '@' HH:mm:ss");
+  else return formatDateTime(d);
 }
 
 // convert a given game UT time into the local date time for the end user
@@ -502,23 +488,16 @@ function openTimePicker(currentUT) {
       // Convert to New York time zone
       var nyDateTime = utcDateTime.setZone("America/New_York");
       
-      // Format the display string with NaN detection
-      var utcStr = utcDateTime.toLocaleString(luxon.DateTime.DATETIME_FULL_WITH_SECONDS);
-      var nyStr = nyDateTime.toLocaleString(luxon.DateTime.DATETIME_FULL_WITH_SECONDS);
-      var offsetValue = nyDateTime.offset / 60;
-      
-      // Check for invalid values and format in bold red if NaN
-      if (utcStr === "Invalid DateTime" || utcStr.includes("NaN")) {
-        utcStr = '<strong style="color: red;">' + utcStr + '</strong>';
-      }
-      if (nyStr === "Invalid DateTime" || nyStr.includes("NaN")) {
-        nyStr = '<strong style="color: red;">' + nyStr + '</strong>';
-      }
-      if (isNaN(offsetValue)) {
-        offsetValue = '<strong style="color: red;">NaN</strong>';
-      } else {
-        offsetValue = (nyDateTime.offset >= 0 ? "+" : "") + offsetValue;
-      }
+      // Format the display string with validity check
+      var utcStr = utcDateTime.isValid
+        ? utcDateTime.toLocaleString(luxon.DateTime.DATETIME_FULL_WITH_SECONDS)
+        : '<strong style="color: red;">Invalid DateTime</strong>';
+      var nyStr = nyDateTime.isValid
+        ? nyDateTime.toLocaleString(luxon.DateTime.DATETIME_FULL_WITH_SECONDS)
+        : '<strong style="color: red;">Invalid DateTime</strong>';
+      var offsetValue = nyDateTime.isValid
+        ? (nyDateTime.offset >= 0 ? "+" : "") + (nyDateTime.offset / 60)
+        : '<strong style="color: red;">NaN</strong>';
       
       var displayStr = "UTC: " + utcStr;
       displayStr += "<br>KSC Local: " + nyStr;
@@ -631,7 +610,7 @@ function openTimePicker(currentUT) {
 }
 
 function dateToUT(dateTime) {
-  return Math.floor(luxon.Interval.fromDateTimes(KSA_CONSTANTS.FOUNDING_MOMENT, dateTime).count("milliseconds")/1000);
+  return Math.floor(dateTime.diff(KSA_CONSTANTS.FOUNDING_MOMENT, "seconds").seconds);
 }
 
 // Check if any elements have an active spinner

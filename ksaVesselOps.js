@@ -551,7 +551,7 @@ function vesselMETUpdate(update) {
 
 function vesselVelocityUpdate(update) {
   if (ops.currentVessel.Orbit && ops.currentVessel.Orbit.AvgVelocity) {
-    var formattedAvgVel = numeral((ops.currentVessel.Orbit.VelocityPe+ops.currentVessel.Orbit.VelocityAp)/2).format('0.000');
+    var formattedAvgVel = numeral(ops.currentVessel.Orbit.VelocityPe).add(ops.currentVessel.Orbit.VelocityAp).divide(2).format('0.000');
     var strTip = "<span id='avgVelUpdate'>Periapsis: " + numeral(ops.currentVessel.Orbit.VelocityPe).format('0.000') + "km/s<br>Apoapsis: " + numeral(ops.currentVessel.Orbit.VelocityAp).format('0.000') + "km/s</span>";
     var strHTML = "<b><u><span style='cursor:help' class='tip-update' data-tipped-options=\"inline: 'avgVelTip'\">Average Velocity:</u></b> " + formattedAvgVel + "km/s";
     $("#avgVelTip").html(strTip);
@@ -633,8 +633,8 @@ function vesselPeriodUpdate(update) {
     if (numOrbits > 0) strTip += "<br>Number of Orbits: " + numeral(numOrbits).format('0,0.00');
     else {
       if (ops.currentVessel.CraftData.pastEvent) {
-        strTip += "<br>Number of Orbits: " + numeral((ops.currentVessel.CraftData.UT - ops.currentVessel.Orbit.Eph)/ops.currentVessel.Orbit.OrbitalPeriod).format('0,0.00');
-      } else strTip += "<br>Number of Orbits: " + numeral((currUT() - ops.currentVessel.Orbit.Eph)/ops.currentVessel.Orbit.OrbitalPeriod).format('0,0.00');
+        strTip += "<br>Number of Orbits: " + numeral(ops.currentVessel.CraftData.UT).subtract(ops.currentVessel.Orbit.Eph).divide(ops.currentVessel.Orbit.OrbitalPeriod).format('0,0.00');
+      } else strTip += "<br>Number of Orbits: " + numeral(currUT()).subtract(ops.currentVessel.Orbit.Eph).divide(ops.currentVessel.Orbit.OrbitalPeriod).format('0,0.00');
     }
 
     var formattedPeriod = numeral(ops.currentVessel.Orbit.OrbitalPeriod).format('0,0.000');
@@ -1543,7 +1543,7 @@ function setupStreamingAscent() {
   // velocity readout
   strHTML = "<b>Velocity:</b> <span id='velocity'>";
   if (ops.ascentData.telemetry[ops.activeAscentFrame.ascentIndex].Velocity > 1000) {
-    strHTML += numeral(ops.ascentData.telemetry[ops.activeAscentFrame.ascentIndex].Velocity/1000).format('0.000') + "km/s";
+    strHTML += numeral(ops.ascentData.telemetry[ops.activeAscentFrame.ascentIndex].Velocity).divide(1000).format('0.000') + "km/s";
   } else {
     strHTML += numeral(ops.ascentData.telemetry[ops.activeAscentFrame.ascentIndex].Velocity).format('0.000') + "m/s";
   }
@@ -1553,14 +1553,14 @@ function setupStreamingAscent() {
 
   // thrust readout
   strHTML = "<b>Total Thrust:</b> <span id='thrust'>" + numeral(ops.ascentData.telemetry[ops.activeAscentFrame.ascentIndex].Thrust).format('0.000') + "</span>kN @ <span id='twr'>";
-  strHTML += numeral(ops.ascentData.telemetry[ops.activeAscentFrame.ascentIndex].Thrust/(ops.ascentData.telemetry[ops.activeAscentFrame.ascentIndex].Mass * ops.ascentData.telemetry[ops.activeAscentFrame.ascentIndex].Gravity)).format('0.000');
+  strHTML += numeral(ops.ascentData.telemetry[ops.activeAscentFrame.ascentIndex].Thrust).divide(numeral(ops.ascentData.telemetry[ops.activeAscentFrame.ascentIndex].Mass).multiply(ops.ascentData.telemetry[ops.activeAscentFrame.ascentIndex].Gravity).value()).format('0.000');
   $("#dataField2").html(strHTML + "</span> TWR");
   $("#dataField2").fadeIn();
 
   // altitude
   strHTML = "<b>Altitude:</b> <span id='altitude'>";
   if (ops.ascentData.telemetry[ops.activeAscentFrame.ascentIndex].Altitude > 1000) {
-    strHTML += numeral(ops.ascentData.telemetry[ops.activeAscentFrame.ascentIndex].Altitude/1000).format('0.000') + "km";
+    strHTML += numeral(ops.ascentData.telemetry[ops.activeAscentFrame.ascentIndex].Altitude).divide(1000).format('0.000') + "km";
   } else {
     strHTML += numeral(ops.ascentData.telemetry[ops.activeAscentFrame.ascentIndex].Altitude).format('0.000') + "m";
   }
@@ -1570,7 +1570,7 @@ function setupStreamingAscent() {
   // apoapsis
   strHTML = "<b>Apoapsis:</b> <span id='ap'>";
   if (ops.ascentData.telemetry[ops.activeAscentFrame.ascentIndex].Apoapsis > 1000) {
-    strHTML += numeral(ops.ascentData.telemetry[ops.activeAscentFrame.ascentIndex].Apoapsis/1000).format('0.000') + "km";
+    strHTML += numeral(ops.ascentData.telemetry[ops.activeAscentFrame.ascentIndex].Apoapsis).divide(1000).format('0.000') + "km";
   } else {
     strHTML += numeral(ops.ascentData.telemetry[ops.activeAscentFrame.ascentIndex].Apoapsis).format('0.000') + "m";
   }
@@ -1581,7 +1581,7 @@ function setupStreamingAscent() {
   if (ops.ascentData.telemetry[ops.activeAscentFrame.ascentIndex].Q <= 0 && ops.ascentData.telemetry[ops.activeAscentFrame.ascentIndex].UT > checkLaunchTime()) {
     strHTML = "<b id='peQcaption'>Periapsis:</b> <span id='peQ'>";
     if (Math.abs(ops.ascentData.telemetry[ops.activeAscentFrame.ascentIndex].Periapsis) > 1000) {
-      strHTML += numeral(ops.ascentData.telemetry[ops.activeAscentFrame.ascentIndex].Periapsis/1000).format('0.000') + "km";
+      strHTML += numeral(ops.ascentData.telemetry[ops.activeAscentFrame.ascentIndex].Periapsis).divide(1000).format('0.000') + "km";
     } else {
       strHTML += numeral(ops.ascentData.telemetry[ops.activeAscentFrame.ascentIndex].Periapsis).format('0.000') + "m";
     }
@@ -1590,7 +1590,7 @@ function setupStreamingAscent() {
     if (ops.ascentData.telemetry[ops.activeAscentFrame.ascentIndex].Q >= 1) {
       strHTML += numeral(ops.ascentData.telemetry[ops.activeAscentFrame.ascentIndex].Q).format('0.000') + "kPa";
     } else {
-      strHTML += numeral(ops.ascentData.telemetry[ops.activeAscentFrame.ascentIndex].Q*1000).format('0.000') + "Pa";
+      strHTML += numeral(ops.ascentData.telemetry[ops.activeAscentFrame.ascentIndex].Q).multiply(1000).format('0.000') + "Pa";
     }
   }
   $("#dataField5").html(strHTML + "</span>");
@@ -1606,7 +1606,7 @@ function setupStreamingAscent() {
   if (ops.ascentData.telemetry[ops.activeAscentFrame.ascentIndex].Mass >= 1) {
     strHTML += numeral(ops.ascentData.telemetry[ops.activeAscentFrame.ascentIndex].Mass).format('0.000') + "t";
   } else {
-    strHTML += numeral(ops.ascentData.telemetry[ops.activeAscentFrame.ascentIndex].Mass*1000).format('0.000') + "kg";
+    strHTML += numeral(ops.ascentData.telemetry[ops.activeAscentFrame.ascentIndex].Mass).multiply(1000).format('0.000') + "kg";
   }
   $("#dataField7").html(strHTML + "</span>");
   $("#dataField7").fadeIn();
@@ -1638,7 +1638,7 @@ function setupStreamingAscent() {
   // distance downrange
   strHTML = "<b>Distance Downrange:</b> <span id='dstDownrange'>";
   if (ops.ascentData.telemetry[ops.activeAscentFrame.ascentIndex].DstDownrange > 1000) {
-    strHTML += numeral(ops.ascentData.telemetry[ops.activeAscentFrame.ascentIndex].DstDownrange/1000).format('0.000') + "km";
+    strHTML += numeral(ops.ascentData.telemetry[ops.activeAscentFrame.ascentIndex].DstDownrange).divide(1000).format('0.000') + "km";
   } else {
     strHTML += numeral(ops.ascentData.telemetry[ops.activeAscentFrame.ascentIndex].DstDownrange).format('0.000') + "m";
   }
@@ -1649,7 +1649,7 @@ function setupStreamingAscent() {
   if (ops.ascentData.telemetry[ops.activeAscentFrame.ascentIndex].DstTraveled) {
     strHTML = "<b>Distance Traveled:</b> <span id='dstTraveled'>";
     if (ops.ascentData.telemetry[ops.activeAscentFrame.ascentIndex].DstTraveled > 1000) {
-      strHTML += numeral(ops.ascentData.telemetry[ops.activeAscentFrame.ascentIndex].DstTraveled/1000).format('0.000') + "km";
+      strHTML += numeral(ops.ascentData.telemetry[ops.activeAscentFrame.ascentIndex].DstTraveled).divide(1000).format('0.000') + "km";
     } else {
       strHTML += numeral(ops.ascentData.telemetry[ops.activeAscentFrame.ascentIndex].DstTraveled).format('0.000') + "m";
     }
@@ -1922,7 +1922,7 @@ function updateAscentData(clamp) {
   // update all the data fields
   // velocity readout
   if (ops.activeAscentFrame.velocity > 1000) {
-    $("#velocity").html((numeral(ops.activeAscentFrame.velocity/1000).format('0.000')) + "km/s");
+    $("#velocity").html((numeral(ops.activeAscentFrame.velocity).divide(1000).format('0.000')) + "km/s");
   } else {
     $("#velocity").html((numeral(ops.activeAscentFrame.velocity).format('0.000')) + "m/s");
   }
@@ -1931,18 +1931,18 @@ function updateAscentData(clamp) {
   // thrust readout
   if (ops.activeAscentFrame.thrust < 0 ) ops.activeAscentFrame.thrust = 0;
   $("#thrust").html(numeral(ops.activeAscentFrame.thrust).format('0.000'));
-  $("#twr").html(numeral(ops.activeAscentFrame.thrust/(ops.activeAscentFrame.mass * ops.activeAscentFrame.gravity)).format('0.000'));
+  $("#twr").html(numeral(ops.activeAscentFrame.thrust).divide(numeral(ops.activeAscentFrame.mass).multiply(ops.activeAscentFrame.gravity).value()).format('0.000'));
 
   // altitude
   if (ops.activeAscentFrame.altitude > 1000) {
-    $("#altitude").html((numeral(ops.activeAscentFrame.altitude/1000).format('0.000') + "km"));
+    $("#altitude").html((numeral(ops.activeAscentFrame.altitude).divide(1000).format('0.000') + "km"));
   } else {
     $("#altitude").html((numeral(ops.activeAscentFrame.altitude).format('0.000') + "m"));
   }
 
   // apoapsis
   if (ops.activeAscentFrame.ap > 1000) {
-    $("#ap").html((numeral(ops.activeAscentFrame.ap/1000).format('0,0.000') + "km"));
+    $("#ap").html((numeral(ops.activeAscentFrame.ap).divide(1000).format('0,0.000') + "km"));
   } else {
     $("#ap").html((numeral(ops.activeAscentFrame.ap).format('0.000') + "m"));
   }
@@ -1951,7 +1951,7 @@ function updateAscentData(clamp) {
   if (ops.activeAscentFrame.q <= 0 && ops.ascentData.telemetry[ops.activeAscentFrame.ascentIndex].UT > checkLaunchTime()) {
     $("#peQcaption").html("Periapsis:");
     if (Math.abs(ops.activeAscentFrame.pe) > 1000) {
-      $("#peQ").html((numeral(ops.activeAscentFrame.pe/1000).format('0.000')) + "km");
+      $("#peQ").html((numeral(ops.activeAscentFrame.pe).divide(1000).format('0.000')) + "km");
     } else {
       $("#peQ").html((numeral(ops.activeAscentFrame.pe).format('0.000')) + "m");
     }
@@ -1960,7 +1960,7 @@ function updateAscentData(clamp) {
     if (ops.activeAscentFrame.q >= 1) {
       $("#peQ").html((numeral(ops.activeAscentFrame.q).format('0.000')) + "kPa");
     } else {
-      $("#peQ").html((numeral(ops.activeAscentFrame.q*1000).format('0.000')) + "Pa");
+      $("#peQ").html((numeral(ops.activeAscentFrame.q).multiply(1000).format('0.000')) + "Pa");
     }
   }
 
@@ -1971,14 +1971,14 @@ function updateAscentData(clamp) {
   if (ops.activeAscentFrame.mass >= 1) {
     $("#mass").html((numeral(ops.activeAscentFrame.mass).format('0.000')) + "t");
   } else {
-    $("#mass").html((numeral(ops.activeAscentFrame.mass*1000).format('0.000')) + "kg");
+    $("#mass").html((numeral(ops.activeAscentFrame.mass).multiply(1000).format('0.000')) + "kg");
   }
   
   // stage fuel
   if (ops.activeAscentFrame.stage) {
     var Gwidth = 204 * ops.activeAscentFrame.stage;
     var Rwidth = 204 - Gwidth;
-    $("#stageFuel").html((numeral(ops.activeAscentFrame.stage*100).format('0.00')) + "%");
+    $("#stageFuel").html((numeral(ops.activeAscentFrame.stage).multiply(100).format('0.00')) + "%");
     $("#stageGreen").css("width", Gwidth);
     $("#stageRed").css("width", Rwidth);
   } 
@@ -1986,13 +1986,13 @@ function updateAscentData(clamp) {
   // total fuel
   var Gwidth = 210 * ops.activeAscentFrame.fuel;
   var Rwidth = 210 - Gwidth;
-  $("#totalFuel").html((numeral(ops.activeAscentFrame.fuel*100).format('0.00')) + "%");
+  $("#totalFuel").html((numeral(ops.activeAscentFrame.fuel).multiply(100).format('0.00')) + "%");
   $("#totalGreen").css("width", Gwidth);
   $("#totalRed").css("width", Rwidth);
 
   // distance downrange
   if (ops.activeAscentFrame.dst > 1000) {
-    $("#dstDownrange").html((numeral(ops.activeAscentFrame.dst/1000).format('0.000')) + "km");
+    $("#dstDownrange").html((numeral(ops.activeAscentFrame.dst).divide(1000).format('0.000')) + "km");
   } else {
     $("#dstDownrange").html((numeral(ops.activeAscentFrame.dst).format('0.000')) + "m");
   }
@@ -2000,7 +2000,7 @@ function updateAscentData(clamp) {
   // distance traveled
   if (ops.activeAscentFrame.traveled) {
     if (ops.activeAscentFrame.traveled > 1000) {
-      $("#dstTraveled").html((numeral(ops.activeAscentFrame.traveled/1000).format('0.000')) + "km");
+      $("#dstTraveled").html((numeral(ops.activeAscentFrame.traveled).divide(1000).format('0.000')) + "km");
     } else {
       $("#dstTraveled").html((numeral(ops.activeAscentFrame.traveled).format('0.000')) + "m");
     }
