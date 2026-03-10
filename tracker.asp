@@ -27,7 +27,7 @@
   <link rel="stylesheet" href="http://fonts.googleapis.com/css?family=Roboto:900">
   <link rel="stylesheet" href="../lib/jquery-ui.min.css">
   <link rel="stylesheet" href="../lib/tipped.css">
-  <link rel="stylesheet" href="../lib/w2ui-1.5.rc1.css">
+  <link rel="stylesheet" href="../lib/w2ui-2.0.min.css">
   <link rel="stylesheet" href="../lib/Control.FullScreen.css">
   <link rel="stylesheet" href="../lib/leaflet.groupedlayercontrol.min.css">
   <link rel="stylesheet" href="../lib/leaflet.rrose.css">
@@ -209,7 +209,7 @@
   <script src="../lib/jquery.spin.js"></script>
   <script src="../lib/numeral.min.js"></script>
   <script src="../lib/tipped.min.js"></script>
-  <script src="../lib/w2ui-1.5.rc1.js"></script>
+  <script src="../lib/w2ui-2.0.min.js"></script>
   <script src="../lib/Control.FullScreen.js"></script>
   <script src="../lib/leaflet.groupedlayercontrol.min.js"></script>
   <script src="../lib/leaflet.rrose-src.js"></script>

@@ -119,8 +119,19 @@ input:disabled+label {
 /* Leaflet label text adjustment - centered by default */
 .labeltext { text-align: left; }
 
-.w2ui-sidebar .w2ui-sidebar-div .w2ui-selected:before {
+.w2ui-sidebar .w2ui-sidebar-body .w2ui-selected:before {
   border: 0px;
+}
+
+/* Sidebar hover uses the old selection color; selection uses the #eventBox blue hue */
+.w2ui-sidebar .w2ui-sidebar-body .w2ui-node:hover {
+  background-color: #f3f5ff !important;
+  border: 1px solid #dee1ff;
+}
+.w2ui-sidebar .w2ui-sidebar-body .w2ui-selected,
+.w2ui-sidebar .w2ui-sidebar-body .w2ui-selected:hover {
+  background-color: #c9e8ff !important;
+  border: 1px solid #77C6FF !important;
 }
 
 .w2ui-icon.icon-dish {
