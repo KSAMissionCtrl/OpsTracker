@@ -543,11 +543,11 @@ function setupContent() {
 
                             // don't allow the user to manipulate the map size while dialog is open
                             if (KSA_MAP_CONTROLS.mapResizeButton) KSA_MAP_CONTROLS.mapResizeButton.disable();
-                            $(".leaflet-control-zoom-fullscreen.fullscreen-icon").hide();
+                            $(".leaflet-control-zoom-fullscreen.leaflet-fullscreen-icon").hide();
                           },
                           close: function() { 
                             if (KSA_MAP_CONTROLS.mapResizeButton) KSA_MAP_CONTROLS.mapResizeButton.enable();
-                            $(".leaflet-control-zoom-fullscreen.fullscreen-icon").show();
+                            $(".leaflet-control-zoom-fullscreen.leaflet-fullscreen-icon").show();
                           }
                           });
 
