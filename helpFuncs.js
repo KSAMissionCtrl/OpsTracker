@@ -771,6 +771,16 @@ function getCookie(cname) {
   return "";
 }
 
+// shared Tipped onShow callback - dismisses change indicators when a tooltip is opened
+function onTooltipShow(content, element) {
+  $(element).closest('[id^="dataField"]').find('.change-indicator').animate({
+    opacity: 0,
+    right: '-20px'
+  }, 300, function() {
+    $(this).remove();
+  });
+}
+
 // flashes some color on the element to bring attention to it
 // https://stackoverflow.com/questions/38370854/making-a-div-flash-just-once
 function flashUpdate(element, startColor, endColor) {

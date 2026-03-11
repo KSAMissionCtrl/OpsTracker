@@ -372,30 +372,14 @@ function loadVesselAJAX(xhttp, flags) {
     hideOnClickOutside: is_touch_device(), 
     detach: false, 
     hideOn: { element: 'mouseleave'},
-    onShow: function(content, element) {
-      // Remove change indicator from the parent dataField when tooltip is shown
-      $(element).closest('[id^="dataField"]').find('.change-indicator').animate({
-        opacity: 0,
-        right: '-20px'
-      }, 300, function() {
-        $(this).remove();
-      });
-    }
+    onShow: onTooltipShow
   });
   Tipped.create('.tip-update', { 
     showOn: showOpt, 
     hideOnClickOutside: is_touch_device(), 
     detach: false, 
     hideOn: { element: 'mouseleave'},
-    onShow: function(content, element) {
-      // Remove change indicator from the parent dataField when tooltip is shown
-      $(element).closest('[id^="dataField"]').find('.change-indicator').animate({
-        opacity: 0,
-        right: '-20px'
-      }, 300, function() {
-        $(this).remove();
-      });
-    }
+    onShow: onTooltipShow
   });
 }
 
@@ -1134,12 +1118,7 @@ function showInfoDialog() {
 function assignPartInfo() {
   if (!KSA_CATALOGS.partsCatalog.length) return setTimeout(assignPartInfo, 100);
   
-  // Clean up old part tooltips before creating new ones
-  try {
-    Tipped.remove('.imgmap');
-  } catch (error) {
-    // Ignore errors if tooltips don't exist yet
-  }
+  Tipped.remove('.imgmap');
   
   $(".imgmap").each(function() {
     var part = KSA_CATALOGS.partsCatalog.find(o => o.Part === $(this).attr("id"));
@@ -1245,30 +1224,14 @@ function updateVesselData(vessel, isNonObtUpdate = true) {
       hideOnClickOutside: is_touch_device(), 
       detach: false, 
       hideOn: {element: 'mouseleave'},
-      onShow: function(content, element) {
-        // Remove change indicator from the parent dataField when tooltip is shown
-        $(element).closest('[id^="dataField"]').find('.change-indicator').animate({
-          opacity: 0,
-          right: '-20px'
-        }, 300, function() {
-          $(this).remove();
-        });
-      }
+      onShow: onTooltipShow
     });
     Tipped.create('.tip-update', { 
       showOn: showOpt, 
       hideOnClickOutside: is_touch_device(), 
       detach: false, 
       hideOn: {element: 'mouseleave'},
-      onShow: function(content, element) {
-        // Remove change indicator from the parent dataField when tooltip is shown
-        $(element).closest('[id^="dataField"]').find('.change-indicator').animate({
-          opacity: 0,
-          right: '-20px'
-        }, 300, function() {
-          $(this).remove();
-        });
-      }
+      onShow: onTooltipShow
     });
   } 
 
@@ -1694,15 +1657,7 @@ function setupStreamingAscent() {
     hideOnClickOutside: is_touch_device(), 
     detach: false, 
     hideOn: {element: 'mouseleave'},
-    onShow: function(content, element) {
-      // Remove change indicator from the parent dataField when tooltip is shown
-      $(element).closest('[id^="dataField"]').find('.change-indicator').animate({
-        opacity: 0,
-        right: '-20px'
-      }, 300, function() {
-        $(this).remove();
-      });
-    }
+    onShow: onTooltipShow
   });
 
   // content area

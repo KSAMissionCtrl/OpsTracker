@@ -35,22 +35,18 @@ window.onpopstate = function(event) {
  * Note: Does NOT remove .imgmap tooltips (parts overlay) as they persist within views
  */
 function cleanupTooltips() {
-  try {
-    // Remove general tooltips that are recreated on each view
-    Tipped.remove('.tip');
-    Tipped.remove('.tip-update');
-    Tipped.remove('.contentTip');
-    
-    // Remove specific event tooltips
-    Tipped.remove('#launchLink');
-    Tipped.remove('#maneuverLink');
-    
-    // Note: .imgmap tooltips (parts overlay) are NOT removed here
-    // They are managed by assignPartInfo() and only need cleanup when
-    // the vessel itself changes, not during general view switches
-  } catch (error) {
-    handleError(error, 'cleanupTooltips');
-  }
+  // Remove general tooltips that are recreated on each view
+  Tipped.remove('.tip');
+  Tipped.remove('.tip-update');
+  Tipped.remove('.contentTip');
+  
+  // Remove specific event tooltips
+  Tipped.remove('#launchLink');
+  Tipped.remove('#maneuverLink');
+  
+  // Note: .imgmap tooltips (parts overlay) are NOT removed here
+  // They are managed by assignPartInfo() and only need cleanup when
+  // the vessel itself changes, not during general view switches
 }
 
 /**

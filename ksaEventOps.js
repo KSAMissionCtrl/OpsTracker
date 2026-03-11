@@ -114,25 +114,13 @@ function writeLaunchInfo(data) {
         if (is_touch_device()) { showOpt = 'click'; }
         else { showOpt = 'mouseenter'; }
         
-        // Clean up old tooltip before creating new one to prevent memory leaks
-        try {
-          Tipped.remove('.tip-update');
-        } catch (error) {
-          // Ignore errors if tooltip doesn't exist yet
-        }
-        
+        Tipped.remove('.tip-update');
         Tipped.create('.tip-update', { showOn: showOpt, hideOnClickOutside: is_touch_device(), detach: false, hideOn: {element: 'mouseleave'} });
       }
     }
     $("#launch").html(strHTML);
     
-    // Clean up old tooltip before creating new one
-    try {
-      Tipped.remove('#launchLink');
-    } catch (error) {
-      // Ignore errors if tooltip doesn't exist yet
-    }
-    
+    Tipped.remove('#launchLink');
     // add an info tooltip
     Tipped.create("#launchLink", data.Desc, { offset: { y: -10 }, maxWidth: 150, position: 'top' });
   } else $("#launch").html("<strong>Next Launch</strong><br>None Scheduled");
@@ -177,13 +165,7 @@ function writeManeuverinfo(data) {
     KSA_CALCULATIONS.maneuverCountdown = parseFloat(data[1]);
     $("#maneuver").html(strHTML);
     
-    // Clean up old tooltip before creating new one to prevent memory leaks
-    try {
-      Tipped.remove('#maneuverLink');
-    } catch (error) {
-      // Ignore errors if tooltip doesn't exist yet
-    }
-    
+    Tipped.remove('#maneuverLink');
     // add an info tooltip
     Tipped.create("#maneuverLink", fields[4], { offset: { y: -10 }, maxWidth: 150, position: 'top' });
   } else $("#maneuver").html("<strong>Next Maneuver</strong><br>None Scheduled");

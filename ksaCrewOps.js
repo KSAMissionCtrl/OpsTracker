@@ -160,42 +160,21 @@ function loadCrewAJAX(xhttp) {
   if (is_touch_device()) showOpt = 'click';
   else showOpt = 'mouseenter';
   
-  // Clean up old tooltips before creating new ones to prevent memory leaks
-  try {
-    Tipped.remove('.tip');
-    Tipped.remove('.tip-update');
-  } catch (error) {
-    // Ignore errors if tooltips don't exist yet
-  }
+  Tipped.remove('.tip');
+  Tipped.remove('.tip-update');
   
   Tipped.create('.tip', { 
     showOn: showOpt, 
     hideOnClickOutside: is_touch_device(), 
     hideOn: {element: 'mouseleave'},
-    onShow: function(content, element) {
-      // Remove change indicator from the parent dataField when tooltip is shown
-      $(element).closest('[id^="dataField"]').find('.change-indicator').animate({
-        opacity: 0,
-        right: '-20px'
-      }, 300, function() {
-        $(this).remove();
-      });
-    }
+    onShow: onTooltipShow
   });
   Tipped.create('.tip-update', { 
     showOn: showOpt, 
     hideOnClickOutside: is_touch_device(), 
     detach: false, 
     hideOn: {element: 'mouseleave'},
-    onShow: function(content, element) {
-      // Remove change indicator from the parent dataField when tooltip is shown
-      $(element).closest('[id^="dataField"]').find('.change-indicator').animate({
-        opacity: 0,
-        right: '-20px'
-      }, 300, function() {
-        $(this).remove();
-      });
-    }
+    onShow: onTooltipShow
   });
 }
 
@@ -250,26 +229,13 @@ function ribbonDisplayToggle(display = false) {
   if (is_touch_device()) showOpt = 'click';
   else showOpt = 'mouseenter';
   
-  // Clean up old tooltip before creating new one to prevent memory leaks
-  try {
-    Tipped.remove('.tip');
-  } catch (error) {
-    // Ignore errors if tooltip doesn't exist yet
-  }
+  Tipped.remove('.tip');
   
   Tipped.create('.tip', { 
     showOn: showOpt, 
     hideOnClickOutside: is_touch_device(), 
     hideOn: {element: 'mouseleave'},
-    onShow: function(content, element) {
-      // Remove change indicator from the parent dataField when tooltip is shown
-      $(element).closest('[id^="dataField"]').find('.change-indicator').animate({
-        opacity: 0,
-        right: '-20px'
-      }, 300, function() {
-        $(this).remove();
-      });
-    }
+    onShow: onTooltipShow
   });
 }
 
@@ -377,43 +343,22 @@ function updateCrewData(crew) {
     if (is_touch_device()) showOpt = 'click';
     else showOpt = 'mouseenter';
     
-    // Clean up old tooltips before creating new ones to prevent memory leaks
-    try {
-      Tipped.remove('.tip');
-      Tipped.remove('.tip-update');
-    } catch (error) {
-      // Ignore errors if tooltips don't exist yet
-    }
+    Tipped.remove('.tip');
+    Tipped.remove('.tip-update');
     
     Tipped.create('.tip', { 
       showOn: showOpt, 
       hideOnClickOutside: is_touch_device(), 
       detach: false, 
       hideOn: {element: 'mouseleave'},
-      onShow: function(content, element) {
-        // Remove change indicator from the parent dataField when tooltip is shown
-        $(element).closest('[id^="dataField"]').find('.change-indicator').animate({
-          opacity: 0,
-          right: '-20px'
-        }, 300, function() {
-          $(this).remove();
-        });
-      }
+      onShow: onTooltipShow
     });
     Tipped.create('.tip-update', { 
       showOn: showOpt, 
       hideOnClickOutside: is_touch_device(), 
       detach: false, 
       hideOn: {element: 'mouseleave'},
-      onShow: function(content, element) {
-        // Remove change indicator from the parent dataField when tooltip is shown
-        $(element).closest('[id^="dataField"]').find('.change-indicator').animate({
-          opacity: 0,
-          right: '-20px'
-        }, 300, function() {
-          $(this).remove();
-        });
-      }
+      onShow: onTooltipShow
     });
   }
 
