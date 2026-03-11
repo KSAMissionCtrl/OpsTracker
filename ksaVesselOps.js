@@ -2147,14 +2147,22 @@ function updateSurfacePlot(index) {
     // choose the next color and start a new line
     KSA_UI_STATE.ascentColorsIndex++;
     if (KSA_UI_STATE.ascentColorsIndex == KSA_COLORS.surfacePathColors.length) KSA_UI_STATE.ascentColorsIndex = 0;
-    KSA_CATALOGS.ascentTracks.push(L.polyline([], {smoothFactor: .25, clickable: true, color: KSA_COLORS.surfacePathColors[KSA_UI_STATE.ascentColorsIndex], weight: 2, opacity: 1}).addTo(ops.surface.map));
+    KSA_CATALOGS.ascentTracks.push(L.polyline([], {smoothFactor: .25, color: KSA_COLORS.surfacePathColors[KSA_UI_STATE.ascentColorsIndex], weight: 2, opacity: 1}).addTo(ops.surface.map));
     KSA_CATALOGS.ascentTracks[KSA_CATALOGS.ascentTracks.length-1].addLatLng([ops.ascentData.telemetry[index].Lat, ops.ascentData.telemetry[index].Lon]);
     KSA_CATALOGS.ascentTracks[KSA_CATALOGS.ascentTracks.length-1]._myId = "<center>" + ops.ascentData.telemetry[index].Phase + "</center>";
-    KSA_CATALOGS.ascentTracks[KSA_CATALOGS.ascentTracks.length-1].on('mouseover mousemove', function(e) {
+    KSA_CATALOGS.ascentTracks[KSA_CATALOGS.ascentTracks.length-1].on('mouseover', function(e) {
       KSA_MAP_CONTROLS.ascentPopup = new L.Rrose({ offset: new L.Point(0,-1), closeButton: false, autoPan: false });
-      KSA_MAP_CONTROLS.ascentPopup.setLatLng(e.latlng);
-      KSA_MAP_CONTROLS.ascentPopup.setContent(e.target._myId);
-      KSA_MAP_CONTROLS.ascentPopup.openOn(ops.surface.map);
+      KSA_MAP_CONTROLS.ascentPopup.setLatLng(e.latlng).setContent(e.target._myId).openOn(ops.surface.map);
+    });
+    KSA_CATALOGS.ascentTracks[KSA_CATALOGS.ascentTracks.length-1].on('mousemove', function(e) {
+      if (!KSA_MAP_CONTROLS.ascentPopup) return;
+      if (getRroseDirection(ops.surface.map, e.latlng) === KSA_MAP_CONTROLS.ascentPopup.options.position) {
+        KSA_MAP_CONTROLS.ascentPopup.setLatLng(e.latlng);
+      } else {
+        ops.surface.map.closePopup(KSA_MAP_CONTROLS.ascentPopup);
+        KSA_MAP_CONTROLS.ascentPopup = new L.Rrose({ offset: new L.Point(0,-1), closeButton: false, autoPan: false });
+        KSA_MAP_CONTROLS.ascentPopup.setLatLng(e.latlng).setContent(e.target._myId).openOn(ops.surface.map);
+      }
     });
     KSA_CATALOGS.ascentTracks[KSA_CATALOGS.ascentTracks.length-1].on('mouseout', function(e) {
       if (KSA_MAP_CONTROLS.ascentPopup) { ops.surface.map.closePopup(KSA_MAP_CONTROLS.ascentPopup); }
@@ -2175,12 +2183,10 @@ function updateSurfacePlot(index) {
     });
     KSA_CATALOGS.ascentMarks.push(L.marker([ops.ascentData.telemetry[index].Lat, ops.ascentData.telemetry[index].Lon], {icon: labelIcon}).addTo(ops.surface.map));
     KSA_CATALOGS.ascentMarks[KSA_CATALOGS.ascentMarks.length-1]._myId = ops.ascentData.telemetry[index].EventMark + ";" + ops.ascentData.telemetry[index].Lat + ";" + ops.ascentData.telemetry[index].Lon;
-    KSA_CATALOGS.ascentMarks[KSA_CATALOGS.ascentMarks.length-1].on('mouseover mousemove', function(e) {
+    KSA_CATALOGS.ascentMarks[KSA_CATALOGS.ascentMarks.length-1].on('mouseover', function(e) {
       data = e.target._myId.split(";")
       KSA_MAP_CONTROLS.ascentPopup = new L.Rrose({ offset: new L.Point(0,-1), closeButton: false, autoPan: false });
-      KSA_MAP_CONTROLS.ascentPopup.setLatLng([data[1], data[2]]);
-      KSA_MAP_CONTROLS.ascentPopup.setContent("<center>" + data[0] + "</center>");
-      KSA_MAP_CONTROLS.ascentPopup.openOn(ops.surface.map);
+      KSA_MAP_CONTROLS.ascentPopup.setLatLng([data[1], data[2]]).setContent("<center>" + data[0] + "</center>").openOn(ops.surface.map);
     });
     KSA_CATALOGS.ascentMarks[KSA_CATALOGS.ascentMarks.length-1].on('mouseout', function(e) {
       if (KSA_MAP_CONTROLS.ascentPopup) { ops.surface.map.closePopup(KSA_MAP_CONTROLS.ascentPopup); }

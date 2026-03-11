@@ -808,9 +808,27 @@ Math.degrees = function(radians) { return radians * 180 / Math.PI; };
  * @returns {Array} Array of polyline layers
  */
 function getPolylinesFromLayer(layerGroup) {
-  return Object.values(layerGroup._layers).filter(function(layer) {
+  return layerGroup.getLayers().filter(function(layer) {
     return layer instanceof L.Polyline && !(layer instanceof L.Polygon);
   });
+}
+
+/**
+ * Mirrors L.Rrose's internal direction logic to determine which way it would open at a given position.
+ * Used to avoid recreating the popup unless the opening direction actually needs to change.
+ * @param {L.Map} map - The Leaflet map instance
+ * @param {L.LatLng} latlng - The position to evaluate
+ * @returns {string} Direction string: 'n', 's', 'ne', 'nw', 'se', or 'sw'
+ */
+function getRroseDirection(map, latlng) {
+  var x_bound = 80, y_bound = 80;
+  var pt = map.latLngToContainerPoint(latlng);
+  var pos = 'n';
+  if (y_bound - pt.y > 0) pos = 's';
+  var x_diff = pt.x - (map.getSize().x - x_bound);
+  if (x_diff > 0) pos += 'w';
+  else if (x_bound - pt.x > 0) pos += 'e';
+  return pos;
 }
 
 /**

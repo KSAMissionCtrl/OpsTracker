@@ -4,7 +4,7 @@ function initializeMap() {
 
   // create the map with some custom options
   // details on Leaflet API can be found here - http://leafletjs.com/reference.html
-  ops.surface.map = new L.Map('map', {
+  ops.surface.map = L.map('map', {
     crs: L.CRS.Kerbin.Equirectangular,
     center: [0,0],
     bodyControl: false,
@@ -477,7 +477,7 @@ function loadMapDataAJAX(xhttp) {
     
     // create the solar layer group and add the sun marker
     KSA_LAYERS.groundMarkers.layerSolar = L.layerGroup();
-    KSA_MAP_CONTROLS.sunMarker = L.marker([sunLat,sunLon], { icon: KSA_MAP_ICONS.sunIcon, clickable: false });
+    KSA_MAP_CONTROLS.sunMarker = L.marker([sunLat,sunLon], { icon: KSA_MAP_ICONS.sunIcon, interactive: false });
     KSA_LAYERS.groundMarkers.layerSolar.addLayer(KSA_MAP_CONTROLS.sunMarker);
     
     // add to the layer selection control
@@ -770,7 +770,7 @@ function loadMapDataAJAX(xhttp) {
       if (mapLocation.length > 2) {
         pin = L.marker([mapLocation[0], mapLocation[1]]).bindPopup(mapLocation[2], { autoClose: false });
       } else {
-        pin = L.marker([mapLocation[0], mapLocation[1]], { clickable: false });
+        pin = L.marker([mapLocation[0], mapLocation[1]], { interactive: false });
       }
       KSA_LAYERS.groundMarkers.layerPins.addLayer(pin);
       pin._myId = -1;
@@ -2346,7 +2346,6 @@ function setupFlightSurfacePath(path, index, startIndex, length) {
   if (KSA_CATALOGS.fltPaths[index].elev) {
     var srfTrack = L.hotline(path, {
       smoothFactor: 1.75, 
-      clickable: true, 
       weight: 3, 
       outlineWidth: 1,
       min: KSA_CATALOGS.fltPaths[index].minASL,
@@ -2369,7 +2368,6 @@ function setupFlightSurfacePath(path, index, startIndex, length) {
   else {
     var srfTrack = L.polyline(path, {
       smoothFactor: 1.75, 
-      clickable: true, 
       color: KSA_CATALOGS.fltPaths[index].color, 
       weight: 3, 
       opacity: 1
@@ -2443,19 +2441,28 @@ function setupFlightSurfacePath(path, index, startIndex, length) {
 
 // take care of all the details that need to be applied to a vessel's surface track as this needs to be done in two separate places
 function setupVesselSurfacePath(path, obtIndex) {
-  var srfTrack = L.polyline(path, { smoothFactor: 1.25, clickable: true, color: KSA_COLORS.vesselOrbitColors[obtIndex], weight: 3, opacity: 1 });
+  var srfTrack = L.polyline(path, { smoothFactor: 1.25, color: KSA_COLORS.vesselOrbitColors[obtIndex], weight: 3, opacity: 1 });
   
   // save the orbit index of this line to make it faster when searching for a data point by not having to look at all 3 orbits
   srfTrack._myId = obtIndex;
   
   // show the time and orbit for this position
-  srfTrack.on('mouseover mousemove', function(e) {
-    if (KSA_MAP_CONTROLS.timePopup) ops.surface.map.closePopup(KSA_MAP_CONTROLS.timePopup);
-    KSA_MAP_CONTROLS.timePopup = new L.Rrose({ offset: new L.Point(0,-1), closeButton: false, autoPan: false });
-    KSA_MAP_CONTROLS.timePopup.setLatLng(e.latlng);
+  srfTrack.on('mouseover', function(e) {
     var strTimeDate = UTtoDateTime(ops.currentVesselPlot.obtData[e.target._myId].startUT + getDataPoint(e.target._myId, e.latlng));
-    KSA_MAP_CONTROLS.timePopup.setContent("<center>Orbit #" + (e.target._myId+1) + "<br>" + strTimeDate.split("@")[0] + "<br>" + strTimeDate.split("@")[1] + " UTC</center>");
-    KSA_MAP_CONTROLS.timePopup.openOn(ops.surface.map);
+    KSA_MAP_CONTROLS.timePopup = new L.Rrose({ offset: new L.Point(0,-1), closeButton: false, autoPan: false });
+    KSA_MAP_CONTROLS.timePopup.setLatLng(e.latlng).setContent("<center>Orbit #" + (e.target._myId+1) + "<br>" + strTimeDate.split("@")[0] + "<br>" + strTimeDate.split("@")[1] + " UTC</center>").openOn(ops.surface.map);
+  });
+  srfTrack.on('mousemove', function(e) {
+    if (!KSA_MAP_CONTROLS.timePopup) return;
+    var strTimeDate = UTtoDateTime(ops.currentVesselPlot.obtData[e.target._myId].startUT + getDataPoint(e.target._myId, e.latlng));
+    var content = "<center>Orbit #" + (e.target._myId+1) + "<br>" + strTimeDate.split("@")[0] + "<br>" + strTimeDate.split("@")[1] + " UTC</center>";
+    if (getRroseDirection(ops.surface.map, e.latlng) === KSA_MAP_CONTROLS.timePopup.options.position) {
+      KSA_MAP_CONTROLS.timePopup.setLatLng(e.latlng).setContent(content);
+    } else {
+      ops.surface.map.closePopup(KSA_MAP_CONTROLS.timePopup);
+      KSA_MAP_CONTROLS.timePopup = new L.Rrose({ offset: new L.Point(0,-1), closeButton: false, autoPan: false });
+      KSA_MAP_CONTROLS.timePopup.setLatLng(e.latlng).setContent(content).openOn(ops.surface.map);
+    }
   });
   
   // remove the mouseover popup
@@ -3402,20 +3409,30 @@ function setupSurfacePath(path, object) {
       if (currBody.Body == ggbApplet.getCaption(body.id + "36")) strColor = ggbApplet.getColor(body.id + "36")
     });
   }
-  var srfTrack = L.polyline(path, { smoothFactor: 1.25, clickable: true, color: strColor, weight: 3, opacity: 1 });
+  var srfTrack = L.polyline(path, { smoothFactor: 1.25, color: strColor, weight: 3, opacity: 1 });
 
   // save the name of this object for future reference
   srfTrack._myId = object.name;
   
   // show the time and orbit for this position
-  srfTrack.on('mouseover mousemove', function(e) {
-    if (KSA_MAP_CONTROLS.timePopup) ops.surface.map.closePopup(KSA_MAP_CONTROLS.timePopup);
-    KSA_MAP_CONTROLS.timePopup = new L.Rrose({ offset: new L.Point(0,-1), closeButton: false, autoPan: false });
-    KSA_MAP_CONTROLS.timePopup.setLatLng(e.latlng);
+  srfTrack.on('mouseover', function(e) {
     var obj = KSA_CATALOGS.bodyPaths.paths.find(o => o.name === e.target._myId);
     var strTimeDate = UTtoDateTime(obj.obtData.startUT + getDataPointObject(obj.obtData, e.latlng));
-    KSA_MAP_CONTROLS.timePopup.setContent("<center>" + strTimeDate.split("@")[0] + "<br>" + strTimeDate.split("@")[1] + " UTC</center>");
-    KSA_MAP_CONTROLS.timePopup.openOn(ops.surface.map);
+    KSA_MAP_CONTROLS.timePopup = new L.Rrose({ offset: new L.Point(0,-1), closeButton: false, autoPan: false });
+    KSA_MAP_CONTROLS.timePopup.setLatLng(e.latlng).setContent("<center>" + strTimeDate.split("@")[0] + "<br>" + strTimeDate.split("@")[1] + " UTC</center>").openOn(ops.surface.map);
+  });
+  srfTrack.on('mousemove', function(e) {
+    if (!KSA_MAP_CONTROLS.timePopup) return;
+    var obj = KSA_CATALOGS.bodyPaths.paths.find(o => o.name === e.target._myId);
+    var strTimeDate = UTtoDateTime(obj.obtData.startUT + getDataPointObject(obj.obtData, e.latlng));
+    var content = "<center>" + strTimeDate.split("@")[0] + "<br>" + strTimeDate.split("@")[1] + " UTC</center>";
+    if (getRroseDirection(ops.surface.map, e.latlng) === KSA_MAP_CONTROLS.timePopup.options.position) {
+      KSA_MAP_CONTROLS.timePopup.setLatLng(e.latlng).setContent(content);
+    } else {
+      ops.surface.map.closePopup(KSA_MAP_CONTROLS.timePopup);
+      KSA_MAP_CONTROLS.timePopup = new L.Rrose({ offset: new L.Point(0,-1), closeButton: false, autoPan: false });
+      KSA_MAP_CONTROLS.timePopup.setLatLng(e.latlng).setContent(content).openOn(ops.surface.map);
+    }
   });
   
   // remove the mouseover popup
@@ -3543,11 +3560,14 @@ function flightTrackHover(e) {
 
   // compose the popup HTML and place it on the cursor location then display it
   var cardinal = getLatLngCompass({lat: KSA_CATALOGS.fltPaths[indexFlt].fltData[index].Lat, lng: KSA_CATALOGS.fltPaths[indexFlt].fltData[index].Lng});
-  if (KSA_MAP_CONTROLS.timePopup) ops.surface.map.closePopup(KSA_MAP_CONTROLS.timePopup); 
-  KSA_MAP_CONTROLS.timePopup = new L.Rrose({ offset: new L.Point(0,-1), closeButton: false, autoPan: false });
-  KSA_MAP_CONTROLS.timePopup.setLatLng(e.latlng);
-  KSA_MAP_CONTROLS.timePopup.setContent(UTtoDateTime(KSA_CATALOGS.fltPaths[indexFlt].fltData[index].UT) + ' UTC<br>Latitude: ' + numeral(KSA_CATALOGS.fltPaths[indexFlt].fltData[index].Lat).format('0.0000') + '&deg;' + cardinal.lat + '<br>Longitude: ' + numeral(KSA_CATALOGS.fltPaths[indexFlt].fltData[index].Lng).format('0.0000') + '&deg;' + cardinal.lng + '<br>Altitude ASL: ' + numeral(KSA_CATALOGS.fltPaths[indexFlt].fltData[index].ASL).divide(1000).format('0,0.000') + ' km<br>Altitude AGL: ' + numeral(KSA_CATALOGS.fltPaths[indexFlt].fltData[index].AGL).divide(1000).format('0,0.000') + " km<br>Velocity: " + numeral(KSA_CATALOGS.fltPaths[indexFlt].fltData[index].Spd).format('0,0.000') + " m/s" + '<br>Distance from KSC: ' + numeral(KSA_CATALOGS.fltPaths[indexFlt].fltData[index].Dist).divide(1000).format('0,0.000') + " km<p>Click for additional options</p>");
-  KSA_MAP_CONTROLS.timePopup.openOn(ops.surface.map);
+  var content = UTtoDateTime(KSA_CATALOGS.fltPaths[indexFlt].fltData[index].UT) + ' UTC<br>Latitude: ' + numeral(KSA_CATALOGS.fltPaths[indexFlt].fltData[index].Lat).format('0.0000') + '&deg;' + cardinal.lat + '<br>Longitude: ' + numeral(KSA_CATALOGS.fltPaths[indexFlt].fltData[index].Lng).format('0.0000') + '&deg;' + cardinal.lng + '<br>Altitude ASL: ' + numeral(KSA_CATALOGS.fltPaths[indexFlt].fltData[index].ASL).divide(1000).format('0,0.000') + ' km<br>Altitude AGL: ' + numeral(KSA_CATALOGS.fltPaths[indexFlt].fltData[index].AGL).divide(1000).format('0,0.000') + " km<br>Velocity: " + numeral(KSA_CATALOGS.fltPaths[indexFlt].fltData[index].Spd).format('0,0.000') + " m/s" + '<br>Distance from KSC: ' + numeral(KSA_CATALOGS.fltPaths[indexFlt].fltData[index].Dist).divide(1000).format('0,0.000') + " km<p>Click for additional options</p>";
+  if (KSA_MAP_CONTROLS.timePopup && getRroseDirection(ops.surface.map, e.latlng) === KSA_MAP_CONTROLS.timePopup.options.position) {
+    KSA_MAP_CONTROLS.timePopup.setLatLng(e.latlng).setContent(content);
+  } else {
+    if (KSA_MAP_CONTROLS.timePopup) ops.surface.map.closePopup(KSA_MAP_CONTROLS.timePopup);
+    KSA_MAP_CONTROLS.timePopup = new L.Rrose({ offset: new L.Point(0,-1), closeButton: false, autoPan: false });
+    KSA_MAP_CONTROLS.timePopup.setLatLng(e.latlng).setContent(content).openOn(ops.surface.map);
+  }
 }
 
 // download the entire flight path data as CSV
