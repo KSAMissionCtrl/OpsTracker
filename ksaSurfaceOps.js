@@ -211,7 +211,7 @@ function initializeMap() {
   }));
   
   // add a coordinates control
-  L.control.mousePosition().addTo(ops.surface.map);
+  L.control.mousePosition({prefix: "Right-click to save:"}).addTo(ops.surface.map);
   
   // add a scale control
   L.control.scale().addTo(ops.surface.map);
