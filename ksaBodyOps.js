@@ -174,7 +174,7 @@ function ggbOnInit() {
 
     // is this a unique identifier? Look for a letter followed by a number
     // ignore "A" since in the GGB spreadsheet that row is used for column labels
-    if (ggbApplet.getObjectName(obj).charAt(0) != "A" && (bodyIDs.indexOf(ggbApplet.getObjectName(obj).charAt(0)) == -1 && $.isNumeric(ggbApplet.getObjectName(obj).charAt(1)))) {
+    if (ggbApplet.getObjectName(obj).charAt(0) != "A" && (bodyIDs.indexOf(ggbApplet.getObjectName(obj).charAt(0)) == -1 && !isNaN(ggbApplet.getObjectName(obj).charAt(1)))) {
     
       // add this identifier to the orbits list only if we haven't used it yet
       ops.ggbOrbits.push({type: "body", id: ggbApplet.getObjectName(obj).charAt(0), showName: false, showNodes: false, isSelected: false, isHidden: false});
