@@ -1299,7 +1299,8 @@ function surfaceUpdate(type, markerUT, id) {
       if (!isSelectedBody || (isSelectedBody && (ops.pageType.includes("crew") || 
           (ops.pageType == "vessel" && !KSA_UI_STATE.isMapShown)))) swapContent("body", id);
       showSurfaceUpdate(newLayer, markerUpdate);
-    },
+    }
+  },{
     text: "Close",
     click: function() { 
       $(dialogElement).dialog("close");

@@ -198,7 +198,6 @@
   <script src="https://code.jquery.com/jquery-4.0.0.min.js" 
   integrity="sha256-OaVG6prZf4v69dPg6PhVattBXkcOWQB62pdZ3ORyrao=" 
   crossorigin="anonymous"></script>
-  <script src="https://code.jquery.com/jquery-migrate-4.0.2.js"></script>
   <script src="https://cdn.geogebra.org/apps/deployggb.js"></script>
   <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"
   integrity="sha512-XQoYMqMTK8LvdxXYG3nZ448hOEQiglfqkJs1NOQV44cWnUrBc8PkAOcXy20w0vlaXaVUearIOBhiXZ5V3ynxwA=="
