@@ -21,9 +21,9 @@
   <script src="https://kit.fontawesome.com/72c8db4d15.js" crossorigin="anonymous"></script>
 
   <!-- CSS stylesheets -->
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css"
-  integrity="sha512-xodZBNTC5n17Xt2atTPuE1HxjVMSvLVW9ocqUKLsCC5CXdbqCmblAshOMAS6/keqq/sMZMZ19scR4PsZChSR7A=="
-  crossorigin=""/>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" 
+  integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" 
+  crossorigin="" />
   <link rel="stylesheet" href="http://fonts.googleapis.com/css?family=Roboto:900">
   <link rel="stylesheet" href="../lib/jquery-ui.min.css">
   <link rel="stylesheet" href="../lib/tipped.css">
@@ -199,8 +199,8 @@
   integrity="sha256-OaVG6prZf4v69dPg6PhVattBXkcOWQB62pdZ3ORyrao=" 
   crossorigin="anonymous"></script>
   <script src="https://cdn.geogebra.org/apps/deployggb.js"></script>
-  <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"
-  integrity="sha512-XQoYMqMTK8LvdxXYG3nZ448hOEQiglfqkJs1NOQV44cWnUrBc8PkAOcXy20w0vlaXaVUearIOBhiXZ5V3ynxwA=="
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" 
+  integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" 
   crossorigin=""></script>
   <script src="https://cdn.jsdelivr.net/npm/leaflet.geodesic@2.7.2/dist/leaflet.geodesic.umd.min.js"
   integrity="sha512-xpefEm742/sELYn8wdYCejRseXu24rGp5BxGShPo1lN+UxwPPIYNiskHW8GIJvFAicvqpzH62fltgly0eaAbOA=="

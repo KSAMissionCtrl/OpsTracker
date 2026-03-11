@@ -85,7 +85,7 @@ function loadVessel(vessel, givenUT, wasUTExplicit) {
   lowerContent();
   
   // close any popups
-  if (KSA_MAP_CONTROLS.vesselPositionPopup && ops.surface.map) ops.surface.map.closePopup(KSA_MAP_CONTROLS.vesselPositionPopup); 
+  if (KSA_MAP_CONTROLS.vesselPositionPopup && ops.surface.map) KSA_MAP_CONTROLS.vesselPositionPopup.close();
 }
 
 function loadFlt(dbName, menuSelect = true) {
@@ -96,7 +96,7 @@ function loadFlt(dbName, menuSelect = true) {
     
     // Close any open flight position popup
     if (KSA_MAP_CONTROLS.flightPositionPopup.isOpen()) {
-      ops.surface.map.closePopup(KSA_MAP_CONTROLS.flightPositionPopup);
+      KSA_MAP_CONTROLS.flightPositionPopup.close();
     }
     
     // Close the load notice dialog if it's open

@@ -198,7 +198,7 @@ function initializeMap() {
         }
       });
       html += "</p>";
-      e.total_label.bindPopup(L.popup().setContent(html), { offset: [45, 0] });
+      e.total_label.bindPopup(L.popup({ content: html, offset: [45, 0] }));
       e.total_label.openPopup();
     }
   });  
@@ -547,7 +547,7 @@ function loadMapDataAJAX(xhttp) {
         else var strLink = "<a target='_blank' href='" + flag[7] + "'>" + flag[8] + "</a>";
         if (flag[2] != "0") var strAlt = numeral(flag[2]).divide(1000).format('0.000') + "km<br />";
         else var strAlt = "";
-        flagMarker.bindPopup("<b>" + flag[3] + "</b><br />" + strCrew + UTtoDateTime(parseInt(flag[6])).split(" ")[0] + "<br />" + strAlt + "<br />&quot;" + flag[5] + "&quot;<br /><br />" + strLink, { offset: new L.Point(0,-9), autoClose: true });
+        flagMarker.bindPopup("<b>" + flag[3] + "</b><br />" + strCrew + UTtoDateTime(parseInt(flag[6])).split(" ")[0] + "<br />" + strAlt + "<br />&quot;" + flag[5] + "&quot;<br /><br />" + strLink, { offset: [0,-9], autoClose: true });
         flagMarker._myId = -1;
         flagMarker._myUT = parseFloat(flag[6]);
         KSA_LAYERS.groundMarkers.layerFlags.addLayer(flagMarker);
@@ -705,7 +705,7 @@ function loadMapDataAJAX(xhttp) {
       if (kerballoon[0] <= currUT()) {
         kerbMarker = L.marker([parseFloat(kerballoon[1].split(",")[0]), parseFloat(kerballoon[1].split(",")[1])], { icon: KSA_MAP_ICONS.balloonIcon, zIndexOffset: 100 });
         var strLink = "<a target='_blank' href='http://www.kerbalspace.agency/ksa/?p=" + kerballoon[4] + "'>Mission Report</a>";
-        kerbMarker.bindPopup("<b>" + kerballoon[2] + "</b><br /><br />&quot;" + kerballoon[3] + "&quot;<br /><br />" + strLink, { offset: new L.Point(0,-9), autoClose: true });
+        kerbMarker.bindPopup("<b>" + kerballoon[2] + "</b><br /><br />&quot;" + kerballoon[3] + "&quot;<br /><br />" + strLink, { offset: [0,-9], autoClose: true });
         kerbMarker._myId = -1;
         kerbMarker._myUT = parseFloat(kerballoon[0]);
         kerbMarker._myDate = UTtoDateTime(parseFloat(kerballoon[0]), true);
@@ -1020,7 +1020,7 @@ function surfaceUpdate(type, markerUT, id) {
         else var strLink = "<a target='_blank' href='" + flag[7] + "'>" + flag[8] + "</a>";
         if (flag[2] != "0") var strAlt = numeral(flag[2]).divide(1000).format('0.000') + "km<br />";
         else var strAlt = "";
-        markerUpdate.bindPopup("<b>" + flag[3] + "</b><br />" + strCrew + UTtoDateTime(parseInt(flag[6])).split(" ")[0] + "<br />" + strAlt + "<br />&quot;" + flag[5] + "&quot;<br /><br />" + strLink, { offset: new L.Point(0,-9), autoClose: true });
+        markerUpdate.bindPopup("<b>" + flag[3] + "</b><br />" + strCrew + UTtoDateTime(parseInt(flag[6])).split(" ")[0] + "<br />" + strAlt + "<br />&quot;" + flag[5] + "&quot;<br /><br />" + strLink, { offset: [0,-9], autoClose: true });
         markerUpdate._myId = -1;
         markerUpdate._myUT = parseFloat(flag[6]);
         if (isSelectedBody) KSA_LAYERS.groundMarkers.layerFlags.addLayer(markerUpdate);
@@ -1038,7 +1038,7 @@ function surfaceUpdate(type, markerUT, id) {
       if (parseFloat(kerballoon[0]) === markerUT) {
         markerUpdate = L.marker([parseFloat(kerballoon[1].split(",")[0]), parseFloat(kerballoon[1].split(",")[1])], { icon: KSA_MAP_ICONS.kerballoonIcon, zIndexOffset: 100 });
         var strLink = "<a target='_blank' href='http://www.kerbalspace.agency/ksa/?p=" + kerballoon[4] + "'>Mission Report</a>";
-        markerUpdate.bindPopup("<b>" + kerballoon[2] + "</b><br /><br />&quot;" + kerballoon[3] + "&quot;<br /><br />" + strLink, { offset: new L.Point(0,-9), autoClose: true });
+        markerUpdate.bindPopup("<b>" + kerballoon[2] + "</b><br /><br />&quot;" + kerballoon[3] + "&quot;<br /><br />" + strLink, { offset: [0,-9], autoClose: true });
         markerUpdate._myId = -1;
         markerUpdate._myUT = parseFloat(kerballoon[0]);
         markerUpdate._myDate = UTtoDateTime(parseFloat(kerballoon[0]), true);
@@ -1356,7 +1356,7 @@ function loadFltDataAJAX(xhttp) {
   // make sure that if a layer is hidden the current popup is too if that belongs to the layer
   KSA_CATALOGS.fltPaths[KSA_CATALOGS.fltPaths.length-1].layer._myId = KSA_CATALOGS.fltPaths[KSA_CATALOGS.fltPaths.length-1].info.Title;
   KSA_CATALOGS.fltPaths[KSA_CATALOGS.fltPaths.length-1].layer.on('remove', function(e) {
-    if (KSA_MAP_CONTROLS.flightPositionPopup.getContent() && KSA_MAP_CONTROLS.flightPositionPopup.getContent().includes(e.target._myId)) ops.surface.map.closePopup(KSA_MAP_CONTROLS.flightPositionPopup);
+    if (KSA_MAP_CONTROLS.flightPositionPopup.getContent() && KSA_MAP_CONTROLS.flightPositionPopup.getContent().includes(e.target._myId)) KSA_MAP_CONTROLS.flightPositionPopup.close();
   });
 
   // draw the ground track

@@ -212,13 +212,13 @@ const KSA_MAP_CONTROLS = {
   
   // Popup instances
   vesselPositionPopup: L.popup({
-    offset: new L.Point(KSA_CONSTANTS.POPUP_OFFSETS.VESSEL_POSITION.x, 
-                        KSA_CONSTANTS.POPUP_OFFSETS.VESSEL_POSITION.y),
+    offset: [KSA_CONSTANTS.POPUP_OFFSETS.VESSEL_POSITION.x, 
+             KSA_CONSTANTS.POPUP_OFFSETS.VESSEL_POSITION.y],
     autoClose: false
   }),
   flightPositionPopup: L.popup({
-    offset: new L.Point(KSA_CONSTANTS.POPUP_OFFSETS.FLIGHT_POSITION.x,
-                        KSA_CONSTANTS.POPUP_OFFSETS.FLIGHT_POSITION.y),
+    offset: [KSA_CONSTANTS.POPUP_OFFSETS.FLIGHT_POSITION.x,
+             KSA_CONSTANTS.POPUP_OFFSETS.FLIGHT_POSITION.y],
     autoClose: false,
     maxWidth: 500
   }),
