@@ -361,7 +361,7 @@ function loadMap(map) {
   }
 
   // add a new layer control to let ppl know data is being loaded
-  if (!ops.surface.layerControl) { ops.surface.layerControl = L.control.groupedLayers().addTo(ops.surface.map); }
+  if (!ops.surface.layerControl) { ops.surface.layerControl = L.control.groupedLayers(null, null, { groupCheckboxes: ["Flight Tracks"] }).addTo(ops.surface.map); }
   ops.surface.layerControl.addOverlay(ops.surface.loadingLayer, "<i class='fa fa-cog fa-spin'></i> Loading Data...");
   ops.surface.layerControl._expand();
   ops.surface.layerControl.options.collapsed = false;
@@ -402,7 +402,7 @@ function loadMapDataAJAX(xhttp) {
   
   // remove the previous control and load the base layer
   if (ops.surface.layerControl) ops.surface.map.removeControl(ops.surface.layerControl);
-  ops.surface.layerControl = L.control.groupedLayers().addTo(ops.surface.map);
+  ops.surface.layerControl = L.control.groupedLayers(null, null, { groupCheckboxes: ["Flight Tracks"] }).addTo(ops.surface.map);
   
   // these labels are dependent on the actual time not whatever historic time we might be in
   if (ops.surface.Data.Aerial >= 0 && ops.surface.Data.Aerial <= dateToUT(luxon.DateTime.utc())) { var strSatLabel = "Aerial"; }
