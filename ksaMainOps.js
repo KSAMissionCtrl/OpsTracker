@@ -167,7 +167,7 @@ function setupContent() {
     $("#liveReloadIcon").html("<i class=\"fa-solid fa-clock-rotate-left\" style=\"cursor: pointer;\"></i>");
 
     // setup click handler for the link icon
-    $("#liveReloadIcon").click(function() {
+    $("#liveReloadIcon").on("click", function() {
       $("#liveReloadIcon").html("<i class=\"fa-solid fa-clock-rotate-left fa-spin fa-spin-reverse\"></i>");
       var newUrl = window.location.href;
       if (ops.currentVessel && ops.pageType == "vessel" && !getParameterByName("ut")) newUrl += "&ut=" + ops.currentVessel.CraftData.UT;
@@ -179,7 +179,7 @@ function setupContent() {
      $("#liveReloadIcon").html("<i class=\"fa-solid fa-clock-rotate-left fa-flip-horizontal\" style=\"cursor: pointer;\"></i>");
 
     // setup click handler for the link icon
-    $("#liveReloadIcon").click(function() {
+    $("#liveReloadIcon").on("click", function() {
       $("#liveReloadIcon").html("<i class=\"fa-solid fa-clock-rotate-left fa-flip-horizontal fa-flip-spin\"></i>");
       var newUrl = window.location.href;
       if (ops.pageType == "vessel" && ops.currentVessel && ops.currentVessel.CraftData) {
@@ -194,7 +194,7 @@ function setupContent() {
     });
   }
 
-  $("#copyLinkIcon").click(function() {
+  $("#copyLinkIcon").on("click", function() {
     var queryString = window.location.search;
     var sanitizedUrl = "http://ops.kerbalspace.agency/" + queryString;
     if (KSA_UI_STATE.isMapShown && !sanitizedUrl.includes("map")) sanitizedUrl += "&map";
@@ -254,7 +254,7 @@ function setupContent() {
     }
   });
 
-  $("#adminIcon").click(function() {
+  $("#adminIcon").on("click", function() {
     window.open("admin.htm", "_blank");
   });
 
@@ -313,12 +313,12 @@ function setupContent() {
   if (KSA_UI_STATE.isLivePastUT) {
 
     // Add click handler to open time picker dialog
-    $("#ksctime").click(function() {
+    $("#ksctime").on("click", function() {
       openTimePicker(currUT());
       if (ops.ascentData) ops.ascentData.isPaused = true;
     });
     
-    $("#resetHistoricTime").click(function() {
+    $("#resetHistoricTime").on("click", function() {
       $("#resetHistoricTime").html("<i class=\"fa-solid fa-arrow-rotate-right fa-spin\" style=\"color: #000000;\"></i>");
       var newUrl = window.location.href;
       if (!getParameterByName("ut")) newUrl += "&ut=" + ops.UT;
@@ -341,7 +341,7 @@ function setupContent() {
       newUrl += "&live";
       window.location.href = newUrl;
     });
-    $("#advanceEvent").click(function() {
+    $("#advanceEvent").on("click", function() {
 
       // cancel the FF or start a new one depending on current state
       if ($("#advanceEvent").html().includes("fa-beat")) {
@@ -585,7 +585,7 @@ function setupContent() {
   $("#nodes").prop('checked', true);
   $("#labels").prop('checked', true);
   $("#ref").prop('checked', true);
-  $("input").change(function () {
+  $("input").on("change", function () {
     if ($(this).attr("name") == "nodes") toggleNodes($(this).is(":checked"));
     if ($(this).attr("name") == "labels") toggleLabels($(this).is(":checked"));
     if ($(this).attr("name") == "orbits") toggleOrbits($(this).is(":checked"));

@@ -211,11 +211,11 @@ function writeManeuverinfo(data) {
 // called once the GGB figure is done loading so switching to a vessel doesn't cut off the load
 function activateEventLinks() {
   $("#manueverLink").addClass("fauxLink");
-  $("#manueverLink").click(function() {
+  $("#manueverLink").on("click", function() {
     swapContent('vessel', $("#manueverLink").attr("db"));
   });
   $("#launchLink").addClass("fauxLink");
-  $("#launchLink").click(function() {
+  $("#launchLink").on("click", function() {
     swapContent('vessel', $("#launchLink").attr("db"));
   });
 }

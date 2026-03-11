@@ -308,7 +308,7 @@ function addGGBOrbitAJAX(xhttp) {
                                           isHidden: false});
 
       // enable this vessel type in the filters menu
-      $("#" + strVesselType + "-filter").removeAttr("disabled");
+      $("#" + strVesselType + "-filter").prop('disabled', false);
       $("#" + strVesselType + "-filter").prop('checked', true);
       $("#" + strVesselType + "-label").css('color', KSA_COLORS.orbitColors[strVesselType]);
       

@@ -703,7 +703,7 @@ function rsToObj(data) {
           for (i=2; i<pair.length; i++) pair[1] += "~" + pair[i];
           object[pair[0]] = pair[1];
         } else {
-          if ($.isNumeric(pair[1])) {
+          if (!isNaN(pair[1]) && pair[1].trim() !== "") {
             object[pair[0]] = parseFloat(pair[1]);
           } else {
             if (pair[1].toLowerCase() == "false") object[pair[0]] = false;

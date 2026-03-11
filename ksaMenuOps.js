@@ -191,8 +191,8 @@ function loadMenuAJAX(xhttp) {
   // isMenuSorted flag will be set inside filterInactiveMenu after sorting completes
   filterInactiveMenu();
   filterCrewMenu();
-  $('input:radio[name=inactive]').change(function () { filterInactiveMenu(); });
-  $('input:radio[name=roster]').change(function () { filterCrewMenu(); });
+  $('input:radio[name=inactive]').on('change', function () { filterInactiveMenu(); });
+  $('input:radio[name=roster]').on('change', function () { filterCrewMenu(); });
   
   // show what was loaded if there are no cookies, otherwise we need to wait for a cookie check after ops data load
   if (!checkCookies()) {
@@ -812,7 +812,7 @@ function addMenuItem(item, newAdd = false) {
     }
 
     // enable & check the checkbox for this type of vessel
-    $("#" + item.type + "-menu").removeAttr("disabled");
+    $("#" + item.type + "-menu").prop('disabled', false);
     $("#" + item.type + "-menu").prop('checked', true);
     
     // as an active vessel, we will want to check for future data

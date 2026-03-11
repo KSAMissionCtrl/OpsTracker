@@ -1053,12 +1053,12 @@ function vesselContentUpdate(update) {
 
 // JQuery callbacks
 // only handle this if the page is a vessel instead of crew
-$("#infoBox").hover(function() { 
+$("#infoBox").on("mouseenter", function() { 
   if (ops.pageType == "vessel" && ops.currentVessel && !ops.ascentData.active) {
     if (!$("#infoDialog").dialog("isOpen")) $("#infoTitle").html("Click Here for Additional Information");
     $("#partsImg").fadeIn();
   }
-}, function() {
+}).on("mouseleave", function() {
   if (ops.pageType == "vessel" && ops.currentVessel && !ops.ascentData.active) {
   
     // wait to give tooltips a chance to hide on mouseover before checking to see if we're actually off the image
@@ -1073,10 +1073,10 @@ $("#infoBox").hover(function() {
 });
 
 // upon selection of a new list item, take the user to that event
-$("#prevEvent").change(function () {
+$("#prevEvent").on("change", function () {
   if ($("#prevEvent").val()) swapContent("vessel", ops.currentVessel.Catalog.DB, parseFloat($("#prevEvent").val()));
 });
-$("#nextEvent").change(function () {
+$("#nextEvent").on("change", function () {
   
   // could be a future event
   if ($("#nextEvent").val() && $("#nextEvent").val() != "Next Event(s)") { 
