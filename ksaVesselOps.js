@@ -822,8 +822,8 @@ function vesselHistoryUpdate() {
   $("#nextEvent").prop("disabled", true);
   
   // disable history buttons - they will be re-enabled as needed
-  $("#prevEventButton").button("option", "disabled", true);
-  $("#nextEventButton").button("option", "disabled", true);
+  $("#prevEventButton").button("disable");
+  $("#nextEventButton").button("disable");
   
   // fill up the previous events
   ops.currentVessel.History.reverse().forEach(function(item) {
@@ -834,7 +834,7 @@ function vesselHistoryUpdate() {
           text: item.Title
         }));
         $("#prevEvent").prop("disabled", false);
-        $("#prevEventButton").button("option", "disabled", false);
+        $("#prevEventButton").button("enable");
       }
     }
   });
@@ -849,7 +849,7 @@ function vesselHistoryUpdate() {
         text: item.Title
       }));
       $("#nextEvent").prop("disabled", false);
-      $("#nextEventButton").button("option", "disabled", false);
+      $("#nextEventButton").button("enable");
 
     // otherwise if it's a previous event we do want the most recent event in this list
     } else if (ops.currentVessel.CraftData.pastEvent && item.UT > ops.currentVessel.CraftData.UT && item.UT <= currUT()) {
@@ -858,7 +858,7 @@ function vesselHistoryUpdate() {
         text: item.Title
       }));
       $("#nextEvent").prop("disabled", false);
-      $("#nextEventButton").button("option", "disabled", false);
+      $("#nextEventButton").button("enable");
     }
   });
 
@@ -1082,14 +1082,12 @@ $("#nextEvent").on("change", function () {
   if ($("#nextEvent").val() && $("#nextEvent").val() != "Next Event(s)") { 
     if (isNaN($("#nextEvent").val())) {
       $("#siteDialog").html($("#nextEvent").val());
-      $("#siteDialog").dialog("option", "title", "Scheduled Event");
-      $("#siteDialog").dialog("option", "width", 250);
-      $("#siteDialog").dialog( "option", "buttons", [{
+      $("#siteDialog").dialog("option", { title: "Scheduled Event", width: 250, buttons: [{
         text: "Close",
         click: function() { 
           $("#siteDialog").dialog("close");
         }
-      }]);
+      }]});
       $("#siteDialog").dialog("open");
       $("#nextEvent").val("Next Event(s)");
     } else swapContent("vessel", ops.currentVessel.Catalog.DB, parseFloat($("#nextEvent").val()));
@@ -1104,8 +1102,8 @@ function prevHistoryButton() {
     if (ops.currentVessel.History[histIndex].UT < ops.currentVessel.CraftData.UT) break;
   }
   swapContent("vessel", ops.currentVessel.Catalog.DB, ops.currentVessel.History[histIndex].UT);
-  if (histIndex == 0) $("#prevEventButton").button("option", "disabled", true);
-  $("#nextEventButton").button("option", "disabled", false);
+  if (histIndex == 0) $("#prevEventButton").button("disable");
+  $("#nextEventButton").button("enable");
 }
 function nextHistoryButton() {
   if (!ops.currentVessel) return; // clicked too fast, in between data calls
@@ -1117,14 +1115,14 @@ function nextHistoryButton() {
 
   // not just null the button if this is the last event, but also be sure to request current information if the vessel is active
   if (histIndex == ops.currentVessel.History.length-1) {
-    $("#nextEventButton").button("option", "disabled", true);
+    $("#nextEventButton").button("disable");
     if (ops.activeVessels.find(o => o.db === ops.currentVessel.Catalog.DB)) timeStamp = currUT();
   
   // otherwise if there is more history, see if the next event is in the future and if so this event we are requesting is current and should be fetched with the current time
   } else if (ops.currentVessel.History[histIndex+1].UT > currUT()) timeStamp = currUT();
 
   swapContent("vessel", ops.currentVessel.Catalog.DB, timeStamp);
-  $("#prevEventButton").button("option", "disabled", false);
+  $("#prevEventButton").button("enable");
 }
 
 // opens the dialog box with more details - this is the same box that holds crew details, was just implemented here first
@@ -1458,8 +1456,8 @@ function setupStreamingAscent() {
   if (!ops.currentVessel.CraftData.pastEvent) {
     $("#prevEvent").prop("disabled", true);
     $("#nextEvent").prop("disabled", true);
-    $("#prevEventButton").button("option", "disabled", true);
-    $("#nextEventButton").button("option", "disabled", true);
+    $("#prevEventButton").button("disable");
+    $("#nextEventButton").button("disable");
     $("#dataLabel").html("Live Telemetry");
   } else $("#dataLabel").html("Mission History");
 

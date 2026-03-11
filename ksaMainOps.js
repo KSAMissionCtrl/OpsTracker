@@ -537,7 +537,7 @@ function setupContent() {
                           closeOnEscape: false, 
                           resizable: false, 
                           draggable: false,
-                          dialogClass: "no-close",
+                          classes: { "ui-dialog": "no-close" },
                           width: 450,
                           height: "auto",
                           hide: { effect: "fade", duration: 300 }, 
@@ -561,7 +561,7 @@ function setupContent() {
                             resizable: false, 
                             draggable: false,
                             modal: true,
-                            dialogClass: "no-close",
+                            classes: { "ui-dialog": "no-close" },
                             width: 620,
                             height: "auto",
                             hide: { effect: "fade", duration: 300 }, 
@@ -641,8 +641,7 @@ function setupContent() {
   if (checkCookies()) {
     if (!localStorage.getItem("ksaOps_lastVisit")) {
       $("#siteDialog").html("<img src='http://www.kerbalspace.agency/KSA/wp-content/uploads/2016/01/KSAlogo_new_190x250.png' style='float: left; margin: 0px 5px 0px 0px; width: 25%'>The Operations Tracker is your view into everything that is happening right now at the Kerbal Space Agency. There is a lot to view and explore - we suggest starting with the Wiki to get an idea of all you can do here. We ask you take note the Operations Tracker is under <b>heavy ongoing development</b> and may at times be inaccessible for short periods. Please help us make this the best experience possible by <a href='https://github.com/KSAMissionCtrl/OpsTracker/issues' target='_blank'>submitting bug reports</a> if you come across any problems not listed in our <a href='https://github.com/KSAMissionCtrl/OpsTracker#known-issues' target='_blank'>Known Issues</a>. Enjoy exploring the Kerbol system with us <img src='http://www.kerbalspace.agency/KSA/wp-content/uploads/2017/12/jef2zahe.png'>");
-      $("#siteDialog").dialog("option", "title", "Welcome, new visitor!");
-      $("#siteDialog").dialog( "option", "buttons", [{
+      $("#siteDialog").dialog("option", { title: "Welcome, new visitor!", buttons: [{
         text: "View wiki",
         click: function() { 
           window.open("https://github.com/KSAMissionCtrl/OpsTracker/wiki");
@@ -653,7 +652,7 @@ function setupContent() {
         click: function() { 
           $("#siteDialog").dialog("close");
         }
-      }]);
+      }]});
       $("#siteDialog").dialog("open");
     }
   }
@@ -1060,8 +1059,7 @@ function setupFFNextEvent(bStopAny) {
       });
       if (!dialogText) dialogText = "There are no further historical events to fast forward to";
       $("#siteDialog").html(dialogText);
-      $("#siteDialog").dialog("option", "title", "Notice");
-      $("#siteDialog").dialog("option", "buttons", dialogButtons);
+      $("#siteDialog").dialog("option", { title: "Notice", buttons: dialogButtons });
       $("#siteDialog").dialog("open");
       return;
     }
@@ -1477,14 +1475,13 @@ function openSocialPost(tweetid) {
 
   if (!bOpened && !localStorage.getItem('ksaOps_socialMsgSeen')) {
     $("#siteDialog").html("We can't take you directly to this post, but you will likely have found it easily within the main profile feed as this issue generally only affects posts within the past few days. There is also the chance that it was not posted at all here. For more information <a href='https://github.com/KSAMissionCtrl/OpsTracker/wiki/Social-Feed' target='_blank'>see our wiki</a><br><br><label style='cursor: pointer;'><input type='checkbox' id='socialMsgDontShow' checked style='cursor: pointer;'> Don't show again</label>");
-    $("#siteDialog").dialog("option", "title", "Social Feeds Notice");
-    $("#siteDialog").dialog( "option", "buttons", [{
+    $("#siteDialog").dialog("option", { title: "Social Feeds Notice", buttons: [{
       text: "Close",
       click: function() { 
         if ($("#socialMsgDontShow").is(":checked")) localStorage.setItem('ksaOps_socialMsgSeen', 'true');
         $("#siteDialog").dialog("close");
       }
-    }]);
+    }]});
     $("#siteDialog").dialog("open");
   }
 }

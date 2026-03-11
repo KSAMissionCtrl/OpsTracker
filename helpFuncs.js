@@ -535,9 +535,10 @@ function openTimePicker(currentUT) {
   
   // Initial display update
   updateTimeDisplay();
-  $("#siteDialog").dialog("option", "title", "Set Time");
-  $("#siteDialog").dialog("option", "width", 400);
-  $("#siteDialog").dialog("option", "buttons", [{
+  $("#siteDialog").dialog("option", {
+    title: "Set Time",
+    width: 400,
+    buttons: [{
     text: "Apply",
     click: function() {
       try {
@@ -603,7 +604,7 @@ function openTimePicker(currentUT) {
       KSA_TIMERS.tickTimer = setTimeout(tick, 1);
       if (ops.ascentData) ops.ascentData.isPaused = false;
     }
-  }]);
+  }]});
   
   // Open the dialog
   $("#siteDialog").dialog("open");
