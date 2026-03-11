@@ -535,7 +535,7 @@ function figureClick(object) {
       openObjectTags("http://www.kerbalspace.agency/?tag=", ",");
     });
     $(".body-image-clickable").on('mouseup', function(e) {
-      if (e.which === 2) {
+      if (e.button === 1) {
         e.preventDefault();
         openObjectTags("http://www.kerbalspace.agency/?tag=", ",");
         openObjectTags("https://www.flickr.com/search/?user_id=kerbal_space_agency&view_all=1&tags=(", "+OR+", ")+-archive");

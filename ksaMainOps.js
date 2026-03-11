@@ -488,10 +488,6 @@ function setupContent() {
   $('input:radio[name=roster]').filter('[id=name]').prop('checked', true);
   $('input:radio[name=inactive]').filter('[id=type]').prop('checked', true);
 
-  // set up for AJAX requests
-  // https://www.w3schools.com/xml/ajax_intro.asp
-  // don't allow AJAX to cache data, which mainly screws up requests for updated vessel times for notifications
-  $.ajaxSetup({ cache: false });
   
   // even if we don't need it right away, likely to need it eventually so just set it up now with the rest of the page
   initializeMap();
@@ -604,7 +600,7 @@ function setupContent() {
     openObjectTags("http://www.kerbalspace.agency/?tag=", ",");
   });
   $("#tags").on('mouseup', function(e) {
-    if (e.which === 2) {
+    if (e.button === 1) {
       e.preventDefault();
       openObjectTags("http://www.kerbalspace.agency/?tag=", ",");
       openObjectTags("https://www.flickr.com/search/?user_id=kerbal_space_agency&view_all=1&tags=(", "+OR+", ")+-archive");

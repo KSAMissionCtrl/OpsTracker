@@ -126,7 +126,6 @@ function loadMenuAJAX(xhttp) {
 
       // do not register an event if a surface map is loading
       if (ops.surface.isLoading) return;
-      console.log(event);
 
       if (event.object.img.includes("body")) {
         if (event.object.parent.id == "inactiveVessels") swapContent("body", event.object.text.split(" ")[0] + "-System");
@@ -191,8 +190,8 @@ function loadMenuAJAX(xhttp) {
   // isMenuSorted flag will be set inside filterInactiveMenu after sorting completes
   filterInactiveMenu();
   filterCrewMenu();
-  $('input:radio[name=inactive]').on('change', function () { filterInactiveMenu(); });
-  $('input:radio[name=roster]').on('change', function () { filterCrewMenu(); });
+  $('input[type=radio][name=inactive]').on('change', function () { filterInactiveMenu(); });
+  $('input[type=radio][name=roster]').on('change', function () { filterCrewMenu(); });
   
   // show what was loaded if there are no cookies, otherwise we need to wait for a cookie check after ops data load
   if (!checkCookies()) {
@@ -222,14 +221,14 @@ function filterVesselMenu(id, checked) {
 function filterInactiveMenu(id, selectId) {
 
   // set cursor to wait while sorting - only target body and menu to preserve inline cursor styles
-  $('body, #menuBox, #menuBox *').css('cursor', 'wait', 'important');
+  $('body, #menuBox, #menuBox *').css('cursor', 'wait');
   $('body').addClass('wait-cursor');
 
   // use setTimeout to allow cursor change to render before sorting begins
   setTimeout(function() {
     
     // if a value was passed in, enable that radio option before we check to see what is selected
-    if (id) $('input:radio[name=inactive]').filter('[id=' + id + ']').prop('checked', true);
+    if (id) $('input[type=radio][name=inactive]').filter('[id=' + id + ']').prop('checked', true);
     var currOption = $("input[name=inactive]").filter(":checked").val();
 
     // reset the count to 0
@@ -359,13 +358,13 @@ function filterInactiveMenu(id, selectId) {
 function filterCrewMenu(id) {
 
   // set cursor to wait while sorting - only target body and menu to preserve inline cursor styles
-  $('body, #menuBox, #menuBox *').css('cursor', 'wait', 'important');
+  $('body, #menuBox, #menuBox *').css('cursor', 'wait');
   $('body').addClass('wait-cursor');
 
   // use setTimeout to allow cursor change to render before sorting begins
   setTimeout(function() {
     // if a value was passed in, enable that radio option before we check to see what is selected
-    if (id) $('input:radio[name=roster]').filter('[id=' + id + ']').prop('checked', true);
+    if (id) $('input[type=radio][name=roster]').filter('[id=' + id + ']').prop('checked', true);
     var currOption = $("input[name=roster]").filter(":checked").val();
 
   // reset the count to 0

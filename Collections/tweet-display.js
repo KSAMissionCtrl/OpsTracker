@@ -251,7 +251,7 @@ var TweetDisplay = (function() {
       });
 
       // only note a couple missing since we may be pulling from the trimmed file
-      if (missingIds.length <= 5) {
+      if (missingIds.length && missingIds.length <= 5) {
         console.warn('[Tweet Loader] Missing ' + missingIds.length + ' tweets:', missingIds);
       }
 

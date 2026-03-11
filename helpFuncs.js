@@ -289,7 +289,7 @@ function getParameterByName(name) {
 String.prototype.width = function(font) {
   try {
     var f = font || '12px arial',
-        o = $('<div>' + this + '</div>')
+        o = $('<div>').text(String(this))
               .css({'position': 'absolute', 'float': 'left', 'white-space': 'nowrap', 'visibility': 'hidden', 'font': f})
               .appendTo($('body')),
         w = o.width();
@@ -618,16 +618,12 @@ function dateToUT(dateTime) {
 function stillSpinning() {
   var hasSpinner = false;
   $('*').each(function() {
+    var data = $(this).data();
 
-    // Only check elements that have jQuery data (much faster than checking all elements)
-    if ($.hasData(this)) {
-      var data = $(this).data();
-      
-      // Check if spinner exists and is active (has an el property)
-      if (data && data.spinner && data.spinner.el) {
-        hasSpinner = true;
-        return false; // break out of each() loop early
-      }
+    // Check if spinner exists and is active (has an el property)
+    if (data && data.spinner && data.spinner.el) {
+      hasSpinner = true;
+      return false; // break out of each() loop early
     }
   });
   
