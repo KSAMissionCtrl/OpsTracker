@@ -239,11 +239,19 @@ input:disabled+label {
 
 .imgmap {
   width: 10px;
-  height: 10px; 
-  background-color: blue;
-  opacity: 0;
+  height: 10px;
+  background-color: #0026FF;
+  border-radius: 50%;
+  border: 1px solid #FF0000;
+  box-shadow: 0 0 4px rgba(0, 38, 255, 0.9);
   position: absolute;
   cursor: help;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.imgmap:hover {
+  transform: scale(1.5);
+  box-shadow: 0 0 8px rgba(0, 38, 255, 1);
 }
 
 .historyButton {

@@ -413,22 +413,14 @@ function vesselInfoUpdate(update) {
   // is there a parts overlay?
   if (getPartsHTML()) {
     var partsImgHTML = '';
-    var imgMapData = getPartsHTML();
-    
-    // create divs for every <area> tag
-    imgMapData.split("<area").forEach(function(item) {
-      if (item.includes('coords="')) {
-        var areaCenter = item.split('coords="')[1].split('"')[0].split(",");
-        partsImgHTML += "<div id='" + item.split('title="&')[1].split('"')[0] + "' ";
-        if (item.includes("amount")) partsImgHTML += "amount='" + item.split('amount="')[1].split('"')[0] + "' ";
-        partsImgHTML += "class='imgmap' style='top: " + (parseInt(areaCenter[1])-5) + "px; ";
-        partsImgHTML += "left: " + (parseInt(areaCenter[0])+$("#infoBox").position().left+$("#mainContent").position().left-5) + "px;";
-        partsImgHTML += "'></div>";
-      }
+
+    parsePartsData(getPartsHTML()).forEach(function(part) {
+      partsImgHTML += "<div id='" + part.id + "' ";
+      if (part.amount) partsImgHTML += "amount='" + part.amount + "' ";
+      partsImgHTML += "class='imgmap' style='top: " + (part.y - 5) + "px; ";
+      partsImgHTML += "left: " + (part.x - 5) + "px;";
+      partsImgHTML += "'></div>";
     });
-    
-    // extract the image name
-    partsImgHTML += "<img src='https://i.imgur.com/" + imgMapData.split("/")[3].split(".")[0] + ".png'/>";
 
     $("#partsImg").html(partsImgHTML);
     setTimeout(function() { if (!$('#infoBox').is(":hover")) $("#partsImg").fadeOut(1000); }, 1000);
@@ -1056,6 +1048,17 @@ $("#infoBox").on("mouseenter", function() {
   }
 });
 
+// right-click on the vessel image outputs click coords relative to the image for dot authoring
+$("#infoImg").on("contextmenu", function(e) {
+  var img = $("#infoImg img")[0];
+  if (!img) return;
+  var rect = img.getBoundingClientRect();
+  var x = Math.round(e.clientX - rect.left);
+  var y = Math.round(e.clientY - rect.top);
+  console.log("Parts dot coords: " + x + "," + y + ",partId");
+  e.preventDefault();
+});
+
 // upon selection of a new list item, take the user to that event
 $("#prevEvent").on("change", function () {
   if ($("#prevEvent").val()) swapContent("vessel", ops.currentVessel.Catalog.DB, parseFloat($("#prevEvent").val()));
@@ -1148,7 +1151,7 @@ function assignPartInfo() {
         if (ops.currentVessel.Catalog.DB.match(regex)) strPartHtml += "<b>Note:</b> " + note.split("%")[1];
       });
     }
-    Tipped.create("#" + part.Part, strPartHtml, { showOn: showOpt, hideOnClickOutside: is_touch_device(), target: 'mouse', offset: { y: 2 } });
+    Tipped.create("#" + part.Part, strPartHtml, { showOn: showOpt, hideOnClickOutside: is_touch_device(), offset: { x: 3, y: -3 } });
   });
 }
 
@@ -1252,6 +1255,37 @@ function getPartsHTML() {
       return ops.currentVessel.CraftData.CraftImg.split("|")[KSA_UI_STATE.vesselRotationIndex].split("~")[3];
     } else return null;
   }
+}
+
+// parses parts data from either the legacy <area> HTML format or the compact format: partId,x,y[,amount];...
+// returns an array of { id, x, y, amount } objects
+function parsePartsData(data) {
+  var parts = [];
+  if (data.includes('<area')) {
+    data.split('<area').forEach(function(item) {
+      if (item.includes('coords="')) {
+        var areaCenter = item.split('coords="')[1].split('"')[0].split(',');
+        parts.push({
+          id: item.split('title="&')[1].split('"')[0],
+          x: parseInt(areaCenter[0]),
+          y: parseInt(areaCenter[1]),
+          amount: item.includes('amount="') ? item.split('amount="')[1].split('"')[0] : null
+        });
+      }
+    });
+  } else {
+    data.split(';').forEach(function(item) {
+      if (!item) return;
+      var fields = item.split(',');
+      parts.push({
+        x: parseInt(fields[0]),
+        y: parseInt(fields[1]),
+        id: fields[2],
+        amount: fields[3] || null
+      });
+    });
+  }
+  return parts;
 }
 function getMissionEndTime() {
   if (!ops.currentVessel.Catalog.MissionEnd) return null;
