@@ -3845,7 +3845,7 @@ function markerHandler(objName, isVessel) {
   if (isVessel) {
     swapContent("vessel", ops.activeVessels.find(o => o.db === objName).db);
   } else {
-    obj = ops.bodyCatalog.find(o => o.Body === objName);
+    swapContent("body", objName);
   }
 }
 
