@@ -267,6 +267,9 @@ function loadVesselAJAX(xhttp, flags) {
                         AscentData: ascentData,
                         timelineTweets: null,
                         initLoad: null };
+
+  // Reset the orbit stack when switching to a different vessel; preserve it for state changes within the same vessel.
+  if (_vofObtStack.db !== catalog.DB) { _vofObtStack.db = catalog.DB; _vofObtStack.stack = []; }
   if (ops.currentVessel.Resources) ops.currentVessel.Resources.resIndex = 0;
   if (flags) ops.currentVessel.initLoad = flags.initLoad;
   
@@ -851,6 +854,904 @@ function vesselHistoryUpdate() {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Vessel orbit figures — two-viewport Three.js scene for old-data flight content
+// ---------------------------------------------------------------------------
+// Shared state for the two inline orbit viewports (one scene, two cameras/renderers).
+// Initialised by initVesselOrbitScene(), nulled by disposeVesselOrbitScene().
+var _vof          = null;  // { sunOE, worldUp, animId, left, right } — left/right each hold { scene, sunLight, orbitGroup, nodes, renderer, labelRenderer, camera, controls, ... }
+var _vofFocused   = null;  // 'left' | 'right' — which viewport currently receives keyboard input
+var _vofKdHandler = null;  // stored keydown listener so it can be removed on disposal
+var _vofKuHandler = null;  // stored keyup   listener so it can be removed on disposal
+var _vofObtStack  = { db: null, stack: [] };  // orbit stack persisted across state changes; reset on vessel change
+var _VOF_NODE_MIN_PX = 3;    // target screen-pixel radius for Pe/Ap/AN/DN node markers (tweakable)
+var _VOF_FIT_PADDING  = 0.8; // margin multiplier for initial camera fit (1.0 = tight, higher = more padding)
+
+// Tear down the vessel orbit figures completely: cancel animation, dispose GPU
+// resources, remove DOM label elements, and remove keyboard listeners.
+function disposeVesselOrbitScene() {
+  if (!_vof) return;
+  if (_vof.animId !== null) { cancelAnimationFrame(_vof.animId); _vof.animId = null; }
+  ['left', 'right'].forEach(function(side) {
+    var vp = _vof[side];
+    if (!vp) return;
+    if (vp.scene) {
+      vp.scene.traverse(function(obj) {
+        // CSS2DObject label elements must be removed from the DOM manually.
+        if (obj.isCSS2DObject && obj.element && obj.element.parentNode) {
+          obj.element.parentNode.removeChild(obj.element);
+        }
+        if (obj.isMesh || obj.isLine) {
+          if (obj.geometry) obj.geometry.dispose();
+          if (obj.material) {
+            if (Array.isArray(obj.material)) obj.material.forEach(function(m) { m.dispose(); });
+            else obj.material.dispose();
+          }
+        }
+      });
+      vp.scene = null;
+    }
+    if (vp.controls) { vp.controls.dispose(); vp.controls = null; }
+    if (vp.renderer) { vp.renderer.dispose(); vp.renderer = null; }
+    vp.labelRenderer = null;
+    vp.camera        = null;
+    vp.keysDown      = {};
+    vp.ctrlDown      = false;
+  });
+  if (_vofKdHandler) { document.removeEventListener('keydown', _vofKdHandler); _vofKdHandler = null; }
+  if (_vofKuHandler) { document.removeEventListener('keyup',   _vofKuHandler); _vofKuHandler = null; }
+  _vofFocused = null;
+  _vof        = null;
+}
+
+// Build independent Three.js scenes for the vessel's orbit, one per viewport, rendered
+// into #vesselFigLeft (+X camera, ecliptic side view) and #vesselFigRight (+Z camera, polar top-down view).
+// Each viewport has its own scene so CSS2D label DOM nodes are never shared between them.
+// Clicking the orbit line shows Pe/Ap/AN/DN nodes in both views; clicking again or off hides them.
+// Must be called only after the two container divs are already in the DOM.
+function initVesselOrbitScene(obtBody) {
+  if (!THREE || !obtBody) return;
+  disposeVesselOrbitScene();  // always start clean
+
+  var orbit = ops.currentVessel && ops.currentVessel.Orbit;
+  if (!orbit) return;
+
+  var SIZE    = 475;                            // px per square viewport
+  var worldUp = new THREE.Vector3(0, 0, 1);    // Z is orbital north pole
+
+  // ── Orbital elements from the vessel's flight-data record ─────────────────
+  var ecc        = parseFloat(orbit.Eccentricity) || 0;
+  var sma        = (ecc >= 1) ? Math.abs(parseFloat(orbit.SMA) || 1)
+                              :           parseFloat(orbit.SMA) || 1;
+  var inc        = Math.radians(parseFloat(orbit.Inclination) || 0);
+  var raan       = Math.radians(parseFloat(orbit.RAAN)        || 0);
+  var arg        = Math.radians(parseFloat(orbit.Arg)         || 0);
+  var epoch      = parseFloat(orbit.Eph)           || 0;
+  var period     = parseFloat(orbit.OrbitalPeriod) || 1;
+
+  // Camera sits 2.5 × SMA from the central body; ensure it clears large bodies.
+  var cPhysR  = Math.max(parseFloat(obtBody.Radius) || 1, 1);
+
+  // Node marker radius — same proportions as buildBodyScene().
+  var nodeR = Math.max(sma * 0.0035, 1);
+
+  var cColor        = obtBody.Color || 'ffffff';
+  var cColorInt     = parseInt(cColor, 16);
+  var obtStack      = _vofObtStack.stack;
+  var _hasOtherStacked = obtStack.some(function(o) { return o.Eph != orbit.Eph; });
+  var orbitColorInt = _hasOtherStacked ? 0xFFFFFF : 0xFFD800;
+  var atmoR         = _atmoRadiusKm(obtBody);
+  var soiR          = _soiRadiusKm(obtBody);
+  var orbitPts      = orbitalElementsToEllipsePoints(sma, ecc, inc, raan, arg, 128, soiR);
+  var nodePositions = computeNodePositions(sma, ecc, inc, raan, arg);
+
+  // Pre-compute ellipse points and node data for each stacked orbit.
+  var stackedOrbitPts = [];  // kept for the camera-fit loop
+  var stackedOrbits = obtStack.map(function(so) {
+    var secc  = parseFloat(so.Eccentricity) || 0;
+    var ssma  = (secc >= 1) ? Math.abs(parseFloat(so.SMA) || 1) : (parseFloat(so.SMA) || 1);
+    var sinc  = Math.radians(parseFloat(so.Inclination) || 0);
+    var sraan = Math.radians(parseFloat(so.RAAN) || 0);
+    var sarg  = Math.radians(parseFloat(so.Arg)  || 0);
+    var pts   = orbitalElementsToEllipsePoints(ssma, secc, sinc, sraan, sarg, 128, soiR);
+    stackedOrbitPts.push(pts);
+    return { pts: pts, ecc: secc, inc: sinc, nodeR: Math.max(ssma * 0.0035, 1),
+             nodePositions: computeNodePositions(ssma, secc, sinc, sraan, sarg) };
+  });
+
+  // Fit both cameras to show the full trajectory on initial load.
+  // Left  view (+X axis): perpendicular spread is in the YZ plane.
+  // Right view (+Z axis): perpendicular spread is in the XY plane.
+  // Use the larger of the two required distances so both viewports open at
+  // the same zoom level and neither clips any part of the orbit.
+  var _fitTanHalf = Math.tan(THREE.MathUtils.degToRad(45 / 2));
+  var _maxYZ = 0, _maxXY = 0;
+  var _allOrbitPts = [orbitPts].concat(stackedOrbitPts);
+  _allOrbitPts.forEach(function(pts) {
+    pts.forEach(function(p) {
+      var yz = Math.sqrt(p.y * p.y + p.z * p.z);
+      var xy = Math.sqrt(p.x * p.x + p.y * p.y);
+      if (yz > _maxYZ) _maxYZ = yz;
+      if (xy > _maxXY) _maxXY = xy;
+    });
+  });
+  var camDist = Math.max(_maxYZ, _maxXY) / _fitTanHalf * _VOF_FIT_PADDING;
+  camDist = Math.max(camDist, cPhysR * 5);  // always clear the body surface
+
+  // ── Resolve sun orbital elements (same 3-case logic as buildBodyScene()) ──
+  var vofSunOE = null;
+  var kerbolData = ops.bodyCatalog.find(function(b) { return b.Body === 'Kerbol'; });
+  if (obtBody.Body !== 'Kerbol') {
+    var sunOrbitBody = null;
+    if (kerbolData && parseInt(obtBody.Ref) === parseInt(kerbolData.ID)) {
+      sunOrbitBody = obtBody;                                          // Case B: planet
+    } else if (kerbolData) {
+      var parentPlanet = ops.bodyCatalog.find(function(b) {
+        return parseInt(b.ID) === parseInt(obtBody.Ref);
+      });
+      if (parentPlanet && parseInt(parentPlanet.Ref) === parseInt(kerbolData.ID)) {
+        sunOrbitBody = parentPlanet;                                   // Case C: moon
+      }
+    }
+    if (sunOrbitBody) {
+      vofSunOE = {
+        sma:        parseFloat(sunOrbitBody.SMA)        || 1,
+        ecc:        parseFloat(sunOrbitBody.Ecc)        || 0,
+        inc:        Math.radians(parseFloat(sunOrbitBody.Inc)  || 0),
+        raan:       Math.radians(parseFloat(sunOrbitBody.RAAN) || 0),
+        arg:        Math.radians(parseFloat(sunOrbitBody.Arg)  || 0),
+        mean0:      Math.radians(parseFloat(sunOrbitBody.Mean) || 0),
+        epoch:      parseFloat(sunOrbitBody.Eph)        || 0,
+        meanMotion: (2 * Math.PI) / (parseFloat(sunOrbitBody.ObtPeriod) || 1)
+      };
+    }
+  }
+
+  // Compute the sun direction vector at the orbit epoch — fixed for the lifetime of the scene.
+  function _computeInitialSunDir() {
+    if (!vofSunOE) return null;
+    var oe  = vofSunOE;
+    var mn  = computeMeanAnomalyAtUT(oe.mean0, oe.meanMotion, epoch, oe.epoch, oe.ecc);
+    var en  = solveKeplerEquation(mn, oe.ecc);
+    var sp  = positionOnOrbit(oe.sma, oe.ecc, oe.inc, oe.raan, oe.arg, en);
+    return new THREE.Vector3(-sp.x, -sp.y, -sp.z);
+  }
+
+  // ── Helper: build one complete self-contained scene ────────────────────────
+  // Each scene has its own lights, sphere, orbit line, and node markers so that
+  // CSS2DObject DOM nodes are never shared between the two CSS2DRenderers.
+  function _buildVofScene() {
+    var sc = new THREE.Scene();
+    sc.add(new THREE.AmbientLight(0xffffff, 0.15));
+
+    // Directional sun light (null for Kerbol system).
+    var sunLight = null;
+    var initDir  = _computeInitialSunDir();
+    if (initDir) {
+      sunLight = new THREE.DirectionalLight(0xfff5e0, 0.8);
+      sunLight.position.copy(initDir);
+      sc.add(sunLight);
+    }
+
+    // Central body sphere — unlit (MeshBasicMaterial) when Kerbol itself is central.
+    var cSphereMat = (obtBody.Body === 'Kerbol')
+      ? new THREE.MeshBasicMaterial ({ color: cColorInt })
+      : new THREE.MeshLambertMaterial({ color: cColorInt });
+    var cSphere = new THREE.Mesh(new THREE.SphereGeometry(cPhysR, 48, 48), cSphereMat);
+    cSphere.userData.physicalRadius = cPhysR;
+    cSphere.userData.segs = 48;
+    sc.add(cSphere);
+
+    // Atmosphere shell — _makeAtmoMesh already sets userData.physicalRadius and userData.segs.
+    var atmoMesh = null;
+    if (atmoR > 0) { atmoMesh = _makeAtmoMesh(atmoR, cColorInt); sc.add(atmoMesh); }
+
+    // Stacked orbit lines + nodes (yellow) — drawn beneath the current orbit.
+    var stackedOrbitGroups = [];
+    var stackedNodes = [];
+    stackedOrbits.forEach(function(so) {
+      var og = _buildOrbitGroup(so.pts, 0xFFD800, atmoR, 'stackedOrbit');
+      sc.add(og);
+      stackedOrbitGroups.push(og);
+      var sns = { _nodeR: so.nodeR };
+      if (so.ecc) {
+        var spenode = _makeNodeMarker(so.nodePositions.periapsis, '0099ff', so.nodeR);
+        spenode.add(_makeBodyLabel('Pe', '0099ff', 0, 14));
+        spenode.visible = false; sc.add(spenode); sns.pe = spenode;
+        if (so.nodePositions.apoapsis) {
+          var sapnode = _makeNodeMarker(so.nodePositions.apoapsis, '0099ff', so.nodeR);
+          sapnode.add(_makeBodyLabel('Ap', '0099ff', 0, -14));
+          sapnode.visible = false; sc.add(sapnode); sns.ap = sapnode;
+        }
+      }
+      if (so.inc) {
+        if (so.nodePositions.ascendingNode) {
+          var sanode = _makeNodeMarker(so.nodePositions.ascendingNode, '33ff00', so.nodeR);
+          sanode.add(_makeBodyLabel('AN', '33ff00', -14, 0));
+          sanode.visible = false; sc.add(sanode); sns.an = sanode;
+        }
+        if (so.nodePositions.descendingNode) {
+          var sdnode = _makeNodeMarker(so.nodePositions.descendingNode, '33ff00', so.nodeR);
+          sdnode.add(_makeBodyLabel('DN', '33ff00', 14, 0));
+          sdnode.visible = false; sc.add(sdnode); sns.dn = sdnode;
+        }
+      }
+      stackedNodes.push(sns);
+    });
+
+    // Vessel orbit line (white when stacked orbits exist, yellow otherwise).
+    var orbitGroup = _buildOrbitGroup(orbitPts, orbitColorInt, atmoR, 'vesselOrbit');
+    sc.add(orbitGroup);
+
+    // Node markers — hidden until the user clicks the orbit.
+    var nodes = {};
+    if (ecc) {
+      var penode = _makeNodeMarker(nodePositions.periapsis, '0099ff', nodeR);
+      penode.add(_makeBodyLabel('Pe', '0099ff', 0, 14));
+      penode.visible = false;
+      sc.add(penode);
+      nodes.pe = penode;
+      if (nodePositions.apoapsis) {
+        var apnode = _makeNodeMarker(nodePositions.apoapsis, '0099ff', nodeR);
+        apnode.add(_makeBodyLabel('Ap', '0099ff', 0, -14));
+        apnode.visible = false;
+        sc.add(apnode);
+        nodes.ap = apnode;
+      }
+    }
+    if (inc) {
+      if (nodePositions.ascendingNode) {
+        var anode = _makeNodeMarker(nodePositions.ascendingNode, '33ff00', nodeR);
+        anode.add(_makeBodyLabel('AN', '33ff00', -14, 0));
+        anode.visible = false;
+        sc.add(anode);
+        nodes.an = anode;
+      }
+      if (nodePositions.descendingNode) {
+        var dnode = _makeNodeMarker(nodePositions.descendingNode, '33ff00', nodeR);
+        dnode.add(_makeBodyLabel('DN', '33ff00', 14, 0));
+        dnode.visible = false;
+        sc.add(dnode);
+        nodes.dn = dnode;
+      }
+    }
+
+    return { scene: sc, sunLight: sunLight, orbitGroup: orbitGroup, stackedOrbitGroups: stackedOrbitGroups,
+             nodes: nodes, stackedNodes: stackedNodes, sphere: cSphere, atmo: atmoMesh };
+  }
+
+  // ── Helper: build one renderer + CSS2D overlay + camera + OrbitControls ────
+  function _makeViewport(containerId, sceneData, camX, camY, camZ) {
+    var container = document.getElementById(containerId);
+    if (!container) return null;
+
+    var renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setPixelRatio(window.devicePixelRatio);
+    renderer.setSize(SIZE, SIZE);
+    renderer.setClearColor(0x000000, 1);
+    container.appendChild(renderer.domElement);
+
+    var labelRend = new THREE.CSS2DRenderer();
+    labelRend.setSize(SIZE, SIZE);
+    labelRend.domElement.style.position      = 'absolute';
+    labelRend.domElement.style.top           = '0px';
+    labelRend.domElement.style.pointerEvents = 'none';
+    container.appendChild(labelRend.domElement);
+
+    var camera = new THREE.PerspectiveCamera(45, 1, 1, 1e15);
+    camera.position.set(camX, camY, camZ);
+    camera.up.copy(worldUp);
+    camera.lookAt(0, 0, 0);
+
+    var controls = new THREE.OrbitControls(camera, renderer.domElement);
+    controls.object.up.copy(worldUp);
+    controls.enableDamping      = true;
+    controls.dampingFactor      = 0.08;
+    controls.screenSpacePanning = true;
+    controls.enablePan          = true;
+    controls.minPolarAngle      = 0.01;
+    controls.maxPolarAngle      = Math.PI - 0.01;
+    controls.minDistance        = 1;
+    controls.maxDistance        = 1e14;
+    controls.target.set(0, 0, 0);
+    controls.update();
+
+    var vp = {
+      scene:              sceneData.scene,
+      sunLight:           sceneData.sunLight,
+      orbitGroup:         sceneData.orbitGroup,
+      stackedOrbitGroups: sceneData.stackedOrbitGroups,
+      nodes:              sceneData.nodes,
+      stackedNodes:       sceneData.stackedNodes,
+      sphere:             sceneData.sphere,
+      atmo:               sceneData.atmo,
+      renderer:           renderer,
+      labelRenderer:      labelRend,
+      camera:             camera,
+      controls:           controls,
+      camUp:              worldUp,
+      keysDown:           {},
+      ctrlDown:           false,
+      _mouseDownPos:      { x: 0, y: 0 }
+    };
+
+    renderer.domElement.addEventListener('mousedown', function(e) {
+      _vofFocused = (containerId === 'vesselFigLeft') ? 'left' : 'right';
+      vp._mouseDownPos = { x: e.clientX, y: e.clientY };
+    });
+
+    return vp;
+  }
+
+  // Left:  camera on +X axis — ecliptic side view, sees inclination.
+  // Right: camera near +Z axis (pole) looking down — sees the orbit's XY footprint.
+  //        Nudged 0.0001 off the Z axis so worldUp (+Z) is not parallel to the view direction.
+  var leftSD  = _buildVofScene();
+  var rightSD = _buildVofScene();
+  var leftVP  = _makeViewport('vesselFigLeft',  leftSD,  camDist,          0, 0);
+  var rightVP = _makeViewport('vesselFigRight', rightSD, camDist * 0.0001, 0, camDist);
+  if (!leftVP || !rightVP) { disposeVesselOrbitScene(); return; }
+
+  // ── Corner view labels ─────────────────────────────────────────────────────
+  [{ id: 'vesselFigLeft', text: 'Ecliptic View' }, { id: 'vesselFigRight', text: 'Polar View (N)' }]
+    .forEach(function(cfg) {
+      var c = document.getElementById(cfg.id);
+      if (!c) return;
+      var lbl = document.createElement('div');
+      lbl.textContent = cfg.text;
+      lbl.style.position    = 'absolute';
+      lbl.style.bottom      = '6px';
+      lbl.style.left        = '6px';
+      lbl.style.color       = '#ffffff';
+      lbl.style.fontSize    = '11px';
+      lbl.style.pointerEvents = 'none';
+      lbl.style.userSelect  = 'none';
+      c.appendChild(lbl);
+    });
+
+  // ── Bottom-right rotation controls (left viewport only) ───────────────────
+  var _leftFigCtr = document.getElementById('vesselFigLeft');
+  if (_leftFigCtr) {
+    var _makeVofCtrlBtn = function(iconClass) {
+      var wrap = document.createElement('span');
+      wrap.style.display    = 'inline-block';
+      wrap.style.cursor     = 'pointer';
+      wrap.style.padding    = '3px 4px';
+      wrap.style.lineHeight = '1';
+      var icon       = document.createElement('i');
+      icon.className = iconClass;
+      icon.style.color    = '#878787';
+      icon.style.fontSize = '18px';
+      wrap.appendChild(icon);
+      return wrap;
+    };
+
+    var _vofBtnLeft  = _makeVofCtrlBtn('fa-solid fa-square-caret-left');
+    var _vofBtnReset = _makeVofCtrlBtn('fa-solid fa-arrows-rotate');
+    var _vofBtnRight = _makeVofCtrlBtn('fa-solid fa-square-caret-right');
+
+    // Rotate left: orbit camera 90° CCW around world up (+Z axis)
+    _vofBtnLeft.addEventListener('click', function() {
+      if (!_vof || !_vof.left) return;
+      var vp  = _vof.left;
+      var off = new THREE.Vector3().subVectors(vp.camera.position, vp.controls.target);
+      off.applyQuaternion(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), Math.PI / 2));
+      vp.camera.position.copy(vp.controls.target).add(off);
+      vp.camera.up.copy(worldUp);
+      vp.camera.lookAt(vp.controls.target);
+      vp.controls.update();
+    });
+
+    // Reset view: return camera to initial ecliptic position (looking from RAAN 0°, +X axis)
+    _vofBtnReset.addEventListener('click', function() {
+      if (!_vof || !_vof.left) return;
+      var vp = _vof.left;
+      vp.controls.target.set(0, 0, 0);
+      vp.camera.position.set(camDist, 0, 0);
+      vp.camera.up.copy(worldUp);
+      vp.camera.lookAt(vp.controls.target);
+      vp.controls.update();
+    });
+
+    // Rotate right: orbit camera 90° CW around world up (+Z axis)
+    _vofBtnRight.addEventListener('click', function() {
+      if (!_vof || !_vof.left) return;
+      var vp  = _vof.left;
+      var off = new THREE.Vector3().subVectors(vp.camera.position, vp.controls.target);
+      off.applyQuaternion(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), -Math.PI / 2));
+      vp.camera.position.copy(vp.controls.target).add(off);
+      vp.camera.up.copy(worldUp);
+      vp.camera.lookAt(vp.controls.target);
+      vp.controls.update();
+    });
+
+    var _vofCtrlRow = document.createElement('div');
+    _vofCtrlRow.style.position   = 'absolute';
+    _vofCtrlRow.style.bottom     = '6px';
+    _vofCtrlRow.style.right      = '6px';
+    _vofCtrlRow.style.display    = 'flex';
+    _vofCtrlRow.style.gap        = '4px';
+    _vofCtrlRow.style.alignItems = 'center';
+    _vofCtrlRow.style.zIndex     = '5';
+    _vofCtrlRow.appendChild(_vofBtnLeft);
+    _vofCtrlRow.appendChild(_vofBtnReset);
+    _vofCtrlRow.appendChild(_vofBtnRight);
+    _leftFigCtr.appendChild(_vofCtrlRow);
+
+    var _tippedOpts = { showOn: 'mouseenter', hideOn: { element: 'mouseleave' }, position: 'bottom', detach: false };
+    Tipped.create(_vofBtnLeft,  'Rotate view 90\u00b0 Left',  _tippedOpts);
+    Tipped.create(_vofBtnReset, 'Reset View',                  _tippedOpts);
+    Tipped.create(_vofBtnRight, 'Rotate view 90\u00b0 Right', _tippedOpts);
+  }
+
+  // ── Bottom-right elevation controls (right viewport only) ─────────────────
+  var _rightFigCtr = document.getElementById('vesselFigRight');
+  if (_rightFigCtr) {
+    var _makeVofRCtrlBtn = function(iconClass) {
+      var wrap = document.createElement('span');
+      wrap.style.display    = 'inline-block';
+      wrap.style.cursor     = 'pointer';
+      wrap.style.padding    = '3px 4px';
+      wrap.style.lineHeight = '1';
+      var icon       = document.createElement('i');
+      icon.className = iconClass;
+      icon.style.color    = '#878787';
+      icon.style.fontSize = '18px';
+      wrap.appendChild(icon);
+      return wrap;
+    };
+
+    var _vofBtnPolarN = _makeVofRCtrlBtn('fa-solid fa-square-caret-up');
+    var _vofBtnRReset = _makeVofRCtrlBtn('fa-solid fa-arrows-rotate');
+    var _vofBtnPolarS = _makeVofRCtrlBtn('fa-solid fa-square-caret-down');
+
+    // Set View Polar N: move camera to near polar north, preserve current azimuthal angle.
+    _vofBtnPolarN.addEventListener('click', function() {
+      if (!_vof || !_vof.right) return;
+      var vp  = _vof.right;
+      var off = new THREE.Vector3().subVectors(vp.camera.position, vp.controls.target);
+      var radius = off.length();
+      var az  = Math.atan2(off.y, off.x);
+      var phi = vp.controls.minPolarAngle;  // 0.01 rad — near polar north
+      vp.camera.position.set(
+        vp.controls.target.x + radius * Math.sin(phi) * Math.cos(az),
+        vp.controls.target.y + radius * Math.sin(phi) * Math.sin(az),
+        vp.controls.target.z + radius * Math.cos(phi)
+      );
+      vp.camera.up.copy(worldUp);
+      vp.camera.lookAt(vp.controls.target);
+      vp.controls.update();
+    });
+
+    // Reset View: polar north looking from RAAN 0° direction so that +X (RAAN 0°) is at screen bottom.
+    _vofBtnRReset.addEventListener('click', function() {
+      if (!_vof || !_vof.right) return;
+      var vp = _vof.right;
+      vp.controls.target.set(0, 0, 0);
+      vp.camera.position.set(camDist * 0.0001, 0, camDist);  // matches initial right-viewport position
+      vp.camera.up.copy(worldUp);
+      vp.camera.lookAt(vp.controls.target);
+      vp.controls.update();
+    });
+
+    // Set View Polar S: move camera to near polar south, preserve current azimuthal angle.
+    _vofBtnPolarS.addEventListener('click', function() {
+      if (!_vof || !_vof.right) return;
+      var vp  = _vof.right;
+      var off = new THREE.Vector3().subVectors(vp.camera.position, vp.controls.target);
+      var radius = off.length();
+      var az  = Math.atan2(off.y, off.x);
+      var phi = vp.controls.maxPolarAngle;  // π - 0.01 rad — near polar south
+      vp.camera.position.set(
+        vp.controls.target.x + radius * Math.sin(phi) * Math.cos(az),
+        vp.controls.target.y + radius * Math.sin(phi) * Math.sin(az),
+        vp.controls.target.z + radius * Math.cos(phi)
+      );
+      vp.camera.up.copy(worldUp);
+      vp.camera.lookAt(vp.controls.target);
+      vp.controls.update();
+    });
+
+    var _vofRCtrlCol = document.createElement('div');
+    _vofRCtrlCol.style.position        = 'absolute';
+    _vofRCtrlCol.style.bottom          = '6px';
+    _vofRCtrlCol.style.right           = '6px';
+    _vofRCtrlCol.style.display         = 'flex';
+    _vofRCtrlCol.style.flexDirection   = 'column';
+    _vofRCtrlCol.style.gap             = '4px';
+    _vofRCtrlCol.style.alignItems      = 'center';
+    _vofRCtrlCol.style.zIndex          = '5';
+    _vofRCtrlCol.appendChild(_vofBtnPolarN);
+    _vofRCtrlCol.appendChild(_vofBtnRReset);
+    _vofRCtrlCol.appendChild(_vofBtnPolarS);
+    _rightFigCtr.appendChild(_vofRCtrlCol);
+
+    var _tippedROpts = { showOn: 'mouseenter', hideOn: { element: 'mouseleave' }, position: 'left', detach: false };
+    Tipped.create(_vofBtnPolarN, 'Set View Polar N', _tippedROpts);
+    Tipped.create(_vofBtnRReset, 'Reset View',        _tippedROpts);
+    Tipped.create(_vofBtnPolarS, 'Set View Polar S',  _tippedROpts);
+  }
+
+  // ── Top-left stack orbit button (left viewport only) ──────────────────────
+  var _leftFigCtrStack = document.getElementById('vesselFigLeft');
+  if (_leftFigCtrStack) {
+    var _stackTippedOpts = { showOn: 'mouseenter', hideOn: { element: 'mouseleave' }, position: 'right', detach: false };
+    var _isStacked = obtStack.some(function(o) { return o.Eph == orbit.Eph; });
+
+    // Column container for the top-left buttons.
+    var _topLeftCol = document.createElement('div');
+    _topLeftCol.style.position      = 'absolute';
+    _topLeftCol.style.top           = '4px';
+    _topLeftCol.style.display       = 'flex';
+    _topLeftCol.style.flexDirection = 'column';
+    _topLeftCol.style.gap           = '2px';
+    _topLeftCol.style.zIndex        = '5';
+
+    var _makeTLBtn = function(iconClass) {
+      var wrap = document.createElement('span');
+      wrap.style.display    = 'inline-block';
+      wrap.style.cursor     = 'pointer';
+      wrap.style.padding    = '3px 4px';
+      wrap.style.lineHeight = '1';
+      var icon = document.createElement('i');
+      icon.className      = iconClass;
+      icon.style.color    = '#878787';
+      icon.style.fontSize = '18px';
+      wrap.appendChild(icon);
+      return { wrap: wrap, icon: icon };
+    };
+
+    // Stack button.
+    var _stackBtn  = _makeTLBtn(_isStacked ? 'fa-solid fa-square-plus' : 'fa-regular fa-square-plus');
+    var _stackWrap = _stackBtn.wrap;
+    var _stackIcon = _stackBtn.icon;
+
+    _stackWrap.addEventListener('click', function() {
+      var curStack = _vofObtStack.stack;
+      var idx = curStack.findIndex(function(o) { return o.Eph == orbit.Eph; });
+      if (idx === -1) {
+        curStack.push(Object.assign({}, orbit));
+        _stackIcon.className = 'fa-solid fa-square-plus';
+        Tipped.remove(_stackWrap);
+        Tipped.create(_stackWrap, 'Unstack Orbit', _stackTippedOpts);
+      } else {
+        curStack.splice(idx, 1);
+        _stackIcon.className = 'fa-regular fa-square-plus';
+        Tipped.remove(_stackWrap);
+        Tipped.create(_stackWrap, 'Stack Orbit', _stackTippedOpts);
+      }
+      _syncEyeVisibility();
+    });
+    Tipped.create(_stackWrap, _isStacked ? 'Unstack Orbit' : 'Stack Orbit', _stackTippedOpts);
+
+    // Hide/show stack button.
+    var _eyeBtn  = _makeTLBtn('fa-solid fa-eye');
+    var _eyeWrap = _eyeBtn.wrap;
+    var _eyeIcon = _eyeBtn.icon;
+    var _stackHidden = false;
+
+    // Show the eye button only when there are stacked orbits other than the current one.
+    function _syncEyeVisibility() {
+      var hasOther = _vofObtStack.stack.some(function(o) { return o.Eph != orbit.Eph; });
+      _eyeWrap.style.display = hasOther ? 'inline-block' : 'none';
+    }
+    _syncEyeVisibility();
+
+    _eyeWrap.addEventListener('click', function() {
+      _stackHidden = !_stackHidden;
+      [leftVP, rightVP].forEach(function(vp) {
+        // Toggle stacked orbit line visibility.
+        vp.stackedOrbitGroups.forEach(function(og) { og.visible = !_stackHidden; });
+        // Hide all nodes when hiding the stack; they'll be re-shown if user clicks an orbit again.
+        if (_stackHidden) {
+          Object.keys(vp.nodes).forEach(function(k) { _setVisible(vp.nodes[k], false); });
+          vp.stackedNodes.forEach(function(sns) {
+            Object.keys(sns).forEach(function(k) { if (k !== '_nodeR') _setVisible(sns[k], false); });
+          });
+        }
+        // Current orbit color: yellow when stack hidden (sole orbit), white when stack visible.
+        var currentColor = _stackHidden ? 0xFFD800 : 0xFFFFFF;
+        vp.orbitGroup.children.forEach(function(child) {
+          if (child.material) child.material.color.setHex(currentColor);
+        });
+      });
+      if (_stackHidden) {
+        _activeNodeIdx = null;
+        _eyeIcon.className = 'fa-solid fa-eye-slash';
+        Tipped.remove(_eyeWrap);
+        Tipped.create(_eyeWrap, 'Show Stack', _stackTippedOpts);
+      } else {
+        _eyeIcon.className = 'fa-solid fa-eye';
+        Tipped.remove(_eyeWrap);
+        Tipped.create(_eyeWrap, 'Hide Stack', _stackTippedOpts);
+      }
+    });
+    Tipped.create(_eyeWrap, 'Hide Stack', _stackTippedOpts);
+
+    // Clear stacks button.
+    var _clearBtn  = _makeTLBtn('fa-solid fa-trash');
+    var _clearWrap = _clearBtn.wrap;
+
+    _clearWrap.addEventListener('click', function() {
+      _vofObtStack.stack = [];
+      _stackHidden = false;
+      _eyeIcon.className = 'fa-solid fa-eye';
+      Tipped.remove(_eyeWrap);
+      Tipped.create(_eyeWrap, 'Hide Stack', _stackTippedOpts);
+
+      // Dispose a scene object's GPU resources and DOM labels, then remove it.
+      function _disposeAndRemove(obj, sc) {
+        obj.traverse(function(child) {
+          if (child.isCSS2DObject && child.element && child.element.parentNode) {
+            child.element.parentNode.removeChild(child.element);
+          }
+          if (child.isMesh || child.isLine) {
+            if (child.geometry) child.geometry.dispose();
+            if (child.material) {
+              if (Array.isArray(child.material)) child.material.forEach(function(m) { m.dispose(); });
+              else child.material.dispose();
+            }
+          }
+        });
+        sc.remove(obj);
+      }
+
+      [leftVP, rightVP].forEach(function(vp) {
+        vp.stackedOrbitGroups.forEach(function(og) { _disposeAndRemove(og, vp.scene); });
+        vp.stackedOrbitGroups = [];
+        vp.stackedNodes.forEach(function(sns) {
+          Object.keys(sns).forEach(function(k) { if (k !== '_nodeR' && sns[k]) _disposeAndRemove(sns[k], vp.scene); });
+        });
+        vp.stackedNodes = [];
+        // Restore current orbit color to yellow.
+        vp.orbitGroup.children.forEach(function(child) {
+          if (child.material) child.material.color.setHex(0xFFD800);
+        });
+      });
+
+      // Hide any visible nodes and reset tracking.
+      _activeNodeIdx = null;
+      _hideAllNodes();
+
+      // Reset stack button state.
+      _stackIcon.className = 'fa-regular fa-square-plus';
+      Tipped.remove(_stackWrap);
+      Tipped.create(_stackWrap, 'Stack Orbit', _stackTippedOpts);
+      _syncEyeVisibility();
+    });
+    Tipped.create(_clearWrap, 'Clear Stacks', _stackTippedOpts);
+
+    _topLeftCol.appendChild(_stackWrap);
+    _topLeftCol.appendChild(_eyeWrap);
+    _topLeftCol.appendChild(_clearWrap);
+    _leftFigCtrStack.appendChild(_topLeftCol);
+  }
+
+  // ── Node visibility — one orbit's nodes shown at a time ──────────────────
+  // _activeNodeIdx: null = all hidden, -1 = current orbit, 0..n-1 = stacked index.
+  var _activeNodeIdx = null;
+  function _hideAllNodes() {
+    [leftVP, rightVP].forEach(function(vp) {
+      Object.keys(vp.nodes).forEach(function(k) { _setVisible(vp.nodes[k], false); });
+      vp.stackedNodes.forEach(function(sns) {
+        Object.keys(sns).forEach(function(k) { if (k !== '_nodeR') _setVisible(sns[k], false); });
+      });
+    });
+  }
+  function _showNodesForIdx(idx) {
+    _hideAllNodes();
+    _activeNodeIdx = idx;
+    if (idx === null) return;
+    [leftVP, rightVP].forEach(function(vp) {
+      var ns = (idx === -1) ? vp.nodes : vp.stackedNodes[idx];
+      if (ns) Object.keys(ns).forEach(function(k) { if (k !== '_nodeR') _setVisible(ns[k], true); });
+    });
+  }
+
+  // ── Click detection — raycast against current and all stacked orbit lines ──
+  // Ignores drag events (mousedown displaced > 4 px from click release).
+  function _makeClickHandler(vp) {
+    var raycaster = new THREE.Raycaster();
+    raycaster.params.Line = { threshold: nodeR * 3 };
+    return function(e) {
+      if (!_vof) return;
+      var dx = e.clientX - vp._mouseDownPos.x;
+      var dy = e.clientY - vp._mouseDownPos.y;
+      if (Math.sqrt(dx * dx + dy * dy) > 4) return;  // was a drag, not a click
+      var rect = vp.renderer.domElement.getBoundingClientRect();
+      var ndcX = ((e.clientX - rect.left)  / SIZE) * 2 - 1;
+      var ndcY = -((e.clientY - rect.top)  / SIZE) * 2 + 1;
+      raycaster.setFromCamera({ x: ndcX, y: ndcY }, vp.camera);
+      // Check current orbit.
+      if (raycaster.intersectObjects(vp.orbitGroup.children, false).length > 0) {
+        _showNodesForIdx(_activeNodeIdx === -1 ? null : -1);
+        return;
+      }
+      // Check each stacked orbit.
+      for (var i = 0; i < vp.stackedOrbitGroups.length; i++) {
+        if (raycaster.intersectObjects(vp.stackedOrbitGroups[i].children, false).length > 0) {
+          _showNodesForIdx(_activeNodeIdx === i ? null : i);
+          return;
+        }
+      }
+      // Clicked off all orbits: hide nodes.
+      _showNodesForIdx(null);
+    };
+  }
+  leftVP.renderer.domElement.addEventListener('click',  _makeClickHandler(leftVP));
+  rightVP.renderer.domElement.addEventListener('click', _makeClickHandler(rightVP));
+
+  // ── Keyboard controls — arrow keys navigate the focused viewport ───────────
+  _vofKdHandler = function(e) {
+    if (e.key === 'Control') {
+      if (leftVP)  leftVP.ctrlDown  = true;
+      if (rightVP) rightVP.ctrlDown = true;
+      return;
+    }
+    if (e.key === 'ArrowLeft' || e.key === 'ArrowRight' ||
+        e.key === 'ArrowUp'   || e.key === 'ArrowDown') {
+      var tag = (e.target.tagName || '').toUpperCase();
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+      var focused = (_vofFocused === 'right') ? rightVP : leftVP;
+      if (focused) focused.keysDown[e.key] = true;
+      if (_vofFocused !== null) e.preventDefault();
+    }
+  };
+  _vofKuHandler = function(e) {
+    if (e.key === 'Control') {
+      if (leftVP)  leftVP.ctrlDown  = false;
+      if (rightVP) rightVP.ctrlDown = false;
+      return;
+    }
+    if (leftVP)  delete leftVP.keysDown[e.key];
+    if (rightVP) delete rightVP.keysDown[e.key];
+  };
+  document.addEventListener('keydown', _vofKdHandler);
+  document.addEventListener('keyup',   _vofKuHandler);
+
+  // ── Persist state ──────────────────────────────────────────────────────────
+  _vof = {
+    worldUp: worldUp,
+    animId:  null,
+    left:    leftVP,
+    right:   rightVP
+  };
+
+  // ── Per-frame helpers ──────────────────────────────────────────────────────
+
+  // Apply keyboard camera navigation — identical logic to _applyKeyNavigation() in ksaBodyOps.js.
+  function _applyVofKeyNav(vp) {
+    if (!vp || !vp.camera || !vp.controls) return;
+    if (!vp.keysDown.ArrowLeft && !vp.keysDown.ArrowRight &&
+        !vp.keysDown.ArrowUp   && !vp.keysDown.ArrowDown) return;
+
+    var offset = new THREE.Vector3().subVectors(vp.camera.position, vp.controls.target);
+    var radius = offset.length();
+    if (radius === 0) return;
+
+    if (vp.ctrlDown) {
+      if (vp.keysDown.ArrowLeft || vp.keysDown.ArrowRight) {
+        var right_v  = new THREE.Vector3().setFromMatrixColumn(vp.camera.matrix, 0);
+        var panDelta = (vp.keysDown.ArrowLeft ? -1 : 1) * radius * 0.01;
+        var panVec   = right_v.multiplyScalar(panDelta);
+        vp.camera.position.add(panVec);
+        vp.controls.target.add(panVec);
+      }
+      if (vp.keysDown.ArrowUp || vp.keysDown.ArrowDown) {
+        var ZOOM_STEP  = 0.05;
+        var zoomFactor = vp.keysDown.ArrowUp ? 1 - ZOOM_STEP : 1 + ZOOM_STEP;
+        var newRadius  = THREE.MathUtils.clamp(radius * zoomFactor,
+          vp.controls.minDistance, vp.controls.maxDistance);
+        offset.setLength(newRadius);
+        vp.camera.position.copy(vp.controls.target).add(offset);
+      }
+    } else {
+      var SPEED = 0.02;
+      if (vp.keysDown.ArrowLeft || vp.keysDown.ArrowRight) {
+        var yawDelta = (vp.keysDown.ArrowLeft ? -1 : 1) * SPEED;
+        offset.applyQuaternion(
+          new THREE.Quaternion().setFromAxisAngle(vp.camUp, yawDelta)
+        );
+      }
+      if (vp.keysDown.ArrowUp || vp.keysDown.ArrowDown) {
+        var currPhi    = Math.acos(THREE.MathUtils.clamp(offset.z / radius, -1, 1));
+        var pitchDelta = (vp.keysDown.ArrowUp ? -1 : 1) * SPEED;
+        var newPhi     = THREE.MathUtils.clamp(currPhi + pitchDelta,
+          vp.controls.minPolarAngle, vp.controls.maxPolarAngle);
+        var dPhi       = newPhi - currPhi;
+        if (Math.abs(dPhi) > 1e-9) {
+          var pitchAxis = new THREE.Vector3().crossVectors(vp.camUp, offset).normalize();
+          offset.applyQuaternion(new THREE.Quaternion().setFromAxisAngle(pitchAxis, dPhi));
+        }
+      }
+      vp.camera.position.copy(vp.controls.target).add(offset);
+    }
+    vp.camera.up.copy(vp.camUp);
+    vp.camera.lookAt(vp.controls.target);
+  }
+
+  // ── Per-frame node scaling ─────────────────────────────────────────────────
+  // Keeps Pe/Ap/AN/DN markers at a constant _VOF_NODE_MIN_PX apparent size in
+  // each viewport regardless of zoom level (mirrors _updateBodySphereScales in
+  // ksaBodyOps.js). Each viewport is computed independently because cameras can
+  // be at different distances after independent orbit-control interaction.
+  var _tanHalfFov = Math.tan(THREE.MathUtils.degToRad(45 / 2));
+  function _updateVofNodeScales() {
+    ['left', 'right'].forEach(function(side) {
+      var vp = _vof[side];
+      if (!vp || !vp.camera || !vp.controls) return;
+      var camDist = vp.camera.position.distanceTo(vp.controls.target);
+      if (camDist <= 0) return;
+      var worldPerPx = (2 * camDist * _tanHalfFov) / SIZE;
+      var scale = _VOF_NODE_MIN_PX * worldPerPx / nodeR;
+      var ns = vp.nodes;
+      Object.keys(ns).forEach(function(k) { if (ns[k]) ns[k].scale.setScalar(scale); });
+      vp.stackedNodes.forEach(function(sns) {
+        var sscale = _VOF_NODE_MIN_PX * worldPerPx / sns._nodeR;
+        Object.keys(sns).forEach(function(k) { if (k !== '_nodeR' && sns[k]) sns[k].scale.setScalar(sscale); });
+      });
+    });
+  }
+
+  // ── Per-frame LOD: sphere geometry, adaptive body scale, adaptive dash sizes ──
+  // Mirrors the three-stage logic of _updateBodySphereScales() in ksaBodyOps.js.
+  // Each viewport is updated independently so independent zooming works correctly.
+  function _updateVofLOD() {
+    ['left', 'right'].forEach(function(side) {
+      var vp = _vof[side];
+      if (!vp || !vp.camera || !vp.controls) return;
+      var cd = vp.camera.position.distanceTo(vp.controls.target);
+      if (cd <= 0) return;
+      var wpp = (2 * cd * _tanHalfFov) / SIZE;  // world units per pixel
+
+      // Sphere and atmosphere geometry LOD (segment-count tiers).
+      if (vp.sphere) {
+        var dispR = cPhysR * vp.sphere.scale.x;
+        _lod_updateSphereGeometry(vp.sphere, cPhysR, dispR / wpp);
+      }
+      if (vp.atmo) {
+        _lod_updateSphereGeometry(vp.atmo, atmoR, atmoR / wpp);
+      }
+
+      // Adaptive dash scaling on inside-atmosphere orbit segments.
+      if (vp.orbitGroup && vp.orbitGroup.userData.atmoR > 0 && vp.sphere) {
+        var appPx = (cPhysR * vp.sphere.scale.x) / wpp;
+        var dashMult = (appPx > _ATMO_DASH_PX_THRESHOLD)
+          ? Math.pow(_ATMO_DASH_PX_THRESHOLD / appPx, _ATMO_DASH_SCALE_DECAY)
+          : 1.0;
+        var newDash = _ATMO_DASH_KM * dashMult;
+        vp.orbitGroup.children.forEach(function(child) {
+          if (child.material && child.material.isLineDashedMaterial) {
+            child.material.dashSize = newDash;
+            child.material.gapSize  = newDash * 0.5;
+          }
+        });
+      }
+    });
+  }
+
+  // ── Animation loop ─────────────────────────────────────────────────────────
+  function _vofAnimate() {
+    if (!_vof) return;
+    _vof.animId = requestAnimationFrame(_vofAnimate);
+
+    _vof.left.controls.update();
+    _vof.right.controls.update();
+
+    var focused = (_vofFocused === 'right') ? _vof.right : _vof.left;
+    _applyVofKeyNav(focused);
+
+    _updateVofNodeScales();
+    _updateVofLOD();
+
+    _vof.left.renderer.render(_vof.left.scene, _vof.left.camera);
+    _vof.left.labelRenderer.render(_vof.left.scene, _vof.left.camera);
+    _vof.right.renderer.render(_vof.right.scene, _vof.right.camera);
+    _vof.right.labelRenderer.render(_vof.right.scene, _vof.right.camera);
+  }
+  _vofAnimate();
+}
+
 function vesselContentUpdate(update) {
 
   // this is for when calling to see if dynamic orbit data was loaded when a surface update was triggered
@@ -976,34 +1877,52 @@ function vesselContentUpdate(update) {
 
       // no need to update unless it's not the same as before or there's no orbit
       if (!ops.currentVessel.Orbit.Eph || !ops.currentVessel.CraftData.prevContent || (ops.currentVessel.CraftData.prevContent && ops.currentVessel.CraftData.prevContent != ops.currentVessel.CraftData.Content)) {
+        disposeVesselOrbitScene();
         hideMap();
         
         var newContentHTML;
-        
-        // two images?
+        var _vofPendingBody = null;  // set when the two-viewport scene needs to be built
+
+        // two images? — data[1] encodes the central body: "BodyName.png"
         if (data[1].includes(".png")) {
-          newContentHTML = "<div class='fullCenter'><img width='475' class='contentTip' style='cursor: help' title='Ecliptic View<br>Dynamic orbit unavailable - viewing old data' src='" + sanitizeHTML(data[0]) + "'>&nbsp;<img width='475' class='tipped' data-tipped-options=\"target: 'mouse'\"  style='cursor: help' title='Polar View<br>Dynamic orbit unavailable - viewing old data' src='" + sanitizeHTML(data[1]) + "'></div>";
-          
+
+          // find the orbited body in the catalog; fall back to Kerbin for older DB entries
+          var obtBody = ops.bodyCatalog.find(b => b.Body === data[1].split(".")[0]);
+          if (!obtBody) obtBody = ops.bodyCatalog.find(b => b.Body === "Kerbin");
+
+          // Two-viewport Three.js orbit figures.
+          // The container divs are inserted into #content first; initVesselOrbitScene()
+          // appends the WebGL canvases to them after the DOM update completes.
+          // Left viewport: camera on the +X axis (view across the YZ plane).
+          // Right viewport: camera on the +Y axis (view across the XZ plane).
+          _vofPendingBody = obtBody;
+          newContentHTML =
+            "<div class='fullCenter' style='display:flex;gap:6px;width:956px;height:475px;'>" +
+              "<div id='vesselFigLeft'  style='width:475px;height:475px;position:relative;'></div>" +
+              "<div id='vesselFigRight' style='width:475px;height:475px;position:relative;'></div>" +
+            "</div>";
+
         // one image
         } else {
           newContentHTML = "<img class='fullCenter contentTip' style='cursor: help' title='" + sanitizeHTML(data[1]) + "' src='" + sanitizeHTML(data[0]) + "'>";
         }
         
-        // Use transition if content already exists, otherwise just show it
+        // Use transition if content already exists, otherwise just show it.
+        // initVesselOrbitScene() is called after the HTML lands in the DOM so
+        // document.getElementById('vesselFigLeft/Right') resolves correctly.
         if ($("#content").is(':visible') && $("#content").html()) {
           loadHTMLWithTransition("#content", newContentHTML, function() {
             $("#content").fadeIn();
+            if (_vofPendingBody) initVesselOrbitScene(_vofPendingBody);
           });
         } else {
           $("#content").html(newContentHTML);
+          if (_vofPendingBody) initVesselOrbitScene(_vofPendingBody);
           $("#content").fadeIn();
         }
       }
     }
   
-  // static orbits with dynamic information
-  } else if (ops.currentVessel.CraftData.Content.charAt(0) == "!" && ops.currentVessel.CraftData.Content.includes("[")) {
-
   // streaming ascent data, possibly with video
   } else if (ops.currentVessel.CraftData.Content.charAt(0) == "~") {
   
