@@ -178,13 +178,12 @@ function setupContent() {
     $("#liveReloadIcon").on("click", function() {
       $("#liveReloadIcon").html("<i class=\"fa-solid fa-clock-rotate-left fa-flip-horizontal fa-flip-spin\"></i>");
       var newUrl = window.location.href;
-      if (ops.pageType == "vessel" && ops.currentVessel && ops.currentVessel.CraftData) {
-        var currentUT = ops.currentVessel.CraftData.UT;
-        if (!getParameterByName("ut")) {
-          newUrl += "&ut=" + currentUT;
-        } else {
-          newUrl = newUrl.replace(/(&|\?)ut=[^&]*/, "$1ut=" + currentUT);
-        }
+      var currentUT = currUT();
+      if (ops.pageType == "vessel" && ops.currentVessel && ops.currentVessel.CraftData) currentUT = ops.currentVessel.CraftData.UT;
+      if (!getParameterByName("ut")) {
+        newUrl += "&ut=" + currentUT;
+      } else {
+        newUrl = newUrl.replace(/(&|\?)ut=[^&]*/, "$1ut=" + currentUT);
       }
       window.location.href = newUrl;
     });
@@ -565,7 +564,7 @@ function setupContent() {
                             position: { my: "center", at: "center", of: "#mainContent" }
                             });
   
-  // uncheck all the GGB filter boxes
+  // uncheck all the orbit filter boxes
   $("#asteroid-filter").prop('checked', false);
   $("#debris-filter").prop('checked', false);
   $("#probe-filter").prop('checked', false);
@@ -728,6 +727,29 @@ function swapContent(newPageType, id, ut, flt) {
 
   // initial page load
   if (!ops.pageType) {
+
+    // check for ?orbit= URL parameter: Bodyname,VessName,Eph,SMA,Ecc,Inc,RAAN,Arg,TrueAnom,Type
+    // if present, override any other params and load the named body, then inject the orbit
+    var _orbitParam = getParameterByName("orbit");
+    if (_orbitParam) {
+      var _parts = _orbitParam.split(",");
+      if (_parts.length >= 10) {
+        ops.pendingOrbitParam = {
+          vesselName: _parts[1],
+          eph:        parseFloat(_parts[2]),
+          sma:        parseFloat(_parts[3]),
+          ecc:        parseFloat(_parts[4]),
+          inc:        parseFloat(_parts[5]),
+          raan:       parseFloat(_parts[6]),
+          arg:        parseFloat(_parts[7]),
+          trueAnom:   parseFloat(_parts[8]),
+          type:       _parts[9].trim()
+        };
+        newPageType = "body";
+        id = _parts[0];  // loadBody() appends "-System" if needed
+      }
+    }
+
     ops.pageType = newPageType;
     if (newPageType == "body") {
       $("#contentBox").css('top', '40px');
@@ -1603,7 +1625,7 @@ function tick(utDelta = 1000, rapidFireMode = false) {
   }
 
   // update the dynamic orbit figure
-  if (KSA_UI_STATE.isGGBAppletLoaded) ggbApplet.setValue("UT", currUT());
+  if (KSA_UI_STATE.is3JSLoaded) updateOrbitalPositions(currUT());
   
   // is there a loaded vessel we need to monitor?
   if (ops.currentVessel && ops.pageType == "vessel") {

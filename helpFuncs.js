@@ -73,7 +73,8 @@ function validateNotNull(value, varName = 'value', context = 'Validation') {
  * @returns {string} Sanitized HTML
  */
 function sanitizeHTML(html) {
-  if (typeof html !== 'string') return '';
+  if (html === null || html === undefined) return '';
+  if (typeof html !== 'string') html = String(html);
   
   const div = document.createElement('div');
   div.textContent = html;
@@ -660,6 +661,240 @@ function toMeanAnomaly(truA, ecc) {
     var mean = ecc*Math.sinh(HA)-HA;
   }
   return mean;
+}
+
+// ---------------------------------------------------------------------------
+// Phase 2: Kepler / orbit math for Three.js scene
+// ---------------------------------------------------------------------------
+
+// Solve Kepler's equation M = E - e*sin(E) for eccentric anomaly E
+// using Newton-Raphson iteration (mirrors the GGB spreadsheet logic).
+// meanAnomaly and return value are in radians.
+function solveKeplerEquation(meanAnomaly, eccentricity, iterations) {
+  if (iterations === undefined) iterations = 20;
+  var M = meanAnomaly;
+  var e = eccentricity;
+
+  if (e >= 1) {
+    // Hyperbolic Kepler equation: e·sinh(F) − F = Mh
+    // Robust initial guess for large |Mh| (avoids overflow in sinh for bad starts)
+    var F = (Math.abs(M) < 1) ? M : Math.sign(M) * Math.log(2 * Math.abs(M) / e + 1.8);
+    for (var i = 0; i < iterations; i++) {
+      var denom = e * Math.cosh(F) - 1;
+      if (Math.abs(denom) < 1e-12) break;
+      F = F - (e * Math.sinh(F) - F - M) / denom;
+    }
+    return F;
+  }
+
+  var E = M; // initial guess (elliptic)
+  for (var i = 0; i < iterations; i++) {
+    E = E - (E - e * Math.sin(E) - M) / (1 - e * Math.cos(E));
+  }
+  return E;
+}
+
+// Return current mean anomaly given initial mean anomaly, mean motion (rad/s),
+// current universal time and the epoch at which mean anomaly was recorded.
+// For elliptic orbits (ecc < 1) the result is wrapped to [0, 2π).
+// For hyperbolic orbits (ecc >= 1) the hyperbolic mean anomaly is unbounded — no wrapping.
+function computeMeanAnomalyAtUT(mean0, meanMotion, UT, epoch, ecc) {
+  var M = mean0 + meanMotion * (UT - epoch);
+  if (!ecc || ecc < 1) {
+    M = M - (2 * Math.PI) * Math.floor(M / (2 * Math.PI));
+    if (M < 0) M += 2 * Math.PI;
+  }
+  return M;
+}
+
+// Build the rotation matrix for an orbit defined by inc, raan, arg.
+// Returns a THREE.Matrix4 that transforms a point in the orbital plane
+// (X = along periapsis direction, Y = 90° ahead) into the world frame.
+// Rotation sequence matches GGB: Z-rotation by RAAN, then X-rotation by inc,
+// then Z-rotation by arg (argument of periapsis).
+function _orbitRotationMatrix(inc, raan, arg) {
+  var m = new THREE.Matrix4();
+  // THREE.js Euler order 'ZXZ' isn't a built-in preset so we compose manually.
+  var mRaan = new THREE.Matrix4().makeRotationZ(raan);
+  var mInc  = new THREE.Matrix4().makeRotationX(inc);
+  var mArg  = new THREE.Matrix4().makeRotationZ(arg);
+  m.multiplyMatrices(mRaan, mInc);
+  m.multiplyMatrices(m, mArg);
+  return m;
+}
+
+// Sample an orbit ellipse into an array of THREE.Vector3 world-space points.
+// Uses adaptive sampling: for eccentric orbits, points are distributed uniformly
+// in true anomaly (θ) rather than eccentric anomaly (E).  This concentrates
+// samples near periapsis—where the ellipse has the tightest curvature—ensuring
+// the PE node marker sits accurately on the rendered curve.  The total point
+// count is scaled up by TWO independent factors so that both high eccentricity
+// and small SMA are properly handled:
+//
+//   eccScale  = 1 + 2·ecc²   — pure eccentricity factor; ensures high-ecc
+//                               large-SMA orbits (e.g. comet-like) stay smooth.
+//   rhoScale  = √(ρ_ref / ρ_pe) where ρ_pe = sma·(1−ecc²)
+//                             — periapsis radius-of-curvature factor; a tighter
+//                               nose (smaller ρ_pe) needs more samples.
+//                               ρ_ref = 2000 km is the baseline: any orbit with
+//                               ρ_pe ≥ 2000 km gets rhoScale ≤ 1 (no boost from
+//                               this term), while low-SMA or extreme-ecc orbits
+//                               get proportionally more points.
+//
+// The larger of the two scales is used, capped at 6× numPoints.
+// Near-circular orbits (ecc ≤ 0.05) use uniform eccentric anomaly directly
+// (identical to uniform θ for a circle) but still benefit from the SMA scaling.
+//
+// sma: semi-major axis (scene units / km), ecc: eccentricity, inc/raan/arg: radians.
+// soiR (optional): SOI radius in km.  When provided for hyperbolic orbits, the arc is
+// clipped to the SOI sphere boundary rather than extending to near-infinity.
+function orbitalElementsToEllipsePoints(sma, ecc, inc, raan, arg, numPoints, soiR) {
+  if (!numPoints) numPoints = 128;
+  var rot = _orbitRotationMatrix(inc, raan, arg);
+  var points = [];
+
+  if (ecc >= 1) {
+    // ── Hyperbolic orbit: open arc ────────────────────────────────────────────
+    // KSP stores hyperbolic SMA as negative; all geometry uses the magnitude.
+    var absSma = Math.abs(sma);
+    var b      = absSma * Math.sqrt(ecc * ecc - 1); // semi-conjugate axis
+
+    // Arc limit F_max — prefer SOI-derived, fall back to 99% of asymptote.
+    // From r = absSma·(ecc·cosh F − 1) = soiR  →  cosh F = (soiR/absSma + 1) / ecc
+    var FMax;
+    if (soiR > 0) {
+      var coshFMax = (soiR / absSma + 1) / ecc;
+      if (coshFMax >= 1) FMax = Math.acosh(coshFMax);
+    }
+    if (!FMax) {
+      // Fallback: cover 99% of the asymptote angle
+      var thetaMax  = Math.acos(-1 / ecc) * 0.99;
+      var sqrtRatio = Math.sqrt((ecc - 1) / (ecc + 1));
+      FMax = 2 * Math.atanh(sqrtRatio * Math.tan(thetaMax / 2));
+    }
+
+    for (var i = 0; i <= numPoints; i++) {
+      var F = -FMax + (2 * FMax * i) / numPoints;
+      // Orbital-plane position (focus at origin, periapsis on +x):
+      //   x = absSma·(ecc − cosh F),   y = b·sinh F
+      var v = new THREE.Vector3(absSma * ecc - absSma * Math.cosh(F), b * Math.sinh(F), 0);
+      v.applyMatrix4(rot);
+      points.push(v);
+    }
+    return points;
+  }
+
+  // ── Elliptic orbit: closed loop ───────────────────────────────────────────
+  // ρ_pe = radius of curvature of the ellipse at periapsis = sma·(1−ecc²).
+  // Larger scale factors → more vertices → smoother periapsis nose.
+  var _RHO_REF_KM = 2000;
+  var rhoPe    = Math.max(sma * (1 - ecc * ecc), 1);
+  var eccScale = 1 + 2 * ecc * ecc;                      // ≥ 1 always
+  var rhoScale = Math.sqrt(_RHO_REF_KM / rhoPe);         // > 1 when ρ_pe < ρ_ref
+  var count    = Math.min(Math.round(numPoints * Math.max(eccScale, rhoScale)), numPoints * 6);
+
+  var b   = sma * Math.sqrt(1 - ecc * ecc); // semi-minor axis
+  var c   = sma * ecc;                       // focus → ellipse-centre distance
+  var sqrtOnePlusEcc  = Math.sqrt(1 + ecc);
+  var sqrtOneMinusEcc = Math.sqrt(1 - ecc);
+
+  for (var i = 0; i <= count; i++) {
+    var E;
+    if (ecc <= 0.05) {
+      // Near-circular: uniform eccentric anomaly (identical to uniform θ here).
+      E = (2 * Math.PI * i) / count;
+    } else {
+      // Eccentric orbit: sample uniformly in true anomaly θ, then convert to E.
+      // tan(E/2) = sqrt((1-ecc)/(1+ecc)) · tan(θ/2)
+      // Using atan2 for full-quadrant correctness across [0, 2π).
+      var theta     = (2 * Math.PI * i) / count;
+      var halfTheta = theta / 2;
+      E = 2 * Math.atan2(
+        sqrtOneMinusEcc * Math.sin(halfTheta),
+        sqrtOnePlusEcc  * Math.cos(halfTheta)
+      );
+    }
+
+    // Position in orbital plane (focus at origin):
+    //   x = sma·cos(E) − c,   y = b·sin(E)
+    var v = new THREE.Vector3(sma * Math.cos(E) - c, b * Math.sin(E), 0);
+    v.applyMatrix4(rot);
+    points.push(v);
+  }
+  return points;
+}
+
+// Return the world-space THREE.Vector3 position for a single point on the orbit.
+// For elliptic orbits (ecc < 1) the anomaly argument is the eccentric anomaly E.
+// For hyperbolic orbits (ecc >= 1) it is the hyperbolic anomaly F.
+function positionOnOrbit(sma, ecc, inc, raan, arg, eccentricAnomaly) {
+  var rot = _orbitRotationMatrix(inc, raan, arg);
+  var v;
+  if (ecc >= 1) {
+    // Hyperbolic: x = |a|·(ecc − cosh F),  y = |a|·√(ecc²−1)·sinh F
+    var absSma = Math.abs(sma);
+    var b = absSma * Math.sqrt(ecc * ecc - 1);
+    var F = eccentricAnomaly;
+    v = new THREE.Vector3(absSma * ecc - absSma * Math.cosh(F), b * Math.sinh(F), 0);
+  } else {
+    // Elliptic: x = sma·cos(E) − c,  y = b·sin(E)
+    var b = sma * Math.sqrt(1 - ecc * ecc);
+    var c = sma * ecc;
+    var E = eccentricAnomaly;
+    v = new THREE.Vector3(sma * Math.cos(E) - c, b * Math.sin(E), 0);
+  }
+  v.applyMatrix4(rot);
+  return v;
+}
+
+// Compute key orbital node positions in world space.
+// Returns { periapsis, apoapsis, ascendingNode, descendingNode } as THREE.Vector3.
+// apoapsis is null for hyperbolic orbits (ecc >= 1).
+// ascendingNode / descendingNode are null when the node lies outside the physical arc
+// of a hyperbolic trajectory (i.e. the orbit never crosses the reference plane).
+function computeNodePositions(sma, ecc, inc, raan, arg) {
+  var rot    = _orbitRotationMatrix(inc, raan, arg);
+  var absSma = (ecc >= 1) ? Math.abs(sma) : sma; // KSP stores hyperbolic SMA as negative
+
+  // Semi-latus rectum (always positive regardless of orbit type)
+  var p = absSma * Math.abs(1 - ecc * ecc);
+
+  // Periapsis: at F=0 (hyperbolic) or E=0 (elliptic)
+  //   Hyperbolic: x = |a|*(ecc−1)   Elliptic: x = sma*(1−ecc)
+  var peX = (ecc >= 1) ? absSma * (ecc - 1) : sma * (1 - ecc);
+  var pe  = new THREE.Vector3(peX, 0, 0).applyMatrix4(rot);
+
+  // Apoapsis: elliptic only (E = π → x = −sma*(1+ecc))
+  var ap = (ecc < 1) ? new THREE.Vector3(-(absSma * (1 + ecc)), 0, 0).applyMatrix4(rot) : null;
+
+  // Ascending / descending nodes: where orbit crosses the reference plane (Z=0).
+  // True anomaly of AN = −arg, DN = π − arg (in the orbital plane before RAAN/inc rotation).
+  // For hyperbolic orbits these nodes may lie outside the physical arc; return null in that case.
+  var an = null, dn = null;
+  if (inc === 0) {
+    // Coplanar — nodes are degenerate; callers should hide them
+    an = pe.clone();
+    dn = ap ? ap.clone() : pe.clone();
+  } else {
+    // Valid arc limit: for hyperbolic, |θ| must be < arccos(−1/ecc)
+    var thetaLimit = (ecc >= 1) ? Math.acos(-1 / ecc) : Math.PI;
+
+    // Normalise angles to (−π, π] so the limit check is straightforward
+    function normalise(a) { return a - 2 * Math.PI * Math.round(a / (2 * Math.PI)); }
+    var thetaAN = normalise(-arg);
+    var thetaDN = normalise(Math.PI - arg);
+
+    function nodeAt(theta) {
+      if (Math.abs(theta) > thetaLimit) return null; // outside hyperbolic arc
+      var r = p / (1 + ecc * Math.cos(theta));
+      if (r <= 0 || !isFinite(r)) return null;
+      return new THREE.Vector3(r * Math.cos(theta), r * Math.sin(theta), 0).applyMatrix4(rot);
+    }
+
+    an = nodeAt(thetaAN);
+    dn = nodeAt(thetaDN);
+  }
+  return { periapsis: pe, apoapsis: ap, ascendingNode: an, descendingNode: dn };
 }
 
 // convert from hex to RGB values

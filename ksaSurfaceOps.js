@@ -1474,9 +1474,9 @@ function renderMapData(updated = false) {
   };
 
   // check if we need to wait for the vessel to finish loading or if we need to wait for the base map layers to finish loading
-  // or if we have to wait for the GGB to finish loading or if we need to wait for the content area to stop moving
+  // or if we have to wait for the Three.js scene to finish loading or if we need to wait for the content area to stop moving
   if ((!ops.currentVessel && ops.pageType == "vessel") || 
-      !ops.surface.Data || !KSA_UI_STATE.isGGBAppletLoaded || KSA_UI_STATE.isContentMoving) {
+      !ops.surface.Data || !KSA_UI_STATE.is3JSLoaded || KSA_UI_STATE.isContentMoving) {
       
     return setTimeout(renderMapData, 150, updated);
   }
@@ -1820,12 +1820,20 @@ function orbitalCalc(callback, orbit, dataArray, batchCount = 1000, limit) {
   var rotPeriod = ops.bodyCatalog.find(o => o.selected === true).RotPeriod;
   var rotInit = Math.radians(ops.bodyCatalog.find(o => o.selected === true).RotIni); 
   var bodRad = ops.bodyCatalog.find(o => o.selected === true).Radius;
-  var inc = Math.radians(orbit.Inclination);
-  var raan = Math.radians(orbit.RAAN);
-  var arg = Math.radians(orbit.Arg);
-  var mean = toMeanAnomaly(Math.radians(orbit.TrueAnom), orbit.Eccentricity);
+  var incInit = Math.radians(orbit.Inclination);
+  var raanInit = Math.radians(orbit.RAAN);
+  var argInit = Math.radians(orbit.Arg);
+  var mean = (orbit.Mean !== undefined)
+    ? Math.abs(Math.radians(orbit.Mean) - (2*Math.PI) * Math.floor(Math.radians(orbit.Mean) / (2*Math.PI)))
+    : toMeanAnomaly(Math.radians(orbit.TrueAnom), orbit.Eccentricity);
   
   for (x=0; x<=batchCount; x++) {
+
+    // reset each iteration - the special case handlers below modify these variables
+    // and var hoisting means modifications persist across iterations without this reset
+    var inc = incInit;
+    var raan = raanInit;
+    var arg = argInit;
   
     //////////////////////
     // computeMeanMotion()
@@ -2228,7 +2236,7 @@ function hideMap() {
     $("#mapDialog").dialog("close");
     $("#aircraftAltitudeKey").fadeOut();
     removeMapRefreshButton();
-    if (!KSA_UI_STATE.isGGBAppletRefreshing && ops.pageType == "body") {
+    if (!KSA_UI_STATE.is3JSRefreshing && ops.pageType == "body") {
       $("#figureOptions").fadeIn();
       if (!$("#asteroid-filter").prop("disabled") || !$("#debris-filter").prop("disabled") || !$("#probe-filter").prop("disabled") || !$("#ship-filter").prop("disabled") || !$("#station-filter").prop("disabled")) $("#vesselOrbitTypes").fadeIn();
       $("#figure").fadeIn();
@@ -2947,7 +2955,7 @@ function loadSurfaceTracks() {
           OrbitalPeriod: moonData.ObtPeriod,
           RAAN: moonData.RAAN,
           SMA: moonData.SMA,
-          TrueAnom: moonData.TrueAnom
+          Mean: moonData.Mean
         },
         obtData: null,
         index: KSA_CATALOGS.bodyPaths.paths.length,
@@ -3290,8 +3298,10 @@ function renderBodyOrbit() {
       currObj.obtData.pathData.push(setupSurfacePath(path, currObj));
       currLayer.group.addLayer(currObj.obtData.pathData[currObj.obtData.pathData.length-1]);
       path.length = 0;
+      console.info("Crossed edge of map, cutting path for " + currObj.name);
     } 
     path.push(position.latlng);
+    // if (currObj.name == "Minmus") console.info(position.latlng.lat, position.latlng.lng);
   });
   
   // setup the final path stretch and add it to the layer
@@ -3404,11 +3414,7 @@ function setupSurfacePath(path, object) {
   var strColor = "";
   var currBody = ops.bodyCatalog.find(o => o.Body === object.name);
   if (object.isVessel) strColor = KSA_COLORS.orbitColors[object.type];
-  else {
-    ops.ggbOrbits.forEach(function(body) {
-      if (currBody.Body == ggbApplet.getCaption(body.id + "36")) strColor = ggbApplet.getColor(body.id + "36")
-    });
-  }
+  else strColor = "#" + currBody.Color;
   var srfTrack = L.polyline(path, { smoothFactor: 1.25, color: strColor, weight: 3, opacity: 1 });
 
   // save the name of this object for future reference
@@ -3904,8 +3910,8 @@ function showKB(url) {
 
 // finds the kerballoon marker with the given link ID once surface data is loaded, then activates it
 function activateKBLink(link) {
-  // wait for the GGB applet to finish (it triggers loadMap), then wait for the map AJAX to complete
-  if (!KSA_UI_STATE.isGGBAppletLoaded || ops.surface.isLoading) return setTimeout(activateKBLink, 200, link);
+  // wait for the Three.js scene to finish (it triggers loadMap), then wait for the map AJAX to complete
+  if (!KSA_UI_STATE.is3JSLoaded || ops.surface.isLoading) return setTimeout(activateKBLink, 200, link);
 
   var foundMarker = null;
   if (KSA_LAYERS.groundMarkers.layerKerballoon) {

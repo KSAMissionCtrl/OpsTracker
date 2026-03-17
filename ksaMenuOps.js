@@ -816,9 +816,9 @@ function addMenuItem(item, newAdd = false) {
     
     // as an active vessel, we will want to check for future data
     // also save to list so it can be checked for orbital data for body/surface views
-    // check too if it has orbital data to render if the GGB figure is already loaded
-    if (KSA_UI_STATE.isGGBAppletLoaded && !KSA_UI_STATE.isGGBAppletRefreshing) {
-      loadDB("loadVesselOrbitData.asp?db=" + item.db + "&ut=" + currUT(), addGGBOrbitAJAX);
+    // check too if it has orbital data to render if the Three.js scene is already loaded
+    if (KSA_UI_STATE.is3JSLoaded && !KSA_UI_STATE.is3JSRefreshing) {
+      loadDB("loadVesselOrbitData.asp?db=" + item.db + "&ut=" + currUT(), addOrbitAJAX);
     }
     ops.activeVessels.push(item);
     ops.updateData.push({ id: item.db,

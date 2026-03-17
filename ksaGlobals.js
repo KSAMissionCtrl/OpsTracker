@@ -55,7 +55,7 @@ var ops = {
 
   maxMenuHeight: KSA_CONSTANTS.DEFAULT_MAX_MENU_HEIGHT,  // default value for the menu on page load, changed dynamically based on contents of event box or menu resize
 
-  vesselsToLoad: [],      // uses extractIDs() to hold the ids of all the vessels in the current SOI that need to have GGB orbits rendered & loads them
+  vesselsToLoad: [],      // uses extractIDs() to hold the ids of all the vessels in the current SOI that need to have 3JS orbits rendered & loads them
   updatesList: [],        // all the updates to various vessels, crew and events that will happen next while the page is loaded
   updateData: [],         // precaches new data on all crew and vessels that are active and have updates that could occur while the page is loaded
   updateTweets: [],       // precaches the tweets for all updates to show while the page is loaded
@@ -81,8 +81,9 @@ var ops = {
                             // UT - last update
   activeVessels: [],      // lists all active vessel db name for quick reference so entire 100s-long vessel catalog does not need to be searched
   bodyCatalog: [],        // hold properties information on all the bodies in the solar system from the Catalog DB
-  ggbOrbits: [],          // stores trajectory information & visibility for orbits added to GGB after load
-                            // id - ggb figure identifier
+  pendingOrbitParam: null, // parsed ?orbit= URL parameter waiting to be injected into the Three.js scene by injectOrbitParam()
+  orbits: [],              // stores trajectory information & visibility for orbits added to the 3JS scene after load
+                            // id - Three.js scene orbit identifier
                             // type - "body" or named vessel type
                             // isHidden - bool
                             // isSelected - bool
@@ -164,8 +165,8 @@ const KSA_UI_STATE = {
   // Loading states
   isMenuDataLoaded: false,       // when all the menu data has been loaded from AJAX
   isMenuSorted: false,           // when the menu has completed initial sorting
-  isGGBAppletLoaded: false,      // when the GGB figure is ready to be displayed and updated
-  isGGBAppletRefreshing: false,  // when the GGB figure is still loading any additional vessel orbits
+  is3JSLoaded: false,            // when the Three.js scene is ready to be displayed and updated
+  is3JSRefreshing: false,        // when the Three.js scene is still loading any additional vessel orbits
   dataLoadQueue: [],             // holds urls of multiple AJAX data loads for debug and load checks
   
   // Menu state

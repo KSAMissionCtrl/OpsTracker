@@ -82,7 +82,7 @@ function loadEventsAJAX(xhttp) {
 
   } else writeManeuverinfo();
   
-  // if this is a crew page, no need to wait for GGB to load
+  // if this is a crew page, no need to wait for the Three.js scene to load
   if (ops.pageType.includes("crew")) activateEventLinks();
 }
 
@@ -190,7 +190,7 @@ function writeManeuverinfo(data) {
   }
 }
 
-// called once the GGB figure is done loading so switching to a vessel doesn't cut off the load
+// called once the Three.js scene is done loading so switching to a vessel doesn't cut off the load
 function activateEventLinks() {
   $("#manueverLink").addClass("fauxLink");
   $("#manueverLink").on("click", function() {

@@ -136,7 +136,7 @@
         <span id='alt8' style='color:#808080'>Test</span><br>
         <span id='alt9' style='color:#ffffff'>Test</span><br>
       </div>
-      <div id='footer' style='text-align: center; width: 955px; top: 930px; position: absolute;'><a target='_blank' href='http://www.kerbalspace.agency'>KSA Home Page</a> | 2D Orbit rendering: <a target='_blank' href='https://forum.kerbalspaceprogram.com/index.php?/topic/33568-winmaclinux-ksp-trajectory-optimization-tool-v164-new-vehicle-sizing-tool/'>KSPTOT</a> | 3D Orbit Rendering: <a target='_blank' href='https://forum.kerbalspaceprogram.com/index.php?/topic/158826-3d-ksp-solar-system-scale-model-major-update-05202017/'>by Syntax</a> | <a target='_blank' href='https://github.com/KSAMissionCtrl/OpsTracker/wiki'>Ops Tracker Wiki</a></div>
+      <div id='footer' style='text-align: center; width: 955px; top: 930px; position: absolute;'><a target='_blank' href='http://www.kerbalspace.agency'>KSA Home Page</a> | 2D Orbit rendering: <a target='_blank' href='https://forum.kerbalspaceprogram.com/index.php?/topic/33568-winmaclinux-ksp-trajectory-optimization-tool-v164-new-vehicle-sizing-tool/'>KSPTOT</a> | 3D Orbit Rendering: <a target='_blank' href='https://github.com/KSAMissionCtrl/OpsTracker/issues/327'>Claude AI</a> | <a target='_blank' href='https://github.com/KSAMissionCtrl/OpsTracker/wiki'>Ops Tracker Wiki</a></div>
       <div id='liveReloadIcon' style='position: absolute; top: 930px; left: 125px; display: none; cursor: pointer; font-size: 18px; color: #000000; text-decoration: none; z-index: 10; user-select: none; -webkit-user-select: none; -moz-user-select: none; -ms-user-select: none;'></div>
       <div id='copyLinkIcon' style='position: absolute; top: 930px; right: 430px; display: none; cursor: pointer; font-size: 18px; color: #4a90e2; text-decoration: none; z-index: 10; user-select: none; -webkit-user-select: none; -moz-user-select: none; -ms-user-select: none;'><i class="fa-solid fa-link"></i></div>
       <div id='adminIcon' style='position: absolute; top: 930px; right: 400px; display: none; cursor: pointer; font-size: 18px; color: #e67e22; text-decoration: none; z-index: 10; user-select: none; -webkit-user-select: none; -moz-user-select: none; -ms-user-select: none;'><i class="fa-solid fa-user-tie"></i></div>
@@ -194,11 +194,21 @@
     </div>
   </div>
   
+  <!-- Three.js ESM import map -->
+  <script type="importmap">
+  {
+    "imports": {
+      "three":         "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+    }
+  }
+  </script>
+
   <!-- JS files  -->
   <script src="https://code.jquery.com/jquery-4.0.0.min.js" 
   integrity="sha256-OaVG6prZf4v69dPg6PhVattBXkcOWQB62pdZ3ORyrao=" 
   crossorigin="anonymous"></script>
-  <script src="https://cdn.geogebra.org/apps/deployggb.js"></script>
+  <script type="module" src="three-bridge.js"></script>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" 
   integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" 
   crossorigin=""></script>

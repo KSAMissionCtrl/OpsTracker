@@ -107,12 +107,12 @@ function loadFlt(dbName, menuSelect = true) {
     // Make sure we're on Kerbin
     var currBody = ops.bodyCatalog.find(o => o.selected === true);
     if (!currBody || (currBody && currBody.Body != "Kerbin")) {
-      swapContent("body", "Kerbin-System", dbName);
+      swapContent("body", "Kerbin", dbName);
       return;
     }
     
     // Make sure page type is correct
-    if (ops.pageType != "body") swapContent("body", "Kerbin-System", dbName);
+    if (ops.pageType != "body") swapContent("body", "Kerbin", dbName);
     
     // add it back to the map and the control if it has been removed
     if (path.deleted) {
@@ -176,14 +176,14 @@ function loadFlt(dbName, menuSelect = true) {
   // this will append the flight name to the URL and the path will be loaded
   var currBody = ops.bodyCatalog.find(o => o.selected === true);
   if (!currBody || (currBody && currBody.Body != "Kerbin")) {
-    swapContent("body", "Kerbin-System", dbName);
+    swapContent("body", "Kerbin", dbName);
   }
 
   // however if the system is already set to Kerbin, just load the path straight to the map
   else {
 
     // if this isn't the right page type, set it up
-    if (ops.pageType != "body") swapContent("body", "Kerbin-System", dbName);
+    if (ops.pageType != "body") swapContent("body", "Kerbin", dbName);
     setTimeout(showMap, 1000);
 
     // show the layers control
@@ -857,9 +857,9 @@ function vesselContentUpdate(update) {
   var bMapShown = false;
 
   // we can't know whether this body has a surface map if we are still waiting for map data to load
-  // since map data is called after GGB load, make sure that's not happening either
+  // since map data is called after scene load, make sure that's not happening either
   // finally, ops data could still be loading as well
-  if (!KSA_UI_STATE.isGGBAppletLoaded || ops.surface.isLoading || ops.updateData.find(o => o.isLoading === true)) {
+  if (!KSA_UI_STATE.is3JSLoaded || ops.surface.isLoading || ops.updateData.find(o => o.isLoading === true)) {
     return setTimeout(vesselContentUpdate, 50, update);
   }
 
@@ -1161,7 +1161,7 @@ function updateVesselData(vessel, isNonObtUpdate = true) {
   // check if this vessel has any orbital data to update
   if (vessel.FutureData.Orbit && vessel.FutureData.Orbit.UT <= currUT() && 
       ops.bodyCatalog.find(o => o.selected === true).Body === getCurrrentSOIName()) {
-    loadDB("loadVesselOrbitData.asp?db=" + vessel.id + "&ut=" + currUT(), addGGBOrbitAJAX);
+    loadDB("loadVesselOrbitData.asp?db=" + vessel.id + "&ut=" + currUT(), addOrbitAJAX);
     var currObj = KSA_CATALOGS.bodyPaths.paths.find(o => o.name === vessel.id);
     currObj.isCalculated = false;
     currObj.orbit = vessel.FutureData.Orbit;

@@ -491,3 +491,18 @@ input:disabled+label {
   background-color: rgba(0, 0, 0, 0.8);
   transform: scale(1.1);
 }
+
+/* Three.js CSS2DRenderer body/vessel name labels */
+.three-label {
+  font-family: Arial, sans-serif;
+  font-size: 11px;
+  font-weight: bold;
+  background: rgba(0, 0, 0, 0.55);
+  padding: 1px 4px;
+  border-radius: 3px;
+  pointer-events: none;
+  white-space: nowrap;
+}
+.three-label-selected {
+  border: 1px solid #00ff00;
+}
