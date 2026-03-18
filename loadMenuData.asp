@@ -41,6 +41,8 @@ do
                    rsCrafts.fields.item("Type") & "~")
 
     'get the last SOI time for this vessel to use in case start/end times are not defined
+    'not sure why the last SOI time is used for both start and end mission time. Have changed this in the DB reference and
+    'will have Claude implement the change during the JSON refactor
     defaultTime = 0
     locations = split(rsCrafts.fields.item("SOI"), "|")
     for each loc in locations

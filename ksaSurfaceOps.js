@@ -499,11 +499,11 @@ function loadMapDataAJAX(xhttp) {
       if (label[0] <= currUT()) {
 
         // get the current title for the label
-        var titles = label[3].split(":");
+        var titles = label[3].split("$");
         if (titles.length > 1) {
           var strTitle = "";
           titles.forEach(function(title) {
-            if (title.split("=")[0] <= currUT()) strTitle = title.split("=")[1];
+            if (title.split("%")[0] <= currUT()) strTitle = title.split("%")[1];
           });
         } else var strTitle = label[3];
         labelMarker = L.marker([label[1],label[2]], { icon: KSA_MAP_ICONS.labelIcon, zIndexOffset: 100 }).bindTooltip(strTitle, { direction: 'top', offset: [0,-10] });
@@ -566,11 +566,11 @@ function loadMapDataAJAX(xhttp) {
     POIData.forEach(function(item) {
       var POI = item.split(";");
       if (POI[0] <= currUT()) {
-        var titles = POI[4].split(":");
+        var titles = POI[4].split("$");
         if (titles.length > 1) {
           var strTitle = "";
           titles.forEach(function(title) {
-            if (title.split("=")[0] <= currUT()) strTitle = title.split("=")[1];
+            if (title.split("%")[0] <= currUT()) strTitle = title.split("%")[1];
           });
         } else var strTitle = POI[4];
         POIMarker = L.marker([POI[1],POI[2]], { icon: KSA_MAP_ICONS.POIIcon, zIndexOffset: 100 });
@@ -597,11 +597,11 @@ function loadMapDataAJAX(xhttp) {
     anomalyData.forEach(function(item) {
       var anomaly = item.split(";");
       if (anomaly[0] <= currUT()) {
-        var titles = anomaly[4].split(":");
+        var titles = anomaly[4].split("$");
         if (titles.length > 1) {
           var strTitle = "";
           titles.forEach(function(title) {
-            if (title.split("=")[0] <= currUT()) strTitle = title.split("=")[1];
+            if (title.split("%")[0] <= currUT()) strTitle = title.split("%")[1];
           });
         } else var strTitle = anomaly[4];
         anomalyMarker = L.marker([anomaly[1],anomaly[2]], { icon: KSA_MAP_ICONS.anomalyIcon, zIndexOffset: 100 });
@@ -628,11 +628,11 @@ function loadMapDataAJAX(xhttp) {
     grndData.forEach(function(item) {
       var station = item.split(";");
       if (station[0] <= currUT()) {
-        var titles = station[4].split(":");
+        var titles = station[4].split("$");
         if (titles.length > 1) {
           var strTitle = "";
           titles.forEach(function(title) {
-            if (title.split("=")[0] <= currUT()) strTitle = title.split("=")[1];
+            if (title.split("%")[0] <= currUT()) strTitle = title.split("%")[1];
           });
         } else var strTitle = station[4];
         if (station[5] == "0") grndMarker = L.marker([station[1],station[2]], { icon: KSA_MAP_ICONS.dishIcon, zIndexOffset: 100 });
@@ -671,11 +671,11 @@ function loadMapDataAJAX(xhttp) {
     aptData.forEach(function(item) {
       var airport = item.split(";");
       if (airport[0] <= currUT()) {
-        var titles = airport[3].split(":");
+        var titles = airport[3].split("$");
         if (titles.length > 1) {
           var strTitle = "";
           titles.forEach(function(title) {
-            if (title.split("=")[0] <= currUT()) strTitle = title.split("=")[1];
+            if (title.split("%")[0] <= currUT()) strTitle = title.split("%")[1];
           });
         } else var strTitle = airport[3];
         aptMarker = L.marker([airport[1],airport[2]], { icon: KSA_MAP_ICONS.airportIcon, zIndexOffset: 100 });
@@ -845,13 +845,13 @@ function loadSurfaceUpdatesAJAX(xhttp) {
       surfaceObj.Labels.split("|").forEach(function(item) {
         var label = item.split(";");
         if (label[0] > currUT()) ops.updatesList.push({ type: "map:label", UT: parseFloat(label[0]), id: surfaceObj.Name });
-        var titles = label[3].split(":");
+        var titles = label[3].split("$");
         if (titles.length > 1) {
           titles.forEach(function(title) {
             
             // when adding future title updates be sure to skip the first one
-            if (title.split("=")[0] > currUT() && title.split("=")[0] != label[0]) {
-              ops.updatesList.push({ type: "map:label:refresh:" + label[0], UT: parseFloat(title.split("=")[0]), id: surfaceObj.Name });
+            if (title.split("%")[0] > currUT() && title.split("%")[0] != label[0]) {
+              ops.updatesList.push({ type: "map:label:refresh:" + label[0], UT: parseFloat(title.split("%")[0]), id: surfaceObj.Name });
             }
           });
         } 
@@ -867,11 +867,11 @@ function loadSurfaceUpdatesAJAX(xhttp) {
       surfaceObj.POI.split("|").forEach(function(item) {
         var poi = item.split(";");
         if (poi[0] > currUT()) ops.updatesList.push({ type: "map:poi", UT: parseFloat(poi[0]), id: surfaceObj.Name });
-        var titles = poi[4].split(":");
+        var titles = poi[4].split("$");
         if (titles.length > 1) {
           titles.forEach(function(title) {
-            if (title.split("=")[0] > currUT() && title.split("=")[0] != poi[0]) {
-              ops.updatesList.push({ type: "map:poi:refresh:" + poi[0], UT: parseFloat(title.split("=")[0]), id: surfaceObj.Name });
+            if (title.split("%")[0] > currUT() && title.split("%")[0] != poi[0]) {
+              ops.updatesList.push({ type: "map:poi:refresh:" + poi[0], UT: parseFloat(title.split("%")[0]), id: surfaceObj.Name });
             }
           });
         } 
@@ -881,11 +881,11 @@ function loadSurfaceUpdatesAJAX(xhttp) {
       surfaceObj.Anomalies.split("|").forEach(function(item) {
         var anomaly = item.split(";");
         if (anomaly[0] > currUT()) ops.updatesList.push({ type: "map:anomaly", UT: parseFloat(anomaly[0]), id: surfaceObj.Name });
-        var titles = anomaly[4].split(":");
+        var titles = anomaly[4].split("$");
         if (titles.length > 1) {
           titles.forEach(function(title) {
-            if (title.split("=")[0] > currUT() && title.split("=")[0] != anomaly[0]) {
-              ops.updatesList.push({ type: "map:anomaly:refresh:" + anomaly[0], UT: parseFloat(title.split("=")[0]), id: surfaceObj.Name });
+            if (title.split("%")[0] > currUT() && title.split("%")[0] != anomaly[0]) {
+              ops.updatesList.push({ type: "map:anomaly:refresh:" + anomaly[0], UT: parseFloat(title.split("%")[0]), id: surfaceObj.Name });
             }
           });
         } 
@@ -895,11 +895,11 @@ function loadSurfaceUpdatesAJAX(xhttp) {
       surfaceObj.GroundStations.split("|").forEach(function(item) {
         var station = item.split(";");
         if (station[0] > currUT()) ops.updatesList.push({ type: "map:grndstn", UT: parseFloat(station[0]), id: surfaceObj.Name });
-        var titles = station[4].split(":");
+        var titles = station[4].split("$");
         if (titles.length > 1) {
           titles.forEach(function(title) {
-            if (title.split("=")[0] > currUT() && title.split("=")[0] != station[0]) {
-              ops.updatesList.push({ type: "map:grndstn:refresh:" + station[0], UT: parseFloat(title.split("=")[0]), id: surfaceObj.Name });
+            if (title.split("%")[0] > currUT() && title.split("%")[0] != station[0]) {
+              ops.updatesList.push({ type: "map:grndstn:refresh:" + station[0], UT: parseFloat(title.split("%")[0]), id: surfaceObj.Name });
             }
           });
         } 
@@ -909,11 +909,11 @@ function loadSurfaceUpdatesAJAX(xhttp) {
       surfaceObj.Airports.split("|").forEach(function(item) {
         var airport = item.split(";");
         if (airport[0] > currUT()) ops.updatesList.push({ type: "map:airport", UT: parseFloat(airport[0]), id: surfaceObj.Name });
-        var titles = airport[3].split(":");
+        var titles = airport[3].split("$");
         if (titles.length > 1) {
           titles.forEach(function(title) {
-            if (title.split("=")[0] > currUT() && title.split("=")[0] != airport[0]) {
-              ops.updatesList.push({ type: "map:airport:refresh:" + airport[0], UT: parseFloat(title.split("=")[0]), id: surfaceObj.Name });
+            if (title.split("%")[0] > currUT() && title.split("%")[0] != airport[0]) {
+              ops.updatesList.push({ type: "map:airport:refresh:" + airport[0], UT: parseFloat(title.split("%")[0]), id: surfaceObj.Name });
             }
           });
         } 
@@ -989,11 +989,11 @@ function surfaceUpdate(type, markerUT, id) {
     labelData.forEach(function(item) {
       var label = item.split(";");
       if (parseFloat(label[0]) === markerUT) {
-        var titles = label[3].split(":");
+        var titles = label[3].split("$");
         if (titles.length > 1) {
           var strTitle = "";
           titles.forEach(function(title) {
-            if (title.split("=")[0] <= markerUT) strTitle = title.split("=")[1];
+            if (title.split("%")[0] <= markerUT) strTitle = title.split("%")[1];
           });
         } else var strTitle = label[3];
         markerUpdate = L.marker([label[1],label[2]], { icon: KSA_MAP_ICONS.labelIcon, zIndexOffset: 100 }).bindTooltip(strTitle, { direction: 'top', offset: [0,-10] });
@@ -1108,11 +1108,11 @@ function surfaceUpdate(type, markerUT, id) {
     POIData.forEach(function(item) {
       var POI = item.split(";");
       if (parseFloat(POI[0]) === markerUT) {
-        var titles = POI[4].split(":");
+        var titles = POI[4].split("$");
         if (titles.length > 1) {
           var strTitle = "";
           titles.forEach(function(title) {
-            if (title.split("=")[0] <= currUT()) strTitle = title.split("=")[1];
+            if (title.split("%")[0] <= currUT()) strTitle = title.split("%")[1];
           });
         } else var strTitle = POI[4];
         markerUpdate = L.marker([POI[1],POI[2]], { icon: KSA_MAP_ICONS.POIIcon, zIndexOffset: 100 });
@@ -1142,11 +1142,11 @@ function surfaceUpdate(type, markerUT, id) {
     anomalyData.forEach(function(item) {
       var anomaly = item.split(";");
       if (parseFloat(anomaly[0]) === markerUT) {
-        var titles = anomaly[4].split(":");
+        var titles = anomaly[4].split("$");
         if (titles.length > 1) {
           var strTitle = "";
           titles.forEach(function(title) {
-            if (title.split("=")[0] <= currUT()) strTitle = title.split("=")[1];
+            if (title.split("%")[0] <= currUT()) strTitle = title.split("%")[1];
           });
         } else var strTitle = anomaly[4];
         markerUpdate = L.marker([anomaly[1],anomaly[2]], { icon: KSA_MAP_ICONS.anomalyIcon, zIndexOffset: 100 });
@@ -1178,11 +1178,11 @@ function surfaceUpdate(type, markerUT, id) {
     grndData.forEach(function(item) {
       var station = item.split(";");
       if (parseFloat(station[0]) === markerUT) {
-        var titles = station[4].split(":");
+        var titles = station[4].split("$");
         if (titles.length > 1) {
           var strTitle = "";
           titles.forEach(function(title) {
-            if (title.split("=")[0] <= currUT()) strTitle = title.split("=")[1];
+            if (title.split("%")[0] <= currUT()) strTitle = title.split("%")[1];
           });
         } else var strTitle = station[4];
         if (station[5] == "0") markerUpdate = L.marker([station[1],station[2]], { icon: KSA_MAP_ICONS.dishIcon, zIndexOffset: 100 });
@@ -1227,11 +1227,11 @@ function surfaceUpdate(type, markerUT, id) {
     aptData.forEach(function(item) {
       var airport = item.split(";");
       if (parseFloat(airport[0]) === markerUT) {
-        var titles = airport[3].split(":");
+        var titles = airport[3].split("$");
         if (titles.length > 1) {
           var strTitle = "";
           titles.forEach(function(title) {
-            if (title.split("=")[0] <= currUT()) strTitle = title.split("=")[1];
+            if (title.split("%")[0] <= currUT()) strTitle = title.split("%")[1];
           });
         } else var strTitle = airport[3];
         markerUpdate = L.marker([airport[1],airport[2]], { icon: KSA_MAP_ICONS.airportIcon, zIndexOffset: 100 });
