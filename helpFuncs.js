@@ -383,6 +383,83 @@ function loadDB(url, cFunction, data) {
   }
 }
 
+/**
+ * Fetches and parses a line-delimited JSON.txt archive file.
+ * Each JSON object spans multiple lines, opening with '{' and closing with '},' or '}]'.
+ * (.json.txt extension is used to avoid MIME type issues on the server.)
+ *
+ * Analogous to loadDB but for the JSON.txt flat-file format used by the social archive.
+ * The caller receives all parsed objects and is responsible for any filtering.
+ *
+ * @param {string} url - Full URL to the .json.txt file
+ * @param {function} callback - Called with (err, objects[]) on completion
+ * @param {function} [progressCallback] - Optional: called with (loaded, total, lengthComputable) during download
+ */
+function loadJsonTxt(url, callback, progressCallback) {
+  // Date-based cache busting so same-day visits share the browser cache
+  var cacheBuster = new Date().toISOString().split('T')[0];
+  var urlWithCacheBuster = url + (url.indexOf('?') !== -1 ? '&_=' : '?_=') + cacheBuster;
+
+  var xhr = new XMLHttpRequest();
+  xhr.open('GET', urlWithCacheBuster, true);
+
+  if (progressCallback) {
+    xhr.onprogress = function(e) {
+      progressCallback(e.loaded, e.total, e.lengthComputable);
+    };
+  }
+
+  xhr.onload = function() {
+    if (xhr.status !== 200) {
+      callback(new Error('Failed to load: ' + url + ' (HTTP ' + xhr.status + ')'), null);
+      return;
+    }
+
+    var objects = [];
+    var lines = xhr.responseText.split('\n');
+    var buffer = '';
+    var insideObject = false;
+    var insideSubobj = false;
+
+    for (var i = 0; i < lines.length; i++) {
+      var trimmed = lines[i].trim();
+
+      if (trimmed.indexOf('{') === 0 && !insideObject) {
+        insideObject = true;
+        buffer = '';
+      }
+
+      if (trimmed.indexOf('[') !== -1 && trimmed.indexOf(']') === -1 && insideObject) {
+        insideSubobj = true;
+      }
+
+      if (trimmed.indexOf(']') !== -1 && insideSubobj) {
+        insideSubobj = false;
+      }
+
+      if (!insideSubobj && insideObject && (trimmed === '},' || trimmed === '}]')) {
+        buffer += '}';
+        try {
+          objects.push(JSON.parse(buffer));
+        } catch (e) {
+          console.error('[loadJsonTxt] Parse error:', e, buffer.substring(0, 100));
+        }
+        insideObject = false;
+      } else {
+        buffer += lines[i];
+      }
+    }
+
+    callback(null, objects);
+  };
+
+  xhr.onerror = function() {
+    callback(new Error('Network error loading: ' + url), null);
+  };
+
+  xhr.send();
+}
+
 // take an amount of time in seconds and convert it to years, days, hours, minutes and seconds
 // leave out any values that are not necessary (0y, 0d won't show, for example)
 // give seconds to 3 significant digits if precision is true

@@ -36,7 +36,6 @@
   <link rel="stylesheet" href="../lib/Leaflet.LinearMeasurement.css">
   <link rel="stylesheet" href="../lib/leaflet.contextmenu.min.css">
   <link rel="stylesheet" href="styles.css?v=1.0">
-  <link rel="stylesheet" href="../lib/tweet-display.css">
 </head>
 
 <body onload='setupContent()'>
@@ -233,7 +232,6 @@
   <script src="../lib/Leaflet.LinearMeasurement.js"></script>
   <script src="../lib/leaflet.contextmenu.min.js"></script>
   <script src="../lib/leaflet.hotline.min.js"></script>
-  <script src="../lib/tweet-display.js"></script>
   <script src="../lib/L.Polyline.SnakeAnim.js"></script>
   <script src="helpFuncs.js"></script>
   <script src="ksaGlobals.js"></script>
@@ -243,6 +241,7 @@
   <script src="ksaSurfaceOps.js"></script>
   <script src="ksaVesselOps.js"></script>
   <script src="ksaCrewOps.js"></script>
+  <script src="ksaSocialOps.js"></script>
   <script src="ksaMainOps.js"></script>
 </body>
 </html>

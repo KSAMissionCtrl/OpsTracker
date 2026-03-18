@@ -253,39 +253,9 @@ function setupContent() {
     window.open("admin.htm", "_blank");
   });
 
-  // restore selected social icon from localStorage
-  var savedSocial = localStorage.getItem('ksaOps_selectedSocialIcon') || 'x-twitter';
-  $('#socialIcons i').removeClass('active');
-  $('#socialIcons i[data-social="' + savedSocial + '"]').addClass('active');
-
-  // setup social icons handlers
-  $('#socialIcons i').on('click', function(e) {
-    var url = $(this).data('url');
-    window.open(url, '_blank');
-  });
-
-  $('#socialIcons i').on('contextmenu', function(e) {
-    e.preventDefault();
-    
-    // Remove active class from all icons
-    $('#socialIcons i').removeClass('active');
-    
-    // Add active class to clicked icon
-    $(this).addClass('active');
-    
-    // Save to localStorage
-    var social = $(this).data('social');
-    localStorage.setItem('ksaOps_selectedSocialIcon', social);
-  });
-
-  // setup tooltips for social icons
-  var showOpt = 'mouseenter';
-  if (is_touch_device()) showOpt = 'click';
-  Tipped.create('#socialIcons i', 'Left-click: Open social profile<br>Right-click: Set default platform<br>to open via update timestamps', {
-    position: 'top',
-    showOn: showOpt,
-    hideOnClickOutside: is_touch_device()
-  });
+  // setup social icons
+  var showOpt = is_touch_device() ? 'click' : 'mouseenter';
+  SocialDisplay.initSocialIcons(showOpt);
 
   // setup the clock
   var tzOffset = luxon.DateTime.fromMillis(KSA_CONSTANTS.MS_FROM_1970_TO_KSA_FOUNDING + (ops.UT * 1000)).setZone("America/New_York");
@@ -980,7 +950,7 @@ function setupFFNextEvent(bStopAny) {
         } else if (!nextEventUT && ops.currentVessel.timelineTweets) {
 
           // there could still be a tweet update further than the current next one that's not associated with the vessel DB
-          var nextTweet = TweetDisplay.getNextTweetInCollection(ops.currentVessel.timelineTweets);
+          var nextTweet = SocialDisplay.getNextTweetInCollection(ops.currentVessel.timelineTweets);
           if (nextTweet) {
             $("#advTimeTip").attr("data-type", "tweet");
             $("#advTimeTip").attr("data-id", ops.currentVessel.Catalog.DB);
@@ -999,7 +969,7 @@ function setupFFNextEvent(bStopAny) {
           nextEventUT = nextEventUT.UT;
         }
         else if (!nextEventUT && ops.currentCrew.timelineTweets) {
-          var nextTweet = TweetDisplay.getNextTweetInCollection(ops.currentCrew.timelineTweets);
+          var nextTweet = SocialDisplay.getNextTweetInCollection(ops.currentCrew.timelineTweets);
           if (nextTweet) {
             $("#advTimeTip").attr("data-type", "tweet");
             $("#advTimeTip").attr("data-id", ops.currentCrew.Background.Kerbal);
@@ -1092,7 +1062,7 @@ function setupFFNextEvent(bStopAny) {
 
 // once no more spinners are detected and the proper social feed is loaded - it's zoom time
 function afterLoadFF(updateUT) {
-  if (stillSpinning() && !TweetDisplay.config.isLoaded) return setTimeout(afterLoadFF, 150, updateUT);
+  if (stillSpinning() && !SocialDisplay.config.isLoaded) return setTimeout(afterLoadFF, 150, updateUT);
   clearTimeout(KSA_TIMERS.tickTimer);
   KSA_TIMERS.tickTimer = setTimeout(tick, 1, 60000, true);
   $("#advanceEvent").css('cursor', 'pointer').html("<i class=\"fa-solid fa-forward-fast fa-beat\" style=\"color: #000000;\"></i>");
@@ -1164,44 +1134,6 @@ function checkPageUpdate(rapidFireMode = false) {
     updatePage(ops.updatesList.shift(), rapidFireMode);
     return checkPageUpdate(rapidFireMode);
   } else return;
-}
-
-function swapTwitterSource(swap, source, update=false) {
-
-  // it can take a little while for the ops data to load and reset the last visit time that is used for cache busting
-  // so make sure that is complete before allowing this to proceed. Also don't allow a double data load call
-  if (!ops.updateData.length || (!ops.updateTweets && ops.updateData.find(o => o.isLoading === true)) || !TweetDisplay.config.isLoaded) {
-    return setTimeout(swapTwitterSource, 250, swap, source, update);
-  }
-
-  // Ensure source is a string (in case it comes from ASP as a number)
-  if (source) source = String(source);
-  
-  if (swap && source) {
-    $("#twitterTimelineSelection").html("Source: <span class='fauxLink' onclick=\"swapTwitterSource('" + swap + "')\">KSA Main Feed</span> | <b>" + swap + "</b>");
-    ops.twitterSource = source;
-  } else if (swap && !source) {
-    $("#twitterTimelineSelection").html("Source: <b>KSA Main Feed</b> | <span class='fauxLink' onclick=\"swapTwitterSource('" + swap + "', '" + ops.twitterSource + "')\">" + swap + "</span>");
-  } else if (!swap && !source) {
-    $("#twitterTimelineSelection").html("Source: <b>KSA Main Feed</b>");
-  }
-  if (!source) {
-    source = "13573";
-    ops.twitterSource = source;
-  }
-
-  if (KSA_UI_STATE.isLivePastUT) var tweetDB = "tweets";
-  else var tweetDB = "tweetstrimmed";
-
-  TweetDisplay.displayTweets({
-    containerId: 'twitterTimeline',
-    collectionFile: source,
-    order: 'desc',
-    tweetDB: tweetDB,
-    maxTweets: 25,
-    UT: currUT(),
-    update: update
-  });
 }
 
 // loads future data for all active vessels and crew so they can be updated without fetch delay
@@ -1445,136 +1377,6 @@ function updateTerminator() {
   }
 }
 
-// opens a social post in the selected client
-function openSocialPost(tweetid) {
-  var bOpened = true;
-  var tweet = TweetDisplay.getTweetData(tweetid);
-
-  if (!tweet) {
-    console.log("could not find tweet with id", tweetid);
-    return;
-  }
-
-  var selectedSocial = localStorage.getItem('ksaOps_selectedSocialIcon');
-  if (selectedSocial && selectedSocial != "x-twitter") {
-    if (selectedSocial == "bluesky") {
-      if (tweet.bsky) window.open('https://bsky.app/profile/ksa-missionctrl.bsky.social/post/' + tweet.bsky, '_blank');
-      else {
-        window.open('https://bsky.app/profile/ksa-missionctrl.bsky.social', '_blank');
-        bOpened = false;
-      }
-    } else if (selectedSocial == "threads") {
-      if (tweet.threads) window.open('https://www.threads.com/@ksa_missionctrl/post/' + tweet.threads, '_blank');
-      else {
-        window.open('https://www.threads.com/@ksa_missionctrl', '_blank');
-        bOpened = false;
-      }
-    } else if (selectedSocial == "mastodon") {
-      if (tweet.mstdn) window.open('https://mastodon.social/@ksa_missionctrl/' + tweet.mstdn, '_blank');
-      else {
-        window.open('https://mastodon.social/@ksa_missionctrl', '_blank');
-        bOpened = false;
-      }
-    }
-  } else {
-
-    // so when the pyscript imports the tweet archive and cleans it up it adds the xtwit copy of the id
-    // however then the edits are loaded in and overwrite the cleaned tweet data, and none of them have the xtwit
-    // I'm not adding that manually to every edited tweet in the file so just check if no other socials are defined as well
-    // this means its an edited tweet and also an older update that will only be on X so just use the original ID
-    // really could have just done this for all the old tweets but wanted to test the xtwit property
-    if (!tweet.xtwit && !tweet.bsky && !tweet.threads && !tweet.mstdn) window.open('https://x.com/ksa_missionctrl/status/' + tweet.id, '_blank');
-    else if (tweet.xtwit) window.open('https://x.com/ksa_missionctrl/status/' + tweet.xtwit, '_blank');
-    else {
-      bOpened = false;
-      window.open('https://x.com/ksa_missionctrl', '_blank');
-    }
-  }
-
-  if (!bOpened && !localStorage.getItem('ksaOps_socialMsgSeen')) {
-    $("#siteDialog").html("We can't take you directly to this post, but you will likely have found it easily within the main profile feed as this issue generally only affects posts within the past few days. There is also the chance that it was not posted at all here. For more information <a href='https://github.com/KSAMissionCtrl/OpsTracker/wiki/Social-Feed' target='_blank'>see our wiki</a><br><br><label style='cursor: pointer;'><input type='checkbox' id='socialMsgDontShow' checked style='cursor: pointer;'> Don't show again</label>");
-    $("#siteDialog").dialog("option", { title: "Social Feeds Notice", buttons: [{
-      text: "Close",
-      click: function() { 
-        if ($("#socialMsgDontShow").is(":checked")) localStorage.setItem('ksaOps_socialMsgSeen', 'true');
-        $("#siteDialog").dialog("close");
-      }
-    }]});
-    $("#siteDialog").dialog("open");
-  }
-}
-
-// iterative function to avoid lagging the browser
-function processTweetUpdates(step = 0) {
-  switch (step) {
-
-    // sort the tweets highest to lowest by UT
-    case 0:
-      ops.updateTweets.sort(function(a,b) { return (a.UT < b.UT) ? 1 : ((b.UT < a.UT) ? -1 : 0); });
-      step = 1;
-      setTimeout(processTweetUpdates, 100, step);
-      break;
-
-    // loop through and find the first tweet that is earlier than the current UT, 
-    // then slice the array to only keep the future tweets that we need to update for
-    case 1:
-      var index = ops.updateTweets.findIndex(tweet => tweet.UT < currUT());
-      if (index > -1) ops.updateTweets = ops.updateTweets.slice(0, index);
-      else ops.updateTweets = [];
-      step = 2;
-      setTimeout(processTweetUpdates, 100, step);
-      break;
-
-    // resort lowest to highest
-    case 2:
-      if (ops.updateTweets.length) {
-        ops.updateTweets.sort(function(a,b) { return (a.UT > b.UT) ? 1 : ((b.UT > a.UT) ? -1 : 0); });
-        step = 3;
-        setTimeout(processTweetUpdates, 100, step);
-      }
-      break;
-
-    // add just the next tweet update to the update list if there are any and resort
-    case 3:
-      if (ops.updateTweets.length) {
-        
-        // we need to check if any of the collections in this tweet match a vessel or crew
-        var objIDs = [];
-        ops.craftsMenu.forEach(function(craft) { 
-          if (craft.timeline && ops.updateTweets[0].collections.includes(craft.timeline)) objIDs.push(craft.db); 
-        });
-        ops.crewMenu.forEach(function(crew) { 
-          if (crew.timeline && ops.updateTweets[0].collections.includes(crew.timeline)) objIDs.push(crew.db); 
-        });
-
-        ops.updatesList.push({ type: "tweet", data: ops.updateTweets[0], UT: ops.updateTweets[0].UT, id: objIDs.length ? objIDs : null });
-
-        ops.updateTweets.shift();
-        ops.updatesList.sort(function(a,b) { return (a.UT > b.UT) ? 1 : ((b.UT > a.UT) ? -1 : 0); });
-      }
-      break;
-  }
-}
-
-function socialUpdate(updateObj) {
-
-  // make sure tweets aren't being loaded because if so then this add will already happen
-  if (TweetDisplay.config.isLoaded) {
-
-    // if we are looking at the proper timeline, add the tweet
-    if (updateObj.data.collections.includes(ops.twitterSource)) TweetDisplay.addTweet(updateObj.data);
-
-    // if not, then check if the current vessel or crew has this timeline and switch to it
-    else if (ops.pageType == "vessel" && ops.currentVessel && ops.currentVessel.Catalog.Timeline && updateObj.data.collections.includes(ops.currentVessel.Catalog.Timeline)) {
-      swapTwitterSource("Mission Feed", ops.currentVessel.Catalog.Timeline, true);
-    }
-    else if (ops.pageType == "crew" && ops.currentCrew && ops.currentCrew.Background.Timeline && updateObj.data.collections.includes(ops.currentCrew.Background.Timeline)) {
-      swapTwitterSource("Crew Feed", ops.currentCrew.Background.Timeline, true);
-    }
-  }
-  processTweetUpdates(3);
-}
-
 // loop and update the page every second
 // no longer using setInterval, as suggested via
 // http://stackoverflow.com/questions/6685396/execute-the-first-time-the-setinterval-without-delay
@@ -1604,8 +1406,8 @@ function tick(utDelta = 1000, rapidFireMode = false) {
   }
 
   // check if the tweets update is available for fetching
-  if (!ops.updateTweets && TweetDisplay.config.isLoaded) {
-    ops.updateTweets = TweetDisplay.fetchUpdateData();
+  if (!ops.updateTweets && SocialDisplay.config.isLoaded) {
+    ops.updateTweets = SocialDisplay.fetchUpdateData();
     processTweetUpdates();
   }
 
