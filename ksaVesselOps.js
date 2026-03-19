@@ -194,7 +194,7 @@ function loadFlt(dbName, menuSelect = true) {
     ops.surface.layerControl._expand();
     ops.surface.layerControl.options.collapsed = false;
     ops.surface.layerControl.addOverlay(KSA_LAYERS.surfaceTracksDataLoad.fltTrackDataLoad, "<i class='fa fa-cog fa-spin'></i> Loading Data...", "Flight Tracks");
-    loadDB("loadFltData.asp?data=" + dbName, loadFltDataAJAX);
+    KSA_DATA_SERVICE.fetchFltData(dbName, loadFltDataAJAX);
     KSA_UI_STATE.strFltTrackLoading = dbName;
     
     // if this wasn't selected from the menu, select it now

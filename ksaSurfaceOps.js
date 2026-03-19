@@ -350,7 +350,7 @@ function loadMap(map) {
           ops.surface.layerControl._expand();
           ops.surface.layerControl.options.collapsed = false;
           ops.surface.layerControl.addOverlay(KSA_LAYERS.surfaceTracksDataLoad.fltTrackDataLoad, "<i class='fa fa-cog fa-spin'></i> Loading Data...", "Flight Tracks");
-          loadDB("loadFltData.asp?data=" + flight, loadFltDataAJAX);
+          KSA_DATA_SERVICE.fetchFltData(flight, loadFltDataAJAX);
           KSA_UI_STATE.strFltTrackLoading = flight;
           break;
         }
@@ -799,7 +799,7 @@ function loadMapDataAJAX(xhttp) {
         ops.surface.layerControl._expand();
         ops.surface.layerControl.options.collapsed = false;
         ops.surface.layerControl.addOverlay(KSA_LAYERS.surfaceTracksDataLoad.fltTrackDataLoad, "<i class='fa fa-cog fa-spin'></i> Loading Data...", "Flight Tracks");
-        loadDB("loadFltData.asp?data=" + flight, loadFltDataAJAX);
+        KSA_DATA_SERVICE.fetchFltData(flight, loadFltDataAJAX);
         KSA_UI_STATE.strFltTrackLoading = flight;
         break;
       }
@@ -1375,7 +1375,7 @@ function loadFltDataAJAX(xhttp) {
       KSA_LAYERS.surfaceTracksDataLoad.fltTrackDataLoad = L.layerGroup();
       ops.surface.layerControl.addOverlay(KSA_LAYERS.surfaceTracksDataLoad.fltTrackDataLoad, "<i class='fa fa-cog fa-spin'></i> Loading Data...", "Flight Tracks");
       var strFlightName = KSA_CALCULATIONS.flightsToLoad.shift();
-      loadDB("loadFltData.asp?data=" + strFlightName, loadFltDataAJAX);
+      KSA_DATA_SERVICE.fetchFltData(strFlightName, loadFltDataAJAX);
       KSA_UI_STATE.strFltTrackLoading = strFlightName;
   
     // done with data load?
