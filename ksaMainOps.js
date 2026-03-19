@@ -462,7 +462,7 @@ function setupContent() {
   loadDB("loadMenuData.asp?UT=" + currUT(), loadMenuAJAX);
   KSA_DATA_SERVICE.fetchBodyData(loadBodyAJAX);
   KSA_DATA_SERVICE.fetchPartsData(loadPartsAJAX);
-  loadDB("loadMapData.asp?refID=-1", loadSurfaceUpdatesAJAX);
+  KSA_DATA_SERVICE.fetchMapData(-1, loadSurfaceUpdatesAJAX);
   
   // JQuery UI theme the buttons used to page through mission history
   // diabled by default, will enable as needed when vessel loads

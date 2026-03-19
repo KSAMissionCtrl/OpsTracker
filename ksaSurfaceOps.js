@@ -369,7 +369,7 @@ function loadMap(map) {
 
   // call up the map data to load 
   // any orbital calcs in progress should have been paused with content swap
-  loadDB("loadMapData.asp?refID=" + ops.bodyCatalog.find(o => o.Body === map).ID, loadMapDataAJAX);
+  KSA_DATA_SERVICE.fetchMapData(ops.bodyCatalog.find(o => o.Body === map).ID, loadMapDataAJAX);
   ops.surface.isLoading = true;
 }
 
