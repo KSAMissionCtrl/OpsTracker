@@ -459,7 +459,7 @@ function setupContent() {
 
   // load data
   loadDB("loadEventData.asp?UT=" + currUT(), loadEventsAJAX);
-  loadDB("loadMenuData.asp?UT=" + currUT(), loadMenuAJAX);
+  KSA_DATA_SERVICE.fetchMenuData(currUT(), loadMenuAJAX);
   KSA_DATA_SERVICE.fetchBodyData(loadBodyAJAX);
   KSA_DATA_SERVICE.fetchPartsData(loadPartsAJAX);
   KSA_DATA_SERVICE.fetchMapData(-1, loadSurfaceUpdatesAJAX);

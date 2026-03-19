@@ -547,6 +547,190 @@ const KSA_DATA_SERVICE = (function () {
     });
   }
 
+  // ---------------------------------------------------------------------------
+  // Endpoint #6 — replaces loadMenuData.asp
+  // ---------------------------------------------------------------------------
+
+  /**
+   * _buildMenuCraftRecord(vessel, ut)
+   *
+   * Private helper used only by fetchMenuData.
+   * Computes the current SOI ref for a vessel at the given UT and, if the
+   * vessel should appear in the menu (ref !== -2), assembles its record string.
+   *
+   * Returns null when ref === -2 (vessel is hidden from both menu lists).
+   *
+   * Format: DB~Vessel~SOI~Type~start~end~program~vesselName[~timeline]
+   *
+   * start default (MissionStartTime is null): FIRST SOI entry UT.
+   *   NOTE: The original ASP used the LAST SOI entry UT for BOTH start and
+   *   end defaults (defaultTime covered both).  The DB Reference now specifies
+   *   start = first SOI entry UT, end = last SOI entry UT, which is what this
+   *   function implements.  Revert to lastSoiUT if the old behaviour is needed.
+   *
+   * end default (MissionEnd is null): LAST SOI entry UT.
+   */
+  function _buildMenuCraftRecord(vessel, ut) {
+    // Determine current SOI reference: last SOI entry whose timestamp <= ut.
+    var ref = 0;
+    var locations = vessel.SOI.split('|');
+    for (var i = 0; i < locations.length; i++) {
+      var parts = locations[i].split(';');
+      if (parseFloat(parts[0]) <= ut) {
+        ref = parseFloat(parts[1]);
+      }
+    }
+
+    // ref === -2 → vessel is completely removed from both menu lists.
+    if (ref === -2) return null;
+
+    // Derive default times from SOI string.
+    var firstSoiUT = parseFloat(locations[0].split(';')[0]);
+    var lastSoiUT  = parseFloat(locations[locations.length - 1].split(';')[0]);
+
+    var start = (vessel.MissionStartTime !== null && vessel.MissionStartTime !== undefined)
+      ? vessel.MissionStartTime
+      : firstSoiUT;  // Was: lastSoiUT — see note above.
+
+    var end;
+    if (vessel.MissionEnd !== null && vessel.MissionEnd !== undefined) {
+      // MissionEnd format: "UTShow;UTEnd;Text" — extract UTEnd (index 1).
+      end = vessel.MissionEnd.split(';')[1];
+    } else {
+      end = lastSoiUT;
+    }
+
+    // Program and vessel-patch names from Patches string.
+    // Patches format: "Program;PatchURL;PageURL|VesselName;PatchURL[;PageURL]"
+    var program, vesselName;
+    if (vessel.Patches !== null && vessel.Patches !== undefined) {
+      var patchParts = vessel.Patches.split('|');
+      program    = patchParts[0].split(';')[0];
+      vesselName = patchParts[1].split(';')[0];
+    } else {
+      program    = 'null';
+      vesselName = 'null';
+    }
+
+    var record = vessel.DB     + '~' +
+                 vessel.Vessel + '~' +
+                 vessel.SOI    + '~' +
+                 vessel.Type   + '~' +
+                 start         + '~' +
+                 end           + '~' +
+                 program       + '~' +
+                 vesselName;
+
+    // Timeline is only appended when not null (matches ASP conditional).
+    if (vessel.Timeline !== null && vessel.Timeline !== undefined) {
+      record += '~' + vessel.Timeline;
+    }
+
+    return record;
+  }
+
+  /**
+   * fetchMenuData(ut, callback)
+   *
+   * Loads the vessels and crew catalogs, UT-seeks each crew member's stats
+   * record, and delivers the combined response to the existing loadMenuAJAX
+   * callback in the same format that loadMenuData.asp produced.
+   *
+   * ASP logic replicated:
+   *   Craft segment:
+   *     - Compute current SOI ref for each vessel at the given UT (last SOI
+   *       entry whose timestamp <= UT wins; default ref=0 if none match).
+   *     - Omit vessels where ref === -2.
+   *     - See _buildMenuCraftRecord() for per-record field details.
+   *     - Join records with "*" (no trailing "*").
+   *   Crew segment:
+   *     - UT-seek each crew member's kerbal stats table via their index file.
+   *     - Emit: FullName~Status~Rank~Assignment~Kerbal~UT~[Deactivation]~[Timeline]
+   *       Deactivation is always emitted (empty string when null, matching
+   *       ASP's unconditional response.write("~")).
+   *       Timeline is only emitted when not null.
+   *     - Join records with "|" (no trailing "|").
+   *   Full response: <craftSegment>^<crewSegment>
+   *
+   * This is the primary startup-critical endpoint: after it resolves,
+   * loadMenuAJAX bootstraps the sidebar and triggers loadOpsDataAJAX for
+   * all active entities.  Catalogs and kerbal index files are cached by
+   * fetchJson/loadIndex so they are free on subsequent calls.
+   *
+   * @param {number}   ut        Current game UT in seconds.
+   * @param {function} callback  Existing AJAX callback (loadMenuAJAX).
+   */
+  function fetchMenuData(ut, callback) {
+    var label = 'loadMenuData.asp?UT=' + ut;
+    KSA_UI_STATE.dataLoadQueue.push(label);
+    console.log('[KSA_DATA_SERVICE]', label);
+
+    Promise.all([
+      fetchJson(catalogFilePath('vessels')),
+      fetchJson(catalogFilePath('crew'))
+    ]).then(function (catalogs) {
+      var vesselCatalog = catalogs[0];
+      var crewCatalog   = catalogs[1];
+
+      // For each crew member: load index → seekToUT in stats array → load stats.
+      var crewPromises = crewCatalog.map(function (crewItem) {
+        return loadIndex(crewItem.Kerbal).then(function (index) {
+          var statsUT = seekToUT(index.stats, ut);
+          return fetchJson(dbFilePath(crewItem.Kerbal, 'stats', statsUT))
+            .then(function (statsRecord) {
+              return { crewItem: crewItem, stats: statsRecord };
+            });
+        });
+      });
+
+      return Promise.all(crewPromises).then(function (crewResults) {
+        return { vessels: vesselCatalog, crew: crewResults };
+      });
+    }).then(function (data) {
+
+      // --- Craft segment ---
+      var craftParts = [];
+      data.vessels.forEach(function (vessel) {
+        var rec = _buildMenuCraftRecord(vessel, ut);
+        if (rec !== null) craftParts.push(rec);
+      });
+
+      // --- Crew segment ---
+      var crewParts = data.crew.map(function (result) {
+        var c = result.crewItem;
+        var s = result.stats;
+
+        var rec = c.FullName + '~' +
+                  s.Status   + '~' +
+                  s.Rank     + '~' +
+                  (s.Assignment !== null && s.Assignment !== undefined ? String(s.Assignment) : '') + '~' +
+                  c.Kerbal   + '~' +
+                  s.UT;
+
+        // Deactivation always written (empty string when null — ASP always
+        // called response.write("~") for this field regardless of null).
+        rec += '~' + (c.Deactivation !== null && c.Deactivation !== undefined
+          ? c.Deactivation
+          : '');
+
+        // Timeline only written when not null.
+        if (c.Timeline !== null && c.Timeline !== undefined) {
+          rec += '~' + c.Timeline;
+        }
+
+        return rec;
+      });
+
+      var rs = craftParts.join('*') + '^' + crewParts.join('|');
+      _parity(label, rs);
+      dbResponse({ responseText: rs }, label, callback);
+    })['catch'](function (err) {
+      var idx = KSA_UI_STATE.dataLoadQueue.indexOf(label);
+      if (idx > -1) KSA_UI_STATE.dataLoadQueue.splice(idx, 1);
+      handleError(err, label, true);
+    });
+  }
+
   // ===========================================================================
   // EXPORTS
   // ===========================================================================
@@ -571,7 +755,8 @@ const KSA_DATA_SERVICE = (function () {
     fetchPartsData:   fetchPartsData,
     fetchAscentData:  fetchAscentData,
     fetchMapData:     fetchMapData,
-    fetchFltData:     fetchFltData
+    fetchFltData:     fetchFltData,
+    fetchMenuData:    fetchMenuData
   };
 
 }());
