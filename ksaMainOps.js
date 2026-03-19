@@ -461,7 +461,7 @@ function setupContent() {
   loadDB("loadEventData.asp?UT=" + currUT(), loadEventsAJAX);
   loadDB("loadMenuData.asp?UT=" + currUT(), loadMenuAJAX);
   KSA_DATA_SERVICE.fetchBodyData(loadBodyAJAX);
-  loadDB("loadPartsData.asp", loadPartsAJAX);
+  KSA_DATA_SERVICE.fetchPartsData(loadPartsAJAX);
   loadDB("loadMapData.asp?refID=-1", loadSurfaceUpdatesAJAX);
   
   // JQuery UI theme the buttons used to page through mission history
