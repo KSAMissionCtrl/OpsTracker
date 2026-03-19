@@ -2339,7 +2339,7 @@ function nextResource() {
 function loadAscentData() {
   if (ops.ascentData.vessel != ops.currentVessel.Catalog.DB) {
     ops.ascentData.vessel = ops.currentVessel.Catalog.DB;
-    loadDB("loadAscentData.asp?db=" + ops.ascentData.vessel, loadAscentAJAX);
+    KSA_DATA_SERVICE.fetchAscentData(ops.ascentData.vessel, loadAscentAJAX);
     $("#dataLabel").html("Loading Tlm...");
   } else setupStreamingAscent();
 }

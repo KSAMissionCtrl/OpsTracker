@@ -376,6 +376,57 @@ const KSA_DATA_SERVICE = (function () {
       });
   }
 
+  // ---------------------------------------------------------------------------
+  // Endpoint #3 — replaces loadAscentData.asp
+  // ---------------------------------------------------------------------------
+  /**
+   * fetchAscentData(db, callback)
+   *
+   * Loads all rows from the ascent data bulk file for a given craft and delivers
+   * them to the existing loadAscentAJAX callback in the same pipe-delimited
+   * format that loadAscentData.asp produced.
+   *
+   * ASP logic replicated:
+   *   - Dump all records from the [ascent data] table.
+   *   - Apply replace(field.name, " ", "") to strip spaces from field names
+   *     (the only affected field is "Total Fuel" → "TotalFuel").
+   *   - Join records with "|" — no trailing "|" (loadAscentAJAX does not
+   *     filter empty strings after splitting, so a trailing delimiter would
+   *     push a spurious empty object into ops.ascentData.telemetry).
+   *
+   * The bulk file is cached after the first fetch so repeated calls (e.g.
+   * if the user navigates away and back to the same vessel) are free.
+   *
+   * @param {string}   db        Craft DB name (e.g. "ascensionmk2-2").
+   * @param {function} callback  Existing AJAX callback (loadAscentAJAX).
+   */
+  function fetchAscentData(db, callback) {
+    var label = 'loadAscentData.asp?db=' + db;
+    KSA_UI_STATE.dataLoadQueue.push(label);
+    console.log('[KSA_DATA_SERVICE]', label);
+    fetchJson(bulkFilePath(db, 'ascentdata'))
+      .then(function (records) {
+        // ASP applied replace(field.name, " ", "") to strip spaces from column
+        // names before writing them into the response string.  The only ascent
+        // data field affected is "Total Fuel" → "TotalFuel", which the front-end
+        // reads as .TotalFuel.  Normalise all keys defensively.
+        var rs = records.map(function (obj) {
+          var normalized = {};
+          Object.keys(obj).forEach(function (k) {
+            normalized[k.replace(/ /g, '')] = obj[k];
+          });
+          return objToRs(normalized);
+        }).join('|');
+        _parity(label, rs);
+        dbResponse({ responseText: rs }, label, callback);
+      })
+      ['catch'](function (err) {
+        var idx = KSA_UI_STATE.dataLoadQueue.indexOf(label);
+        if (idx > -1) KSA_UI_STATE.dataLoadQueue.splice(idx, 1);
+        handleError(err, label, true);
+      });
+  }
+
   // ===========================================================================
   // EXPORTS
   // ===========================================================================
@@ -396,8 +447,9 @@ const KSA_DATA_SERVICE = (function () {
     catalogFilePath: catalogFilePath,
     flightFilePath:  flightFilePath,
     // Phase 3 endpoint implementations
-    fetchBodyData:   fetchBodyData,
-    fetchPartsData:  fetchPartsData
+    fetchBodyData:    fetchBodyData,
+    fetchPartsData:   fetchPartsData,
+    fetchAscentData:  fetchAscentData
   };
 
 }());
