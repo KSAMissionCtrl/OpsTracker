@@ -458,7 +458,7 @@ function setupContent() {
   initializeMap();
 
   // load data
-  loadDB("loadEventData.asp?UT=" + currUT(), loadEventsAJAX);
+  KSA_DATA_SERVICE.fetchEventData(currUT(), loadEventsAJAX);
   KSA_DATA_SERVICE.fetchMenuData(currUT(), loadMenuAJAX);
   KSA_DATA_SERVICE.fetchBodyData(loadBodyAJAX);
   KSA_DATA_SERVICE.fetchPartsData(loadPartsAJAX);
@@ -1089,7 +1089,7 @@ function updatePage(updateEvent, rapidFireMode = false) {
   if (updateEvent.type.includes("menu")) menuUpdate(updateEvent.type.split(";")[1], updateEvent.id);
   else if (updateEvent.type.includes("tweet")) socialUpdate(updateEvent);
   else if (updateEvent.type.includes("map")) surfaceUpdate(updateEvent.type, updateEvent.UT, updateEvent.id);
-  else if (updateEvent.type == "event") loadDB("loadEventData.asp?UT=" + currUT(), loadEventsAJAX);
+  else if (updateEvent.type == "event") KSA_DATA_SERVICE.fetchEventData(currUT(), loadEventsAJAX);
   else if (updateEvent.type == "object" || updateEvent.type == "orbit") {
     var obj = ops.updateData.find(o => o.id === updateEvent.id);
     if (!obj) console.log("unknown object", updateEvent);
@@ -1393,13 +1393,13 @@ function tick(utDelta = 1000, rapidFireMode = false) {
     // cleanup the event data and prep for checking for new events
     $('#launchCountdown').html("LIFTOFF!!"); 
     KSA_CALCULATIONS.launchCountdown = "null";
-    setTimeout(function() { loadDB("loadEventData.asp?UT=" + currUT(), loadEventsAJAX); }, 5000);
+    setTimeout(function() { KSA_DATA_SERVICE.fetchEventData(currUT(), loadEventsAJAX); }, 5000);
   }
   if (!isNaN(KSA_CALCULATIONS.maneuverCountdown) && KSA_CALCULATIONS.maneuverCountdown - currUT() > 0) $('#maneuverCountdown').html(formatTime(KSA_CALCULATIONS.maneuverCountdown - currUT(), false));
   else if (!isNaN(KSA_CALCULATIONS.maneuverCountdown) && KSA_CALCULATIONS.maneuverCountdown - currUT() <= 0) { 
     $('#maneuverCountdown').html("EXECUTE!!"); 
     KSA_CALCULATIONS.maneuverCountdown = "null";
-    KSA_TIMERS.maneuverRefreshTimeout = setTimeout(function() { loadDB("loadEventData.asp?UT=" + currUT(), loadEventsAJAX); }, 5000);
+    KSA_TIMERS.maneuverRefreshTimeout = setTimeout(function() { KSA_DATA_SERVICE.fetchEventData(currUT(), loadEventsAJAX); }, 5000);
   }
   if (KSA_UI_STATE.optUpdateInterrupt != null) {
     $("#advTimeTip").html("Time to event: " + formatTime(parseFloat($("#advTimeTip").attr("data-ut")) - currUT()) + "<br>Left click: Cancel time advance<br>Right click: Reload to event -7s");

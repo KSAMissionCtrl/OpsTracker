@@ -731,6 +731,145 @@ const KSA_DATA_SERVICE = (function () {
     });
   }
 
+  // ---------------------------------------------------------------------------
+  // Endpoint #7 — replaces loadEventData.asp
+  // ---------------------------------------------------------------------------
+  /**
+   * fetchEventData(ut, callback)
+   *
+   * Scans all active, non-aircraft vessels for upcoming launch events and
+   * planned maneuvers, then delivers the combined list to the existing
+   * loadEventsAJAX callback in the same format that loadEventData.asp produced.
+   *
+   * ASP logic replicated:
+   *   - Iterate vessels catalog (same order as Crafts recordset).
+   *   - For each vessel, compute current SOI ref (last SOI entry UT <= ut).
+   *     Default ref = -1 (vessel not yet active); skip if ref <= -1 or type === 'aircraft'.
+   *   - Load launch times bulk file: collect ALL rows as launch entries.
+   *     LaunchTime null → 0 (matches ASP's null-coercion).
+   *   - Load index → seekToUT on flightplan array → load record: if ExecuteUT > ut,
+   *     collect as a maneuver entry.
+   *   - Launches: joined with "|" + "^" header (or "null|null^" when empty).
+   *   - Maneuvers: first two entries joined with "|" (or "null" when absent).
+   *   - No post-collection sort (SortArray is defined in the ASP but never called).
+   *
+   * The vessels catalog is already in _responseCache after fetchMenuData, so the
+   * catalog fetch is free.  Launch times and index files are cached after first
+   * load, making repeated fetchEventData calls (liftoff refresh, maneuver refresh)
+   * serve fully from the in-memory caches.
+   *
+   * Entry formats:
+   *   Launch:   UT;LaunchTime;DB;Vessel;Desc
+   *   Maneuver: UT;ExecuteUT;DB;Vessel;Desc
+   *
+   * @param {number}   ut        Current game UT in seconds.
+   * @param {function} callback  Existing AJAX callback (loadEventsAJAX).
+   */
+  function fetchEventData(ut, callback) {
+    var label = 'loadEventData.asp?UT=' + ut;
+    KSA_UI_STATE.dataLoadQueue.push(label);
+    console.log('[KSA_DATA_SERVICE]', label);
+
+    fetchJson(catalogFilePath('vessels'))
+      .then(function (vessels) {
+
+        // Process all vessels concurrently, preserving catalog iteration order.
+        var vesselPromises = vessels.map(function (vessel) {
+
+          // Compute current SOI ref.
+          // ASP defaults to -1 (vessel not yet active); differs from fetchMenuData
+          // which defaults to 0 — that difference is intentional and correct here.
+          var ref = -1;
+          var locations = vessel.SOI.split('|');
+          for (var i = 0; i < locations.length; i++) {
+            var parts = locations[i].split(';');
+            if (parseFloat(parts[0]) <= ut) {
+              ref = parseFloat(parts[1]);
+            }
+          }
+
+          // Skip inactive (ref <= -1 covers -2 as well) and aircraft vessels.
+          if (ref <= -1 || vessel.Type === 'aircraft') {
+            return Promise.resolve({ launches: [], flightplan: null });
+          }
+
+          var db = vessel.DB;
+
+          // Load launch times and index concurrently; both errors treated as
+          // "no data" so a missing file never aborts the whole response.
+          var launchPromise = fetchJson(bulkFilePath(db, 'launchtimes'))
+            ['catch'](function () { return []; });
+
+          var flightplanPromise = loadIndex(db)
+            .then(function (index) {
+              if (!index.flightplan || !index.flightplan.length) return null;
+              var fpUT = seekToUT(index.flightplan, ut);
+              if (fpUT === null) return null;
+              return fetchJson(dbFilePath(db, 'flightplan', fpUT))
+                ['catch'](function () { return null; });
+            })
+            ['catch'](function () { return null; });
+
+          return Promise.all([launchPromise, flightplanPromise])
+            .then(function (results) {
+              var launchRows = results[0] || [];
+              var fpRecord   = results[1];
+
+              // Launch entries: one per row in the launch times table.
+              // LaunchTime null → 0 (replicates ASP's null-coercion).
+              var launchEntries = launchRows.map(function (row) {
+                var lt = (row.LaunchTime !== null && row.LaunchTime !== undefined)
+                  ? row.LaunchTime
+                  : 0;
+                return row.UT + ';' + lt + ';' + vessel.DB + ';' +
+                       vessel.Vessel + ';' + vessel.Desc;
+              });
+
+              // Flightplan entry: only if ExecuteUT is still in the future.
+              var fpEntry = null;
+              if (fpRecord && fpRecord.ExecuteUT > ut) {
+                fpEntry = fpRecord.UT + ';' + fpRecord.ExecuteUT + ';' +
+                          vessel.DB + ';' + vessel.Vessel + ';' + fpRecord.Desc;
+              }
+
+              return { launches: launchEntries, flightplan: fpEntry };
+            });
+        });
+
+        return Promise.all(vesselPromises);
+      })
+      .then(function (vesselResults) {
+
+        // Collect launches and maneuvers in catalog-iteration order (no sort —
+        // ASP defines SortArray but never calls it before the output section).
+        var allLaunches  = [];
+        var allManeuvers = [];
+        vesselResults.forEach(function (result) {
+          result.launches.forEach(function (entry) { allLaunches.push(entry); });
+          if (result.flightplan !== null) allManeuvers.push(result.flightplan);
+        });
+
+        // Assemble response string (matches ASP output format exactly).
+        //   Launches:  "e1|e2|…^"   or "null|null^" when empty
+        //   Maneuvers: "m0|m1"      where absent slots become "null"
+        var launchesStr = allLaunches.length > 0
+          ? allLaunches.join('|')
+          : 'null|null';
+
+        var maneuver0 = allManeuvers.length > 0 ? allManeuvers[0] : 'null';
+        var maneuver1 = allManeuvers.length > 1 ? allManeuvers[1] : 'null';
+
+        var rs = launchesStr + '^' + maneuver0 + '|' + maneuver1;
+        _parity(label, rs);
+        dbResponse({ responseText: rs }, label, callback);
+      })
+      ['catch'](function (err) {
+        var idx = KSA_UI_STATE.dataLoadQueue.indexOf(label);
+        if (idx > -1) KSA_UI_STATE.dataLoadQueue.splice(idx, 1);
+        handleError(err, label, true);
+      });
+  }
+
   // ===========================================================================
   // EXPORTS
   // ===========================================================================
@@ -756,7 +895,8 @@ const KSA_DATA_SERVICE = (function () {
     fetchAscentData:  fetchAscentData,
     fetchMapData:     fetchMapData,
     fetchFltData:     fetchFltData,
-    fetchMenuData:    fetchMenuData
+    fetchMenuData:    fetchMenuData,
+    fetchEventData:   fetchEventData
   };
 
 }());
