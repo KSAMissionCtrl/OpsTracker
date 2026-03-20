@@ -3056,7 +3056,7 @@ function calculateSurfaceTracks(currObj = null) {
 
   // if the object is not loaded, we need to send out for data
   if (!currObj.isLoaded) {
-    loadDB("loadVesselOrbitData.asp?db=" + currObj.name + "&ut=" + currUT(), loadVesselOrbitAJAX, currObj);
+    KSA_DATA_SERVICE.fetchVesselOrbitData(currObj.name, currUT(), loadVesselOrbitAJAX, currObj);
     return;
   }
 

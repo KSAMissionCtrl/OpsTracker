@@ -190,11 +190,13 @@ const KSA_DATA_SERVICE = (function () {
     if (!obj) return '';
     var parts = [];
     Object.keys(obj).forEach(function (key) {
+      // Mirrors ASP's replace(field.name, " ", "") — strip spaces from column names.
+      var fieldName = key.replace(/ /g, '');
       var val = obj[key];
       if (val === null || val === undefined) {
-        parts.push(key + '~');
+        parts.push(fieldName + '~');
       } else {
-        parts.push(key + '~' + String(val));
+        parts.push(fieldName + '~' + String(val));
       }
     });
     return parts.join('`');
@@ -995,6 +997,79 @@ const KSA_DATA_SERVICE = (function () {
     });
   }
 
+  // ---------------------------------------------------------------------------
+  // Endpoint #9 — replaces loadVesselOrbitData.asp
+  // ---------------------------------------------------------------------------
+  /**
+   * fetchVesselOrbitData(db, ut, callback, data)
+   *
+   * UT-seeks the flight data and flightplan tables for a vessel and delivers
+   * them to the existing addOrbitAJAX / loadVesselOrbitAJAX callback in the
+   * same format that loadVesselOrbitData.asp produced.
+   *
+   * ASP logic replicated:
+   *   - Open the individual craft DB (equivalent: load its index file).
+   *   - UT-seek "flight data" table: find the record with the largest UT ≤ ut.
+   *   - UT-seek "flightplan" table: same.
+   *   - Output: db*[flightdataFields or "null"]|[flightplanFields or "null"]
+   *   - Trailing backtick stripped from each segment (handled by objToRs).
+   *
+   * Cache behaviour: if the index was already loaded by fetchVesselData (#10),
+   * this call is fully served from the in-memory caches with zero network
+   * round-trips.
+   *
+   * @param {string}   db        Vessel DB name (e.g. "kerbin-II").
+   * @param {number}   ut        Current game UT in seconds.
+   * @param {function} callback  Existing AJAX callback (addOrbitAJAX or loadVesselOrbitAJAX).
+   * @param {*}        [data]    Optional pass-through value (e.g. currObj for loadVesselOrbitAJAX).
+   */
+  function fetchVesselOrbitData(db, ut, callback, data) {
+    var label = 'loadVesselOrbitData.asp?db=' + db + '&ut=' + ut;
+    KSA_UI_STATE.dataLoadQueue.push(label);
+    console.log('[KSA_DATA_SERVICE]', label);
+
+    loadIndex(db)
+      ['catch'](function () { return {}; })   // missing index → all-null response
+      .then(function (index) {
+
+        // UT-seek each table; null when the table has no entries in the index.
+        var fdUT = (index.flightdata && index.flightdata.length)
+          ? seekToUT(index.flightdata, ut)
+          : null;
+        var fpUT = (index.flightplan && index.flightplan.length)
+          ? seekToUT(index.flightplan, ut)
+          : null;
+
+        var fdPromise = fdUT !== null
+          ? fetchJson(dbFilePath(db, 'flightdata', fdUT))['catch'](function () { return null; })
+          : Promise.resolve(null);
+
+        var fpPromise = fpUT !== null
+          ? fetchJson(dbFilePath(db, 'flightplan', fpUT))['catch'](function () { return null; })
+          : Promise.resolve(null);
+
+        return Promise.all([fdPromise, fpPromise]);
+      })
+      .then(function (results) {
+        var fdRecord = results[0];
+        var fpRecord = results[1];
+
+        // Build segments: objToRs produces no trailing backtick, matching ASP's
+        // left(output, len(output)-1) strip before each "|".
+        var fdRs = fdRecord ? objToRs(fdRecord) : 'null';
+        var fpRs = fpRecord ? objToRs(fpRecord) : 'null';
+
+        var rs = db + '*' + fdRs + '|' + fpRs;
+        _parity(label, rs);
+        dbResponse({ responseText: rs }, label, callback, data);
+      })
+      ['catch'](function (err) {
+        var idx = KSA_UI_STATE.dataLoadQueue.indexOf(label);
+        if (idx > -1) KSA_UI_STATE.dataLoadQueue.splice(idx, 1);
+        handleError(err, label, true);
+      });
+  }
+
   // ===========================================================================
   // EXPORTS
   // ===========================================================================
@@ -1015,14 +1090,15 @@ const KSA_DATA_SERVICE = (function () {
     catalogFilePath: catalogFilePath,
     flightFilePath:  flightFilePath,
     // Phase 3 endpoint implementations
-    fetchBodyData:    fetchBodyData,
-    fetchPartsData:   fetchPartsData,
-    fetchAscentData:  fetchAscentData,
-    fetchMapData:     fetchMapData,
-    fetchFltData:     fetchFltData,
-    fetchMenuData:    fetchMenuData,
-    fetchEventData:   fetchEventData,
-    fetchCrewData:    fetchCrewData
+    fetchBodyData:         fetchBodyData,
+    fetchPartsData:        fetchPartsData,
+    fetchAscentData:       fetchAscentData,
+    fetchMapData:          fetchMapData,
+    fetchFltData:          fetchFltData,
+    fetchMenuData:         fetchMenuData,
+    fetchEventData:        fetchEventData,
+    fetchCrewData:         fetchCrewData,
+    fetchVesselOrbitData:  fetchVesselOrbitData
   };
 
 }());

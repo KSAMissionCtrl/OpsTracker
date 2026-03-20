@@ -2080,7 +2080,7 @@ function updateVesselData(vessel, isNonObtUpdate = true) {
   // check if this vessel has any orbital data to update
   if (vessel.FutureData.Orbit && vessel.FutureData.Orbit.UT <= currUT() && 
       ops.bodyCatalog.find(o => o.selected === true).Body === getCurrrentSOIName()) {
-    loadDB("loadVesselOrbitData.asp?db=" + vessel.id + "&ut=" + currUT(), addOrbitAJAX);
+    KSA_DATA_SERVICE.fetchVesselOrbitData(vessel.id, currUT(), addOrbitAJAX);
     var currObj = KSA_CATALOGS.bodyPaths.paths.find(o => o.name === vessel.id);
     currObj.isCalculated = false;
     currObj.orbit = vessel.FutureData.Orbit;

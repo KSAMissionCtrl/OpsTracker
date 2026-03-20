@@ -818,7 +818,7 @@ function addMenuItem(item, newAdd = false) {
     // also save to list so it can be checked for orbital data for body/surface views
     // check too if it has orbital data to render if the Three.js scene is already loaded
     if (KSA_UI_STATE.is3JSLoaded && !KSA_UI_STATE.is3JSRefreshing) {
-      loadDB("loadVesselOrbitData.asp?db=" + item.db + "&ut=" + currUT(), addOrbitAJAX);
+      KSA_DATA_SERVICE.fetchVesselOrbitData(item.db, currUT(), addOrbitAJAX);
     }
     ops.activeVessels.push(item);
     ops.updateData.push({ id: item.db,

@@ -1271,7 +1271,7 @@ function loadVesselOrbits() {
   }
 
   // load the vessel orbital data & discard the name to decrease the array size
-  loadDB("loadVesselOrbitData.asp?db=" + ops.vesselsToLoad.shift() + "&ut=" + currUT(), addOrbitAJAX);
+  KSA_DATA_SERVICE.fetchVesselOrbitData(ops.vesselsToLoad.shift(), currUT(), addOrbitAJAX);
   return true;
 }
 
