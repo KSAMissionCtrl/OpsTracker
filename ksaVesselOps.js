@@ -2159,7 +2159,7 @@ function updateVesselData(vessel, isNonObtUpdate = true) {
 
   // fetch new data. Add a second just to make sure we don't get the same current data
   vessel.isLoading = true;
-  loadDB("loadOpsData.asp?db=" + vessel.id + "&UT=" + (currUT()+1) + "&type=" + vessel.type + "&pastUT=NaN", loadOpsDataAJAX, {isRealTimeUpdate: isNonObtUpdate, id: vessel.id});
+  KSA_DATA_SERVICE.fetchOpsData(vessel.id, currUT()+1, vessel.type, NaN, loadOpsDataAJAX, {isRealTimeUpdate: isNonObtUpdate, id: vessel.id});
 }
 
 // following functions perform parsing on data strings

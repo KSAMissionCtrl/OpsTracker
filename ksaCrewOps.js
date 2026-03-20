@@ -374,7 +374,7 @@ function updateCrewData(crew) {
 
   // fetch new future data. Add a second just to make sure we don't get the same current data
   crew.isLoading = true;
-  loadDB("loadOpsData.asp?db=" + crew.id + "&UT=" + (currUT()+1) + "&type=" + crew.type + "&pastUT=NaN", loadOpsDataAJAX, {isRealTimeUpdate: true, id: crew.id});
+  KSA_DATA_SERVICE.fetchOpsData(crew.id, currUT()+1, crew.type, NaN, loadOpsDataAJAX, {isRealTimeUpdate: true, id: crew.id});
 }
 
 function crewHeaderUpdate(update) {
