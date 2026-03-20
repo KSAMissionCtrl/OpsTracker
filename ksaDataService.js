@@ -1077,13 +1077,11 @@ const KSA_DATA_SERVICE = (function () {
   /**
    * _boolStr(val)
    *
-   * Private helper: converts a JS boolean (or boolean-like value) to a VBScript-
-   * compatible string ("True" / "False") so parity-test diffs stay clean.
-   * After parity is confirmed across all endpoints this can be changed to
-   * lowercase ("true"/"false") in a single cleanup pass (see FC-2 in plan.md).
+   * Private helper: converts a JS boolean (or boolean-like value) to a
+   * lowercase string ("true" / "false").
    */
   function _boolStr(val) {
-    return val ? 'True' : 'False';
+    return val ? 'true' : 'false';
   }
 
   /**
@@ -1108,7 +1106,7 @@ const KSA_DATA_SERVICE = (function () {
    *   Segment 2 — Current record tables (caret-delimited):
    *     [craftdata]^[resources`NotNull~T/F]^[manifest]^[comms`NotNull~T/F]^[flightdata]^[ports]
    *     Each table: objToRs(record) or "null" when BOF (no record for this UT).
-   *     Resources and comms uniquely add "`NotNull~True/False" after objToRs()
+   *     Resources and comms uniquely add "`NotNull~true/false" after objToRs()
    *     (mirroring ASP's append-after-stripped-backtick pattern; see FC-3).
    *     Field names have spaces stripped (e.g. "Avg Velocity" → "AvgVelocity"),
    *     which objToRs() already does via replace(/ /g, '').
