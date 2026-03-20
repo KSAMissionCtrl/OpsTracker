@@ -547,7 +547,7 @@ function filterCrewMenu(id) {
   if (ops.pageType == "crewFull") {
     $('#fullRoster').empty(); 
     KSA_CATALOGS.crewList = extractIDs(w2ui['menu'].get('crew').nodes).split(";");
-    loadDB("loadCrewData.asp?db=" + showFullRoster() + "&ut=" + currUT(), loadCrewAJAX);
+    KSA_DATA_SERVICE.fetchCrewData(showFullRoster(), currUT(), loadCrewAJAX);
   }
 
   // restore cursor to default - only target body and menu to preserve inline cursor styles

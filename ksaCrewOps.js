@@ -47,7 +47,7 @@ function loadCrew(crew) {
     
     // get the full crew listing and start to show them all
     KSA_CATALOGS.crewList = extractIDs(w2ui['menu'].get('crew').nodes).split(";");
-    loadDB("loadCrewData.asp?db=" + showFullRoster() + "&ut=" + currUT(), loadCrewAJAX);
+    KSA_DATA_SERVICE.fetchCrewData(showFullRoster(), currUT(), loadCrewAJAX);
   } else {
 
     // find the crew in the menu data
@@ -57,7 +57,7 @@ function loadCrew(crew) {
 
     // load the data if there is no current crew loaded or the current crew loaded is not the crew that was selected
     // otherwise just go straight to displaying the data
-    if (!ops.currentCrew || (ops.currentCrew && crew != ops.currentCrew.Background.Kerbal)) loadDB("loadCrewData.asp?db=" + crew + "&ut=" + currUT(), loadCrewAJAX);
+    if (!ops.currentCrew || (ops.currentCrew && crew != ops.currentCrew.Background.Kerbal)) KSA_DATA_SERVICE.fetchCrewData(crew, currUT(), loadCrewAJAX);
     else loadCrewAJAX();
   }
 }
@@ -111,7 +111,7 @@ function loadCrewAJAX(xhttp) {
   
     // call for another?
     var strCrewID = showFullRoster();
-    if (strCrewID) loadDB("loadCrewData.asp?db=" + strCrewID + "&ut=" + currUT(), loadCrewAJAX);
+    if (strCrewID) KSA_DATA_SERVICE.fetchCrewData(strCrewID, currUT(), loadCrewAJAX);
     else swapTwitterSource('Crew Feed', "13627");
   
   // individual crew page

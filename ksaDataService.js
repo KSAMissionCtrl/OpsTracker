@@ -870,6 +870,131 @@ const KSA_DATA_SERVICE = (function () {
       });
   }
 
+  // ---------------------------------------------------------------------------
+  // Endpoint #8 — replaces loadCrewData.asp
+  // ---------------------------------------------------------------------------
+  /**
+   * fetchCrewData(db, ut, callback)
+   *
+   * Loads all data for a single crew member and delivers it to the existing
+   * loadCrewAJAX callback in the same format that loadCrewData.asp produced.
+   *
+   * ASP logic replicated:
+   *   Catalog section  — all fields from the Crew table for the given kerbal.
+   *   Stats section    — UT-seek: largest UT <= current from [kerbal stats].
+   *   Missions section — all mission rows with UT <= current, pipe-delimited;
+   *                      "null" when empty or first row is in the future.
+   *   Ribbons section  — same filter pattern as missions.
+   *   Background section — UT-seek: largest UT <= current from [background].
+   *   Future section   — next stats record, next mission, next ribbon, next
+   *                      background (each "null" when none exists).
+   *
+   * The crew catalog is already cached in _responseCache after fetchMenuData
+   * runs at startup, so that fetch is always a cache hit.  The kerbal index
+   * is likewise cached after fetchMenuData pre-loaded it for the menu.
+   *
+   * Response format (separators):
+   *   [catalog]*[stats]^[missions]^[ribbons]^[background]*
+   *   [nextStats]^[nextMission]^[nextRibbon]^[nextBackground]
+   *
+   * @param {string}   db        Kerbal database ID (lowercase, e.g. "jeb").
+   * @param {number}   ut        Current game UT in seconds.
+   * @param {function} callback  Existing AJAX callback (loadCrewAJAX).
+   */
+  function fetchCrewData(db, ut, callback) {
+    var label = 'loadCrewData.asp?db=' + db + '&ut=' + ut;
+    KSA_UI_STATE.dataLoadQueue.push(label);
+    console.log('[KSA_DATA_SERVICE]', label);
+
+    // Catalog (cache hit after fetchMenuData), index, and bulk files in parallel.
+    Promise.all([
+      fetchJson(catalogFilePath('crew')),
+      loadIndex(db),
+      fetchJson(bulkFilePath(db, 'missions'))['catch'](function () { return []; }),
+      fetchJson(bulkFilePath(db, 'ribbons'))['catch'](function () { return []; })
+    ]).then(function (results) {
+      var crewCatalog = results[0];
+      var index       = results[1];
+      var allMissions = results[2];
+      var allRibbons  = results[3];
+
+      // Locate this kerbal's catalog entry (compare against Kerbal field, not DB).
+      var crewEntry = crewCatalog.find(function (c) { return c.Kerbal === db; });
+
+      // UT-seek for current and next stats / background.
+      var statsUT    = seekToUT(index.stats,      ut);
+      var bgUT       = seekToUT(index.background, ut);
+      var nextStatsUT = getNextUT(index.stats,      ut);
+      var nextBgUT    = getNextUT(index.background, ut);
+
+      // Fetch current + next stats and background files concurrently.
+      return Promise.all([
+        fetchJson(dbFilePath(db, 'stats',      statsUT)),
+        fetchJson(dbFilePath(db, 'background', bgUT)),
+        nextStatsUT !== null
+          ? fetchJson(dbFilePath(db, 'stats', nextStatsUT))['catch'](function () { return null; })
+          : Promise.resolve(null),
+        nextBgUT !== null
+          ? fetchJson(dbFilePath(db, 'background', nextBgUT))['catch'](function () { return null; })
+          : Promise.resolve(null)
+      ]).then(function (fetched) {
+        return {
+          crewEntry:   crewEntry,
+          stats:       fetched[0],
+          background:  fetched[1],
+          nextStats:   fetched[2],
+          nextBg:      fetched[3],
+          allMissions: allMissions,
+          allRibbons:  allRibbons
+        };
+      });
+    }).then(function (d) {
+
+      // --- Catalog ---
+      var catalogRs = objToRs(d.crewEntry);
+
+      // --- Current stats ---
+      var statsRs = objToRs(d.stats);
+
+      // --- Missions up to current UT ---
+      var currentMissions = d.allMissions.filter(function (m) { return m.UT <= ut; });
+      var missionsRs = currentMissions.length > 0
+        ? currentMissions.map(objToRs).join('|')
+        : 'null';
+
+      // --- Ribbons up to current UT ---
+      var currentRibbons = d.allRibbons.filter(function (r) { return r.UT <= ut; });
+      var ribbonsRs = currentRibbons.length > 0
+        ? currentRibbons.map(objToRs).join('|')
+        : 'null';
+
+      // --- Current background ---
+      var bgRs = objToRs(d.background);
+
+      // --- Future records ---
+      var nextStatsRs   = d.nextStats ? objToRs(d.nextStats) : 'null';
+      var nextMission   = d.allMissions.find(function (m) { return m.UT > ut; });
+      var nextMissionRs = nextMission ? objToRs(nextMission) : 'null';
+      var nextRibbon    = d.allRibbons.find(function (r) { return r.UT > ut; });
+      var nextRibbonRs  = nextRibbon ? objToRs(nextRibbon) : 'null';
+      var nextBgRs      = d.nextBg ? objToRs(d.nextBg) : 'null';
+
+      // Assemble: [catalog]*[stats]^[missions]^[ribbons]^[background]*
+      //           [nextStats]^[nextMission]^[nextRibbon]^[nextBackground]
+      var rs = catalogRs + '*' +
+               statsRs + '^' + missionsRs + '^' + ribbonsRs + '^' + bgRs +
+               '*' +
+               nextStatsRs + '^' + nextMissionRs + '^' + nextRibbonRs + '^' + nextBgRs;
+
+      _parity(label, rs);
+      dbResponse({ responseText: rs }, label, callback);
+    })['catch'](function (err) {
+      var idx = KSA_UI_STATE.dataLoadQueue.indexOf(label);
+      if (idx > -1) KSA_UI_STATE.dataLoadQueue.splice(idx, 1);
+      handleError(err, label, true);
+    });
+  }
+
   // ===========================================================================
   // EXPORTS
   // ===========================================================================
@@ -896,7 +1021,8 @@ const KSA_DATA_SERVICE = (function () {
     fetchMapData:     fetchMapData,
     fetchFltData:     fetchFltData,
     fetchMenuData:    fetchMenuData,
-    fetchEventData:   fetchEventData
+    fetchEventData:   fetchEventData,
+    fetchCrewData:    fetchCrewData
   };
 
 }());
