@@ -1239,12 +1239,10 @@ function showSurfaceUpdate(newLayer, markerUpdate) {
   }
 }
 
-function loadFltDataAJAX(xhttp) {
-  
-  // split and parse the flight data
-  var fltInfo = rsToObj(xhttp.responseText.split("^")[0]);
-  var fltData = [];
-  xhttp.responseText.split("^")[1].split("|").forEach(function(item) { fltData.push(rsToObj(item)); });
+function loadFltDataAJAX(result) {
+
+  var fltInfo = result.mission;
+  var fltData = result.flightData;
 
   // get the min/max altitudes of the flight
   var altMin = fltData[0].ASL;
@@ -1259,7 +1257,7 @@ function loadFltDataAJAX(xhttp) {
                   layer: L.featureGroup(),
                   pins: [],
                   html: null,
-                  id: xhttp.responseText.split("^")[2],
+                  id: result.name,
                   deleted: false,
                   elev: false,
                   color: KSA_COLORS.surfacePathColors[colorIndex],

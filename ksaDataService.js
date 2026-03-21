@@ -527,58 +527,39 @@ const KSA_DATA_SERVICE = (function () {
    * fetchFltData(name, callback)
    *
    * Loads mission data (single record) and flight data (full array) for an
-   * aircraft-type flight from the _Flights folder, then delivers them to the
-   * existing loadFltDataAJAX callback in the same format that loadFltData.asp
-   * produced.
+   * aircraft-type flight from the _Flights folder, then delivers a structured
+   * result object directly to loadFltDataAJAX via _trackAndInvoke.
    *
-   * ASP logic replicated:
-   *   - Dump the single [mission data] record as field~value pairs.
-   *   - Iterate [flight data] sampling every 5th row (rsFlightData.move 5),
-   *     joining sampled rows with "|" (no trailing "|").
-   *   - Assemble as: <missionRs>^<sampledFlightRows>^<name>
+   * Result shape: { mission: obj, flightData: sampledRows[], name: str }
+   *
+   * Flight data is sampled every 5th row (matching ASP's rsFlightData.move 5)
+   * to limit memory usage for long flights. The full-resolution array is never
+   * held in memory after the Promise resolves.
    *
    * Both files are cached by fetchJson() after the first load, so subsequent
    * calls for the same flight (e.g. multi-flight loads) are served from memory.
    *
-   * NOTE: The full flightdata file (~21K rows for a long flight) is downloaded
-   * on the first request even though only every 5th row is used.  This is 5×
-   * the data the ASP endpoint transmitted, but the cache makes repeat calls
-   * free and preserves the full-resolution data for any future zoom feature.
-   *
    * @param {string}   name      Flight DB name (e.g. "Deuce1-22-19").
-   * @param {function} callback  Existing AJAX callback (loadFltDataAJAX).
+   * @param {function} callback  loadFltDataAJAX — receives (result).
    */
   function fetchFltData(name, callback) {
     var label = 'loadFltData.asp?data=' + name;
-    KSA_UI_STATE.dataLoadQueue.push(label);
-    console.log('[KSA_DATA_SERVICE]', label);
     Promise.all([
-      fetchJson(flightFilePath(name, 'missiondata')),
-      fetchJson(flightFilePath(name, 'flightdata'))
+      fetchJson(jsonFlightFilePath(name, 'missiondata')),
+      fetchJson(jsonFlightFilePath(name, 'flightdata'))
     ]).then(function (results) {
-      var missionRecord   = results[0];   // plain object (single-record table)
-      var allFlightRows   = results[1];   // array of all flight data records
+      var mission    = results[0];   // plain object (single-record table)
+      var allRows    = results[1];   // array of all flight data records
 
-      // Mission segment: single record → RS string.
-      var missionRs = objToRs(missionRecord);
-
-      // Flight segment: sample every 5th row, mirroring ASP's rsFlightData.move 5.
-      // Indices 0, 5, 10, … — last included index is the largest multiple of 5
-      // that does not exceed allFlightRows.length - 1 (same as ASP loop behaviour).
-      var sampledRows = [];
-      for (var i = 0; i < allFlightRows.length; i += 5) {
-        sampledRows.push(objToRs(allFlightRows[i]));
+      // Sample every 5th row, mirroring ASP's rsFlightData.move 5.
+      var flightData = [];
+      for (var i = 0; i < allRows.length; i += 5) {
+        flightData.push(allRows[i]);
       }
-      var flightRs = sampledRows.join('|');
 
-      // Final format: <missionRs>^<flightRs>^<name>
-      var rs = missionRs + '^' + flightRs + '^' + name;
-      _parity(label, rs);
-      dbResponse({ responseText: rs }, label, callback);
+      _trackAndInvoke(label, callback, { mission: mission, flightData: flightData, name: name });
     })
     ['catch'](function (err) {
-      var idx = KSA_UI_STATE.dataLoadQueue.indexOf(label);
-      if (idx > -1) KSA_UI_STATE.dataLoadQueue.splice(idx, 1);
       handleError(err, label, true);
     });
   }
