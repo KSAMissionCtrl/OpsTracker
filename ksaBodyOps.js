@@ -990,18 +990,11 @@ function loadBody(body = "Kerbol-System", flt) {
 }
 
 // load the data for all the bodies in the Kerbol system
-function loadBodyAJAX(xhttp) {
-
-  // separate each of the bodies and their fields
-  var bodies = xhttp.responseText.split("|");
-  
-  // push each body into the array and add the selection flag
-  bodies.forEach(function(item) {
-    if (item) {
-      ops.bodyCatalog.push(rsToObj(item));
-      ops.bodyCatalog[ops.bodyCatalog.length-1].selected = false;
-    }
+function loadBodyAJAX(bodies) {
+  bodies.forEach(function(body) {
+    body.selected = false;
   });
+  ops.bodyCatalog = bodies;
 }
 
 // Inject the orbit described by ops.pendingOrbitParam (parsed from the ?orbit= URL parameter)
@@ -1854,7 +1847,7 @@ function figureClick(hit) {
       }
       strHTML += "Mass: "             + sanitizeHTML(bodyData.Mass.replace("+", "e"))      + " kg<br>";
       strHTML += "Density: "          + sanitizeHTML(bodyData.Density)                     + " kg/m<sup>3</sup><br>";
-      strHTML += "Surface gravity: "  + sanitizeHTML(bodyData.SurfaceG.split(":")[0])      + " m/s<sup>2</sup> <i>(" + sanitizeHTML(bodyData.SurfaceG.split(":")[1]) + " g)</i><br>";
+      strHTML += "Surface gravity: "  + sanitizeHTML(bodyData.SurfaceG.value)              + " m/s<sup>2</sup> <i>(" + sanitizeHTML(bodyData.SurfaceG.kerbin) + " g)</i><br>";
       strHTML += "Escape velocity: "  + sanitizeHTML(bodyData.EscapeVel)                   + " m/s<br>";
       strHTML += "Rotational period: " + formatTime(bodyData.SolarDay, true)               + "<br>";
       strHTML += "Atmosphere: "       + sanitizeHTML(bodyData.Atmo)                        + "</p>";

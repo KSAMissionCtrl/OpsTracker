@@ -399,30 +399,17 @@ const KSA_DATA_SERVICE = (function () {
    * fetchBodyData(callback)
    *
    * Loads all planet and moon records from the merged bodies catalog and delivers
-   * them to the existing loadBodyAJAX callback in the same pipe-delimited format
-   * that loadBodyData.asp produced.
+   * them to loadBodyAJAX as a native array of body objects.
    *
-   * ASP logic replicated: dump all records from Planets table then Moons table,
-   * each as "Field~value`Field~value…|".  The JSON.txt file was built with the
-   * same ordering (planets first, then moons), so no sorting is required here.
-   *
-   * @param {function} callback  Existing AJAX callback (loadBodyAJAX).
+   * @param {function} callback  loadBodyAJAX — receives (bodies[]).
    */
   function fetchBodyData(callback) {
     var label = 'loadBodyData.asp';
-    KSA_UI_STATE.dataLoadQueue.push(label);
-    console.log('[KSA_DATA_SERVICE]', label);
-    fetchJson(catalogFilePath('bodies'))
-      .then(function (records) {
-        // Build the same pipe-delimited, backtick-separated string the ASP endpoint emitted.
-        // Each record ends with "|"; loadBodyAJAX splits by "|" and filters empty strings.
-        var rs = records.map(function (obj) { return objToRs(obj); }).join('|') + '|';
-        _parity(label, rs);
-        dbResponse({ responseText: rs }, label, callback);
+    fetchJson(jsonCatalogFilePath('bodies'))
+      .then(function(records) {
+        _trackAndInvoke(label, callback, records);
       })
-      ['catch'](function (err) {
-        var idx = KSA_UI_STATE.dataLoadQueue.indexOf(label);
-        if (idx > -1) KSA_UI_STATE.dataLoadQueue.splice(idx, 1);
+      ['catch'](function(err) {
         handleError(err, label, true);
       });
   }
