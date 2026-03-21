@@ -208,9 +208,8 @@ function loadPartsAJAX(parts) {
 }
 
 // parses data used to drive the live/replay ascent telemetry
-function loadAscentAJAX(xhttp) {
-  ops.ascentData.telemetry.length = 0;
-  xhttp.responseText.split("|").forEach(function(item) { ops.ascentData.telemetry.push(rsToObj(item)); });
+function loadAscentAJAX(result) {
+  ops.ascentData.telemetry = result;
   setupStreamingAscent();
 }
 
@@ -2571,8 +2570,8 @@ function setupStreamingAscent() {
   if (!ops.ascentData.telemetry[ops.activeAscentFrame.ascentIndex].AoAWarn) {
     strHTML += "<span id='aoawarn' style='color: green'>Nominal</span>]";
   } else {
-    var data = ops.ascentData.telemetry[ops.activeAscentFrame.ascentIndex].AoAWarn.split(":");
-    strHTML += "<span id='aoawarn' style='color: " + data[1] + "'>" + data[0] + "</span>]";
+    var aoaWarn = ops.ascentData.telemetry[ops.activeAscentFrame.ascentIndex].AoAWarn;
+    strHTML += "<span id='aoawarn' style='color: " + aoaWarn.color + "'>" + aoaWarn.text + "</span>]";
   }
   $("#dataField12").html(strHTML);
   $("#dataField12").fadeIn();
@@ -2729,18 +2728,16 @@ function updateAscentData(clamp) {
       $('#aoawarn').html("Nominal");
       $('#aoawarn').css("color", "green");
     } else if (ops.ascentData.telemetry[ops.activeAscentFrame.ascentIndex].AoAWarn) {
-      var data = ops.ascentData.telemetry[ops.activeAscentFrame.ascentIndex].AoAWarn.split(":");
-      $('#aoawarn').html(data[0]);
-      $('#aoawarn').css("color", data[1]);
+      var aoaWarn = ops.ascentData.telemetry[ops.activeAscentFrame.ascentIndex].AoAWarn;
+      $('#aoawarn').html(aoaWarn.text);
+      $('#aoawarn').css("color", aoaWarn.color);
     }
 
     // check for warning/errors
     if (ops.ascentData.telemetry[ops.activeAscentFrame.ascentIndex].FieldStatus) {
-      ops.ascentData.telemetry[ops.activeAscentFrame.ascentIndex].FieldStatus.split("_").forEach(function(status) {
-        var fieldName = status.split(":")[0];
-        var fieldStatus = status.split(":")[1];
-        if (fieldStatus == "wrn") flashUpdate("#" + fieldName, "#FFD800", "#FFF");
-        if (fieldStatus == "err") flashUpdate("#" + fieldName, "#FF0000", "#FFF");
+      ops.ascentData.telemetry[ops.activeAscentFrame.ascentIndex].FieldStatus.forEach(function(status) {
+        if (status.code == "wrn") flashUpdate("#" + status.field, "#FFD800", "#FFF");
+        if (status.code == "err") flashUpdate("#" + status.field, "#FF0000", "#FFF");
       });
     }
 

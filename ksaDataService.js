@@ -462,27 +462,18 @@ const KSA_DATA_SERVICE = (function () {
    */
   function fetchAscentData(db, callback) {
     var label = 'loadAscentData.asp?db=' + db;
-    KSA_UI_STATE.dataLoadQueue.push(label);
-    console.log('[KSA_DATA_SERVICE]', label);
-    fetchJson(bulkFilePath(db, 'ascentdata'))
+    fetchJson(jsonBulkFilePath(db, 'ascentdata'))
       .then(function (records) {
-        // ASP applied replace(field.name, " ", "") to strip spaces from column
-        // names before writing them into the response string.  The only ascent
-        // data field affected is "Total Fuel" → "TotalFuel", which the front-end
-        // reads as .TotalFuel.  Normalise all keys defensively.
-        var rs = records.map(function (obj) {
-          var normalized = {};
-          Object.keys(obj).forEach(function (k) {
-            normalized[k.replace(/ /g, '')] = obj[k];
-          });
-          return objToRs(normalized);
-        }).join('|');
-        _parity(label, rs);
-        dbResponse({ responseText: rs }, label, callback);
+        // The "Total Fuel" column in the MDB contains a space in its name.
+        // Normalize all keys by stripping spaces so consumers can read .TotalFuel.
+        var normalized = records.map(function(obj) {
+          var out = {};
+          Object.keys(obj).forEach(function(k) { out[k.replace(/ /g, '')] = obj[k]; });
+          return out;
+        });
+        _trackAndInvoke(label, callback, normalized);
       })
       ['catch'](function (err) {
-        var idx = KSA_UI_STATE.dataLoadQueue.indexOf(label);
-        if (idx > -1) KSA_UI_STATE.dataLoadQueue.splice(idx, 1);
         handleError(err, label, true);
       });
   }
