@@ -572,128 +572,132 @@ const KSA_DATA_SERVICE = (function () {
    * _buildMenuCraftRecord(vessel, ut)
    *
    * Private helper used only by fetchMenuData.
-   * Computes the current SOI ref for a vessel at the given UT and, if the
-   * vessel should appear in the menu (ref !== -2), assembles its record string.
+   * Reads pre-structured JSON fields (Phase 1 format) and returns a typed
+   * vessel entry object for loadMenuAJAX, or null when ref === -2.
    *
-   * Returns null when ref === -2 (vessel is hidden from both menu lists).
-   *
-   * Format: DB~Vessel~SOI~Type~start~end~program~vesselName[~timeline]
-   *
-   * start default (MissionStartTime is null): FIRST SOI entry UT.
-   *   NOTE: The original ASP used the LAST SOI entry UT for BOTH start and
-   *   end defaults (defaultTime covered both).  The DB Reference now specifies
-   *   start = first SOI entry UT, end = last SOI entry UT, which is what this
-   *   function implements.  Revert to lastSoiUT if the old behaviour is needed.
-   *
-   * end default (MissionEnd is null): LAST SOI entry UT.
+   * start default (MissionStartTime is null): FIRST SOI entry ut.
+   * end default   (MissionEnd is null):       LAST  SOI entry ut.
+   * bodyRef: second-to-last SOI entry's ref (last non-inactive body reference).
    */
   function _buildMenuCraftRecord(vessel, ut) {
-    // Determine current SOI reference: last SOI entry whose timestamp <= ut.
-    var ref = 0;
-    var locations = vessel.SOI.split('|');
-    for (var i = 0; i < locations.length; i++) {
-      var parts = locations[i].split(';');
-      if (parseFloat(parts[0]) <= ut) {
-        ref = parseFloat(parts[1]);
-      }
+    // Determine current SOI ref from pre-structured array [{ut, ref}, ...].
+    var soi = vessel.SOI;
+    var ref = -2;
+    for (var i = 0; i < soi.length; i++) {
+      if (soi[i].ut <= ut) ref = soi[i].ref;
+      else break;
     }
 
     // ref === -2 → vessel is completely removed from both menu lists.
     if (ref === -2) return null;
 
-    // Derive default times from SOI string.
-    var firstSoiUT = parseFloat(locations[0].split(';')[0]);
-    var lastSoiUT  = parseFloat(locations[locations.length - 1].split(';')[0]);
+    // Derive default times from SOI array.
+    var firstSoiUT = soi[0].ut;
+    var lastSoiUT  = soi[soi.length - 1].ut;
 
     var start = (vessel.MissionStartTime !== null && vessel.MissionStartTime !== undefined)
       ? vessel.MissionStartTime
-      : firstSoiUT;  // Was: lastSoiUT — see note above.
+      : firstSoiUT;
 
-    var end;
-    if (vessel.MissionEnd !== null && vessel.MissionEnd !== undefined) {
-      // MissionEnd format: "UTShow;UTEnd;Text" — extract UTEnd (index 1).
-      end = vessel.MissionEnd.split(';')[1];
+    var end = (vessel.MissionEnd !== null && vessel.MissionEnd !== undefined)
+      ? vessel.MissionEnd.utEnd
+      : lastSoiUT;
+
+    // Compute current name from pre-structured Vessel field.
+    // If it's an array [{ut, name}], find the last entry whose ut <= current UT.
+    // If it's a plain string, use it directly.
+    var name, names;
+    if (Array.isArray(vessel.Vessel)) {
+      names = vessel.Vessel;
+      name  = names[0].name;
+      for (var ni = 0; ni < names.length; ni++) {
+        if (names[ni].ut === null || names[ni].ut <= ut) name = names[ni].name;
+        else break;
+      }
     } else {
-      end = lastSoiUT;
+      name  = vessel.Vessel;
+      names = null;
     }
 
-    // Program and vessel-patch names from Patches string.
-    // Patches format: "Program;PatchURL;PageURL|VesselName;PatchURL[;PageURL]"
+    // Compute current type from pre-structured Type field (same pattern).
+    var type;
+    if (Array.isArray(vessel.Type)) {
+      type = vessel.Type[0].type;
+      for (var ti = 0; ti < vessel.Type.length; ti++) {
+        if (vessel.Type[ti].ut === null || vessel.Type[ti].ut <= ut) type = vessel.Type[ti].type;
+        else break;
+      }
+    } else {
+      type = vessel.Type;
+    }
+
+    // bodyRef: second-to-last SOI entry's ref (the last body before going inactive).
+    var bodyRef = 3;
+    if (soi.length > 1) bodyRef = soi[soi.length - 2].ref;
+
+    // Program and vessel-patch names from pre-structured Patches object.
     var program, vesselName;
     if (vessel.Patches !== null && vessel.Patches !== undefined) {
-      var patchParts = vessel.Patches.split('|');
-      program    = patchParts[0].split(';')[0];
-      vesselName = patchParts[1].split(';')[0];
+      program    = vessel.Patches.program.name;
+      vesselName = vessel.Patches.vessel.name;
     } else {
-      program    = 'null';
-      vesselName = 'null';
+      program    = null;
+      vesselName = null;
     }
 
-    var record = vessel.DB     + '~' +
-                 vessel.Vessel + '~' +
-                 vessel.SOI    + '~' +
-                 vessel.Type   + '~' +
-                 start         + '~' +
-                 end           + '~' +
-                 program       + '~' +
-                 vesselName;
-
-    // Timeline is only appended when not null (matches ASP conditional).
-    if (vessel.Timeline !== null && vessel.Timeline !== undefined) {
-      record += '~' + vessel.Timeline;
-    }
-
-    return record;
+    return {
+      db:       vessel.DB,
+      name:     name,
+      names:    names,
+      soi:      soi,
+      type:     type,
+      start:    start,
+      end:      end,
+      program:  program,
+      vessel:   vesselName,
+      timeline: (vessel.Timeline !== null && vessel.Timeline !== undefined) ? vessel.Timeline : null,
+      bodyRef:  bodyRef
+    };
   }
 
   /**
    * fetchMenuData(ut, callback)
    *
-   * Loads the vessels and crew catalogs, UT-seeks each crew member's stats
-   * record, and delivers the combined response to the existing loadMenuAJAX
-   * callback in the same format that loadMenuData.asp produced.
+   * Loads vessel and crew catalogs from DATABASE_JSON_ROOT, UT-seeks each
+   * crew member's stats record, and delivers a structured result object to
+   * loadMenuAJAX via _trackAndInvoke (Phase 3 convention — no delimited strings).
    *
-   * ASP logic replicated:
-   *   Craft segment:
-   *     - Compute current SOI ref for each vessel at the given UT (last SOI
-   *       entry whose timestamp <= UT wins; default ref=0 if none match).
-   *     - Omit vessels where ref === -2.
-   *     - See _buildMenuCraftRecord() for per-record field details.
-   *     - Join records with "*" (no trailing "*").
-   *   Crew segment:
-   *     - UT-seek each crew member's kerbal stats table via their index file.
-   *     - Emit: FullName~Status~Rank~Assignment~Kerbal~UT~[Deactivation]~[Timeline]
-   *       Deactivation is always emitted (empty string when null, matching
-   *       ASP's unconditional response.write("~")).
-   *       Timeline is only emitted when not null.
-   *     - Join records with "|" (no trailing "|").
-   *   Full response: <craftSegment>^<crewSegment>
+   * Result shape: { vessels: vesselEntry[], crew: crewEntry[] }
+   *
+   * vesselEntry keys (all pre-computed at fetch time):
+   *   db, name, names, soi, type, start, end, program, vessel, timeline, bodyRef
+   *
+   * crewEntry keys:
+   *   fullName, status, rank, assignment, db, ut, deactivation, timeline
    *
    * This is the primary startup-critical endpoint: after it resolves,
    * loadMenuAJAX bootstraps the sidebar and triggers loadOpsDataAJAX for
    * all active entities.  Catalogs and kerbal index files are cached by
-   * fetchJson/loadIndex so they are free on subsequent calls.
+   * fetchJson so they are free on subsequent calls.
    *
    * @param {number}   ut        Current game UT in seconds.
-   * @param {function} callback  Existing AJAX callback (loadMenuAJAX).
+   * @param {function} callback  loadMenuAJAX — receives (result).
    */
   function fetchMenuData(ut, callback) {
     var label = 'loadMenuData.asp?UT=' + ut;
-    KSA_UI_STATE.dataLoadQueue.push(label);
-    console.log('[KSA_DATA_SERVICE]', label);
 
     Promise.all([
-      fetchJson(catalogFilePath('vessels')),
-      fetchJson(catalogFilePath('crew'))
+      fetchJson(jsonCatalogFilePath('vessels')),
+      fetchJson(jsonCatalogFilePath('crew'))
     ]).then(function (catalogs) {
       var vesselCatalog = catalogs[0];
       var crewCatalog   = catalogs[1];
 
-      // For each crew member: load index → seekToUT in stats array → load stats.
+      // For each crew member: load JSON index → seekToUT in stats array → load stats.
       var crewPromises = crewCatalog.map(function (crewItem) {
-        return loadIndex(crewItem.Kerbal).then(function (index) {
+        return fetchJson(jsonIndexPath(crewItem.Kerbal)).then(function (index) {
           var statsUT = seekToUT(index.stats, ut);
-          return fetchJson(dbFilePath(crewItem.Kerbal, 'stats', statsUT))
+          return fetchJson(jsonDbFilePath(crewItem.Kerbal, 'stats', statsUT))
             .then(function (statsRecord) {
               return { crewItem: crewItem, stats: statsRecord };
             });
@@ -705,45 +709,31 @@ const KSA_DATA_SERVICE = (function () {
       });
     }).then(function (data) {
 
-      // --- Craft segment ---
-      var craftParts = [];
+      // Build typed vessel entries — _buildMenuCraftRecord returns null for ref===-2.
+      var vessels = [];
       data.vessels.forEach(function (vessel) {
-        var rec = _buildMenuCraftRecord(vessel, ut);
-        if (rec !== null) craftParts.push(rec);
+        var entry = _buildMenuCraftRecord(vessel, ut);
+        if (entry !== null) vessels.push(entry);
       });
 
-      // --- Crew segment ---
-      var crewParts = data.crew.map(function (result) {
+      // Build typed crew entries.
+      var crew = data.crew.map(function (result) {
         var c = result.crewItem;
         var s = result.stats;
-
-        var rec = c.FullName + '~' +
-                  s.Status   + '~' +
-                  s.Rank     + '~' +
-                  (s.Assignment !== null && s.Assignment !== undefined ? String(s.Assignment) : '') + '~' +
-                  c.Kerbal   + '~' +
-                  s.UT;
-
-        // Deactivation always written (empty string when null — ASP always
-        // called response.write("~") for this field regardless of null).
-        rec += '~' + (c.Deactivation !== null && c.Deactivation !== undefined
-          ? c.Deactivation
-          : '');
-
-        // Timeline only written when not null.
-        if (c.Timeline !== null && c.Timeline !== undefined) {
-          rec += '~' + c.Timeline;
-        }
-
-        return rec;
+        return {
+          fullName:     c.FullName,
+          status:       s.Status,
+          rank:         s.Rank,
+          assignment:   (s.Assignment !== null && s.Assignment !== undefined) ? s.Assignment : null,
+          db:           c.Kerbal,
+          ut:           s.UT,
+          deactivation: c.Deactivation,
+          timeline:     (c.Timeline !== null && c.Timeline !== undefined) ? c.Timeline : null
+        };
       });
 
-      var rs = craftParts.join('*') + '^' + crewParts.join('|');
-      _parity(label, rs);
-      dbResponse({ responseText: rs }, label, callback);
+      _trackAndInvoke(label, callback, { vessels: vessels, crew: crew });
     })['catch'](function (err) {
-      var idx = KSA_UI_STATE.dataLoadQueue.indexOf(label);
-      if (idx > -1) KSA_UI_STATE.dataLoadQueue.splice(idx, 1);
       handleError(err, label, true);
     });
   }
