@@ -484,53 +484,38 @@ const KSA_DATA_SERVICE = (function () {
   /**
    * fetchMapData(refID, callback)
    *
-   * Loads map data from the maps catalog and delivers it to the existing callback
-   * in the same format that loadMapData.asp produced.
+   * Loads map data from the JSON maps catalog and delivers a structured result
+   * directly to the callback via _trackAndInvoke (no rsToObj / xhttp).
    *
-   * Two modes, mirroring the ASP:
-   *   refID === -1  — return ALL records joined with "^" (no trailing "^").
-   *                   Callback (loadSurfaceUpdatesAJAX) splits on "^" and calls
-   *                   rsToObj() on each piece.
-   *   refID number  — return the single record whose RefID matches.
-   *                   Callback (loadMapDataAJAX) calls rsToObj() directly.
-   *   Either mode   — returns "null" if no matching records exist.
+   * Two modes:
+   *   refID === -1  — result is the full records[] array (loadSurfaceUpdatesAJAX).
+   *   refID number  — result is the single matching object, or null if not found
+   *                   (loadMapDataAJAX).
    *
-   * The maps catalog is loaded only once per page session; subsequent calls
-   * (typically the per-body load triggered by ksaSurfaceOps) hit the fetchJson
-   * response cache and filter in-memory — zero extra network round-trips.
+   * The maps catalog is fetched only once; the fetchJson cache serves
+   * subsequent calls (per-body loads) with zero extra network round-trips.
    *
    * @param {number}   refID     -1 for all records, or the numeric body RefID.
-   * @param {function} callback  Existing AJAX callback (loadSurfaceUpdatesAJAX
-   *                             for refID=-1, loadMapDataAJAX for a specific body).
+   * @param {function} callback  loadSurfaceUpdatesAJAX (refID=-1) or
+   *                             loadMapDataAJAX (specific body).
+   *                             Receives (result) — a records[] or single object.
    */
   function fetchMapData(refID, callback) {
     var label = 'loadMapData.asp?refID=' + refID;
-    KSA_UI_STATE.dataLoadQueue.push(label);
-    console.log('[KSA_DATA_SERVICE]', label);
-    fetchJson(catalogFilePath('maps'))
+    fetchJson(jsonCatalogFilePath('maps'))
       .then(function (records) {
-        var rs;
+        var result;
         if (refID === -1) {
-          // Return all records joined with '^' — no trailing delimiter.
-          if (!records || !records.length) {
-            rs = 'null';
-          } else {
-            rs = records.map(function (obj) { return objToRs(obj); }).join('^');
-          }
+          result = (records && records.length) ? records : null;
         } else {
-          // Return only the one record whose RefID matches the requested body.
-          var match = null;
+          result = null;
           for (var i = 0; i < records.length; i++) {
-            if (records[i].RefID === refID) { match = records[i]; break; }
+            if (records[i].RefID === refID) { result = records[i]; break; }
           }
-          rs = match ? objToRs(match) : 'null';
         }
-        _parity(label, rs);
-        dbResponse({ responseText: rs }, label, callback);
+        _trackAndInvoke(label, callback, result);
       })
       ['catch'](function (err) {
-        var idx = KSA_UI_STATE.dataLoadQueue.indexOf(label);
-        if (idx > -1) KSA_UI_STATE.dataLoadQueue.splice(idx, 1);
         handleError(err, label, true);
       });
   }
