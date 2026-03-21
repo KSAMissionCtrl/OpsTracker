@@ -915,10 +915,10 @@ function loadBody(body = "Kerbol-System", flt) {
     // don't create a new entry if this is the same page being reloaded
     if (!history.state) {
       if (window.location.href.includes("&")) var strURL = window.location.href;
-      else var strURL = "http://www.kerbalspace.agency/Tracker/tracker.asp?body=" + body;
+      else var strURL = "http://www.kerbalspace.agency/Tracker/tracker.html?body=" + body;
       history.replaceState({type: "body", id: body}, document.title, strURL.replace("&live", "").replace("&reload", "")); 
     } else if (history.state.id != body) {
-      var strURL = "http://www.kerbalspace.agency/Tracker/tracker.asp?body=" + body;
+      var strURL = "http://www.kerbalspace.agency/Tracker/tracker.html?body=" + body;
       if (flt) strURL += "&flt=" + flt;
       history.pushState({type: "body", id: body}, document.title, strURL); 
     }

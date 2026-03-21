@@ -420,32 +420,18 @@ const KSA_DATA_SERVICE = (function () {
   /**
    * fetchPartsData(callback)
    *
-   * Loads all parts records from the parts catalog and delivers them to the
-   * existing loadPartsAJAX callback in the same caret-delimited format that
-   * loadPartsData.asp produced.
+   * Loads all parts records from the parts catalog and delivers them to
+   * loadPartsAJAX as a native array of part objects.
    *
-   * ASP logic replicated: dump all records from the parts table, each as
-   * "Field~value`Field~value…", joined by "^".  No trailing "^" — the ASP
-   * endpoint strips it with left(output, len(output)-1) and loadPartsAJAX
-   * splits on "^" without filtering empty strings, so a trailing delimiter
-   * would push a null entry into KSA_CATALOGS.partsCatalog.
-   *
-   * @param {function} callback  Existing AJAX callback (loadPartsAJAX).
+   * @param {function} callback  loadPartsAJAX — receives (parts[]).
    */
   function fetchPartsData(callback) {
     var label = 'loadPartsData.asp';
-    KSA_UI_STATE.dataLoadQueue.push(label);
-    console.log('[KSA_DATA_SERVICE]', label);
-    fetchJson(catalogFilePath('parts'))
-      .then(function (records) {
-        // Join records with "^" — no trailing delimiter (matches ASP output).
-        var rs = records.map(function (obj) { return objToRs(obj); }).join('^');
-        _parity(label, rs);
-        dbResponse({ responseText: rs }, label, callback);
+    fetchJson(jsonCatalogFilePath('parts'))
+      .then(function(records) {
+        _trackAndInvoke(label, callback, records);
       })
-      ['catch'](function (err) {
-        var idx = KSA_UI_STATE.dataLoadQueue.indexOf(label);
-        if (idx > -1) KSA_UI_STATE.dataLoadQueue.splice(idx, 1);
+      ['catch'](function(err) {
         handleError(err, label, true);
       });
   }

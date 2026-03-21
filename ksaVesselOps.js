@@ -42,7 +42,7 @@ function loadVessel(vessel, givenUT, wasUTExplicit) {
   $('.change-indicator').remove();
   
   // compose the the URL that will appear in the address bar when the history state is updated
-  var strURL = "http://www.kerbalspace.agency/Tracker/tracker.asp?vessel=" + vessel;
+  var strURL = "http://www.kerbalspace.agency/Tracker/tracker.html?vessel=" + vessel;
 
   // Only add UT to URL if it was explicitly provided
   if (wasUTExplicit) strURL += "&ut=" + givenUT;
@@ -136,7 +136,7 @@ function loadFlt(dbName, menuSelect = true) {
     else {
 
       // Update the URL to include this flight
-      var strURL = "http://www.kerbalspace.agency/Tracker/tracker.asp?body=Kerbin-System&flt=" + dbName;
+      var strURL = "http://www.kerbalspace.agency/Tracker/tracker.html?body=Kerbin-System&flt=" + dbName;
       history.pushState({type: "flt", db: dbName}, document.title, strURL);
     }
     return;
@@ -203,8 +203,8 @@ function loadFlt(dbName, menuSelect = true) {
 }
 
 // parses data used to display information on parts for vessels
-function loadPartsAJAX(xhttp) {
-  xhttp.responseText.split("^").forEach(function(item) { KSA_CATALOGS.partsCatalog.push(rsToObj(item)); });
+function loadPartsAJAX(parts) {
+  KSA_CATALOGS.partsCatalog = parts;
 }
 
 // parses data used to drive the live/replay ascent telemetry
@@ -2060,14 +2060,9 @@ function assignPartInfo() {
 
     // are there notes for this part?
     if (part.Notes) {
-      
-      // get all the notes
-      var notes = part.Notes.split("&");
-
-      // find out if any apply to this vessel and if so add the note to the HTML
-      notes.forEach(function(note) {
-        var regex = new RegExp(note.split("%")[0]);
-        if (ops.currentVessel.Catalog.DB.match(regex)) strPartHtml += "<b>Note:</b> " + note.split("%")[1];
+      part.Notes.forEach(function(note) {
+        var regex = new RegExp(note.pattern);
+        if (ops.currentVessel.Catalog.DB.match(regex)) strPartHtml += "<b>Note:</b> " + note.text;
       });
     }
     Tipped.create("#" + part.Part, strPartHtml, { showOn: showOpt, hideOnClickOutside: is_touch_device(), offset: { x: 3, y: -3 } });

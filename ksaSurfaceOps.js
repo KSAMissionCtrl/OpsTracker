@@ -1403,7 +1403,7 @@ function loadFltDataAJAX(xhttp) {
         }
         
         // Update the URL to include this flight
-        var strURL = "http://www.kerbalspace.agency/Tracker/tracker.asp?body=Kerbin-System&flt=" + KSA_CATALOGS.fltPaths[0].id;
+        var strURL = "http://www.kerbalspace.agency/Tracker/tracker.html?body=Kerbin-System&flt=" + KSA_CATALOGS.fltPaths[0].id;
         history.pushState({type: "flt", db: KSA_CATALOGS.fltPaths[0].id}, document.title, strURL);
       // multiple tracks...
       } else {
@@ -1448,7 +1448,7 @@ function loadFltDataAJAX(xhttp) {
     }
 
     // Update the URL to include this flight
-    var strURL = "http://www.kerbalspace.agency/Tracker/tracker.asp?body=Kerbin-System&flt=" + KSA_CATALOGS.fltPaths[KSA_CATALOGS.fltPaths.length-1].id;
+    var strURL = "http://www.kerbalspace.agency/Tracker/tracker.html?body=Kerbin-System&flt=" + KSA_CATALOGS.fltPaths[KSA_CATALOGS.fltPaths.length-1].id;
     history.pushState({type: "flt", db: KSA_CATALOGS.fltPaths[KSA_CATALOGS.fltPaths.length-1].id}, document.title, strURL);
 
     KSA_LAYERS.surfaceTracksDataLoad.fltTrackDataLoad = null;
