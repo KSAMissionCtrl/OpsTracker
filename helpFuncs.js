@@ -303,92 +303,11 @@ String.prototype.width = function(font) {
 }
 
 /**
- * Intermediate handler for AJAX responses
- * Calls the original callback and removes URL from the load queue
- * @param {XMLHttpRequest} xhttp - The XMLHttpRequest object
- * @param {string} url - The URL that was requested
- * @param {function} cFunction - Callback function to execute
- * @param {*} data - Optional data to pass to callback
- */
-function dbResponse(xhttp, url, cFunction, data) {
-  try {
-    // Call the original callback function
-    cFunction(xhttp, data);
-    
-    // Remove the URL from the data load queue
-    var index = KSA_UI_STATE.dataLoadQueue.indexOf(url);
-    if (index > -1) {
-      KSA_UI_STATE.dataLoadQueue.splice(index, 1);
-    }
-  } catch (error) {
-    handleError(error, `dbResponse: ${url}`, true);
-  }
-}
-
-/**
- * Call up an AJAX query and assign it to a callback function
- * Enhanced with error handling
- * @param {string} url - The URL to request
- * @param {function} cFunction - Callback function on success
- * @param {*} data - Optional data to pass to callback
- */
-function loadDB(url, cFunction, data) {
-  console.log(url);
-  KSA_UI_STATE.dataLoadQueue.push(url);
-  var xhttp;
-  
-  try {
-    xhttp = new XMLHttpRequest();
-    
-    xhttp.onreadystatechange = function() {
-      try {
-        if (this.readyState == 4) {
-          if (this.status == 200) {
-            dbResponse(this, url, cFunction, data);
-          } else if (this.status >= 400) {
-            handleError(
-              new Error(`HTTP ${this.status}: ${this.statusText}`),
-              `loadDB: ${url}`,
-              true
-            );
-          }
-        }
-      } catch (error) {
-        handleError(error, `loadDB callback: ${url}`, true);
-      }
-    };
-    
-    xhttp.onerror = function() {
-      handleError(
-        new Error('Network request failed'),
-        `loadDB: ${url}`,
-        true
-      );
-    };
-    
-    xhttp.ontimeout = function() {
-      handleError(
-        new Error('Request timeout'),
-        `loadDB: ${url}`,
-        true
-      );
-    };
-    
-    xhttp.open("GET", url, true);
-    xhttp.timeout = 30000; // 30 second timeout
-    xhttp.send();
-    
-  } catch (error) {
-    handleError(error, `loadDB initialization: ${url}`, true);
-  }
-}
-
-/**
  * Fetches and parses a line-delimited JSON.txt archive file.
  * Each JSON object spans multiple lines, opening with '{' and closing with '},' or '}]'.
  * (.json.txt extension is used to avoid MIME type issues on the server.)
  *
- * Analogous to loadDB but for the JSON.txt flat-file format used by the social archive.
+ * Fetches and parses a line-delimited JSON.txt archive file used by the social archive.
  * The caller receives all parsed objects and is responsible for any filtering.
  *
  * @param {string} url - Full URL to the .json.txt file
@@ -990,40 +909,6 @@ function componentToHex(c) {
 }
 function rgbToHex(r, g, b) {
   return "#" + componentToHex(r) + componentToHex(g) + componentToHex(b);
-}
-
-// put all the fields from a recordset into an object
-function rsToObj(data) {
-  var object = {};
-  var fields = data.split("`");
-  if (data == "" || data == "null") return null;
-  if (fields.length > 1) {
-    fields.forEach(function(item) {
-    
-      // now get the name/value and assign the object
-      var pair = item.split("~");
-      if (pair[1] == "") {
-        object[pair[0]] = null;
-      } else {
-        
-        // check to make sure there are only two pairs
-        // if there are more than two we need to combine everything after the first entry because they were separated using the same character
-        if (pair.length > 2) {
-          for (i=2; i<pair.length; i++) pair[1] += "~" + pair[i];
-          object[pair[0]] = pair[1];
-        } else {
-          if (!isNaN(pair[1]) && pair[1].trim() !== "") {
-            object[pair[0]] = parseFloat(pair[1]);
-          } else {
-            if (pair[1].toLowerCase() == "false") object[pair[0]] = false;
-            else if (pair[1].toLowerCase() == "true") object[pair[0]] = true;
-            else object[pair[0]] = pair[1];
-          }
-        }
-      }
-    });
-  } else object = null;
-  return object;
 }
 
 // determine whether this is a touchscreen device 
