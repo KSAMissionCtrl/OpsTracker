@@ -1269,16 +1269,15 @@ function loadVesselOrbits() {
 }
 
 // creates an orbit on the Three.js scene if it is loaded
-function addOrbitAJAX(xhttp) {
+function addOrbitAJAX(result) {
   if (!KSA_UI_STATE.is3JSLoaded) return;
   if (!KSA_UI_STATE.is3JSRefreshing) {
     threeRenderer.domElement.removeEventListener('click', onSceneClick);
     threeRenderer.domElement.removeEventListener('contextmenu', onSceneRightClick);
   }
 
-  // parse data
-  var vesselID = xhttp.responseText.split("*")[0];
-  var orbitData = rsToObj(xhttp.responseText.split("*")[1].split("|")[0])
+  var vesselID = result.db;
+  var orbitData = result.flightData;
 
   // check to ensure the vessel has an orbital record
   if (orbitData) {

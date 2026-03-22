@@ -407,6 +407,22 @@ const KSA_DATA_SERVICE = (function () {
     if (stats.TEVA     !== null && stats.TEVA     !== undefined) stats.TEVA     = +stats.TEVA     || 0;
   }
 
+  /**
+   * _normalizeKeys(obj)
+   *
+   * Returns a shallow copy of obj with all spaces removed from key names.
+   * e.g. "Orbital Period" → "OrbitalPeriod", "SOI Event" → "SOIEvent".
+   * Returns null/undefined unchanged.
+   */
+  function _normalizeKeys(obj) {
+    if (!obj || typeof obj !== 'object') return obj;
+    var normalized = {};
+    Object.keys(obj).forEach(function (key) {
+      normalized[key.replace(/ /g, '')] = obj[key];
+    });
+    return normalized;
+  }
+
   // ===========================================================================
   // PHASE 3 ENDPOINT IMPLEMENTATIONS
   // ===========================================================================
@@ -1027,32 +1043,27 @@ const KSA_DATA_SERVICE = (function () {
   /**
    * fetchVesselOrbitData(db, ut, callback, data)
    *
-   * UT-seeks the flight data and flightplan tables for a vessel and delivers
-   * them to the existing addOrbitAJAX / loadVesselOrbitAJAX callback in the
-   * same format that loadVesselOrbitData.asp produced.
+   * UT-seeks the flightdata and flightplan tables for a vessel and delivers
+   * a structured result to addOrbitAJAX or loadVesselOrbitAJAX via
+   * _trackAndInvoke (Phase 3 convention — no delimited strings).
    *
-   * ASP logic replicated:
-   *   - Open the individual craft DB (equivalent: load its index file).
-   *   - UT-seek "flight data" table: find the record with the largest UT ≤ ut.
-   *   - UT-seek "flightplan" table: same.
-   *   - Output: db*[flightdataFields or "null"]|[flightplanFields or "null"]
-   *   - Trailing backtick stripped from each segment (handled by objToRs).
+   * Result shape: { db, flightData: obj|null, flightPlan: obj|null }
+   * Keys are normalized (spaces stripped) so field names like "Orbital Period"
+   * become "OrbitalPeriod" for direct property access.
    *
-   * Cache behaviour: if the index was already loaded by fetchVesselData (#10),
-   * this call is fully served from the in-memory caches with zero network
-   * round-trips.
+   * Cache behaviour: fetchJson() caches by URL, so if fetchVesselData (#10)
+   * already loaded the same index and flightdata file, this call is a cache
+   * hit with zero network round-trips.
    *
    * @param {string}   db        Vessel DB name (e.g. "kerbin-II").
    * @param {number}   ut        Current game UT in seconds.
-   * @param {function} callback  Existing AJAX callback (addOrbitAJAX or loadVesselOrbitAJAX).
+   * @param {function} callback  addOrbitAJAX or loadVesselOrbitAJAX.
    * @param {*}        [data]    Optional pass-through value (e.g. currObj for loadVesselOrbitAJAX).
    */
   function fetchVesselOrbitData(db, ut, callback, data) {
     var label = 'loadVesselOrbitData.asp?db=' + db + '&ut=' + ut;
-    KSA_UI_STATE.dataLoadQueue.push(label);
-    console.log('[KSA_DATA_SERVICE]', label);
 
-    loadIndex(db)
+    fetchJson(jsonIndexPath(db))
       ['catch'](function () { return {}; })   // missing index → all-null response
       .then(function (index) {
 
@@ -1065,31 +1076,23 @@ const KSA_DATA_SERVICE = (function () {
           : null;
 
         var fdPromise = fdUT !== null
-          ? fetchJson(dbFilePath(db, 'flightdata', fdUT))['catch'](function () { return null; })
+          ? fetchJson(jsonDbFilePath(db, 'flightdata', fdUT))['catch'](function () { return null; })
           : Promise.resolve(null);
 
         var fpPromise = fpUT !== null
-          ? fetchJson(dbFilePath(db, 'flightplan', fpUT))['catch'](function () { return null; })
+          ? fetchJson(jsonDbFilePath(db, 'flightplan', fpUT))['catch'](function () { return null; })
           : Promise.resolve(null);
 
         return Promise.all([fdPromise, fpPromise]);
       })
       .then(function (results) {
-        var fdRecord = results[0];
-        var fpRecord = results[1];
-
-        // Build segments: objToRs produces no trailing backtick, matching ASP's
-        // left(output, len(output)-1) strip before each "|".
-        var fdRs = fdRecord ? objToRs(fdRecord) : 'null';
-        var fpRs = fpRecord ? objToRs(fpRecord) : 'null';
-
-        var rs = db + '*' + fdRs + '|' + fpRs;
-        _parity(label, rs);
-        dbResponse({ responseText: rs }, label, callback, data);
+        _trackAndInvoke(label, callback, {
+          db:         db,
+          flightData: _normalizeKeys(results[0]),
+          flightPlan: _normalizeKeys(results[1])
+        }, data);
       })
       ['catch'](function (err) {
-        var idx = KSA_UI_STATE.dataLoadQueue.indexOf(label);
-        if (idx > -1) KSA_UI_STATE.dataLoadQueue.splice(idx, 1);
         handleError(err, label, true);
       });
   }

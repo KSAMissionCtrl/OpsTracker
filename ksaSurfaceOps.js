@@ -3397,16 +3397,9 @@ function setupSurfacePath(path, object) {
 }
 
 // store orbital data for active vessels drawn on the map surface
-function loadVesselOrbitAJAX(xhttp, currObj) {
-  if (xhttp.responseText.split("*")[1].split("|")[0] != "null") {
-    currObj.orbit = rsToObj(xhttp.responseText.split("*")[1].split("|")[0])
-  } else {
-    currObj.orbit = null;
-    currObj.isCalculated = true;
-  }
-
-  // possible end of mission, no more orbital data but there is a UT record
-  if (currObj.orbit && currObj.orbit.Eph == null) {
+function loadVesselOrbitAJAX(result, currObj) {
+  currObj.orbit = result.flightData;
+  if (!currObj.orbit || currObj.orbit.Eph == null) {
     currObj.orbit = null;
     currObj.isCalculated = true;
   }
