@@ -22,12 +22,10 @@ function loadVessel(vessel, givenUT, wasUTExplicit) {
   // we need to make sure the current surface map is proper for this vessel
   var strParentBody = getParentSystem(vessel);
   if (strParentBody == "inactive") {
-    var soiList = ops.craftsMenu.find(o => o.db === vessel).soi.split("|");
-    
-    // last element is always the inactive body ID so pop & check the next one
-    soiList.pop();
-    var lastSOI = soiList.pop();
-    strParentBody = ops.bodyCatalog.find(o => o.ID === parseInt(lastSOI.split(";")[1])).Body;
+    var soi = ops.craftsMenu.find(o => o.db === vessel).soi;
+
+    // last entry is always the inactive ref (-2), second-to-last is the last real body
+    strParentBody = ops.bodyCatalog.find(o => o.ID === soi[soi.length - 2].ref).Body;
   }
   if (strParentBody && (!ops.surface.Data || (ops.surface.Data && ops.surface.Data.Name != strParentBody.replace("-System", "")))) {
     loadBody(strParentBody);

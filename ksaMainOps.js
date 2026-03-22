@@ -1406,10 +1406,12 @@ function tick(utDelta = 1000, rapidFireMode = false) {
   }
 
   // check if the tweets update is available for fetching
-  if (!ops.updateTweets && SocialDisplay.config.isLoaded) {
-    ops.updateTweets = SocialDisplay.fetchUpdateData();
-    processTweetUpdates();
-  }
+  // this was returning a null for updateTweets when nothing was touched so prob due to the better loading times
+  // from the ASP to JSON conversion so waiting until that is finished before looking into this
+  // if (!ops.updateTweets && SocialDisplay.config.isLoaded) {
+  //   ops.updateTweets = SocialDisplay.fetchUpdateData();
+  //   processTweetUpdates();
+  // }
 
   // look for updates
   checkPageUpdate(rapidFireMode);
