@@ -235,6 +235,7 @@
   <script src="../lib/L.Polyline.SnakeAnim.js"></script>
   <script src="helpFuncs.js"></script>
   <script src="ksaGlobals.js"></script>
+  <script src="ksaDataService.js"></script>
   <script src="ksaEventOps.js"></script>
   <script src="ksaMenuOps.js"></script>
   <script src="ksaBodyOps.js"></script>

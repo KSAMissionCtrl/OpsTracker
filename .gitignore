@@ -50,18 +50,13 @@ DB Relation.pptx
 /lib
 flags.txt
 mapObjects.txt
-Collections/tweets.json
-Collections/collections.json
-Collections/process_collections.py
-Collections/socialUpdates.json
-Collections/filter_social_updates.py
-Collections/socialUpdatesTrimmed.json
+Collections/
 /Images
 convert_imgmap.py
 imgmap conversion.txt
-DB Templates/Database Reference.md
 /Analysis
 /databaseASP
-/databaseJSON
 /DB Templates
+/.venv
+/databaseJSON
 /dbreplace
