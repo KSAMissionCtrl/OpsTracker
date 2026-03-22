@@ -587,17 +587,17 @@ function vesselPeriodUpdate(update) {
 }
 
 function vesselCrewUpdate(update) {
-  if (ops.currentVessel.Manifest && !!ops.currentVessel.Manifest.Crew) {
+  if (ops.currentVessel.Manifest && ops.currentVessel.Manifest.Crew && ops.currentVessel.Manifest.Crew.length) {
     var strHTML = "<b>Crew:</b> ";
-    ops.currentVessel.Manifest.Crew.split("|").forEach(function(item) {
+    ops.currentVessel.Manifest.Crew.forEach(function(item) {
 
       // older tooltip contained more data that can now be gotten at the crew page
-      // strHTML += "<img class='tipped' title='" + item.split(";")[0] + "<br>Boarded on: " + UTtoDateTime(parseFloat(item.split(";")[2])).split("@")[0] + "<br>Mission Time: " + formatTime(currUT() - parseFloat(item.split(";")[2])).split(",")[0] + "' style='cursor: pointer' src='http://www.kerbalspace.agency/Tracker/favicon.ico'></a>&nbsp;";
-      strHTML += "<img onclick=\"swapContent('crew', '" + item.split(';')[1] + "')\" class='tipped' title='" + item.split(";")[0] + "' style='cursor: pointer' src='http://www.kerbalspace.agency/Tracker/favicon.ico'></a>&nbsp;";
+      // strHTML += "<img class='tipped' title='" + item.name + "<br>Boarded on: " + UTtoDateTime(item.boarded).split("@")[0] + "<br>Mission Time: " + formatTime(currUT() - item.boarded).split(",")[0] + "' style='cursor: pointer' src='http://www.kerbalspace.agency/Tracker/favicon.ico'></a>&nbsp;";
+      strHTML += "<img onclick=\"swapContent('crew', '" + item.roster + "')\" class='tipped' title='" + item.name + "' style='cursor: pointer' src='http://www.kerbalspace.agency/Tracker/favicon.ico'></a>&nbsp;";
     });
     $("#dataField7").html(strHTML);
     $("#dataField7").fadeIn();
-    if (addChangeIndicator("#dataField7", ops.currentVessel.Catalog.DB, "Manifest", ops.currentVessel.Manifest.Crew) && update) flashUpdate("#dataField7", "#77C6FF", "#FFF");
+    if (addChangeIndicator("#dataField7", ops.currentVessel.Catalog.DB, "Manifest", JSON.stringify(ops.currentVessel.Manifest.Crew)) && update) flashUpdate("#dataField7", "#77C6FF", "#FFF");
   } else $("#dataField7").fadeOut();
 }
   
@@ -631,7 +631,7 @@ function vesselResourcesUpdate(update) {
       addChangeIndicator("#dataField8", ops.currentVessel.Catalog.DB, "Resources", JSON.stringify(ops.currentVessel.Resources));
 
       // decide whether to display recource scroll arrows
-      if (ops.currentVessel.Resources.Resources && ops.currentVessel.Resources.Resources.split("|").length > 5) $("#nextRes").css("visibility", "visible");
+      if (ops.currentVessel.Resources.Resources && ops.currentVessel.Resources.Resources.length > 5) $("#nextRes").css("visibility", "visible");
       else $("#prevRes").css("display", "none");
 
     // !NotNull means a resource record exists for this UT but is empty, so we are removing the field at this time
@@ -2253,12 +2253,12 @@ function openVesselImageLightbox(imageUrl) {
 // updates the 5 resource icons in the event of a scroll
 function updateResourceIcons(update) {
   if (!ops.currentVessel) return; // too fast of a page through the history due to call delay of the function
-  var resourceList = ops.currentVessel.Resources.Resources.split("|");
+  var resourceList = ops.currentVessel.Resources.Resources;
   for (resCount=0; resCount<5; resCount++) {
     if (resCount+ops.currentVessel.Resources.resIndex == resourceList.length) break;
-    $("#resImg" + resCount).attr("src", "images/" + resourceList[resCount+ops.currentVessel.Resources.resIndex].split(";")[0] + ".png");
+    $("#resImg" + resCount).attr("src", "images/" + resourceList[resCount+ops.currentVessel.Resources.resIndex].name + ".png");
     $("#resImg" + resCount).fadeIn();
-    $("#resTip" + resCount).html(resourceList[resCount+ops.currentVessel.Resources.resIndex].split(";")[1]);
+    $("#resTip" + resCount).html(resourceList[resCount+ops.currentVessel.Resources.resIndex].desc);
   }
   if (update && (!ops.currentVessel.Resources.resHTML || (ops.currentVessel.Resources.resHTML && ops.currentVessel.Resources.resHTML !=  $("#dataField8").html()))) {
     flashUpdate("#dataField8", "#77C6FF", "#FFF");
@@ -2276,7 +2276,7 @@ function prevResource() {
 function nextResource() {
   $("#prevRes").css("visibility", "visible");
   ops.currentVessel.Resources.resIndex++;
-  if (ops.currentVessel.Resources.resIndex == ops.currentVessel.Resources.Resources.split("|").length-5) $("#nextRes").css("visibility", "hidden");
+  if (ops.currentVessel.Resources.resIndex == ops.currentVessel.Resources.Resources.length - 5) $("#nextRes").css("visibility", "hidden");
   updateResourceIcons();
 }
 

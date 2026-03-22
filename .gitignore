@@ -55,7 +55,8 @@ Collections/
 convert_imgmap.py
 imgmap conversion.txt
 /Analysis
-/database
+/databaseASP
 /DB Templates
 /.venv
 /databaseJSON
+/dbreplace

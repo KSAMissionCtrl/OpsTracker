@@ -1523,7 +1523,7 @@ function tick(utDelta = 1000, rapidFireMode = false) {
             // if we've hit or exceeded the entry time, remove the vessel marker and update the entry marker popup
             if (ops.currentVesselPlot.events.soi.UT <= currUT()) {
               ops.currentVesselPlot.events.soi.marker.closePopup();
-              ops.currentVesselPlot.events.soi.marker.bindPopup("<center>" + UTtoDateTime(parseInt(ops.currentVessel.Orbit.SOIEvent.split(";")[0])).split("@")[1] + " UTC<br>Telemetry data invalid due to " + ops.currentVessel.Orbit.SOIEvent.split(";")[2] + "<br>Please stand by for update</center>", { autoClose: false });
+              ops.currentVesselPlot.events.soi.marker.bindPopup("<center>" + UTtoDateTime(ops.currentVessel.Orbit.SOIEvent.ut).split("@")[1] + " UTC<br>Telemetry data invalid due to " + ops.currentVessel.Orbit.SOIEvent.reason + "<br>Please stand by for update</center>", { autoClose: false });
               ops.currentVesselPlot.events.soi.marker.openPopup();
               ops.surface.map.removeLayer(KSA_MAP_CONTROLS.vesselMarker);
               if (KSA_LAYERS.groundMarkers.layerGroundStations.hasLayer(KSA_MAP_CONTROLS.vesselHorizon.vessel)) KSA_LAYERS.groundMarkers.layerGroundStations.removeLayer(KSA_MAP_CONTROLS.vesselHorizon.vessel);
@@ -1633,7 +1633,7 @@ function tick(utDelta = 1000, rapidFireMode = false) {
               // save the state of the popup since we didn't save the popup object to directly modify its contents
               var bPopped = object.obtData.events.soi.marker.isPopupOpen();
               object.obtData.events.soi.marker.closePopup();
-              object.obtData.events.soi.marker.bindPopup("<center>" + UTtoDateTime(parseInt(object.orbit.SOIEvent.split(";")[0])).split("@")[1] + " UTC<br>Telemetry data for " + currName(ops.activeVessels.find(o => o.db === object.name)) + " invalid due to " + object.obtData.events.soi.reason + "<br>Please stand by for update<br><br><span class='fauxLink' onclick='markerHandler(\"" + object.name + "\", " + object.isVessel + ")'>View Vessel Page</span></center>", { autoClose: false });
+              object.obtData.events.soi.marker.bindPopup("<center>" + UTtoDateTime(object.orbit.SOIEvent.ut).split("@")[1] + " UTC<br>Telemetry data for " + currName(ops.activeVessels.find(o => o.db === object.name)) + " invalid due to " + object.obtData.events.soi.reason + "<br>Please stand by for update<br><br><span class='fauxLink' onclick='markerHandler(\"" + object.name + "\", " + object.isVessel + ")'>View Vessel Page</span></center>", { autoClose: false });
 
               // if the object has its vessel popup open or the SOI popup open, show this notification
               if (object.obtData.marker.isPopupOpen() || bPopped) {
