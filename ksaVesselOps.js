@@ -212,61 +212,26 @@ function loadAscentAJAX(result) {
 }
 
 // parses data that shows up for the vessel currently selected in the menu
-function loadVesselAJAX(xhttp, flags) {
-
-  // separate the main data segments
-  var data = xhttp.responseText.split("Typ3")[1].split("*");
-  
-  // the vessel catalog data is first
-  var catalog = rsToObj(data[0]);
-
-  // any ascent data available?
-  var ascentData = [];
-  if (data[1] != "false") {
-
-    // only the start and end times of the ascent data are loaded initially
-    data[1].split("~").forEach(function(item) { ascentData.push(parseFloat(item)); });
-  }
-  
-  // the various tables of the current record are next
-  var dataTables = data[2].split("^");
-  var craft = rsToObj(dataTables[0]);
-  var resources = rsToObj(dataTables[1]);
-  var crew = rsToObj(dataTables[2]);
-  var comms = rsToObj(dataTables[3]);
-  var obt = rsToObj(dataTables[4]);
-  var ports = rsToObj(dataTables[5]);
-
-  // parse and sort the histories and launch times
-  var history = [];
-  var launches = [];
-  var obtHist = [];
-  data[3].split("|").forEach(function(item) { history.push({UT: parseFloat(item.split("~")[0]), Title: item.split("~")[1]}); });
-  if (data[4].split("|") != "null") {
-    data[4].split("|").forEach(function(item) { launches.push({UT: parseFloat(item.split("~")[0]), LaunchTime: parseFloat(item.split("~")[1])}); });
-  }
-  if (data[5].split("|") != "null") {
-    data[5].split("|").forEach(function(item) { obtHist.push({UT: parseFloat(item.split("~")[0]), Period: parseFloat(item.split("~")[1])}); });
-  }
+function loadVesselAJAX(result, flags) {
 
   // store all the data
   // preserve the initial load flag
-  ops.currentVessel = { Catalog: catalog,
-                        CraftData: craft,
-                        Resources: resources,
-                        Manifest: crew,
-                        Comms: comms,
-                        Ports: ports,
-                        Orbit: obt,
-                        History: history,
-                        LaunchTimes: launches,
-                        OrbitalHistory: obtHist,
-                        AscentData: ascentData,
+  ops.currentVessel = { Catalog:        result.catalog,
+                        CraftData:      result.current.craft,
+                        Resources:      result.current.resources,
+                        Manifest:       result.current.manifest,
+                        Comms:          result.current.comms,
+                        Ports:          result.current.ports,
+                        Orbit:          result.current.orbit,
+                        History:        result.history,
+                        LaunchTimes:    result.launchTimes,
+                        OrbitalHistory: result.orbitalHistory,
+                        AscentData:     result.ascentRange || [],
                         timelineTweets: null,
-                        initLoad: null };
+                        initLoad:       null };
 
   // Reset the orbit stack when switching to a different vessel; preserve it for state changes within the same vessel.
-  if (_vofObtStack.db !== catalog.DB) { _vofObtStack.db = catalog.DB; _vofObtStack.stack = []; }
+  if (_vofObtStack.db !== ops.currentVessel.Catalog.DB) { _vofObtStack.db = ops.currentVessel.Catalog.DB; _vofObtStack.stack = []; }
   if (ops.currentVessel.Resources) ops.currentVessel.Resources.resIndex = 0;
   if (flags) ops.currentVessel.initLoad = flags.initLoad;
   
@@ -285,20 +250,21 @@ function loadVesselAJAX(xhttp, flags) {
   vesselTimelineUpdate();
   
   if (ops.currentVessel.Catalog.Patches) {
+    var p = ops.currentVessel.Catalog.Patches;
 
     // program patch
-    var strPatches = "<a target='_blank' href='" + ops.currentVessel.Catalog.Patches.split("|")[0].split(";")[2].replace("index.php", "") + "'><img id='programPatch' class='tipped' data-tipped-options=\"position: 'bottom'\" style='height: 35px;' title=\"<center>Click to view the " + ops.currentVessel.Catalog.Patches.split("|")[0].split(";")[0] + " Program page</center><br /><img style='height: 500px;' src='" + ops.currentVessel.Catalog.Patches.split("|")[0].split(";")[1] + "'>\" src='" + ops.currentVessel.Catalog.Patches.split("|")[0].split(";")[1] + "'></a>&nbsp;";
-    
-    // vessel patch has a URL?
-    if (ops.currentVessel.Catalog.Patches.split("|")[1].split(";").length > 2) {
-      strPatches += "<a target='_blank' href='" + ops.currentVessel.Catalog.Patches.split("|")[1].split(";")[2].replace("index.php", "") + "'><img id='vesselPatch' class='tipped' data-tipped-options=\"position: 'bottom'\" style='height: 35px; cursor: pointer;' title=\"<center>Click to view the " + ops.currentVessel.Catalog.Patches.split("|")[1].split(";")[0] + " vessel page</center><br /><img style='height: 500px;' src='" + ops.currentVessel.Catalog.Patches.split("|")[1].split(";")[1] + "'>\" src='" + ops.currentVessel.Catalog.Patches.split("|")[1].split(";")[1] + "'></a>&nbsp;";
+    var strPatches = "<a target='_blank' href='" + p.program.pageUrl.replace("index.php", "") + "'><img id='programPatch' class='tipped' data-tipped-options=\"position: 'bottom'\" style='height: 35px;' title=\"<center>Click to view the " + p.program.name + " Program page</center><br /><img style='height: 500px;' src='" + p.program.patchUrl + "'>\" src='" + p.program.patchUrl + "'></a>&nbsp;";
+
+    // vessel patch has a page URL?
+    if (p.vessel.pageUrl !== null) {
+      strPatches += "<a target='_blank' href='" + p.vessel.pageUrl.replace("index.php", "") + "'><img id='vesselPatch' class='tipped' data-tipped-options=\"position: 'bottom'\" style='height: 35px; cursor: pointer;' title=\"<center>Click to view the " + p.vessel.name + " vessel page</center><br /><img style='height: 500px;' src='" + p.vessel.patchUrl + "'>\" src='" + p.vessel.patchUrl + "'></a>&nbsp;";
     } else {
-      strPatches += "<img id='vesselPatch' class='tipped' data-tipped-options=\"position: 'bottom'\" style='height: 35px; cursor: help;' title=\"<img style='height: 500px;' src='" + ops.currentVessel.Catalog.Patches.split("|")[1].split(";")[1] + "'>\" src='" + ops.currentVessel.Catalog.Patches.split("|")[1].split(";")[1] + "'>&nbsp;";
+      strPatches += "<img id='vesselPatch' class='tipped' data-tipped-options=\"position: 'bottom'\" style='height: 35px; cursor: help;' title=\"<img style='height: 500px;' src='" + p.vessel.patchUrl + "'>\" src='" + p.vessel.patchUrl + "'>&nbsp;";
     }
 
     // mission patch?
-    if (ops.currentVessel.Catalog.Patches.split("|").length > 2) {
-      strPatches += "<img id='missionPatch' class='tipped' data-tipped-options=\"position: 'bottom'\" style='height: 35px; cursor: help;' title=\"<img style='height: 500px;' src='" + ops.currentVessel.Catalog.Patches.split("|")[2].split(";")[1] + "'><br /><center>Mission Payload</center>\" src='" + ops.currentVessel.Catalog.Patches.split("|")[2].split(";")[1] + "'>&nbsp;";  
+    if (p.mission !== null) {
+      strPatches += "<img id='missionPatch' class='tipped' data-tipped-options=\"position: 'bottom'\" style='height: 35px; cursor: help;' title=\"<img style='height: 500px;' src='" + p.mission.patchUrl + "'><br /><center>Mission Payload</center>\" src='" + p.mission.patchUrl + "'>&nbsp;";
     }
 
     // if this is different than what is currently loaded, change it
@@ -675,31 +641,24 @@ function vesselResourcesUpdate(update) {
 
 function vesselCommsUpdate(update) {
   if (ops.currentVessel.Comms) {
-    if (ops.currentVessel.Comms.Comms) {
+    if (ops.currentVessel.Comms.Comms && ops.currentVessel.Comms.Comms.length > 0) {
       strHTML = "<span class='tipped' style='cursor:help' title='";
       if (ops.currentVessel.Comms.Connection) strHTML += "Signal Delay: <0.003s";
       else strHTML += "No Connection";
       strHTML += "'><b><u>Comms:</u></b></span> ";
-      if (ops.currentVessel.Comms.Comms) {
-        ops.currentVessel.Comms.Comms.split("|").forEach(function(item) {
+      ops.currentVessel.Comms.Comms.forEach(function(item) {
           var iconStr = "";
-          
-          // some craft may not have third field
-          if (item.split(";").length > 2) {
-            if (item.split(";")[2] == "true") {
-              if (!ops.currentVessel.Comms.Connection) iconStr = "no";
-            } else iconStr = "inactive";
-          }
-          else if (!ops.currentVessel.Comms.Connection) iconStr = "no";
+          if (item.active === true) {
+            if (!ops.currentVessel.Comms.Connection) iconStr = "no";
+          } else iconStr = "inactive";
 
           // clear up confusion by replacing Connection with Target when referencing the ground station we are intending to communicate with
           // this is so it doesn't imply a connection when status is shown as not connected via icon
-          strHTML += "<img class='tipped' title='" + item.split(";")[1].replace("Connection", "Target") + "' style='cursor:help' src='images/" + iconStr + item.split(";")[0] + ".png'></a>&nbsp;";
+          strHTML += "<img class='tipped' title='" + item.desc.replace("Connection", "Target") + "' style='cursor:help' src='images/" + iconStr + item.type + ".png'></a>&nbsp;";
         });
-      } else strHTML += "None";
       $("#dataField9").html(strHTML);
       $("#dataField9").fadeIn();
-      if (addChangeIndicator("#dataField9", ops.currentVessel.Catalog.DB, "Comms", ops.currentVessel.Comms.Comms) && update) flashUpdate("#dataField9", "#77C6FF", "#FFF");
+      if (addChangeIndicator("#dataField9", ops.currentVessel.Catalog.DB, "Comms", JSON.stringify(ops.currentVessel.Comms.Comms)) && update) flashUpdate("#dataField9", "#77C6FF", "#FFF");
 
     // no data in the Comms field means a record exists for this UT but is empty, so we are removing the field at this time
     } else $("#dataField9").fadeOut(); 
@@ -707,40 +666,41 @@ function vesselCommsUpdate(update) {
 }
 
 function vesselRelatedUpdate(update) {
+  var Related = ops.currentVessel.Catalog.Related;
 
-  // either this has just the vessel name to show now, or it has a time that needs to be checked first
-  if ((ops.currentVessel.Catalog.Related && !ops.currentVessel.Catalog.Related.split(";").length == 3) || 
-  (ops.currentVessel.Catalog.Related && ops.currentVessel.Catalog.Related.split(";").length > 3 && parseInt(ops.currentVessel.Catalog.Related.split(";")[3]) <= currUT())) {
-    var strHTML = "<b>Related Vessel:</b> <span class='fauxLink tipped' style='cursor: pointer' onclick=\"swapContent('vessel', '" + ops.currentVessel.Catalog.Related.split(";")[0] + "')\" ";
-    strHTML += "title='" + ops.currentVessel.Catalog.Related.split(";")[2] + "'>";
-    strHTML += ops.currentVessel.Catalog.Related.split(";")[1] + "</span>";
+  // show when Related exists and either has no UT gate or that UT gate has passed
+  if (Related && (Related.ut === null || Related.ut <= currUT())) {
+    var strHTML = "<b>Related Vessel:</b> <span class='fauxLink tipped' style='cursor: pointer' onclick=\"swapContent('vessel', '" + Related.db + "')\" ";
+    strHTML += "title='" + Related.desc + "'>";
+    strHTML += Related.name + "</span>";
     $("#dataField10").html(strHTML);
     $("#dataField10").fadeIn();
-    if (addChangeIndicator("#dataField10", ops.currentVessel.Catalog.DB, "Related", ops.currentVessel.Catalog.Related) && update) flashUpdate("#dataField10", "#77C6FF", "#FFF");
+    if (addChangeIndicator("#dataField10", ops.currentVessel.Catalog.DB, "Related", JSON.stringify(Related)) && update) flashUpdate("#dataField10", "#77C6FF", "#FFF");
   } else $("#dataField10").fadeOut();
 }
 
 function vesselAddlInfoUpdate(update) {
-  if (ops.currentVessel.Catalog.AddlRes) {
+  var AddlRes = ops.currentVessel.Catalog.AddlRes;
+  if (AddlRes && AddlRes.length > 0) {
 
     // handle things differently if this is a past live event or not
     if (!KSA_UI_STATE.isLivePastUT) {
       var newRes;
       var strHTML = '';
-      ops.currentVessel.Catalog.AddlRes.split("|").forEach(function(item) {
-        if (parseFloat(item.split(";")[0]) < currUT()) {
-          strHTML += "<span class='tipped' title='" + item.split(";")[1] + "'><a target='_blank' style='color: black' href='" + item.split(";")[2] + "'><i class='" + AddlResourceItems[item.split(";")[1]] + "'></i></a></span>&nbsp;";
+      AddlRes.forEach(function(item) {
+        if (item.ut < currUT()) {
+          strHTML += "<span class='tipped' title='" + item.desc + "'><a target='_blank' style='color: black' href='" + item.link + "'><i class='" + AddlResourceItems[item.desc] + "'></i></a></span>&nbsp;";
         
         // if the item isn't visible yet, save the UT so we can add an update notice for it
         } else {
-          if (!newRes) newRes = parseFloat(item.split(";")[0]);
-          else if (parseFloat(item.split(";")[0]) < newRes) newRes = parseFloat(item.split(";")[0]);
+          if (!newRes) newRes = item.ut;
+          else if (item.ut < newRes) newRes = item.ut;
         }
       });
       if (strHTML) {
         $("#dataField11").html("<b>Additional Information:</b> " + strHTML);
         $("#dataField11").fadeIn();
-        if (addChangeIndicator("#dataField11", ops.currentVessel.Catalog.DB, "AddlRes", ops.currentVessel.Catalog.AddlRes) && update) flashUpdate("#dataField11", "#77C6FF", "#FFF");
+        if (addChangeIndicator("#dataField11", ops.currentVessel.Catalog.DB, "AddlRes", JSON.stringify(AddlRes)) && update) flashUpdate("#dataField11", "#77C6FF", "#FFF");
 
       // there could be data but turns out we can't show it yet
       } else $("#dataField11").fadeOut();
@@ -755,12 +715,12 @@ function vesselAddlInfoUpdate(update) {
       // if the craft is inactive then show all the resources, otherwise hide them
       if (isMissionEnded()) {
         var strHTML = '';
-        ops.currentVessel.Catalog.AddlRes.split("|").forEach(function(item) {
-          strHTML += "<span class='tipped' title='" + item.split(";")[1] + "'><a target='_blank' style='color: black' href='" + item.split(";")[2] + "'><i class='" + AddlResourceItems[item.split(";")[1]] + "'></i></a></span>&nbsp;";
+        AddlRes.forEach(function(item) {
+          strHTML += "<span class='tipped' title='" + item.desc + "'><a target='_blank' style='color: black' href='" + item.link + "'><i class='" + AddlResourceItems[item.desc] + "'></i></a></span>&nbsp;";
         });
         $("#dataField11").html("<b>Additional Information:</b> " + strHTML);
         $("#dataField11").fadeIn();
-        if (addChangeIndicator("#dataField11", ops.currentVessel.Catalog.DB, "AddlRes", ops.currentVessel.Catalog.AddlRes) && update) flashUpdate("#dataField11", "#77C6FF", "#FFF");
+        if (addChangeIndicator("#dataField11", ops.currentVessel.Catalog.DB, "AddlRes", JSON.stringify(AddlRes)) && update) flashUpdate("#dataField11", "#77C6FF", "#FFF");
       } else $("#dataField11").fadeOut();
     }
   } else $("#dataField11").fadeOut();
@@ -1768,10 +1728,10 @@ function vesselContentUpdate(update) {
 
   // decide what kind of content we have to deal with
   // pre-launch/static data event. 
-  if (ops.currentVessel.CraftData.Content.charAt(0) == "@") {
+  if (ops.currentVessel.CraftData.Content.type === "map") {
     
     // Don't need to update unless content is not the same
-    if (!ops.currentVessel.CraftData.prevContent || (ops.currentVessel.CraftData.prevContent && ops.currentVessel.CraftData.prevContent != ops.currentVessel.CraftData.Content)) {
+    if (!ops.currentVessel.CraftData.prevContent || (ops.currentVessel.CraftData.prevContent && ops.currentVessel.CraftData.prevContent != JSON.stringify(ops.currentVessel.CraftData.Content))) {
       showMap();
       
       // remove any previous markers and surface plots
@@ -1783,7 +1743,7 @@ function vesselContentUpdate(update) {
       clearSurfacePlots();
 
       // extract the data
-      var data = ops.currentVessel.CraftData.Content.split("@")[1].split("|");
+      var mapContent = ops.currentVessel.CraftData.Content;
     
       // these elements should only appear on general surface maps
       if (KSA_LAYERS.groundMarkers.layerPins) {
@@ -1800,17 +1760,17 @@ function vesselContentUpdate(update) {
       
       // if launch is in progress and there's an altitude to report, include it
       var launchAltitude = "";
-      if (data.length > 3) {
-        launchAltitude = "<br>" + data[3] + "km ASL";
+      if (mapContent.alt !== undefined) {
+        launchAltitude = "<br>" + mapContent.alt + "km ASL";
 
         // add a horizon circle at the marker location
-        KSA_MAP_CONTROLS.vesselHorizon.vessel = addHorizonCircle([parseFloat(data[0]), parseFloat(data[1])], parseFloat(data[3]) * 1000);
+        KSA_MAP_CONTROLS.vesselHorizon.vessel = addHorizonCircle([mapContent.lat, mapContent.lng], parseFloat(mapContent.alt) * 1000);
         KSA_LAYERS.groundMarkers.layerGroundStations.addLayer(KSA_MAP_CONTROLS.vesselHorizon.vessel);
       }
 
       // place the marker and build the information window for it, then center the map on it and create a popup for it
-      KSA_MAP_CONTROLS.launchsiteMarker = L.marker([data[0], data[1]], {icon: launchsiteIcon}).addTo(ops.surface.map);
-      KSA_MAP_CONTROLS.launchsiteMarker.bindPopup(strLaunchIconCaption + data[2] + launchAltitude + "<br>[" + numeral(data[0]).format('0.0000') + "&deg;" + getLatLngCompass(KSA_MAP_CONTROLS.launchsiteMarker.getLatLng()).lat + ", " + numeral(data[1]).format('0.0000') + "&deg;" + getLatLngCompass(KSA_MAP_CONTROLS.launchsiteMarker.getLatLng()).lng + "]" , { closeOnClick: false });
+      KSA_MAP_CONTROLS.launchsiteMarker = L.marker([mapContent.lat, mapContent.lng], {icon: launchsiteIcon}).addTo(ops.surface.map);
+      KSA_MAP_CONTROLS.launchsiteMarker.bindPopup(strLaunchIconCaption + mapContent.text + launchAltitude + "<br>[" + numeral(mapContent.lat).format('0.0000') + "&deg;" + getLatLngCompass(KSA_MAP_CONTROLS.launchsiteMarker.getLatLng()).lat + ", " + numeral(mapContent.lng).format('0.0000') + "&deg;" + getLatLngCompass(KSA_MAP_CONTROLS.launchsiteMarker.getLatLng()).lng + "]" , { closeOnClick: false });
       // if the marker is not in view, center the map on it
       if (!ops.surface.map.getBounds().contains(KSA_MAP_CONTROLS.launchsiteMarker.getLatLng())) {
         ops.surface.map.setView(KSA_MAP_CONTROLS.launchsiteMarker.getLatLng(), ops.surface.map.getZoom());
@@ -1827,10 +1787,10 @@ function vesselContentUpdate(update) {
     }
 
   // dynamic map with orbital information
-  } else if (ops.currentVessel.CraftData.Content.charAt(0) == "!") {
+  } else if (ops.currentVessel.CraftData.Content.type === "html" && ops.currentVessel.CraftData.Content.html.charAt(0) === "!") {
   
     // extract the data
-    var data = ops.currentVessel.CraftData.Content.split("!")[1].split("|");
+    var data = ops.currentVessel.CraftData.Content.html.split("!")[1].split("|");
 
     // only show dynamic information if this is a current state in an ongoing mission
     // also only show if there is surface data for a map & orbital data
@@ -1862,7 +1822,7 @@ function vesselContentUpdate(update) {
         if (!update && (!isPlottable || (!isPlottable && !ops.currentVessel.CraftData.prevContent))) renderMapData(update);
 
         // if this is an update with changed content, we need to render new trajectories
-        else if (update && (ops.currentVessel.CraftData.prevContent != ops.currentVessel.CraftData.Content) || (ops.currentVesselPlot.eph != ops.currentVessel.Orbit.Eph)) renderMapData(update);
+        else if (update && (ops.currentVessel.CraftData.prevContent != JSON.stringify(ops.currentVessel.CraftData.Content)) || (ops.currentVesselPlot.eph != ops.currentVessel.Orbit.Eph)) renderMapData(update);
 
         // no call made to renderMapData means if the dialog is open we don't need it
         else $("#mapDialog").dialog("close");
@@ -1873,7 +1833,7 @@ function vesselContentUpdate(update) {
     } else {
 
       // no need to update unless it's not the same as before or there's no orbit
-      if (!ops.currentVessel.Orbit.Eph || !ops.currentVessel.CraftData.prevContent || (ops.currentVessel.CraftData.prevContent && ops.currentVessel.CraftData.prevContent != ops.currentVessel.CraftData.Content)) {
+      if (!ops.currentVessel.Orbit.Eph || !ops.currentVessel.CraftData.prevContent || (ops.currentVessel.CraftData.prevContent && ops.currentVessel.CraftData.prevContent != JSON.stringify(ops.currentVessel.CraftData.Content))) {
         disposeVesselOrbitScene();
         hideMap();
         
@@ -1921,18 +1881,18 @@ function vesselContentUpdate(update) {
     }
   
   // streaming ascent data, possibly with video
-  } else if (ops.currentVessel.CraftData.Content.charAt(0) == "~") {
+  } else if (ops.currentVessel.CraftData.Content.type === "html" && ops.currentVessel.CraftData.Content.html.charAt(0) === "~") {
   
   // just plain HTML
   } else {
     hideMap();
     $("#content").empty();
-    $("#content").html(ops.currentVessel.CraftData.Content);
+    $("#content").html(ops.currentVessel.CraftData.Content.html);
     $("#content").fadeIn();
   }
 
   // save the content data so next load we don't update if we don't have to
-  ops.currentVessel.CraftData.prevContent = ops.currentVessel.CraftData.Content;
+  ops.currentVessel.CraftData.prevContent = JSON.stringify(ops.currentVessel.CraftData.Content);
   $("#contentBox").spin(false);
 
   // create any tooltips since we will likely miss the default tip creation waiting on async data load
@@ -2157,14 +2117,13 @@ function updateVesselData(vessel, isNonObtUpdate = true) {
 // following functions perform parsing on data strings
 function getVesselImage() {
   if (!ops.currentVessel.CraftData.CraftImg) return "images/nadaOp.png";
-  else return ops.currentVessel.CraftData.CraftImg.split("|")[KSA_UI_STATE.vesselRotationIndex].split("~")[0];
+  else return ops.currentVessel.CraftData.CraftImg[KSA_UI_STATE.vesselRotationIndex].normal;
 }
 function getPartsHTML() {
   if (!ops.currentVessel.CraftData.CraftImg) return null;
   else {
-    if (ops.currentVessel.CraftData.CraftImg.split("|")[KSA_UI_STATE.vesselRotationIndex].split("~")[3] != "null") {
-      return ops.currentVessel.CraftData.CraftImg.split("|")[KSA_UI_STATE.vesselRotationIndex].split("~")[3];
-    } else return null;
+    var partsMap = ops.currentVessel.CraftData.CraftImg[KSA_UI_STATE.vesselRotationIndex].partsMap;
+    return partsMap || null;
   }
 }
 
@@ -2200,48 +2159,43 @@ function parsePartsData(data) {
 }
 function getMissionEndTime() {
   if (!ops.currentVessel.Catalog.MissionEnd) return null;
-  else return parseInt(ops.currentVessel.Catalog.MissionEnd.split(";")[1]);
+  else return ops.currentVessel.Catalog.MissionEnd.utEnd;
 }
 function getCurrentName() {
   if (!ops.currentVessel) return null;
-  var strVesselName = ops.currentVessel.Catalog.Vessel;
-  if (strVesselName.includes("|")) {
-    strVesselName.split("|").forEach(function(name, index) {
-      var pair = name.split(";");
-      if (parseFloat(pair[0]) <= currUT()) strVesselName = pair[1];
+  var vessel = ops.currentVessel.Catalog.Vessel;
+  if (Array.isArray(vessel)) {
+    var strName = vessel[0].name;
+    vessel.forEach(function(entry) {
+      if (entry.ut <= currUT()) strName = entry.name;
     });
+    return strName;
   }
-  return strVesselName;
+  return vessel;
 }
 function getCurrrentSOIRef() {
   if (!ops.currentVessel) return null;
-  var strSOI = ops.currentVessel.Catalog.SOI;
-  if (strSOI.includes("|")) {
-    strSOI.split("|").forEach(function(name, index) {
-      var pair = name.split(";");
-      if (parseFloat(pair[0]) <= currUT()) strSOI = pair[1];
-    });
-  } else strSOI = strSOI.split(";")[1];
-  return parseInt(strSOI);
+  var soiRef = null;
+  ops.currentVessel.Catalog.SOI.forEach(function(entry) {
+    if (entry.ut <= currUT()) soiRef = entry.ref;
+  });
+  return parseInt(soiRef);
 }
 function getCurrrentSOIName() {
   if (!ops.currentVessel) return null;
-  var strSOI = ops.currentVessel.Catalog.SOI;
-  if (strSOI.includes("|")) {
-    strSOI.split("|").forEach(function(name, index) {
-      var pair = name.split(";");
-      if (parseFloat(pair[0]) <= currUT()) strSOI = pair[1];
-    });
-  } else strSOI = strSOI.split(";")[1];
-  return ops.bodyCatalog.find(o => o.ID === parseInt(strSOI)).Body;
+  var soiRef = null;
+  ops.currentVessel.Catalog.SOI.forEach(function(entry) {
+    if (entry.ut <= currUT()) soiRef = entry.ref;
+  });
+  return ops.bodyCatalog.find(o => o.ID === parseInt(soiRef)).Body;
 }
 function getMissionEndMsg() {
   if (!ops.currentVessel.Catalog.MissionEnd) return null;
-  else return ops.currentVessel.Catalog.MissionEnd.split(";")[2];
+  else return ops.currentVessel.Catalog.MissionEnd.text;
 }
 function isMissionEnded() {
   if (!ops.currentVessel.Catalog.MissionEnd) return false;
-  else return parseInt(ops.currentVessel.Catalog.MissionEnd.split(";")[0]) <= currUT();
+  else return ops.currentVessel.Catalog.MissionEnd.utShow <= currUT();
 }
 
 function openVesselImageLightbox(imageUrl) {

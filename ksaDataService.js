@@ -206,6 +206,9 @@ const KSA_DATA_SERVICE = (function () {
     return parts.join('`');
   }
 
+  // Still used by _fetchOpsVesselData (Step 3.11, not yet converted). Remove when 3.11 is done.
+  function _boolStr(val) { return val ? 'true' : 'false'; }
+
   /**
    * invokeCallback(label, callback, responseText, data)
    *
@@ -1102,86 +1105,53 @@ const KSA_DATA_SERVICE = (function () {
   // ---------------------------------------------------------------------------
 
   /**
-   * _boolStr(val)
-   *
-   * Private helper: converts a JS boolean (or boolean-like value) to a
-   * lowercase string ("true" / "false").
-   */
-  function _boolStr(val) {
-    return val ? 'true' : 'false';
-  }
-
-  /**
    * fetchVesselData(db, ut, pastUT, callback, data)
    *
-   * The most complex endpoint: loads all data tables for a single vessel and
-   * delivers them to the existing loadVesselAJAX callback in the same format
-   * that loadVesselData.asp produced.
+   * Loads all data tables for a single vessel and delivers a structured result
+   * object to loadVesselAJAX via _trackAndInvoke (Phase 3 convention).
    *
-   * ASP logic replicated (in output order):
+   * pastUT is ignored (non-functional in original ASP; kept for signature parity).
    *
-   *   Header: "<db>Typ3"
-   *
-   *   Segment 0 — Catalog: all fields from the Crafts table for this vessel.
-   *     Separator: "*"
-   *
-   *   Segment 1 — Ascent data range:
-   *     "<firstUT>~<lastUT>"  when ascent data exists
-   *     "false"               when the ascent data table is empty
-   *     Separator: "*"
-   *
-   *   Segment 2 — Current record tables (caret-delimited):
-   *     [craftdata]^[resources`NotNull~T/F]^[manifest]^[comms`NotNull~T/F]^[flightdata]^[ports]
-   *     Each table: objToRs(record) or "null" when BOF (no record for this UT).
-   *     Resources and comms uniquely add "`NotNull~true/false" after objToRs()
-   *     (mirroring ASP's append-after-stripped-backtick pattern; see FC-3).
-   *     Field names have spaces stripped (e.g. "Avg Velocity" → "AvgVelocity"),
-   *     which objToRs() already does via replace(/ /g, '').
-   *     Separator: "*"
-   *
-   *   Segment 3 — Event history (all craftdata records):
-   *     "UT~CraftDescTitle|UT~CraftDescTitle|…"  (no trailing "|")
-   *     Separator: "*"
-   *
-   *   Segment 4 — Launch times (all rows):
-   *     "UT~LaunchTime|…"  or  "null"  when empty
-   *     Separator: "*"
-   *
-   *   Segment 5 — Orbital period history (all flightdata records, up to last):
-   *     "UT~OrbitalPeriod|…"  or  "null"  when empty
-   *     (The last segment has no trailing "*" — stripped by ASP's final left())
-   *
-   * pastUT parameter: originally intended for history paging but the ASP code
-   * comments it out as non-functional ("can't figure out what this was").
-   * The fetch* implementation ignores it entirely (matches ASP behaviour).
-   *
-   * History section uses Option A (see FC-1 in plan.md): all craftdata and
-   * flightdata files are fetched in parallel via Promise.all, then sorted by UT.
-   * All results are cached by fetchJson so second loads within the session
-   * are served from memory.
+   * Result shape:
+   *   {
+   *     catalog:        <vessel catalog entry>,
+   *     ascentRange:    [firstUT, lastUT] | null,
+   *     current: {
+   *       craft:     <craftdata record | null>,
+   *       resources: <resources record + NotNull | null>,
+   *       manifest:  <manifest record | null>,
+   *       comms:     <comms record + NotNull; Comms is pre-structured array | null>,
+   *       orbit:     <flightdata record with keys normalised (no spaces) | null>,
+   *       ports:     <ports record | null>
+   *     },
+   *     history:        [{UT, Title}, ...],   // from compact craftdata_history file
+   *     launchTimes:    [{UT, LaunchTime}, ...],
+   *     orbitalHistory: [{UT, Period}, ...]   // from compact flightdata_history file
+   *   }
    *
    * @param {string}   db        Vessel DB name (e.g. "ascensionmk2-2").
    * @param {number}   ut        Current game UT in seconds.
-   * @param {number}   pastUT    Ignored (non-functional in ASP; kept for signature parity).
-   * @param {function} callback  Existing AJAX callback (loadVesselAJAX).
+   * @param {number}   pastUT    Ignored; kept for signature parity.
+   * @param {function} callback  loadVesselAJAX — receives (result, data).
    * @param {*}        [data]    Optional pass-through value.
    */
   function fetchVesselData(db, ut, pastUT, callback, data) {
     var label = 'loadVesselData.asp?db=' + db + '&ut=' + ut;
-    KSA_UI_STATE.dataLoadQueue.push(label);
-    console.log('[KSA_DATA_SERVICE]', label);
 
-    // Step 1: load catalog entry (cache hit after fetchMenuData) + vessel index.
     Promise.all([
-      fetchJson(catalogFilePath('vessels')),
-      loadIndex(db)['catch'](function () { return {}; }),
-      fetchJson(bulkFilePath(db, 'ascentdata'))['catch'](function () { return []; }),
-      fetchJson(bulkFilePath(db, 'launchtimes'))['catch'](function () { return []; })
+      fetchJson(jsonCatalogFilePath('vessels')),
+      fetchJson(jsonIndexPath(db))['catch'](function () { return {}; }),
+      fetchJson(jsonBulkFilePath(db, 'ascentdata'))       ['catch'](function () { return []; }),
+      fetchJson(jsonBulkFilePath(db, 'launchtimes'))      ['catch'](function () { return []; }),
+      fetchJson(jsonBulkFilePath(db, 'craftdata_history'))['catch'](function () { return []; }),
+      fetchJson(jsonBulkFilePath(db, 'flightdata_history'))['catch'](function () { return []; })
     ]).then(function (step1) {
-      var vesselCatalog = step1[0];
-      var index         = step1[1];
-      var ascentRows    = step1[2];
-      var launchRows    = step1[3];
+      var vesselCatalog  = step1[0];
+      var index          = step1[1];
+      var ascentRows     = step1[2];
+      var launchRows     = step1[3];
+      var craftHistory   = step1[4];
+      var flightHistory  = step1[5];
 
       // Locate this vessel's catalog entry.
       var catalogEntry = null;
@@ -1194,10 +1164,9 @@ const KSA_DATA_SERVICE = (function () {
       var resUT = (index.resources  && index.resources.length)  ? seekToUT(index.resources,  ut) : null;
       var mnUT  = (index.manifest   && index.manifest.length)   ? seekToUT(index.manifest,   ut) : null;
       var cmUT  = (index.comms      && index.comms.length)      ? seekToUT(index.comms,      ut) : null;
-      var fdUT  = (index.flightdata && index.flightdata.length)  ? seekToUT(index.flightdata, ut) : null;
+      var fdUT  = (index.flightdata && index.flightdata.length) ? seekToUT(index.flightdata, ut) : null;
       var ptUT  = (index.ports      && index.ports.length)      ? seekToUT(index.ports,      ut) : null;
-      // Future-guard: seekToUT returns utArray[0] when all elements > targetUT, but
-      // ASP outputs "null" when its cursor reaches BOF before finding any UT <= targetUT.
+      // Future-guard: if all index UTs > targetUT, seekToUT returns utArray[0]; treat as null.
       if (cdUT  !== null && cdUT  > ut) cdUT  = null;
       if (resUT !== null && resUT > ut) resUT = null;
       if (mnUT  !== null && mnUT  > ut) mnUT  = null;
@@ -1205,168 +1174,88 @@ const KSA_DATA_SERVICE = (function () {
       if (fdUT  !== null && fdUT  > ut) fdUT  = null;
       if (ptUT  !== null && ptUT  > ut) ptUT  = null;
 
-      // Fetch all current-record files + all history files in parallel (Option A).
-      // History: every craftdata file (for event list) + every flightdata file (for orbit history).
-      var allCraftdataUTs  = (index.craftdata  || []);
-      var allFlightdataUTs = (index.flightdata || []);
-
-      var currentFetches = [
-        cdUT  !== null ? fetchJson(dbFilePath(db, 'craftdata',  cdUT))['catch'](function () { return null; }) : Promise.resolve(null),
-        resUT !== null ? fetchJson(dbFilePath(db, 'resources',  resUT))['catch'](function () { return null; }) : Promise.resolve(null),
-        mnUT  !== null ? fetchJson(dbFilePath(db, 'manifest',   mnUT))['catch'](function () { return null; }) : Promise.resolve(null),
-        cmUT  !== null ? fetchJson(dbFilePath(db, 'comms',      cmUT))['catch'](function () { return null; }) : Promise.resolve(null),
-        fdUT  !== null ? fetchJson(dbFilePath(db, 'flightdata', fdUT))['catch'](function () { return null; }) : Promise.resolve(null),
-        ptUT  !== null ? fetchJson(dbFilePath(db, 'ports',      ptUT))['catch'](function () { return null; }) : Promise.resolve(null)
-      ];
-
-      // History fetches: all craftdata and flightdata files.
-      var historyFetches = allCraftdataUTs.map(function (hUT) {
-        return fetchJson(dbFilePath(db, 'craftdata', hUT))['catch'](function () { return null; });
+      return Promise.all([
+        cdUT  !== null ? fetchJson(jsonDbFilePath(db, 'craftdata',  cdUT)) ['catch'](function () { return null; }) : Promise.resolve(null),
+        resUT !== null ? fetchJson(jsonDbFilePath(db, 'resources',  resUT))['catch'](function () { return null; }) : Promise.resolve(null),
+        mnUT  !== null ? fetchJson(jsonDbFilePath(db, 'manifest',   mnUT)) ['catch'](function () { return null; }) : Promise.resolve(null),
+        cmUT  !== null ? fetchJson(jsonDbFilePath(db, 'comms',      cmUT)) ['catch'](function () { return null; }) : Promise.resolve(null),
+        fdUT  !== null ? fetchJson(jsonDbFilePath(db, 'flightdata', fdUT)) ['catch'](function () { return null; }) : Promise.resolve(null),
+        ptUT  !== null ? fetchJson(jsonDbFilePath(db, 'ports',      ptUT)) ['catch'](function () { return null; }) : Promise.resolve(null)
+      ]).then(function (current) {
+        return {
+          catalogEntry:  catalogEntry,
+          ascentRows:    ascentRows,
+          launchRows:    launchRows,
+          craftHistory:  craftHistory,
+          flightHistory: flightHistory,
+          craftRecord:   current[0],
+          resRecord:     current[1],
+          mnRecord:      current[2],
+          cmRecord:      current[3],
+          fdRecord:      current[4],
+          ptRecord:      current[5]
+        };
       });
-      var orbitHistFetches = allFlightdataUTs.map(function (hUT) {
-        return fetchJson(dbFilePath(db, 'flightdata', hUT))['catch'](function () { return null; });
-      });
-
-      return Promise.all(currentFetches.concat(historyFetches).concat(orbitHistFetches))
-        .then(function (fetched) {
-          var nHistory  = allCraftdataUTs.length;
-          var nOrbitHis = allFlightdataUTs.length;
-
-          return {
-            catalogEntry:   catalogEntry,
-            ascentRows:     ascentRows,
-            launchRows:     launchRows,
-            craftRecord:    fetched[0],
-            resRecord:      fetched[1],
-            mnRecord:       fetched[2],
-            cmRecord:       fetched[3],
-            fdRecord:       fetched[4],
-            ptRecord:       fetched[5],
-            allCraftdata:   fetched.slice(6, 6 + nHistory),
-            allFlightdata:  fetched.slice(6 + nHistory, 6 + nHistory + nOrbitHis)
-          };
-        });
     }).then(function (d) {
 
-      // --- Segment 0: catalog ---
-      var catalogRs = objToRs(d.catalogEntry);
+      // Ascent data range.
+      var ascentRange = (d.ascentRows && d.ascentRows.length > 0)
+        ? [d.ascentRows[0].UT, d.ascentRows[d.ascentRows.length - 1].UT]
+        : null;
 
-      // --- Segment 1: ascent data range ---
-      var ascentSeg;
-      if (d.ascentRows && d.ascentRows.length > 0) {
-        ascentSeg = d.ascentRows[0].UT + '~' + d.ascentRows[d.ascentRows.length - 1].UT;
-      } else {
-        ascentSeg = 'false';
-      }
-
-      // --- Segment 2: current record tables (caret-delimited) ---
-
-      // craftdata
-      var cdRs = d.craftRecord ? objToRs(d.craftRecord) : 'null';
-
-      // resources: append "`NotNull~True/False" — see FC-3 in plan.md.
-      var resRs;
-      if (d.resRecord) {
+      // Resources: add NotNull — true if any non-UT field has a value.
+      var resRecord = d.resRecord;
+      if (resRecord) {
         var resNotNull = false;
-        var resKeys = Object.keys(d.resRecord);
+        var resKeys = Object.keys(resRecord);
         for (var ri = 0; ri < resKeys.length; ri++) {
           var rk = resKeys[ri];
-          if (rk !== 'UT' && d.resRecord[rk] !== null && d.resRecord[rk] !== undefined && d.resRecord[rk] !== '') {
+          if (rk !== 'UT' && resRecord[rk] !== null && resRecord[rk] !== undefined && resRecord[rk] !== '') {
             resNotNull = true; break;
           }
         }
-        resRs = objToRs(d.resRecord) + '`NotNull~' + _boolStr(resNotNull);
-      } else {
-        resRs = 'null';
+        resRecord = Object.assign({}, resRecord, { NotNull: resNotNull });
       }
 
-      // manifest (crew) — plain objToRs, no NotNull
-      var mnRs = d.mnRecord ? objToRs(d.mnRecord) : 'null';
-
-      // comms: append "`NotNull~True/False".
-      // ASP condition: field name !== "UT" OR field name !== "Connection" AND value !== ""
-      // (note: the ASP uses OR which is always true for any field, effectively: any non-empty value → NotNull)
-      // Functionally: if Comms field (the antenna string) is non-empty → True.
-      var cmRs;
-      if (d.cmRecord) {
-        var cmNotNull = false;
-        var cmKeys = Object.keys(d.cmRecord);
-        for (var ci = 0; ci < cmKeys.length; ci++) {
-          var ck = cmKeys[ci];
-          if (d.cmRecord[ck] !== null && d.cmRecord[ck] !== undefined && d.cmRecord[ck] !== '') {
-            cmNotNull = true; break;
-          }
-        }
-        cmRs = objToRs(d.cmRecord) + '`NotNull~' + _boolStr(cmNotNull);
-      } else {
-        cmRs = 'null';
+      // Comms: add NotNull — true if the Comms array is non-empty.
+      var cmRecord = d.cmRecord;
+      if (cmRecord) {
+        var cmNotNull = !!(cmRecord.Comms && cmRecord.Comms.length > 0);
+        cmRecord = Object.assign({}, cmRecord, { NotNull: cmNotNull });
       }
 
-      // flightdata (orbital data) — plain objToRs, no NotNull
-      var fdRs = d.fdRecord ? objToRs(d.fdRecord) : 'null';
+      // Orbit (flightdata): normalise keys to strip spaces
+      // ("Avg Velocity" → "AvgVelocity", "Orbital Period" → "OrbitalPeriod", etc.).
+      var orbitRecord = _normalizeKeys(d.fdRecord);
 
-      // ports — plain objToRs, no NotNull
-      var ptRs = d.ptRecord ? objToRs(d.ptRecord) : 'null';
-
-      var tablesSeg = cdRs + '^' + resRs + '^' + mnRs + '^' + cmRs + '^' + fdRs + '^' + ptRs;
-
-      // --- Segment 3: event history (all craftdata records, sorted by UT) ---
-      // Filter nulls (failed fetches), sort by UT, then emit "UT~CraftDescTitle".
-      var historyItems = d.allCraftdata
+      // History: map CraftDescTitle → Title; sort ascending by UT.
+      var history = (d.craftHistory || [])
         .filter(function (r) { return r !== null; })
-        .sort(function (a, b) { return a.UT - b.UT; });
-      var historySeg = historyItems
-        .map(function (r) { return r.UT + '~' + (r.CraftDescTitle || ''); })
-        .join('|');
+        .sort(function (a, b) { return a.UT - b.UT; })
+        .map(function (r) { return { UT: r.UT, Title: r.CraftDescTitle || '' }; });
 
-      // --- Segment 4: launch times (all rows) ---
-      var launchSeg;
-      if (d.launchRows && d.launchRows.length > 0) {
-        launchSeg = d.launchRows
-          .map(function (r) { return r.UT + '~' + (r.LaunchTime !== null && r.LaunchTime !== undefined ? r.LaunchTime : ''); })
-          .join('|');
-      } else {
-        launchSeg = 'null';
-      }
-
-      // --- Segment 5: orbital period history (all flightdata records, sorted by UT) ---
-      // "Orbital Period" field → stored as "Orbital Period" in JSON, stripped to "OrbitalPeriod"
-      // by objToRs but here we only emit UT~Period pairs (not a full RS), so read directly.
-      var orbitHistItems = d.allFlightdata
+      // Orbital history: map OrbitalPeriod → Period; sort ascending by UT.
+      var orbitalHistory = (d.flightHistory || [])
         .filter(function (r) { return r !== null; })
-        .sort(function (a, b) { return a.UT - b.UT; });
+        .sort(function (a, b) { return a.UT - b.UT; })
+        .map(function (r) { return { UT: r.UT, Period: r.OrbitalPeriod }; });
 
-      var orbitHistSeg;
-      if (orbitHistItems.length > 0) {
-        // Include ALL records — null Orbital Period emits as empty string ("UT~"),
-        // matching VBScript's null-to-empty coercion in the ASP output (e.g. re-entry records).
-        orbitHistSeg = orbitHistItems
-          .map(function (r) {
-            var period = (r['Orbital Period'] !== null && r['Orbital Period'] !== undefined)
-              ? r['Orbital Period'] : '';
-            return r.UT + '~' + period;
-          })
-          .join('|');
-      } else {
-        orbitHistSeg = 'null';
-      }
-
-      // Final assembly:
-      // "<db>Typ3" + seg0 + "*" + seg1 + "*" + seg2 + "*" + seg3 + "*" + seg4 + "*" + seg5
-      // (no trailing "*" — ASP's left(output, len(output)-1) strips it)
-      var rs = db + 'Typ3' +
-               catalogRs    + '*' +
-               ascentSeg    + '*' +
-               tablesSeg    + '*' +
-               historySeg   + '*' +
-               launchSeg    + '*' +
-               orbitHistSeg;
-
-      _parity(label, rs);
-      dbResponse({ responseText: rs }, label, callback, data);
+      _trackAndInvoke(label, callback, {
+        catalog:        d.catalogEntry,
+        ascentRange:    ascentRange,
+        current: {
+          craft:     d.craftRecord,
+          resources: resRecord,
+          manifest:  d.mnRecord,
+          comms:     cmRecord,
+          orbit:     orbitRecord,
+          ports:     d.ptRecord
+        },
+        history:        history,
+        launchTimes:    d.launchRows || [],
+        orbitalHistory: orbitalHistory
+      }, data);
     })['catch'](function (err) {
-      var idx = KSA_UI_STATE.dataLoadQueue.indexOf(label);
-      if (idx > -1) KSA_UI_STATE.dataLoadQueue.splice(idx, 1);
       handleError(err, label, true);
     });
   }
