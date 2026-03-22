@@ -1,39 +1,29 @@
-// refactor complete (for launch events only)
-
-function loadEventsAJAX(xhttp) {
+function loadEventsAJAX(result) {
 
   // stop both spinners
   $("#launch").spin(false);
   $("#maneuver").spin(false);
-  
-  // separate the launch & maneuver event returns
-  var events = xhttp.responseText.split("^");
 
   // is there an upcoming launch?
-  var launches = events[0].split("|");
-  if (launches[0] != "null") {
+  var launches = result.launches;
+  if (launches.length > 0) {
 
     // load the launches into a list, already sorted by name and UT
     var launchEventList = [];
     var vesselFinalLaunchTimes = [];
     var strCurrVesselDB = "";
     var finalLaunchTime = 0;
-    launches.forEach(function(launchEvent) {
-      var launchDetails = launchEvent.split(";");
-      launchEventList.push({UT: parseFloat(launchDetails[0]),
-                            LaunchTime: parseFloat(launchDetails[1]),
-                            db: launchDetails[2],
-                            Title: launchDetails[3],
-                            Desc: launchDetails[4]});
+    launches.forEach(function(launch) {
+      launchEventList.push(launch);
 
       // track whether the vessel name has changed and if so, assign the final launch time
-      if (!strCurrVesselDB.length) strCurrVesselDB = launchDetails[2]
-      if (strCurrVesselDB != launchDetails[2]) {
+      if (!strCurrVesselDB.length) strCurrVesselDB = launch.db;
+      if (strCurrVesselDB != launch.db) {
         vesselFinalLaunchTimes.push({name: strCurrVesselDB,
                                      time: finalLaunchTime });
-        strCurrVesselDB = launchDetails[2]
-      } 
-      finalLaunchTime = parseFloat(launchDetails[1]);
+        strCurrVesselDB = launch.db;
+      }
+      finalLaunchTime = launch.LaunchTime;
     });
 
     // add the last final vessel launch time
@@ -74,12 +64,9 @@ function loadEventsAJAX(xhttp) {
   } else writeLaunchInfo();
 
   // is there an upcoming maneuver?
-  var maneuvers = events[1].split("|");
-  if (maneuvers[0] != "null") {
-
-    // to be completed once the launch selection works as intended
-    KSA_CALCULATIONS.strCurrentManeuverVessel = "";
-
+  var maneuvers = result.maneuvers;
+  if (maneuvers.length > 0) {
+    writeManeuverinfo(maneuvers[0]);
   } else writeManeuverinfo();
   
   // if this is a crew page, no need to wait for the Three.js scene to load
@@ -156,18 +143,17 @@ function writeManeuverinfo(data) {
     KSA_TIMERS.maneuverRefreshTimeout = null;
   }
   if (data) {
-    var fields = data.split(";");
     strHTML = "<strong>Next Maneuver</strong><br>";
-    strHTML += "<span id='manueverLink' db='" + fields[2] + "'>" + wrapText(150, fields[3], 16) + "</span><br>";
-    KSA_CALCULATIONS.strCurrentManeuverVessel = fields[2];
-    strHTML += "<span id='maneuverTime'>" + UTtoDateTime(parseFloat(fields[1]), true, false) + "</span><br>"
-    strHTML += "<span id='maneuverCountdown'>" + formatTime(parseFloat(fields[1]) - (currUT())) + "</span>";
-    KSA_CALCULATIONS.maneuverCountdown = parseFloat(data[1]);
+    strHTML += "<span id='manueverLink' db='" + data.db + "'>" + wrapText(150, data.Title, 16) + "</span><br>";
+    KSA_CALCULATIONS.strCurrentManeuverVessel = data.db;
+    strHTML += "<span id='maneuverTime'>" + UTtoDateTime(data.ExecuteUT, true, false) + "</span><br>"
+    strHTML += "<span id='maneuverCountdown'>" + formatTime(data.ExecuteUT - currUT()) + "</span>";
+    KSA_CALCULATIONS.maneuverCountdown = data.ExecuteUT;
     $("#maneuver").html(strHTML);
     
     Tipped.remove('#maneuverLink');
     // add an info tooltip
-    Tipped.create("#maneuverLink", fields[4], { offset: { y: -10 }, maxWidth: 150, position: 'top' });
+    Tipped.create("#maneuverLink", data.Desc, { offset: { y: -10 }, maxWidth: 150, position: 'top' });
   } else $("#maneuver").html("<strong>Next Maneuver</strong><br>None Scheduled");
   if (size != w2utils.getSize("#maneuver", 'height')) {
     size = w2utils.getSize("#maneuver", 'height');

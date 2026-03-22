@@ -1,52 +1,46 @@
 // refactor complete (except for surface ops related to aircraft selection)
 
-function loadMenuAJAX(xhttp) {
+function loadMenuAJAX(result) {
   
   // make sure the body catalog is loaded before continuing
-  if (!ops.bodyCatalog.length) return setTimeout(loadMenuAJAX, 100, xhttp);
+  if (!ops.bodyCatalog.length) return setTimeout(loadMenuAJAX, 100, result);
   
   // stop the spinner
   $("#menuBox").spin(false);
   
-  // parse the data
-  var crafts = xhttp.responseText.split("^")[0].split("*");
-  var crew = xhttp.responseText.split("^")[1].split("|");
-  crafts.forEach(function(item) {
-    var fields = item.split("~");
-
-    // default body ref is Kerbin. If there is more than one SOI entry reset to the second to last ref num
-    var bodyRef = 3;
-    if (fields[2].split("|").length > 1) bodyRef = parseInt(fields[2].split("|")[fields[2].split("|").length-2].split(";")[1]);
-    ops.craftsMenu.push({ db: fields[0],
-                          name: fields[1],
-                          soi: fields[2],
-                          type: currType(fields[3]),
-                          start: parseInt(fields[4]),
-                          end: parseInt(fields[5]),
-                          program: fields[6],
-                          vessel: fields[7],
-                          timeline: fields[8] ? fields[8] : null,
-                          bodyRef: bodyRef,
-                          badged: false });
+  // process vessel entries — each has pre-computed typed fields (no delimiter parsing)
+  result.vessels.forEach(function(item) {
+    ops.craftsMenu.push({ db:       item.db,
+                          name:     item.name,
+                          names:    item.names,
+                          soi:      item.soi,
+                          type:     item.type,
+                          start:    item.start,
+                          end:      item.end,
+                          program:  item.program,
+                          vessel:   item.vessel,
+                          timeline: item.timeline,
+                          bodyRef:  item.bodyRef,
+                          badged:   false });
   });
-  crew.forEach(function(item) {
-    var fields = item.split("~");
-    ops.crewMenu.push({ name: fields[0],
-                        status: fields[1],
-                        rank: fields[2],
-                        assignment: fields[3],
-                        db: fields[4],
-                        UT: parseInt(fields[5]),
-                        timeline: fields[7] ? fields[7] : null,
-                        badged: false });
+  result.crew.forEach(function(item) {
+    ops.crewMenu.push({ name:       item.fullName,
+                        status:     item.status,
+                        rank:       item.rank,
+                        assignment: item.assignment,
+                        db:         item.db,
+                        UT:         item.ut,
+                        timeline:   item.timeline,
+                        badged:     false });
 
     // check if crew has an activation date that is still in the future
-    if (parseInt(fields[5]) > currUT()) ops.updatesList.push({ type: "menu;crew", id: fields[4], UT: parseInt(fields[5]) });
+    if (item.ut > currUT()) ops.updatesList.push({ type: "menu;crew", id: item.db, UT: item.ut });
 
-    // setup for full data load for any crew that is still active (no deactivation date)
-    // or if the date exists, it is still in the future
-    if (!fields[6] || (fields[6] && parseInt(fields[6].split(";")[0]) > currUT())) {
-      ops.updateData.push({ id: fields[4],
+    // setup for full data load for any crew that is still active (no deactivation)
+    // or if the deactivation date is still in the future
+    var deactivation = item.deactivation;
+    if (!deactivation || deactivation.ut > currUT()) {
+      ops.updateData.push({ id: item.db,
                             type: "crew",
                             isLoading: false,
                             needsSorting: false,
@@ -273,7 +267,7 @@ function filterInactiveMenu(id, selectId) {
       ops.craftsMenu.sort(function(a,b) { return (a.vessel > b.vessel) ? 1 : ((b.vessel > a.vessel) ? -1 : 0); });
       ops.craftsMenu.forEach(function(item) {
         if (currSOI(item)[0] == -1) {
-          if (item.vessel != "null" && !w2ui['menu'].find('inactiveVessels', { id: item.vessel }).length) {
+          if (item.vessel != null && !w2ui['menu'].find('inactiveVessels', { id: item.vessel }).length) {
             w2ui['menu'].add('inactiveVessels', { id: item.vessel,
                                                   text: item.vessel + " (0)",
                                                   img: 'icon-folder',
@@ -285,7 +279,7 @@ function filterInactiveMenu(id, selectId) {
       ops.craftsMenu.sort(function(a,b) { return (a.end > b.end) ? 1 : ((b.end > a.end) ? -1 : 0); });
       ops.craftsMenu.forEach(function(item) {
         if (currSOI(item)[0] == -1) {
-          if (item.vessel != "null") addVesselByDate(item, item.vessel, false)
+          if (item.vessel != null) addVesselByDate(item, item.vessel, false)
         }
       });
     } else if (currOption == "program") {
@@ -294,7 +288,7 @@ function filterInactiveMenu(id, selectId) {
       ops.craftsMenu.sort(function(a,b) { return (a.program > b.program) ? 1 : ((b.program > a.program) ? -1 : 0); });
       ops.craftsMenu.forEach(function(item) {
         if (currSOI(item)[0] == -1) {
-          if (item.program != "null" && !w2ui['menu'].find('inactiveVessels', { id: item.program }).length) {
+          if (item.program != null && !w2ui['menu'].find('inactiveVessels', { id: item.program }).length) {
             w2ui['menu'].add('inactiveVessels', { id: item.program,
                                                   text: item.program + " (0)",
                                                   img: 'icon-folder',
@@ -306,7 +300,7 @@ function filterInactiveMenu(id, selectId) {
       ops.craftsMenu.sort(function(a,b) { return (a.end > b.end) ? 1 : ((b.end > a.end) ? -1 : 0); });
       ops.craftsMenu.forEach(function(item) {
         if (currSOI(item)[0] == -1) {
-          if (item.program != "null") addVesselByDate(item, item.program)
+          if (item.program != null) addVesselByDate(item, item.program)
         }
       });
     } else if (currOption == "start") {
@@ -330,7 +324,7 @@ function filterInactiveMenu(id, selectId) {
       ops.craftsMenu.sort(function(a,b) { return (a.bodyRef > b.bodyRef) ? 1 : ((b.bodyRef > a.bodyRef) ? -1 : 0); });
       ops.craftsMenu.forEach(function(item) {
         if (currSOI(item)[0] == -1) {
-          if (item.bodyRef != "null" && !w2ui['menu'].find('inactiveVessels', { id: "refNum" + item.bodyRef }).length) {
+          if (item.bodyRef != null && !w2ui['menu'].find('inactiveVessels', { id: "refNum" + item.bodyRef }).length) {
             w2ui['menu'].add('inactiveVessels', { id: "refNum" + item.bodyRef,
                                                   text: ops.bodyCatalog.find(o => o.ID === item.bodyRef).Body + " (0)",
                                                   img: 'icon-body', icon: 'w2ui-icon icon-body',
@@ -547,7 +541,7 @@ function filterCrewMenu(id) {
   if (ops.pageType == "crewFull") {
     $('#fullRoster').empty(); 
     KSA_CATALOGS.crewList = extractIDs(w2ui['menu'].get('crew').nodes).split(";");
-    loadDB("loadCrewData.asp?db=" + showFullRoster() + "&ut=" + currUT(), loadCrewAJAX);
+    KSA_DATA_SERVICE.fetchCrewData(showFullRoster(), currUT(), loadCrewAJAX);
   }
 
   // restore cursor to default - only target body and menu to preserve inline cursor styles
@@ -818,7 +812,7 @@ function addMenuItem(item, newAdd = false) {
     // also save to list so it can be checked for orbital data for body/surface views
     // check too if it has orbital data to render if the Three.js scene is already loaded
     if (KSA_UI_STATE.is3JSLoaded && !KSA_UI_STATE.is3JSRefreshing) {
-      loadDB("loadVesselOrbitData.asp?db=" + item.db + "&ut=" + currUT(), addOrbitAJAX);
+      KSA_DATA_SERVICE.fetchVesselOrbitData(item.db, currUT(), addOrbitAJAX);
     }
     ops.activeVessels.push(item);
     ops.updateData.push({ id: item.db,
@@ -887,31 +881,23 @@ function badgeMenuItem(strID, noSelect = false, noRefresh = false) {
 }
 
 // get the current body being orbited for the current time
+// vessel.soi is a pre-structured array [{ut, ref}, ...] (Phase 3 format)
 function currSOI(vessel, updateCheck = false, utCheck) {
   if (!utCheck) utCheck = currUT();
+  var soi = vessel.soi;
   var refNum = -2;
   var refIndex;
   var refUT;
-  
-  // tricky but works to allow alternate string literal input rather than an object
-  if (!vessel) {
-    var soi = updateCheck.split("|");
-    updateCheck = false;
-  } else {
-    if (!vessel.soi) console.log(vessel)
-    var soi = vessel.soi.split("|");
-  }
 
-  for (refIndex=0; refIndex<soi.length; refIndex++) {
-    var pair = soi[refIndex].split(";");
-    if (parseFloat(pair[0]) > utCheck) break;
-    refNum = parseInt(pair[1]);
-    refUT = parseInt(pair[0]);
+  for (refIndex = 0; refIndex < soi.length; refIndex++) {
+    if (soi[refIndex].ut > utCheck) break;
+    refNum = soi[refIndex].ref;
+    refUT  = soi[refIndex].ut;
   }
 
   // check for a future SOI update?
   if (updateCheck && refIndex < soi.length) {
-    ops.updatesList.push({ type: "menu;soi", id: vessel.db, UT: parseInt(soi[refIndex].split(";")[0]) });
+    ops.updatesList.push({ type: "menu;soi", id: vessel.db, UT: soi[refIndex].ut });
 
     // resort the updatesList
     ops.updatesList.sort(function(a,b) { return (a.UT > b.UT) ? 1 : ((b.UT > a.UT) ? -1 : 0); });
@@ -919,33 +905,25 @@ function currSOI(vessel, updateCheck = false, utCheck) {
   return [refNum, refUT];
 }
 
-// checks if the vessel has more than one possible name, and returns the one for the given time
+// returns the vessel's current name (pre-computed); checks vessel.names for future name changes
+// vessel.name  — plain string: current name at menu-load time
+// vessel.names — [{ut, name}] array when vessel has multiple names, null otherwise
 function currName(vessel, updateCheck = false, utCheck) {
   if (!utCheck) utCheck = currUT();
 
-  // tricky but works to allow alternate string literal input rather than an object
-  if (!vessel) {
-    var strNames = updateCheck;
-    updateCheck = false;
-  } else var strNames = vessel.name;
+  // check if there is a future name update pending
+  if (updateCheck && vessel.names) {
+    for (var nameIndex = 0; nameIndex < vessel.names.length; nameIndex++) {
+      if (vessel.names[nameIndex].ut !== null && vessel.names[nameIndex].ut > utCheck) {
+        ops.updatesList.push({ type: "menu;name", id: vessel.db, UT: vessel.names[nameIndex].ut });
 
-  var strVesselName;
-  if (strNames.includes("|")) {
-    var nameIndex;
-    var names = strNames.split("|");
-    for (nameIndex=0; nameIndex<names.length; nameIndex++) {
-      var pair = names[nameIndex].split(";");
-      if (parseFloat(pair[0]) > utCheck) break;
-      strVesselName = pair[1];
+        // resort the updatesList
+        ops.updatesList.sort(function(a,b) { return (a.UT > b.UT) ? 1 : ((b.UT > a.UT) ? -1 : 0); });
+        break;
+      }
     }
-    if (updateCheck && nameIndex < names.length) { 
-      ops.updatesList.push({ type: "menu;name", id: vessel.db, UT: parseInt(names[nameIndex].split(";")[0]) });
-
-      // resort the updatesList
-      ops.updatesList.sort(function(a,b) { return (a.UT > b.UT) ? 1 : ((b.UT > a.UT) ? -1 : 0); });
-    }
-  } else strVesselName = strNames;
-  return strVesselName;
+  }
+  return vessel.name;
 }
 
 // recursively check through a menu node tree to hide anything that isn't showing child nodes

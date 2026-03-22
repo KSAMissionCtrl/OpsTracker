@@ -305,7 +305,8 @@ const KSA_CATALOGS = {
   fltPaths: [],         // data for all aircraft flight paths loaded onto surface map
   ascentTracks: [],     // paths drawn for live ascent telemetry
   ascentMarks: [],      // marker instances for events along ascent paths
-  
+  mapCatalog:  null,    // full maps.json.txt array; populated by loadSurfaceUpdatesAJAX at startup
+
   bodyPaths: {          // ids of bodies needing orbits plotted & calculated paths
     bodyName: "",
     paths: [],

@@ -915,10 +915,10 @@ function loadBody(body = "Kerbol-System", flt) {
     // don't create a new entry if this is the same page being reloaded
     if (!history.state) {
       if (window.location.href.includes("&")) var strURL = window.location.href;
-      else var strURL = "http://www.kerbalspace.agency/Tracker/tracker.asp?body=" + body;
+      else var strURL = "http://www.kerbalspace.agency/Tracker/tracker.html?body=" + body;
       history.replaceState({type: "body", id: body}, document.title, strURL.replace("&live", "").replace("&reload", "")); 
     } else if (history.state.id != body) {
-      var strURL = "http://www.kerbalspace.agency/Tracker/tracker.asp?body=" + body;
+      var strURL = "http://www.kerbalspace.agency/Tracker/tracker.html?body=" + body;
       if (flt) strURL += "&flt=" + flt;
       history.pushState({type: "body", id: body}, document.title, strURL); 
     }
@@ -990,18 +990,11 @@ function loadBody(body = "Kerbol-System", flt) {
 }
 
 // load the data for all the bodies in the Kerbol system
-function loadBodyAJAX(xhttp) {
-
-  // separate each of the bodies and their fields
-  var bodies = xhttp.responseText.split("|");
-  
-  // push each body into the array and add the selection flag
-  bodies.forEach(function(item) {
-    if (item) {
-      ops.bodyCatalog.push(rsToObj(item));
-      ops.bodyCatalog[ops.bodyCatalog.length-1].selected = false;
-    }
+function loadBodyAJAX(bodies) {
+  bodies.forEach(function(body) {
+    body.selected = false;
   });
+  ops.bodyCatalog = bodies;
 }
 
 // Inject the orbit described by ops.pendingOrbitParam (parsed from the ?orbit= URL parameter)
@@ -1271,21 +1264,20 @@ function loadVesselOrbits() {
   }
 
   // load the vessel orbital data & discard the name to decrease the array size
-  loadDB("loadVesselOrbitData.asp?db=" + ops.vesselsToLoad.shift() + "&ut=" + currUT(), addOrbitAJAX);
+  KSA_DATA_SERVICE.fetchVesselOrbitData(ops.vesselsToLoad.shift(), currUT(), addOrbitAJAX);
   return true;
 }
 
 // creates an orbit on the Three.js scene if it is loaded
-function addOrbitAJAX(xhttp) {
+function addOrbitAJAX(result) {
   if (!KSA_UI_STATE.is3JSLoaded) return;
   if (!KSA_UI_STATE.is3JSRefreshing) {
     threeRenderer.domElement.removeEventListener('click', onSceneClick);
     threeRenderer.domElement.removeEventListener('contextmenu', onSceneRightClick);
   }
 
-  // parse data
-  var vesselID = xhttp.responseText.split("*")[0];
-  var orbitData = rsToObj(xhttp.responseText.split("*")[1].split("|")[0])
+  var vesselID = result.db;
+  var orbitData = result.flightData;
 
   // check to ensure the vessel has an orbital record
   if (orbitData) {
@@ -1854,7 +1846,7 @@ function figureClick(hit) {
       }
       strHTML += "Mass: "             + sanitizeHTML(bodyData.Mass.replace("+", "e"))      + " kg<br>";
       strHTML += "Density: "          + sanitizeHTML(bodyData.Density)                     + " kg/m<sup>3</sup><br>";
-      strHTML += "Surface gravity: "  + sanitizeHTML(bodyData.SurfaceG.split(":")[0])      + " m/s<sup>2</sup> <i>(" + sanitizeHTML(bodyData.SurfaceG.split(":")[1]) + " g)</i><br>";
+      strHTML += "Surface gravity: "  + sanitizeHTML(bodyData.SurfaceG.value)              + " m/s<sup>2</sup> <i>(" + sanitizeHTML(bodyData.SurfaceG.kerbin) + " g)</i><br>";
       strHTML += "Escape velocity: "  + sanitizeHTML(bodyData.EscapeVel)                   + " m/s<br>";
       strHTML += "Rotational period: " + formatTime(bodyData.SolarDay, true)               + "<br>";
       strHTML += "Atmosphere: "       + sanitizeHTML(bodyData.Atmo)                        + "</p>";

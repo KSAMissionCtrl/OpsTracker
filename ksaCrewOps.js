@@ -15,12 +15,12 @@ function loadCrew(crew) {
   // if this is the first page to load, replace the current history
   if (!history.state) {
     if (window.location.href.includes("&")) var strURL = window.location.href;
-    else var strURL = "http://www.kerbalspace.agency/Tracker/tracker.asp?crew=" + crew;
+    else var strURL = "http://www.kerbalspace.agency/Tracker/tracker.html?crew=" + crew;
     history.replaceState({type: ops.pageType, id: crew}, document.title, strURL.replace("&live", "").replace("&reload", ""));
     
   // don't create a new entry if this is the same page being reloaded
   } else if (history.state.id != crew) {
-    history.pushState({type: ops.pageType, id: crew}, document.title, "http://www.kerbalspace.agency/Tracker/tracker.asp?crew=" + crew);
+    history.pushState({type: ops.pageType, id: crew}, document.title, "http://www.kerbalspace.agency/Tracker/tracker.html?crew=" + crew);
   }
   
   // remove the current loaded crew
@@ -47,7 +47,7 @@ function loadCrew(crew) {
     
     // get the full crew listing and start to show them all
     KSA_CATALOGS.crewList = extractIDs(w2ui['menu'].get('crew').nodes).split(";");
-    loadDB("loadCrewData.asp?db=" + showFullRoster() + "&ut=" + currUT(), loadCrewAJAX);
+    KSA_DATA_SERVICE.fetchCrewData(showFullRoster(), currUT(), loadCrewAJAX);
   } else {
 
     // find the crew in the menu data
@@ -57,38 +57,20 @@ function loadCrew(crew) {
 
     // load the data if there is no current crew loaded or the current crew loaded is not the crew that was selected
     // otherwise just go straight to displaying the data
-    if (!ops.currentCrew || (ops.currentCrew && crew != ops.currentCrew.Background.Kerbal)) loadDB("loadCrewData.asp?db=" + crew + "&ut=" + currUT(), loadCrewAJAX);
+    if (!ops.currentCrew || (ops.currentCrew && crew != ops.currentCrew.Background.Kerbal)) KSA_DATA_SERVICE.fetchCrewData(crew, currUT(), loadCrewAJAX);
     else loadCrewAJAX();
   }
 }
 
-function loadCrewAJAX(xhttp) {
+function loadCrewAJAX(result) {
 
-  // parse out the data, if any was sent. If not, the data is already loaded
-  if (xhttp) {
-    var data = xhttp.responseText.split("*");
-    
-    // the crew catalog data is first
-    var catalog = rsToObj(data[0]);
-    
-    // the various tables of the current record are next
-    var dataTables = data[1].split("^");
-    var stats = rsToObj(dataTables[0]);
-    var history = rsToObj(dataTables[3]);
-    
-    // parse the missions and the ribbons
-    var missions = [];
-    var ribbons = [];
-    if (dataTables[1] != "null") dataTables[1].split("|").forEach(function(item) { missions.push(rsToObj(item)); });
-    if (dataTables[2] != "null") dataTables[2].split("|").forEach(function(item) { ribbons.push(rsToObj(item)); });
-    missions.reverse();
-    
-    // store all the data
-    ops.currentCrew = { Stats: stats,
-                        History: history,
-                        Background: catalog,
-                        Missions: missions,
-                        Ribbons: ribbons,
+  // store the data if provided — if not, data is already loaded
+  if (result) {
+    ops.currentCrew = { Stats:      result.stats,
+                        History:    result.background,
+                        Background: result.catalog,
+                        Missions:   result.missions,
+                        Ribbons:    result.ribbons,
                         timelineTweets: null }
   }
     
@@ -111,7 +93,7 @@ function loadCrewAJAX(xhttp) {
   
     // call for another?
     var strCrewID = showFullRoster();
-    if (strCrewID) loadDB("loadCrewData.asp?db=" + strCrewID + "&ut=" + currUT(), loadCrewAJAX);
+    if (strCrewID) KSA_DATA_SERVICE.fetchCrewData(strCrewID, currUT(), loadCrewAJAX);
     else swapTwitterSource('Crew Feed', "13627");
   
   // individual crew page
@@ -127,9 +109,9 @@ function loadCrewAJAX(xhttp) {
     // service length determined by deactivation?
     var strDeactiveTipOpen = "";
     var strDeactiveTipClose = "";
-    if (ops.currentCrew.Background.Deactivation && parseInt(ops.currentCrew.Background.Deactivation.split(";")[0]) < currUT()) {
-      var serviceEnd = parseInt(ops.currentCrew.Background.Deactivation.split(";")[0]);
-      strDeactiveTipOpen = "<u><span style='cursor:help' class='tip' data-tipped-options=\"position: 'top'\" title='" + ops.currentCrew.Background.Deactivation.split(";")[1] + " on " + UTtoDateTime(serviceEnd).split("@")[0] + "'>";
+    if (ops.currentCrew.Background.Deactivation && ops.currentCrew.Background.Deactivation.ut < currUT()) {
+      var serviceEnd = ops.currentCrew.Background.Deactivation.ut;
+      strDeactiveTipOpen = "<u><span style='cursor:help' class='tip' data-tipped-options=\"position: 'top'\" title='" + ops.currentCrew.Background.Deactivation.reason + " on " + UTtoDateTime(serviceEnd).split("@")[0] + "'>";
       strDeactiveTipClose = "</span></u>";
     } else var serviceEnd = currUT();
     
@@ -143,7 +125,7 @@ function loadCrewAJAX(xhttp) {
     $("#dataField0").fadeIn();
 
     // Hash activation date and deactivation info (which affects service years and tooltip)
-    addChangeIndicator("#dataField0", ops.currentCrew.Background.Kerbal, "Activation", ops.currentCrew.Background.Activation + '|' + (ops.currentCrew.Background.Deactivation || ''));
+    addChangeIndicator("#dataField0", ops.currentCrew.Background.Kerbal, "Activation", ops.currentCrew.Background.Activation + '|' + (ops.currentCrew.Background.Deactivation ? ops.currentCrew.Background.Deactivation.ut + ';' + ops.currentCrew.Background.Deactivation.reason : ''));
     
     // hide the rest of the fields
     $("#dataField13").fadeOut();
@@ -374,7 +356,7 @@ function updateCrewData(crew) {
 
   // fetch new future data. Add a second just to make sure we don't get the same current data
   crew.isLoading = true;
-  loadDB("loadOpsData.asp?db=" + crew.id + "&UT=" + (currUT()+1) + "&type=" + crew.type + "&pastUT=NaN", loadOpsDataAJAX, {isRealTimeUpdate: true, id: crew.id});
+  KSA_DATA_SERVICE.fetchOpsData(crew.id, currUT()+1, crew.type, NaN, loadOpsDataAJAX, {isRealTimeUpdate: true, id: crew.id});
 }
 
 function crewHeaderUpdate(update) {
@@ -401,8 +383,8 @@ function crewInfoUpdate(update) {
   // compose the background information
   // get the date of the birthday to display in MM/DD/YYYY format and also age calculation
   // if crew is deceased, the current date becomes the date they died so their age remains static
-  if (ops.currentCrew.Background.Deactivation && parseInt(ops.currentCrew.Background.Deactivation.split(";")[0]) < currUT() && ops.currentCrew.Background.Deactivation.includes("Deceased")) {
-    var currDate = KSA_CONSTANTS.FOUNDING_MOMENT + (parseInt(ops.currentCrew.Background.Deactivation.split(";")[0]) * 1000)
+  if (ops.currentCrew.Background.Deactivation && ops.currentCrew.Background.Deactivation.ut < currUT() && ops.currentCrew.Background.Deactivation.reason.includes("Deceased")) {
+    var currDate = KSA_CONSTANTS.FOUNDING_MOMENT + (ops.currentCrew.Background.Deactivation.ut * 1000)
     var strAge = " (Age at Death: ";
   } else {
     var currDate = Date.now()
