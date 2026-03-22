@@ -62,33 +62,15 @@ function loadCrew(crew) {
   }
 }
 
-function loadCrewAJAX(xhttp) {
+function loadCrewAJAX(result) {
 
-  // parse out the data, if any was sent. If not, the data is already loaded
-  if (xhttp) {
-    var data = xhttp.responseText.split("*");
-    
-    // the crew catalog data is first
-    var catalog = rsToObj(data[0]);
-    
-    // the various tables of the current record are next
-    var dataTables = data[1].split("^");
-    var stats = rsToObj(dataTables[0]);
-    var history = rsToObj(dataTables[3]);
-    
-    // parse the missions and the ribbons
-    var missions = [];
-    var ribbons = [];
-    if (dataTables[1] != "null") dataTables[1].split("|").forEach(function(item) { missions.push(rsToObj(item)); });
-    if (dataTables[2] != "null") dataTables[2].split("|").forEach(function(item) { ribbons.push(rsToObj(item)); });
-    missions.reverse();
-    
-    // store all the data
-    ops.currentCrew = { Stats: stats,
-                        History: history,
-                        Background: catalog,
-                        Missions: missions,
-                        Ribbons: ribbons,
+  // store the data if provided — if not, data is already loaded
+  if (result) {
+    ops.currentCrew = { Stats:      result.stats,
+                        History:    result.background,
+                        Background: result.catalog,
+                        Missions:   result.missions,
+                        Ribbons:    result.ribbons,
                         timelineTweets: null }
   }
     
@@ -127,9 +109,9 @@ function loadCrewAJAX(xhttp) {
     // service length determined by deactivation?
     var strDeactiveTipOpen = "";
     var strDeactiveTipClose = "";
-    if (ops.currentCrew.Background.Deactivation && parseInt(ops.currentCrew.Background.Deactivation.split(";")[0]) < currUT()) {
-      var serviceEnd = parseInt(ops.currentCrew.Background.Deactivation.split(";")[0]);
-      strDeactiveTipOpen = "<u><span style='cursor:help' class='tip' data-tipped-options=\"position: 'top'\" title='" + ops.currentCrew.Background.Deactivation.split(";")[1] + " on " + UTtoDateTime(serviceEnd).split("@")[0] + "'>";
+    if (ops.currentCrew.Background.Deactivation && ops.currentCrew.Background.Deactivation.ut < currUT()) {
+      var serviceEnd = ops.currentCrew.Background.Deactivation.ut;
+      strDeactiveTipOpen = "<u><span style='cursor:help' class='tip' data-tipped-options=\"position: 'top'\" title='" + ops.currentCrew.Background.Deactivation.reason + " on " + UTtoDateTime(serviceEnd).split("@")[0] + "'>";
       strDeactiveTipClose = "</span></u>";
     } else var serviceEnd = currUT();
     
@@ -143,7 +125,7 @@ function loadCrewAJAX(xhttp) {
     $("#dataField0").fadeIn();
 
     // Hash activation date and deactivation info (which affects service years and tooltip)
-    addChangeIndicator("#dataField0", ops.currentCrew.Background.Kerbal, "Activation", ops.currentCrew.Background.Activation + '|' + (ops.currentCrew.Background.Deactivation || ''));
+    addChangeIndicator("#dataField0", ops.currentCrew.Background.Kerbal, "Activation", ops.currentCrew.Background.Activation + '|' + (ops.currentCrew.Background.Deactivation ? ops.currentCrew.Background.Deactivation.ut + ';' + ops.currentCrew.Background.Deactivation.reason : ''));
     
     // hide the rest of the fields
     $("#dataField13").fadeOut();
@@ -401,8 +383,8 @@ function crewInfoUpdate(update) {
   // compose the background information
   // get the date of the birthday to display in MM/DD/YYYY format and also age calculation
   // if crew is deceased, the current date becomes the date they died so their age remains static
-  if (ops.currentCrew.Background.Deactivation && parseInt(ops.currentCrew.Background.Deactivation.split(";")[0]) < currUT() && ops.currentCrew.Background.Deactivation.includes("Deceased")) {
-    var currDate = KSA_CONSTANTS.FOUNDING_MOMENT + (parseInt(ops.currentCrew.Background.Deactivation.split(";")[0]) * 1000)
+  if (ops.currentCrew.Background.Deactivation && ops.currentCrew.Background.Deactivation.ut < currUT() && ops.currentCrew.Background.Deactivation.reason.includes("Deceased")) {
+    var currDate = KSA_CONSTANTS.FOUNDING_MOMENT + (ops.currentCrew.Background.Deactivation.ut * 1000)
     var strAge = " (Age at Death: ";
   } else {
     var currDate = Date.now()

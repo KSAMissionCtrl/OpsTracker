@@ -389,6 +389,25 @@ const KSA_DATA_SERVICE = (function () {
   }
 
   // ===========================================================================
+  // PHASE 3 HELPERS
+  // ===========================================================================
+
+  /**
+   * _normalizeStatsRecord(stats)
+   *
+   * Coerces Dockings and TEVA to proper integers.
+   * Older DB exports serialized zero values as the string "0" rather than the
+   * integer 0.  String "0" is truthy in JS, which would cause the conditional
+   * display guards in ksaCrewOps.js to incorrectly show empty rows.
+   * Operates in-place; safe to call with null/undefined.
+   */
+  function _normalizeStatsRecord(stats) {
+    if (!stats) return;
+    if (stats.Dockings !== null && stats.Dockings !== undefined) stats.Dockings = +stats.Dockings || 0;
+    if (stats.TEVA     !== null && stats.TEVA     !== undefined) stats.TEVA     = +stats.TEVA     || 0;
+  }
+
+  // ===========================================================================
   // PHASE 3 ENDPOINT IMPLEMENTATIONS
   // ===========================================================================
 
@@ -924,15 +943,13 @@ const KSA_DATA_SERVICE = (function () {
    */
   function fetchCrewData(db, ut, callback) {
     var label = 'loadCrewData.asp?db=' + db + '&ut=' + ut;
-    KSA_UI_STATE.dataLoadQueue.push(label);
-    console.log('[KSA_DATA_SERVICE]', label);
 
     // Catalog (cache hit after fetchMenuData), index, and bulk files in parallel.
     Promise.all([
-      fetchJson(catalogFilePath('crew')),
+      fetchJson(jsonCatalogFilePath('crew')),
       loadIndex(db),
-      fetchJson(bulkFilePath(db, 'missions'))['catch'](function () { return []; }),
-      fetchJson(bulkFilePath(db, 'ribbons'))['catch'](function () { return []; })
+      fetchJson(jsonBulkFilePath(db, 'missions'))['catch'](function () { return []; }),
+      fetchJson(jsonBulkFilePath(db, 'ribbons'))['catch'](function () { return []; })
     ]).then(function (results) {
       var crewCatalog = results[0];
       var index       = results[1];
@@ -943,20 +960,20 @@ const KSA_DATA_SERVICE = (function () {
       var crewEntry = crewCatalog.find(function (c) { return c.Kerbal === db; });
 
       // UT-seek for current and next stats / background.
-      var statsUT    = seekToUT(index.stats,      ut);
-      var bgUT       = seekToUT(index.background, ut);
+      var statsUT     = seekToUT(index.stats,      ut);
+      var bgUT        = seekToUT(index.background, ut);
       var nextStatsUT = getNextUT(index.stats,      ut);
       var nextBgUT    = getNextUT(index.background, ut);
 
       // Fetch current + next stats and background files concurrently.
       return Promise.all([
-        fetchJson(dbFilePath(db, 'stats',      statsUT)),
-        fetchJson(dbFilePath(db, 'background', bgUT)),
+        fetchJson(jsonDbFilePath(db, 'stats',      statsUT)),
+        fetchJson(jsonDbFilePath(db, 'background', bgUT)),
         nextStatsUT !== null
-          ? fetchJson(dbFilePath(db, 'stats', nextStatsUT))['catch'](function () { return null; })
+          ? fetchJson(jsonDbFilePath(db, 'stats', nextStatsUT))['catch'](function () { return null; })
           : Promise.resolve(null),
         nextBgUT !== null
-          ? fetchJson(dbFilePath(db, 'background', nextBgUT))['catch'](function () { return null; })
+          ? fetchJson(jsonDbFilePath(db, 'background', nextBgUT))['catch'](function () { return null; })
           : Promise.resolve(null)
       ]).then(function (fetched) {
         return {
@@ -971,47 +988,35 @@ const KSA_DATA_SERVICE = (function () {
       });
     }).then(function (d) {
 
-      // --- Catalog ---
-      var catalogRs = objToRs(d.crewEntry);
-
-      // --- Current stats ---
-      var statsRs = objToRs(d.stats);
-
-      // --- Missions up to current UT ---
+      // Missions up to current UT, newest-first for loadCrewAJAX.
       var currentMissions = d.allMissions.filter(function (m) { return m.UT <= ut; });
-      var missionsRs = currentMissions.length > 0
-        ? currentMissions.map(objToRs).join('|')
-        : 'null';
+      currentMissions.reverse();
 
-      // --- Ribbons up to current UT ---
+      // Ribbons up to current UT (ascending order — matches display logic).
       var currentRibbons = d.allRibbons.filter(function (r) { return r.UT <= ut; });
-      var ribbonsRs = currentRibbons.length > 0
-        ? currentRibbons.map(objToRs).join('|')
-        : 'null';
 
-      // --- Current background ---
-      var bgRs = objToRs(d.background);
+      // Normalize integer fields that may be strings in older DB exports.
+      _normalizeStatsRecord(d.stats);
+      _normalizeStatsRecord(d.nextStats);
 
-      // --- Future records ---
-      var nextStatsRs   = d.nextStats ? objToRs(d.nextStats) : 'null';
-      var nextMission   = d.allMissions.find(function (m) { return m.UT > ut; });
-      var nextMissionRs = nextMission ? objToRs(nextMission) : 'null';
-      var nextRibbon    = d.allRibbons.find(function (r) { return r.UT > ut; });
-      var nextRibbonRs  = nextRibbon ? objToRs(nextRibbon) : 'null';
-      var nextBgRs      = d.nextBg ? objToRs(d.nextBg) : 'null';
+      // Next future records (first item past current UT).
+      var nextMission = d.allMissions.find(function (m) { return m.UT > ut; }) || null;
+      var nextRibbon  = d.allRibbons.find(function (r) { return r.UT > ut; }) || null;
 
-      // Assemble: [catalog]*[stats]^[missions]^[ribbons]^[background]*
-      //           [nextStats]^[nextMission]^[nextRibbon]^[nextBackground]
-      var rs = catalogRs + '*' +
-               statsRs + '^' + missionsRs + '^' + ribbonsRs + '^' + bgRs +
-               '*' +
-               nextStatsRs + '^' + nextMissionRs + '^' + nextRibbonRs + '^' + nextBgRs;
-
-      _parity(label, rs);
-      dbResponse({ responseText: rs }, label, callback);
+      _trackAndInvoke(label, callback, {
+        catalog:    d.crewEntry,
+        stats:      d.stats,
+        background: d.background,
+        missions:   currentMissions,
+        ribbons:    currentRibbons,
+        next: {
+          stats:      d.nextStats || null,
+          mission:    nextMission,
+          ribbon:     nextRibbon,
+          background: d.nextBg || null
+        }
+      });
     })['catch'](function (err) {
-      var idx = KSA_UI_STATE.dataLoadQueue.indexOf(label);
-      if (idx > -1) KSA_UI_STATE.dataLoadQueue.splice(idx, 1);
       handleError(err, label, true);
     });
   }
