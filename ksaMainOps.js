@@ -1176,7 +1176,7 @@ function loadOpsDataAJAX(result, args = null) {
   for (i=0; i<ops.updateData.length; i++) {
     if (!ops.updateData[i].isLoading && !ops.updateData[i].CurrentData) {
       ops.updateData[i].isLoading = true;
-      KSA_DATA_SERVICE.fetchOpsData(ops.updateData[i].id, currUT(), ops.updateData[i].type, NaN, loadOpsDataAJAX);
+      KSA_DATA_SERVICE.fetchOpsData(ops.updateData[i].id, currUT(), ops.updateData[i].type, loadOpsDataAJAX);
     }
   }
 

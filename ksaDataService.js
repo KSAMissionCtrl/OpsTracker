@@ -537,6 +537,18 @@ const KSA_DATA_SERVICE = (function () {
    */
   function fetchMapData(refID, callback) {
     var label = 'loadMapData.asp?refID=' + refID;
+
+    // Fast path: if the startup call already cached the full catalog in
+    // KSA_CATALOGS.mapCatalog, filter in-memory — no network or Promise overhead.
+    if (refID !== -1 && KSA_CATALOGS.mapCatalog) {
+      var cached = null;
+      for (var i = 0; i < KSA_CATALOGS.mapCatalog.length; i++) {
+        if (KSA_CATALOGS.mapCatalog[i].RefID === refID) { cached = KSA_CATALOGS.mapCatalog[i]; break; }
+      }
+      _trackAndInvoke(label, callback, cached);
+      return;
+    }
+
     fetchJson(jsonCatalogFilePath('maps'))
       .then(function (records) {
         var result;
@@ -1102,12 +1114,10 @@ const KSA_DATA_SERVICE = (function () {
   // ---------------------------------------------------------------------------
 
   /**
-   * fetchVesselData(db, ut, pastUT, callback, data)
+   * fetchVesselData(db, ut, callback, data)
    *
    * Loads all data tables for a single vessel and delivers a structured result
    * object to loadVesselAJAX via _trackAndInvoke (Phase 3 convention).
-   *
-   * pastUT is ignored (non-functional in original ASP; kept for signature parity).
    *
    * Result shape:
    *   {
@@ -1128,11 +1138,10 @@ const KSA_DATA_SERVICE = (function () {
    *
    * @param {string}   db        Vessel DB name (e.g. "ascensionmk2-2").
    * @param {number}   ut        Current game UT in seconds.
-   * @param {number}   pastUT    Ignored; kept for signature parity.
    * @param {function} callback  loadVesselAJAX — receives (result, data).
    * @param {*}        [data]    Optional pass-through value.
    */
-  function fetchVesselData(db, ut, pastUT, callback, data) {
+  function fetchVesselData(db, ut, callback, data) {
     var label = 'loadVesselData.asp?db=' + db + '&ut=' + ut;
 
     Promise.all([
@@ -1262,7 +1271,7 @@ const KSA_DATA_SERVICE = (function () {
   // ---------------------------------------------------------------------------
 
   /**
-   * fetchOpsData(db, ut, type, pastUT, callback, data)
+   * fetchOpsData(db, ut, type, callback, data)
    *
    * Real-time update endpoint: loads current + next-future records for one
    * vessel or crew member and delivers a structured result to loadOpsDataAJAX
@@ -1282,13 +1291,11 @@ const KSA_DATA_SERVICE = (function () {
    * @param {string}   db       Entity DB name (e.g. "kerbin-II" or "jeb").
    * @param {number}   ut       Current game UT in seconds.
    * @param {string}   type     "vessel" or "crew".
-   * @param {number}   pastUT   Always NaN at call sites; accepted but unused.
    * @param {function} callback loadOpsDataAJAX.
    * @param {*}        [data]   Optional pass-through value.
    */
-  function fetchOpsData(db, ut, type, pastUT, callback, data) {
-    var label = 'loadOpsData.asp?db=' + db + '&UT=' + ut + '&type=' + type +
-                '&pastUT=' + (isNaN(pastUT) ? 'NaN' : pastUT);
+  function fetchOpsData(db, ut, type, callback, data) {
+    var label = 'loadOpsData.asp?db=' + db + '&UT=' + ut + '&type=' + type;
     // Queue management is handled by _trackAndInvoke inside the sub-functions.
     if (type === 'crew') {
       _fetchOpsCrewData(db, ut, label, callback, data);

@@ -73,7 +73,7 @@ function loadVessel(vessel, givenUT, wasUTExplicit) {
   // clear ascent vessel tracking so ascentEnd() won't trigger a reload for this vessel
   ops.ascentData.vessel = null;
 
-  KSA_DATA_SERVICE.fetchVesselData(vessel, givenUT, -1, loadVesselAJAX, { initLoad: bInitLoad });
+  KSA_DATA_SERVICE.fetchVesselData(vessel, givenUT, loadVesselAJAX, { initLoad: bInitLoad });
   
   // add vessel-specific buttons to the map
   addMapResizeButton();

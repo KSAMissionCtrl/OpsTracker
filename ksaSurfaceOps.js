@@ -369,8 +369,8 @@ function loadMap(map) {
 
   // call up the map data to load 
   // any orbital calcs in progress should have been paused with content swap
-  KSA_DATA_SERVICE.fetchMapData(ops.bodyCatalog.find(o => o.Body === map).ID, loadMapDataAJAX);
   ops.surface.isLoading = true;
+  KSA_DATA_SERVICE.fetchMapData(ops.bodyCatalog.find(o => o.Body === map).ID, loadMapDataAJAX);
 }
 
 function loadMapDataAJAX(result) {
@@ -790,6 +790,9 @@ function loadSurfaceUpdatesAJAX(result) {
     return;
   }
   if (!ops.bodyCatalog.length) return setTimeout(loadSurfaceUpdatesAJAX, 150, result);
+
+  // Cache the full array so fetchMapData(refID) can filter in-memory on subsequent calls.
+  KSA_CATALOGS.mapCatalog = result;
 
   // work through the object layers of each body's map record
   result.forEach(function(surfaceObj) {
