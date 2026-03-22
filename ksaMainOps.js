@@ -1137,106 +1137,29 @@ function checkPageUpdate(rapidFireMode = false) {
 }
 
 // loads future data for all active vessels and crew so they can be updated without fetch delay
-function loadOpsDataAJAX(xhttp, args = null) {
+function loadOpsDataAJAX(result, args = null) {
 
-  if (xhttp) {
-  
-    // header info uses "Typ3" as a unique identifier to parse out the craft id from the rest of the data
-    // since I ran out of special character to use
-    var object = ops.updateData.find(o => o.id === xhttp.responseText.split("Typ3")[0]);
-    
-    // decide what type of object we are parsing data for
-    if (xhttp.responseText.includes("Typ3vessel")) {
-      
-      // separate the main data segments
-      var data = xhttp.responseText.split("Typ3vessel")[1].split("*");
+  if (result) {
 
-      // the various tables of the current record 
-      var dataTables = data[2].split("^");
-      var craft = rsToObj(dataTables[0]);
-      var resources = rsToObj(dataTables[1]);
-      var crew = rsToObj(dataTables[2]);
-      var comms = rsToObj(dataTables[3]);
-      var obt = rsToObj(dataTables[4]);
-      var ports = rsToObj(dataTables[5]);
+    var object = ops.updateData.find(o => o.id === result.id);
 
-      // temp workaround
-      // can reqrite ops load to send over these values in case of null records
-      if (!crew) crew = {UT: 0};
-      if (!resources) resources = {UT: 0};
-      if (!comms) comms = {UT: 0};
-      if (!obt) obt = {UT: 0};
-      if (!ports) ports = {UT: 0};
+    // directly assign the pre-structured current/future data
+    object.CurrentData = result.current;
+    object.FutureData  = result.future;
+    object.isLoading   = false;
 
-      // only save the UT field so we can determine if any menu badging is required
-      object.CurrentData = { CraftData: {UT: craft.UT},
-                             Resources: {UT: resources.UT},
-                             Manifest: {UT: crew.UT},
-                             Comms: {UT: comms.UT},
-                             Orbit: {UT: obt.UT},
-                             Ports: {UT: ports.UT} };
-
-      // any future events
-      dataTables = data[3].split("^");
-      craft = rsToObj(dataTables[0]);
-      resources = rsToObj(dataTables[1]);
-      crew = rsToObj(dataTables[2]);
-      comms = rsToObj(dataTables[3]);
-      obt = rsToObj(dataTables[4]);
-      ports = rsToObj(dataTables[5]);
-      object.FutureData = { CraftData: craft,
-                            Resources: resources,
-                            Manifest: crew,
-                            Comms: comms,
-                            Orbit: obt,
-                            Ports: ports };
-      
-    } else if (xhttp.responseText.includes("Typ3crew")) {
-      var data = xhttp.responseText.split("Typ3crew")[1].split("*");
-
-      // the various tables of the current record
-      var dataTables = data[1].split("^");
-      var stats = rsToObj(dataTables[0]);
-      var history = rsToObj(dataTables[3]);
-      
-      // parse the missions and the ribbons
-      var missions = [];
-      var ribbons = [];
-      if (dataTables[1] != "null") dataTables[1].split("|").forEach(function(item) { missions.push(rsToObj(item)); });
-      if (dataTables[2] != "null") dataTables[2].split("|").forEach(function(item) { ribbons.push(rsToObj(item)); });
-      missions.reverse();
-
-      // only save the UT fields so we can determine if any menu badging is needed
-      object.CurrentData = {  Stats: {UT: stats.UT},
-                              History: {UT: history.UT},
-                              Missions: missions,
-                              Ribbons: ribbons };
-      
-      // any future events
-      var dataTables = data[2].split("^");
-      var stats = rsToObj(dataTables[0]);
-      var missions = rsToObj(dataTables[1]);
-      var ribbons = rsToObj(dataTables[2]);
-      var history = rsToObj(dataTables[3]);
-      object.FutureData = { Stats: stats,
-                            History: history,
-                            Missions: missions,
-                            Ribbons: ribbons };
-    }
-    object.isLoading = false;
-    
     // determine if this object has a future event that we need to plan an update for
     var updateUT = null;
     for (var prop in object.FutureData) {
       if (object.FutureData[prop] && 
       ((object.FutureData[prop].UT && !updateUT) || (object.FutureData[prop].UT && object.FutureData[prop].UT < updateUT))) { 
-        updateUT = object.FutureData[prop].UT
+        updateUT = object.FutureData[prop].UT;
       }
     }
 
     // we need to do a bit of extra legwork if this object is a vessel and determine if this update is just for orbital data, which 
     // updates more frequently than the other tables and would cause a lot of unnecessary badging if we treated it like a normal update
-    if (updateUT && xhttp.responseText.includes("Typ3vessel")) {
+    if (updateUT && result.type === 'vessel') {
       var isOrbitalUpdate = true;
       for (var prop in object.FutureData) {
         if (object.FutureData[prop] && object.FutureData[prop].UT && object.FutureData[prop].UT == updateUT && prop != "Orbit") {
@@ -1260,9 +1183,9 @@ function loadOpsDataAJAX(xhttp, args = null) {
   // if this was a real-time update, badge the menu item 
   // if the badging was successful or still previously badged we are not viewing this object, flash the menu to indicate an update
   if (args && args.isRealTimeUpdate) {
-    var result = badgeMenuItem(args.id, true)
-    if (result == true || result == null) {
-      flashUpdate("#menuHeader", "#77C6FF", "#FFF")
+    var badgeResult = badgeMenuItem(args.id, true);
+    if (badgeResult == true || badgeResult == null) {
+      flashUpdate("#menuHeader", "#77C6FF", "#FFF");
     }
   }
 

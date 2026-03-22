@@ -206,9 +206,6 @@ const KSA_DATA_SERVICE = (function () {
     return parts.join('`');
   }
 
-  // Still used by _fetchOpsVesselData (Step 3.11, not yet converted). Remove when 3.11 is done.
-  function _boolStr(val) { return val ? 'true' : 'false'; }
-
   /**
    * invokeCallback(label, callback, responseText, data)
    *
@@ -1267,40 +1264,32 @@ const KSA_DATA_SERVICE = (function () {
   /**
    * fetchOpsData(db, ut, type, pastUT, callback, data)
    *
-   * Real-time update endpoint: loads data for one vessel or crew member and
-   * delivers it to the existing loadOpsDataAJAX callback in the same format
-   * that loadOpsData.asp produced.
+   * Real-time update endpoint: loads current + next-future records for one
+   * vessel or crew member and delivers a structured result to loadOpsDataAJAX
+   * via _trackAndInvoke.
    *
-   * ASP logic replicated:
-   *   type="vessel" — <db>Typ3vessel + catalog * ascent data * current 6
-   *     tables (craftdata/resources/manifest/comms/flightdata/ports, with
-   *     PastEvent~false on craftdata and NotNull on resources + comms) *
-   *     future 6 tables (same order, NotNull for resources + comms) *
-   *     event history (UT~Title|…) * launch times * orbit period history.
-   *   type="crew"   — <db>Typ3crew + catalog * stats^missions^ribbons^
-   *     background * next stats^next mission^next ribbon^next background.
-   *     Identical to loadCrewData.asp output with the Typ3crew prefix.
-   *
-   * pastUT is always NaN at all call sites; the pastUT seek path is not
-   * implemented (PastEvent is always "false" in practice).
+   * Result shapes (produced by sub-functions):
+   *   type="vessel" — { type, id, current: { CraftData, Resources, Manifest,
+   *     Comms, Orbit, Ports } (UT-only), future: { same keys, full records } }
+   *   type="crew"   — { type, id, current: { Stats, History (UT-only),
+   *     Missions, Ribbons (full arrays) }, future: { Stats, History, Missions,
+   *     Ribbons (single objects or null) } }
    *
    * Cache behaviour: index files, record files, and bulk files are shared
-   * with fetchVesselData / fetchCrewData via _indexCache / _responseCache,
-   * so calls after the initial load are served entirely from cache.
+   * with fetchVesselData / fetchCrewData via _responseCache, so calls after
+   * the initial load are served entirely from cache.
    *
    * @param {string}   db       Entity DB name (e.g. "kerbin-II" or "jeb").
    * @param {number}   ut       Current game UT in seconds.
    * @param {string}   type     "vessel" or "crew".
    * @param {number}   pastUT   Always NaN at call sites; accepted but unused.
-   * @param {function} callback Existing AJAX callback (loadOpsDataAJAX).
+   * @param {function} callback loadOpsDataAJAX.
    * @param {*}        [data]   Optional pass-through value.
    */
   function fetchOpsData(db, ut, type, pastUT, callback, data) {
     var label = 'loadOpsData.asp?db=' + db + '&UT=' + ut + '&type=' + type +
                 '&pastUT=' + (isNaN(pastUT) ? 'NaN' : pastUT);
-    KSA_UI_STATE.dataLoadQueue.push(label);
-    console.log('[KSA_DATA_SERVICE]', label);
-
+    // Queue management is handled by _trackAndInvoke inside the sub-functions.
     if (type === 'crew') {
       _fetchOpsCrewData(db, ut, label, callback, data);
     } else {
@@ -1311,41 +1300,40 @@ const KSA_DATA_SERVICE = (function () {
   /**
    * _fetchOpsCrewData — private: assembles the crew-path response for fetchOpsData.
    *
-   * Response format (mirrors loadOpsData.asp crew branch and loadCrewData.asp):
-   *   <db>Typ3crew<catalog>*<stats>^<missions>^<ribbons>^<background>*
-   *   <nextStats>^<nextMission>^<nextRibbon>^<nextBackground>
+   * Result shape:
+   *   { type: 'crew', id, current: { Stats, History, Missions, Ribbons },
+   *     future: { Stats, History, Missions, Ribbons } }
+   *
+   * current.Stats / current.History carry only { UT } for badge-UT comparison.
+   * current.Missions / current.Ribbons are full filtered arrays (for last-visit
+   * badge counting). future values are single objects or null.
    */
   function _fetchOpsCrewData(db, ut, label, callback, data) {
     Promise.all([
-      fetchJson(catalogFilePath('crew')),
       loadIndex(db),
-      fetchJson(bulkFilePath(db, 'missions'))['catch'](function () { return []; }),
-      fetchJson(bulkFilePath(db, 'ribbons'))['catch'](function () { return []; })
+      fetchJson(jsonBulkFilePath(db, 'missions'))['catch'](function () { return []; }),
+      fetchJson(jsonBulkFilePath(db, 'ribbons'))['catch'](function () { return []; })
     ]).then(function (results) {
-      var crewCatalog = results[0];
-      var index       = results[1];
-      var allMissions = results[2];
-      var allRibbons  = results[3];
+      var index       = results[0];
+      var allMissions = results[1];
+      var allRibbons  = results[2];
 
-      var crewEntry = crewCatalog.find(function (c) { return c.Kerbal === db; });
-
-      var statsUT    = seekToUT(index.stats,      ut);
-      var bgUT       = seekToUT(index.background, ut);
+      var statsUT     = seekToUT(index.stats,      ut);
+      var bgUT        = seekToUT(index.background, ut);
       var nextStatsUT = getNextUT(index.stats,      ut);
       var nextBgUT    = getNextUT(index.background, ut);
 
       return Promise.all([
-        fetchJson(dbFilePath(db, 'stats',      statsUT)),
-        fetchJson(dbFilePath(db, 'background', bgUT)),
+        fetchJson(jsonDbFilePath(db, 'stats',      statsUT)),
+        fetchJson(jsonDbFilePath(db, 'background', bgUT)),
         nextStatsUT !== null
-          ? fetchJson(dbFilePath(db, 'stats', nextStatsUT))['catch'](function () { return null; })
+          ? fetchJson(jsonDbFilePath(db, 'stats', nextStatsUT))['catch'](function () { return null; })
           : Promise.resolve(null),
         nextBgUT !== null
-          ? fetchJson(dbFilePath(db, 'background', nextBgUT))['catch'](function () { return null; })
+          ? fetchJson(jsonDbFilePath(db, 'background', nextBgUT))['catch'](function () { return null; })
           : Promise.resolve(null)
       ]).then(function (fetched) {
         return {
-          crewEntry:   crewEntry,
           stats:       fetched[0],
           background:  fetched[1],
           nextStats:   fetched[2],
@@ -1355,35 +1343,31 @@ const KSA_DATA_SERVICE = (function () {
         };
       });
     }).then(function (d) {
-      var catalogRs = objToRs(d.crewEntry);
-      var statsRs   = objToRs(d.stats);
+      _normalizeStatsRecord(d.stats);
+      if (d.nextStats) _normalizeStatsRecord(d.nextStats);
 
       var currentMissions = d.allMissions.filter(function (m) { return m.UT <= ut; });
-      var missionsRs = currentMissions.length > 0
-        ? currentMissions.map(objToRs).join('|')
-        : 'null';
-
+      currentMissions.reverse();
       var currentRibbons = d.allRibbons.filter(function (r) { return r.UT <= ut; });
-      var ribbonsRs = currentRibbons.length > 0
-        ? currentRibbons.map(objToRs).join('|')
-        : 'null';
+      var nextMission    = d.allMissions.find(function (m) { return m.UT > ut; }) || null;
+      var nextRibbon     = d.allRibbons.find(function (r) { return r.UT > ut; }) || null;
 
-      var bgRs        = objToRs(d.background);
-      var nextStatsRs = d.nextStats ? objToRs(d.nextStats) : 'null';
-      var nextMission   = d.allMissions.find(function (m) { return m.UT > ut; });
-      var nextMissionRs = nextMission ? objToRs(nextMission) : 'null';
-      var nextRibbon    = d.allRibbons.find(function (r) { return r.UT > ut; });
-      var nextRibbonRs  = nextRibbon ? objToRs(nextRibbon) : 'null';
-      var nextBgRs      = d.nextBg ? objToRs(d.nextBg) : 'null';
-
-      var rs = db + 'Typ3crew' +
-               catalogRs + '*' +
-               statsRs + '^' + missionsRs + '^' + ribbonsRs + '^' + bgRs +
-               '*' +
-               nextStatsRs + '^' + nextMissionRs + '^' + nextRibbonRs + '^' + nextBgRs;
-
-      _parity(label, rs);
-      dbResponse({ responseText: rs }, label, callback, data);
+      _trackAndInvoke(label, callback, {
+        type: 'crew',
+        id:   db,
+        current: {
+          Stats:    { UT: d.stats.UT },
+          History:  { UT: d.background.UT },
+          Missions: currentMissions,
+          Ribbons:  currentRibbons
+        },
+        future: {
+          Stats:    d.nextStats || null,
+          History:  d.nextBg    || null,
+          Missions: nextMission,
+          Ribbons:  nextRibbon
+        }
+      }, data);
     })['catch'](function (err) {
       var idx = KSA_UI_STATE.dataLoadQueue.indexOf(label);
       if (idx > -1) KSA_UI_STATE.dataLoadQueue.splice(idx, 1);
@@ -1394,35 +1378,22 @@ const KSA_DATA_SERVICE = (function () {
   /**
    * _fetchOpsVesselData — private: assembles the vessel-path response for fetchOpsData.
    *
-   * Response format (mirrors loadOpsData.asp vessel branch):
-   *   <db>Typ3vessel<catalog>*<ascentRows|null>*<currentSeg>*<futureSeg>*
-   *   <historySeg>*<launchSeg>*<orbitHistSeg>
+   * Result shape:
+   *   { type: 'vessel', id, current: { CraftData, Resources, Manifest, Comms, Orbit, Ports },
+   *     future: { CraftData, Resources, Manifest, Comms, Orbit, Ports } }
    *
-   * currentSeg  = craftdataRS`PastEvent~false^resRS`NotNull~X^manifestRS^
-   *               commsRS`NotNull~X^flightdataRS^portsRS
-   * futureSeg   = same 6 slots, no PastEvent, NotNull uses AND logic (field≠'UT').
-   *
-   * NotNull — current resources:  field !== 'UT' AND non-empty (AND logic)
-   * NotNull — current comms:      any non-empty field value (effective OR logic per ASP)
-   * NotNull — future resources:   field !== 'UT' AND non-empty
-   * NotNull — future comms:       field !== 'UT' AND non-empty
+   * current values carry only { UT } for badge-UT comparison.
+   * future values are full records (or null) so updateVesselData can copy them
+   * into ops.currentVessel. Resources and Comms include a NotNull boolean.
+   * Orbit (flightdata) keys are normalized to strip spaces.
    */
   function _fetchOpsVesselData(db, ut, label, callback, data) {
     Promise.all([
-      fetchJson(catalogFilePath('vessels')),
-      loadIndex(db)['catch'](function () { return {}; }),
-      fetchJson(bulkFilePath(db, 'ascentdata'))['catch'](function () { return []; }),
-      fetchJson(bulkFilePath(db, 'launchtimes'))['catch'](function () { return []; })
+      fetchJson(jsonCatalogFilePath('vessels')),
+      fetchJson(jsonIndexPath(db))['catch'](function () { return {}; })
     ]).then(function (step1) {
       var vesselCatalog = step1[0];
       var index         = step1[1];
-      var ascentRows    = step1[2];
-      var launchRows    = step1[3];
-
-      var catalogEntry = null;
-      for (var vi = 0; vi < vesselCatalog.length; vi++) {
-        if (vesselCatalog[vi].DB === db) { catalogEntry = vesselCatalog[vi]; break; }
-      }
 
       // UT-seek for current records.
       var cdUT  = (index.craftdata  && index.craftdata.length)  ? seekToUT(index.craftdata,  ut) : null;
@@ -1431,7 +1402,7 @@ const KSA_DATA_SERVICE = (function () {
       var cmUT  = (index.comms      && index.comms.length)      ? seekToUT(index.comms,      ut) : null;
       var fdUT  = (index.flightdata && index.flightdata.length) ? seekToUT(index.flightdata, ut) : null;
       var ptUT  = (index.ports      && index.ports.length)      ? seekToUT(index.ports,      ut) : null;
-      // Future-guard: seekToUT returns utArray[0] when all UTs > targetUT; null those out.
+      // Future-guard: null out UTs that are still in the future.
       if (cdUT  !== null && cdUT  > ut) cdUT  = null;
       if (resUT !== null && resUT > ut) resUT = null;
       if (mnUT  !== null && mnUT  > ut) mnUT  = null;
@@ -1447,200 +1418,107 @@ const KSA_DATA_SERVICE = (function () {
       var futFdUT  = (index.flightdata && index.flightdata.length) ? getNextUT(index.flightdata, ut) : null;
       var futPtUT  = (index.ports      && index.ports.length)      ? getNextUT(index.ports,      ut) : null;
 
-      var allCraftdataUTs  = (index.craftdata  || []);
-      var allFlightdataUTs = (index.flightdata || []);
-
-      var fetches = [
-        cdUT    !== null ? fetchJson(dbFilePath(db, 'craftdata',  cdUT))['catch'](function () { return null; })  : Promise.resolve(null),
-        resUT   !== null ? fetchJson(dbFilePath(db, 'resources',  resUT))['catch'](function () { return null; }) : Promise.resolve(null),
-        mnUT    !== null ? fetchJson(dbFilePath(db, 'manifest',   mnUT))['catch'](function () { return null; })  : Promise.resolve(null),
-        cmUT    !== null ? fetchJson(dbFilePath(db, 'comms',      cmUT))['catch'](function () { return null; })  : Promise.resolve(null),
-        fdUT    !== null ? fetchJson(dbFilePath(db, 'flightdata', fdUT))['catch'](function () { return null; })  : Promise.resolve(null),
-        ptUT    !== null ? fetchJson(dbFilePath(db, 'ports',      ptUT))['catch'](function () { return null; })  : Promise.resolve(null),
-        futCdUT  !== null ? fetchJson(dbFilePath(db, 'craftdata',  futCdUT))['catch'](function () { return null; })  : Promise.resolve(null),
-        futResUT !== null ? fetchJson(dbFilePath(db, 'resources',  futResUT))['catch'](function () { return null; }) : Promise.resolve(null),
-        futMnUT  !== null ? fetchJson(dbFilePath(db, 'manifest',   futMnUT))['catch'](function () { return null; })  : Promise.resolve(null),
-        futCmUT  !== null ? fetchJson(dbFilePath(db, 'comms',      futCmUT))['catch'](function () { return null; })  : Promise.resolve(null),
-        futFdUT  !== null ? fetchJson(dbFilePath(db, 'flightdata', futFdUT))['catch'](function () { return null; })  : Promise.resolve(null),
-        futPtUT  !== null ? fetchJson(dbFilePath(db, 'ports',      futPtUT))['catch'](function () { return null; })  : Promise.resolve(null)
-      ];
-
-      var historyFetches = allCraftdataUTs.map(function (hUT) {
-        return fetchJson(dbFilePath(db, 'craftdata', hUT))['catch'](function () { return null; });
+      return Promise.all([
+        cdUT    !== null ? fetchJson(jsonDbFilePath(db, 'craftdata',  cdUT))['catch'](function () { return null; })   : Promise.resolve(null),
+        resUT   !== null ? fetchJson(jsonDbFilePath(db, 'resources',  resUT))['catch'](function () { return null; })  : Promise.resolve(null),
+        mnUT    !== null ? fetchJson(jsonDbFilePath(db, 'manifest',   mnUT))['catch'](function () { return null; })   : Promise.resolve(null),
+        cmUT    !== null ? fetchJson(jsonDbFilePath(db, 'comms',      cmUT))['catch'](function () { return null; })   : Promise.resolve(null),
+        fdUT    !== null ? fetchJson(jsonDbFilePath(db, 'flightdata', fdUT))['catch'](function () { return null; })   : Promise.resolve(null),
+        ptUT    !== null ? fetchJson(jsonDbFilePath(db, 'ports',      ptUT))['catch'](function () { return null; })   : Promise.resolve(null),
+        futCdUT  !== null ? fetchJson(jsonDbFilePath(db, 'craftdata',  futCdUT))['catch'](function () { return null; })  : Promise.resolve(null),
+        futResUT !== null ? fetchJson(jsonDbFilePath(db, 'resources',  futResUT))['catch'](function () { return null; }) : Promise.resolve(null),
+        futMnUT  !== null ? fetchJson(jsonDbFilePath(db, 'manifest',   futMnUT))['catch'](function () { return null; })  : Promise.resolve(null),
+        futCmUT  !== null ? fetchJson(jsonDbFilePath(db, 'comms',      futCmUT))['catch'](function () { return null; })  : Promise.resolve(null),
+        futFdUT  !== null ? fetchJson(jsonDbFilePath(db, 'flightdata', futFdUT))['catch'](function () { return null; })  : Promise.resolve(null),
+        futPtUT  !== null ? fetchJson(jsonDbFilePath(db, 'ports',      futPtUT))['catch'](function () { return null; })  : Promise.resolve(null)
+      ]).then(function (fetched) {
+        var catalogEntry = null;
+        for (var vi = 0; vi < vesselCatalog.length; vi++) {
+          if (vesselCatalog[vi].DB === db) { catalogEntry = vesselCatalog[vi]; break; }
+        }
+        return {
+          catalogEntry: catalogEntry,
+          craftRecord:  fetched[0],
+          resRecord:    fetched[1],
+          mnRecord:     fetched[2],
+          cmRecord:     fetched[3],
+          fdRecord:     fetched[4],
+          ptRecord:     fetched[5],
+          futCdRecord:  fetched[6],
+          futResRecord: fetched[7],
+          futMnRecord:  fetched[8],
+          futCmRecord:  fetched[9],
+          futFdRecord:  fetched[10],
+          futPtRecord:  fetched[11]
+        };
       });
-      var orbitHistFetches = allFlightdataUTs.map(function (hUT) {
-        return fetchJson(dbFilePath(db, 'flightdata', hUT))['catch'](function () { return null; });
-      });
-
-      return Promise.all(fetches.concat(historyFetches).concat(orbitHistFetches))
-        .then(function (fetched) {
-          var nHistory  = allCraftdataUTs.length;
-          var nOrbitHis = allFlightdataUTs.length;
-          return {
-            catalogEntry: catalogEntry,
-            ascentRows:   ascentRows,
-            launchRows:   launchRows,
-            craftRecord:  fetched[0],
-            resRecord:    fetched[1],
-            mnRecord:     fetched[2],
-            cmRecord:     fetched[3],
-            fdRecord:     fetched[4],
-            ptRecord:     fetched[5],
-            futCdRecord:  fetched[6],
-            futResRecord: fetched[7],
-            futMnRecord:  fetched[8],
-            futCmRecord:  fetched[9],
-            futFdRecord:  fetched[10],
-            futPtRecord:  fetched[11],
-            allCraftdata:  fetched.slice(12, 12 + nHistory),
-            allFlightdata: fetched.slice(12 + nHistory, 12 + nHistory + nOrbitHis)
-          };
-        });
     }).then(function (d) {
-
-      // --- Catalog ---
-      var catalogRs = objToRs(d.catalogEntry);
-
-      // --- Ascent data: full pipe-delimited record rows (or "null") ---
-      var ascentSeg = (d.ascentRows && d.ascentRows.length > 0)
-        ? d.ascentRows.map(objToRs).join('|')
-        : 'null';
-
-      // --- Current craftdata + PastEvent~false (pastUT is always NaN at call sites) ---
-      var cdRs = d.craftRecord
-        ? objToRs(d.craftRecord) + '`PastEvent~false'
-        : 'null';
-
-      // --- Current resources + NotNull (AND logic: field !== 'UT' AND non-empty) ---
-      var resRs;
-      if (d.resRecord) {
+      // Resources: add NotNull — true if any non-UT field has a value.
+      var resRecord = d.resRecord;
+      if (resRecord) {
         var resNotNull = false;
-        var resKeys = Object.keys(d.resRecord);
+        var resKeys = Object.keys(resRecord);
         for (var ri = 0; ri < resKeys.length; ri++) {
           var rk = resKeys[ri];
-          if (rk !== 'UT' && d.resRecord[rk] !== null && d.resRecord[rk] !== undefined && d.resRecord[rk] !== '') {
+          if (rk !== 'UT' && resRecord[rk] !== null && resRecord[rk] !== undefined && resRecord[rk] !== '') {
             resNotNull = true; break;
           }
         }
-        resRs = objToRs(d.resRecord) + '`NotNull~' + _boolStr(resNotNull);
-      } else {
-        resRs = 'null';
+        resRecord = Object.assign({}, resRecord, { NotNull: resNotNull });
       }
 
-      // --- Current manifest ---
-      var mnRs = d.mnRecord ? objToRs(d.mnRecord) : 'null';
-
-      // --- Current comms + NotNull (any non-empty value → True, per ASP OR logic) ---
-      var cmRs;
-      if (d.cmRecord) {
-        var cmNotNull = false;
-        var cmKeys = Object.keys(d.cmRecord);
-        for (var ci = 0; ci < cmKeys.length; ci++) {
-          if (d.cmRecord[cmKeys[ci]] !== null && d.cmRecord[cmKeys[ci]] !== undefined && d.cmRecord[cmKeys[ci]] !== '') {
-            cmNotNull = true; break;
-          }
-        }
-        cmRs = objToRs(d.cmRecord) + '`NotNull~' + _boolStr(cmNotNull);
-      } else {
-        cmRs = 'null';
+      // Comms: add NotNull — true if the Comms array is non-empty.
+      var cmRecord = d.cmRecord;
+      if (cmRecord) {
+        var cmNotNull = !!(cmRecord.Comms && cmRecord.Comms.length > 0);
+        cmRecord = Object.assign({}, cmRecord, { NotNull: cmNotNull });
       }
 
-      // --- Current flightdata and ports ---
-      var fdRs = d.fdRecord ? objToRs(d.fdRecord) : 'null';
-      var ptRs = d.ptRecord ? objToRs(d.ptRecord) : 'null';
-
-      var currentSeg = cdRs + '^' + resRs + '^' + mnRs + '^' + cmRs + '^' + fdRs + '^' + ptRs;
-
-      // --- Future craftdata (no PastEvent) ---
-      var futCdRs = d.futCdRecord ? objToRs(d.futCdRecord) : 'null';
-
-      // --- Future resources + NotNull (AND logic: field !== 'UT' AND non-empty) ---
-      var futResRs;
-      if (d.futResRecord) {
+      // Future resources: add NotNull.
+      var futResRecord = d.futResRecord;
+      if (futResRecord) {
         var futResNotNull = false;
-        var futResKeys = Object.keys(d.futResRecord);
+        var futResKeys = Object.keys(futResRecord);
         for (var fri = 0; fri < futResKeys.length; fri++) {
           var frk = futResKeys[fri];
-          if (frk !== 'UT' && d.futResRecord[frk] !== null && d.futResRecord[frk] !== undefined && d.futResRecord[frk] !== '') {
+          if (frk !== 'UT' && futResRecord[frk] !== null && futResRecord[frk] !== undefined && futResRecord[frk] !== '') {
             futResNotNull = true; break;
           }
         }
-        futResRs = objToRs(d.futResRecord) + '`NotNull~' + _boolStr(futResNotNull);
-      } else {
-        futResRs = 'null';
+        futResRecord = Object.assign({}, futResRecord, { NotNull: futResNotNull });
       }
 
-      // --- Future manifest ---
-      var futMnRs = d.futMnRecord ? objToRs(d.futMnRecord) : 'null';
+      // Future comms: add NotNull.
+      var futCmRecord = d.futCmRecord;
+      if (futCmRecord) {
+        var futCmNotNull = !!(futCmRecord.Comms && futCmRecord.Comms.length > 0);
+        futCmRecord = Object.assign({}, futCmRecord, { NotNull: futCmNotNull });
+      }
 
-      // --- Future comms + NotNull (AND logic: field !== 'UT' AND non-empty, per ASP future branch) ---
-      var futCmRs;
-      if (d.futCmRecord) {
-        var futCmNotNull = false;
-        var futCmKeys = Object.keys(d.futCmRecord);
-        for (var fci = 0; fci < futCmKeys.length; fci++) {
-          var fck = futCmKeys[fci];
-          if (fck !== 'UT' && d.futCmRecord[fck] !== null && d.futCmRecord[fck] !== undefined && d.futCmRecord[fck] !== '') {
-            futCmNotNull = true; break;
-          }
+      // Orbit (flightdata): normalize keys to strip spaces.
+      var orbitRecord    = _normalizeKeys(d.fdRecord);
+      var futOrbitRecord = _normalizeKeys(d.futFdRecord);
+
+      _trackAndInvoke(label, callback, {
+        type: 'vessel',
+        id:   db,
+        current: {
+          CraftData: d.craftRecord ? { UT: d.craftRecord.UT } : { UT: 0 },
+          Resources: resRecord     ? { UT: resRecord.UT }     : { UT: 0 },
+          Manifest:  d.mnRecord    ? { UT: d.mnRecord.UT }    : { UT: 0 },
+          Comms:     cmRecord      ? { UT: cmRecord.UT }      : { UT: 0 },
+          Orbit:     orbitRecord   ? { UT: orbitRecord.UT }   : { UT: 0 },
+          Ports:     d.ptRecord    ? { UT: d.ptRecord.UT }    : { UT: 0 }
+        },
+        future: {
+          CraftData: d.futCdRecord  || null,
+          Resources: futResRecord   || null,
+          Manifest:  d.futMnRecord  || null,
+          Comms:     futCmRecord    || null,
+          Orbit:     futOrbitRecord || null,
+          Ports:     d.futPtRecord  || null
         }
-        futCmRs = objToRs(d.futCmRecord) + '`NotNull~' + _boolStr(futCmNotNull);
-      } else {
-        futCmRs = 'null';
-      }
-
-      // --- Future flightdata and ports ---
-      var futFdRs = d.futFdRecord ? objToRs(d.futFdRecord) : 'null';
-      var futPtRs = d.futPtRecord ? objToRs(d.futPtRecord) : 'null';
-
-      var futureSeg = futCdRs + '^' + futResRs + '^' + futMnRs + '^' + futCmRs + '^' + futFdRs + '^' + futPtRs;
-
-      // --- Event history: all craftdata records sorted by UT (UT~CraftDescTitle|…) ---
-      var historyItems = d.allCraftdata
-        .filter(function (r) { return r !== null; })
-        .sort(function (a, b) { return a.UT - b.UT; });
-      var historySeg = historyItems
-        .map(function (r) { return r.UT + '~' + (r.CraftDescTitle || ''); })
-        .join('|');
-
-      // --- Launch times ---
-      var launchSeg;
-      if (d.launchRows && d.launchRows.length > 0) {
-        launchSeg = d.launchRows
-          .map(function (r) { return r.UT + '~' + (r.LaunchTime !== null && r.LaunchTime !== undefined ? r.LaunchTime : ''); })
-          .join('|');
-      } else {
-        launchSeg = 'null';
-      }
-
-      // --- Orbital period history: all flightdata records sorted by UT (UT~Period|…) ---
-      var orbitHistItems = d.allFlightdata
-        .filter(function (r) { return r !== null; })
-        .sort(function (a, b) { return a.UT - b.UT; });
-      var orbitHistSeg;
-      if (orbitHistItems.length > 0) {
-        orbitHistSeg = orbitHistItems
-          .map(function (r) {
-            var period = (r['Orbital Period'] !== null && r['Orbital Period'] !== undefined)
-              ? r['Orbital Period'] : '';
-            return r.UT + '~' + period;
-          })
-          .join('|');
-      } else {
-        orbitHistSeg = 'null';
-      }
-
-      var rs = db + 'Typ3vessel' +
-               catalogRs  + '*' +
-               ascentSeg  + '*' +
-               currentSeg + '*' +
-               futureSeg  + '*' +
-               historySeg + '*' +
-               launchSeg  + '*' +
-               orbitHistSeg;
-
-      _parity(label, rs);
-      dbResponse({ responseText: rs }, label, callback, data);
+      }, data);
     })['catch'](function (err) {
       var idx = KSA_UI_STATE.dataLoadQueue.indexOf(label);
       if (idx > -1) KSA_UI_STATE.dataLoadQueue.splice(idx, 1);
