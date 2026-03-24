@@ -111,8 +111,11 @@ function loadMenuAJAX(result) {
       { id: 'inactiveVessels', text: 'Inactive Vessels', expanded: false, group: true, count: null},
       { id: 'crew', text: 'Crew Roster', expanded: false, group: true, count: null,
         nodes: [ { id: 'crewFull', text: 'Full Roster', img: 'icon-crew', icon: 'w2ui-icon icon-crew'}]},
-      { id: 'dsn', text: 'Deep Space Network', expanded: false, group: true, count: null,
-        nodes: [ { id: 'dsnInfo', text: 'More Information', img: 'icon-dish', icon: 'w2ui-icon icon-dish'}]}
+      { id: 'xnet', text: 'External Networks', expanded: false, group: true, count: null,
+        nodes: [ 
+          { id: 'atn', text: 'Asteroid Tracking Network', img: 'icon-atn', icon: 'w2ui-icon icon-atn'},
+          { id: 'dsn', text: 'Deep Space Network', img: 'icon-dish', icon: 'w2ui-icon icon-dish'}
+        ]}
     ],
 
     // the type of node image will tell us what to load
@@ -122,14 +125,18 @@ function loadMenuAJAX(result) {
       if (ops.surface.isLoading) return;
 
       if (event.object.img.includes("body")) {
-        if (event.object.parent.id == "inactiveVessels") swapContent("body", event.object.text.split(" ")[0] + "-System");
-        else swapContent("body", event.object.text.split(" ")[0]);
+
+        // split the "body (n)" text to get the body name
+        swapContent("body", event.object.text.split(" ")[0]);
       } 
       else if (event.object.img.includes("crew") && event.object.id != "crewFull") swapContent("crew", event.object.id);
       else if (event.object.img.includes("crew") && event.object.id == "crewFull") swapContent("crewFull", event.object.id);
         
       // when loading aircraft, ensure that it wasn't the aircraft Type folder that was clicked  and that a current load isn't already in progress
       else if (event.object.img.includes("aircraft") && event.object.parent.id != "inactiveVessels") loadFlt(event.object.id);
+
+      // Asteroid Tracking Network
+      else if (event.object.img.includes("atn")) console.log("ATN menu item clicked - load ATN content here");
 
       // for now, we link to another page for the DSN
       else if (event.object.img.includes("dish")) window.open("http://www.kerbalspace.agency/?p=3736");
@@ -158,7 +165,7 @@ function loadMenuAJAX(result) {
     
       // wait a moment to allow menu contents to expand after showing the nodes
       if (event.target == 'crew') setTimeout(function() { w2ui['menu'].scrollIntoView('crewFull'); }, 150);
-      else if (event.target == 'dsn') setTimeout(function() { w2ui['menu'].scrollIntoView('dsnInfo'); }, 150);
+      else if (event.target == 'xnet') setTimeout(function() { w2ui['menu'].scrollIntoView('atn'); }, 150);
       else if (event.target == 'inactiveVessels') setTimeout(function() { w2ui['menu'].scrollIntoView(event.object.nodes[0].id); }, 150);
     },
     onRender: function () {

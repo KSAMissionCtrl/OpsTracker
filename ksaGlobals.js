@@ -352,6 +352,18 @@ const KSA_COLORS = {
     station: "#B200FF",
     asteroid: "#996633"
   },
+
+  // asteroid colors by category
+  asteroidColors: {
+    NKO: "#FF0000",
+    Inner: "#FFC000",
+    MBA: "#996633",
+    Trojan: "#00B050",
+    KBO: "#FF00FF",
+    CometS: "#366092",
+    CometL: "#00B0F0",
+    Centaur: "#7030A0",
+  },
   
   // Vessel orbit path colors (3 paths)
   vesselOrbitColors: [

@@ -905,7 +905,7 @@ function loadBody(body = "Kerbol-System", flt) {
   // only do any of this if the current page is set to body
   // if not, a vessel page is changing the figure because the current vessel body was not loaded
   if (ops.pageType == "body") {
-    if (!body.includes("-") && (ops.bodyCatalog.find(o => o.Body === body.split("-")[0]).Moons || body.split("-")[0] == "Kerbol")) body += "-System";
+    if (!body.includes("-") && (ops.bodyCatalog.find(o => o.Body === body).Moons || body == "Kerbol")) body += "-System";
     $("#contentHeader").spin(false);
     $("#tags").fadeIn();
     $("#contentTitle").html(sanitizeHTML(body.replace("-", " ")));

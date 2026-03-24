@@ -575,6 +575,15 @@ function setupContent() {
     e.preventDefault();
     openObjectTags("https://www.flickr.com/search/?user_id=kerbal_space_agency&view_all=1&tags=(", "+OR+", ")+-archive");
   });
+
+  // enable tooltip for the footer
+  Tipped.create('.icontip', { 
+    showOn: showOpt, 
+    hideOnClickOutside: is_touch_device(), 
+    detach: false, 
+    hideOn: {element: 'mouseleave'},
+    position: 'top'
+  });
   
   // Setup hover handler for change indicators (except those marked no-hover)
   $(document).on('mouseenter', '.change-indicator:not(.no-hover)', function() {
