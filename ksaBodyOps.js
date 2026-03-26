@@ -28,6 +28,7 @@ var _sceneKeydownHandler  = null; // stored for removal in disposeScene
 var _sceneKeyupHandler    = null;
 var threeSunLight         = null; // PointLight (Kerbol-system) or DirectionalLight (planet/moon system)
 var _sunOrbitalElements   = null; // orbital elements used to recompute DirectionalLight direction per tick
+var _atnBodyMaxSMA        = 0;    // largest planet SMA in the Kerbol system; set by buildBodyScene() for ATN camera framing (used by resetFigure)
 
 // Apply one frame of keyboard-driven camera movement.
 //   Plain arrows:  ArrowLeft/Right yaw,  ArrowUp/Down pitch.
@@ -179,6 +180,7 @@ function initScene(width, height) {
   // Render loop
   function animate() {
     threeAnimFrameId = requestAnimationFrame(animate);
+
     threeControls.update();
     _applyKeyNavigation();
     _updateBodySphereScales();
@@ -255,6 +257,23 @@ function _setVisible(obj, vis) {
 // Create a CSS2DObject label div for use as a body/vessel name overlay.
 // offsetX/offsetY (optional) are pixel values applied as CSS margin to shift the
 // label in screen space — used to separate co-located node labels (Pe/Ap/AN/DN).
+
+// Apply the current checkbox state to a newly-added orbit/asteroid entry so its
+// meshes are immediately in the correct visible state — no reliance on declutterScene().
+function _applyOrbitVisibility(entry) {
+  if (!entry || !entry.meshes) return;
+  var showOrbits = $("#orbits").is(":checked");
+  var showNodes  = showOrbits && $("#nodes").is(":checked");
+  var showLabels = $("#labels").is(":checked");
+  _setVisible(entry.meshes.orbit,  showOrbits);
+  _setVisible(entry.meshes.penode, showNodes);
+  _setVisible(entry.meshes.apnode, showNodes);
+  _setVisible(entry.meshes.anode,  showNodes);
+  _setVisible(entry.meshes.dnode,  showNodes);
+  _setVisible(entry.meshes.label,  showLabels);
+  // SOI and position sphere keep the Three.js default (visible) — handled by other systems
+}
+
 function _makeBodyLabel(text, colorHex, offsetX, offsetY) {
   var div = document.createElement('div');
   div.className = 'three-label';
@@ -495,6 +514,7 @@ var _SPHERE_REL_EXP         = 0.75; // relative-size exponent: 0 = all equal, 1 
 var _SPHERE_CENTRAL_CAP     = 0.40; // central body display radius capped at this fraction of the innermost child orbit SMA
 var _NODE_PX                = 2.5;    // target screen-pixel radius for Pe/Ap/AN/DN node markers
 var _POSITION_PX            = 4;    // target screen-pixel radius for vessel position markers
+var _POSITION_PX_DEFAULT    = _POSITION_PX; // saved so toggleSOI can restore it
 var _ATMO_DASH_KM              = 100;  // base dash length in scene units (km) at apparent size ≤ threshold (gap = half dash)
 var _ATMO_DASH_PX_THRESHOLD    = 100;  // central body apparent screen-pixel radius above which dashes start shrinking (raise to kick in sooner/further out)
 var _ATMO_DASH_SCALE_DECAY     = 1.5; // exponent: 1 = linear shrink, 2 = faster, 0.5 = slower
@@ -517,7 +537,7 @@ function _updateBodySphereScales() {
     var physR = sphere.userData.physicalRadius;
     if (!(physR > 0)) return;
 
-    if (_soiEnabled) {
+    if (_soiEnabled) {2
       // SOI on: render at true physical radius (scale = 1)
       sphere.scale.setScalar(1);
     } else {
@@ -557,11 +577,13 @@ function _updateBodySphereScales() {
     }
   });
 
-  // Scale all node markers (Pe/Ap/AN/DN) and vessel position markers to a
-  // constant pixel size regardless of zoom level.
-  var nodeRef = threeNodeRadius || 1;
-  var nodeScale     = _NODE_PX     * worldPerPx / nodeRef;
-  var posScale      = _POSITION_PX * worldPerPx / (nodeRef * 1.5);
+  // Scale all node markers (Pe/Ap/AN/DN) and vessel/asteroid position markers.
+  // Node markers use the global worldPerPx (they sit on orbits near the target).
+  // Position spheres use their own distance to the camera so they maintain a
+  // constant *apparent* size regardless of where they are in the scene.
+  var nodeRef   = threeNodeRadius || 1;
+  var nodeScale = _NODE_PX * worldPerPx / nodeRef;
+  var _posTmp   = new THREE.Vector3();   // reused each iteration, one alloc per frame
   ops.orbits.forEach(function(entry) {
     if (!entry.meshes) return;
     var nodes = [entry.meshes.penode, entry.meshes.apnode,
@@ -569,7 +591,13 @@ function _updateBodySphereScales() {
     nodes.forEach(function(mesh) {
       if (mesh) mesh.scale.setScalar(nodeScale);
     });
-    if (entry.meshes.position) entry.meshes.position.scale.setScalar(posScale);
+    if (entry.meshes.position) {
+      var pm = entry.meshes.position;
+      pm.getWorldPosition(_posTmp);
+      var d      = Math.max(threeCamera.position.distanceTo(_posTmp), 1);
+      var posWPP = (2 * d * tanHalfFov) / viewH;
+      pm.scale.setScalar(_POSITION_PX * posWPP / (nodeRef * 1.5));
+    }
   });
 
   // Zoom-adaptive dash scaling: measure how large the central body actually appears on screen
@@ -640,6 +668,9 @@ function buildBodyScene() {
     if (s > maxSMA) maxSMA = s;
   });
   if (maxSMA === 0) maxSMA = Math.max(parseFloat(centralBodyData.Radius) * 10, 10000);
+
+  // Store the planet-only maxSMA for ATN camera framing (must happen before asteroids are added).
+  if (ops.pageType == "atn") _atnBodyMaxSMA = maxSMA;
 
   // Minimum radius for node markers (keeps them clickable at any zoom).
   var minSphereR = Math.max(maxSMA * 0.004, 1);
@@ -761,6 +792,7 @@ function buildBodyScene() {
     meshes: { sphere: cSphere, orbit: null, soi: cSoi, atmo: cAtmo, label: cLabel,
               penode: null, apnode: null, anode: null, dnode: null }
   });
+  _applyOrbitVisibility(ops.orbits[ops.orbits.length - 1]);
 
   // ── Child bodies ─────────────────────────────────────────────────────────
   childBodies.forEach(function(bodyData) {
@@ -858,6 +890,7 @@ function buildBodyScene() {
       meshes: { sphere: sphere, orbit: orbitLine, soi: soiMesh, atmo: atmoMesh, label: label,
                 penode: penode, apnode: apnode, anode: anode, dnode: dnode }
     });
+    _applyOrbitVisibility(ops.orbits[ops.orbits.length - 1]);
   });
 
   // Reference line along X-axis spanning the full scene width.
@@ -885,6 +918,282 @@ function buildBodyScene() {
 }
 
 // ---------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
+// Step 3: Resolve ATN index — finds the largest UT ≤ currUT() for each catalog.
+// Calls onReady(indexUTs) where indexUTs = { main, encounters, moonlets }.
+// Any catalog with no qualifying version gets null.
+// ---------------------------------------------------------------------------
+function loadATNIndex(onReady) {
+  var indexURL = "database/atn/atn_index.json.txt";
+  console.log('[loadATNIndex] Fetching', indexURL);
+  KSA_DATA_SERVICE.fetchJson(indexURL).then(function(data) {
+    var idx    = Array.isArray(data) ? data[0] : data;
+    var ut     = currUT();
+    var result = { main: null, encounters: null, moonlets: null };
+
+    ['main', 'encounters', 'moonlets'].forEach(function(key) {
+      var versions = idx[key];
+      if (!Array.isArray(versions)) return;
+      // Find the largest UT value that is ≤ current game time
+      var best = null;
+      versions.forEach(function(v) {
+        if (v <= ut && (best === null || v > best)) best = v;
+      });
+      result[key] = best;
+    });
+
+    // Cache for the session so Steps 4b/5 can reference it without re-fetching
+    KSA_CATALOGS.atnData.indexUTs = result;
+    console.log('[loadATNIndex] Resolved indexUTs:', JSON.stringify(result));
+    if (onReady) onReady(result);
+  })['catch'](function(err) {
+    console.error('[loadATNIndex] Failed to load index:', err);
+    if (onReady) onReady({ main: null, encounters: null, moonlets: null });
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Step 4: ATN page entry point
+// ---------------------------------------------------------------------------
+function loadATN() {
+
+  // ── Page title & UI chrome ────────────────────────────────────────────────
+  $("#contentHeader").spin(false);
+  $("#tags").fadeIn();
+  $("#contentTitle").html("Asteroid Tracking Network");
+  document.title = "KSA Operations Tracker - Asteroid Tracking Network";
+
+  // ── Persist history so browser back/forward works ────────────────────────
+  var strURL = "http://www.kerbalspace.agency/Tracker/tracker.html?body=atn";
+  if (!history.state) {
+    history.replaceState({type: "atn", id: "atn"}, document.title, strURL);
+  } else if (history.state.type !== "atn") {
+    history.pushState({type: "atn", id: "atn"}, document.title, strURL);
+  }
+
+  // ── Reset figure options to ATN starting state (only orbits checked) ──────
+  $("#nodes").prop('checked', false).prop('disabled', true);
+  $("#labels").prop('checked', false).prop('disabled', true);
+  $("#orbits").prop('checked', true).prop('disabled', true);
+  $("#ref").prop('checked', false).prop('disabled', true);
+  $("#soi").prop('checked', false).prop('disabled', true);
+
+  // ── Guard: no main catalog version ≤ currUT → ATN hasn't found asteroids yet
+  if (KSA_CATALOGS.atnData.indexUTs.main === null) {
+    $("#siteDialog").html("The Asteroid Tracking Network has yet to discover any asteroids.");
+    $("#siteDialog").dialog("option", { title: "ATN", buttons: [{ text: "Close", click: function() { $("#siteDialog").dialog("close"); }}] });
+    $("#siteDialog").dialog("open");
+    return;
+  }
+
+  // ── Step 4b: catalog already in memory — rebuild scene from cache ─────────
+  if (KSA_CATALOGS.atnData.loaded) {
+    loadBody("Kerbol");
+    return;
+  }
+
+  // ── Fresh load: stream catalog with progress, render all at once when done ─────
+  $("#vesselLoaderMsg").html("&nbsp;&nbsp;&nbsp;Loading ATN catalog: 0%");
+  $("#vesselLoaderMsg").spin({ scale: 0.35, position: 'relative', top: '8px', left: '0px' });
+  $("#vesselLoaderMsg").fadeIn();
+  loadBody("Kerbol");
+}
+
+// ---------------------------------------------------------------------------
+// Internal helpers: filter collection & single-asteroid scene render
+// ---------------------------------------------------------------------------
+
+function _collectATNFilters(record) {
+  var f = KSA_CATALOGS.atnData.filters;
+  if (!f.category) f.category = [];
+  if (!f.size)     f.size     = [];
+  if (!f.makeup)   f.makeup   = [];
+  if (!f.type)     f.type     = [];
+  if (!f.soicross) f.soicross = [];
+  if (record.Category && f.category.indexOf(record.Category) === -1) f.category.push(record.Category);
+  if (record.Class    && f.size    .indexOf(record.Class)     === -1) f.size    .push(record.Class);
+  if (record.Makeup   && f.makeup  .indexOf(record.Makeup)    === -1) f.makeup  .push(record.Makeup);
+  if (record.Type     && f.type    .indexOf(record.Type)      === -1) f.type    .push(record.Type);
+  if (Array.isArray(record.SOIcross)) {
+    record.SOIcross.forEach(function(b) {
+      if (f.soicross.indexOf(b) === -1) f.soicross.push(b);
+    });
+  }
+}
+
+function _renderAsteroid(record) {
+  var uid      = record.UID;
+  var orbitID  = uid.replace(/-/g, '').replace(/\s/g, '');
+  var colorKey = atnCategoryColorKey(record.Category);
+  var colorHex = (KSA_COLORS.asteroidColors[colorKey] || '#888888').replace('#', '');
+  var colorInt = parseInt(colorHex, 16);
+
+  // Orbital elements — same conversions as addOrbitAJAX
+  var ecc        = parseFloat(record.Ecc) || 0;
+  var sma        = (ecc >= 1) ? Math.abs(parseFloat(record.SMA) || 1)
+                              : (parseFloat(record.SMA) || 1);
+  var inc        = Math.radians(parseFloat(record.inc)  || 0);
+  var raan       = Math.radians(parseFloat(record.RAAN) || 0);
+  var arg        = Math.radians(parseFloat(record.Arg)  || 0);
+  var mean0      = toMeanAnomaly(Math.radians(parseFloat(record.TrueAnom) || 0), ecc);
+  var epoch      = parseFloat(record.Eph);
+  var period     = parseFloat(record.OrbitalPeriod);
+  var meanMotion = (period && period > 0) ? (2 * Math.PI) / period : 0;
+
+  // Current position
+  var ut      = currUT();
+  var meanNow = computeMeanAnomalyAtUT(mean0, meanMotion, ut, epoch, ecc);
+  var eccNow  = solveKeplerEquation(meanNow, ecc);
+  var posNow  = positionOnOrbit(sma, ecc, inc, raan, arg, eccNow);
+  var nodeR   = threeNodeRadius;
+
+  // Orbit line — no atmosphere clipping (atmoR = 0) for heliocentric Kerbol
+  var orbitLine = _buildOrbitGroup(
+    orbitalElementsToEllipsePoints(sma, ecc, inc, raan, arg, 128, 0),
+    colorInt, 0, orbitID
+  );
+  threeScene.add(orbitLine);
+
+  // Node markers (Pe/Ap for eccentric; AN/DN for inclined)
+  var nodePositions = computeNodePositions(sma, ecc, inc, raan, arg);
+  var penode = null, apnode = null, anode = null, dnode = null;
+  if (ecc) {
+    penode = _makeNodeMarker(nodePositions.periapsis, '0099ff', nodeR);
+    penode.add(_makeBodyLabel("Pe", '0099ff',  0,  14));
+    threeScene.add(penode);
+    if (nodePositions.apoapsis) {
+      apnode = _makeNodeMarker(nodePositions.apoapsis, '0099ff', nodeR);
+      apnode.add(_makeBodyLabel("Ap", '0099ff',  0, -14));
+      threeScene.add(apnode);
+    }
+  }
+  if (inc) {
+    if (nodePositions.ascendingNode) {
+      anode = _makeNodeMarker(nodePositions.ascendingNode,  '33ff00', nodeR);
+      anode.add(_makeBodyLabel("AN", '33ff00', -14,  0));
+      threeScene.add(anode);
+    }
+    if (nodePositions.descendingNode) {
+      dnode = _makeNodeMarker(nodePositions.descendingNode, '33ff00', nodeR);
+      dnode.add(_makeBodyLabel("DN", '33ff00',  14,  0));
+      threeScene.add(dnode);
+    }
+  }
+
+  // Position sphere
+  var posMesh = new THREE.Mesh(
+    new THREE.SphereGeometry(nodeR * 1.5, 8, 8),
+    new THREE.MeshBasicMaterial({ color: colorInt })
+  );
+  posMesh.position.copy(posNow);
+  posMesh.userData.orbitId = orbitID;
+  threeScene.add(posMesh);
+
+  // Label: "[UID]([Class])" e.g. "KHI-002(C)"
+  var label = _makeBodyLabel(uid + '(' + record.Class + ')', colorHex, 0, -13);
+  label.position.set(0, 0, 0);
+  posMesh.add(label);
+
+  // Register/update entry in ops.orbits[]
+  var entry = ops.orbits.find(function(o) { return o.id === orbitID; });
+  if (!entry) {
+    entry = { type: 'asteroid', id: orbitID, db: uid,
+              showName: false, showNodes: false, isSelected: false,
+              isHidden: false, obtLocked: false, meshes: null };
+    ops.orbits.push(entry);
+  }
+  entry.orbitElements = { sma: sma, ecc: ecc, inc: inc, raan: raan, arg: arg,
+                           mean0: mean0, meanMotion: meanMotion, epoch: epoch };
+  entry.meshes = {
+    sphere: null, orbit: orbitLine, soi: null, label: label,
+    penode: penode, apnode: apnode, anode: anode, dnode: dnode, position: posMesh
+  };
+  _applyOrbitVisibility(entry);
+}
+
+// ---------------------------------------------------------------------------
+// Step 4b: rebuild ATN scene from cached KSA_CATALOGS.atnData.roids[]
+// Called by onSceneReady() when atnData.loaded == true
+// ---------------------------------------------------------------------------
+// Render asteroids from roids[] in chunks of BATCH_SIZE, yielding to the
+// browser between each chunk (same pattern as orbitalCalc()). Calls onDone
+// when the last chunk finishes.
+function _populateATNScene(roids, ut, index, onDone) {
+  var BATCH_SIZE = 50;
+  var end = Math.min(index + BATCH_SIZE, roids.length);
+  for (var i = index; i < end; i++) {
+    if (roids[i].DiscoveryDate <= ut) _renderAsteroid(roids[i]);
+  }
+  var pct = roids.length > 0 ? Math.round(end / roids.length * 100) : 100;
+  $("#vesselLoaderMsg").html("&nbsp;&nbsp;&nbsp;Populating: " + pct + "%");
+  if (end < roids.length) {
+    if (ops.pageType !== "atn") return; // navigated away
+    setTimeout(_populateATNScene, 1, roids, ut, end, onDone);
+  } else {
+    onDone();
+  }
+}
+
+function rebuildATNScene() {
+  var ut = currUT();
+  $("#vesselLoaderMsg").spin(false);
+  $("#vesselLoaderMsg").html("&nbsp;&nbsp;&nbsp;Populating: 0%");
+  $("#vesselLoaderMsg").fadeIn();
+  _populateATNScene(KSA_CATALOGS.atnData.roids, ut, 0, function() {
+    $("#vesselLoaderMsg").fadeOut();
+    declutterScene();
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Step 5: stream ATN main catalog, report progress, then batch-render all at once
+// Called by onSceneReady() when atnData.loaded == false
+// ---------------------------------------------------------------------------
+function loadATNCatalog() {
+  var atnData = KSA_CATALOGS.atnData;
+  var url = "database/atn/main/atn_main_" + atnData.indexUTs.main + ".json.txt";
+  var ut  = currUT();
+
+  loadJsonTxt(url,
+
+    // Completion callback — fires when XHR is done; batch-render now
+    function(err) {
+      if (ops.pageType !== "atn") return;
+      if (err) console.error('[loadATNCatalog] Failed to load:', err);
+
+      $("#vesselLoaderMsg").spin(false);
+      $("#vesselLoaderMsg").html("&nbsp;&nbsp;&nbsp;Populating: 0%");
+
+      _populateATNScene(atnData.roids, ut, 0, function() {
+        atnData.loaded = true;
+        $("#vesselLoaderMsg").fadeOut();
+        declutterScene();
+      });
+    },
+
+    // Progress callback — update the loading percentage
+    function(loaded, total, lengthComputable) {
+      if (ops.pageType !== "atn") return;
+      if (lengthComputable && total > 0) {
+        var pct = Math.round(loaded / total * 100);
+        $("#vesselLoaderMsg").html("&nbsp;&nbsp;&nbsp;Loading ATN catalog: " + pct + "%");
+      }
+    },
+
+    // Item callback — collect data only; no rendering yet
+    function(record) {
+      if (record.Eph === null || record.Category === "Moonlet") return;
+      _collectATNFilters(record);
+      atnData.roids.push(record);
+      if (record.DiscoveryDate > ut) {
+        if (!ops.updateATN) ops.updateATN = [];
+        ops.updateATN.push(record);
+      }
+    }
+  );
+}
+
+// ---------------------------------------------------------------------------
 // load a new Three.js figure into the main content window
 // ---------------------------------------------------------------------------
 function loadBody(body = "Kerbol-System", flt) {
@@ -902,7 +1211,7 @@ function loadBody(body = "Kerbol-System", flt) {
   // hide the map just in case it's open
   hideMap();
 
-  // only do any of this if the current page is set to body
+  // only do any of this if the current page is set to body or atn
   // if not, a vessel page is changing the figure because the current vessel body was not loaded
   if (ops.pageType == "body") {
     if (!body.includes("-") && (ops.bodyCatalog.find(o => o.Body === body).Moons || body == "Kerbol")) body += "-System";
@@ -924,7 +1233,8 @@ function loadBody(body = "Kerbol-System", flt) {
     }
 
     // if body was already loaded & we are switching to it then just exit at this point
-    if (KSA_UI_STATE.is3JSLoaded && ops.bodyCatalog.find(o => o.selected === true) && ops.bodyCatalog.find(o => o.selected === true).Body == body.split("-")[0]) { 
+    // scene3JSContext must also be "body" — if it was built for ATN, a full rebuild is needed
+    if (KSA_UI_STATE.is3JSLoaded && KSA_UI_STATE.scene3JSContext == "body" && ops.bodyCatalog.find(o => o.selected === true) && ops.bodyCatalog.find(o => o.selected === true).Body == body.split("-")[0]) { 
 
       // if it was loaded behind a vessel page, show all the details for a bit
       if (KSA_UI_STATE.isDirty) {
@@ -934,6 +1244,11 @@ function loadBody(body = "Kerbol-System", flt) {
       return;
     }
   
+  // ATN page type drives loadBody("Kerbol") internally; skip title/history (already set by loadATN())
+  // Always rebuild the Kerbol scene fresh when entering ATN
+  } else if (ops.pageType == "atn") {
+    if (!body.includes("-") && (ops.bodyCatalog.find(o => o.Body === body).Moons || body == "Kerbol")) body += "-System";
+
   // if this is a vessel page calling the load then set a flag to let us know the figure will need to be reset next time it is shown
   } else if (ops.pageType == "vessel") KSA_UI_STATE.isDirty = true;
 
@@ -963,6 +1278,7 @@ function loadBody(body = "Kerbol-System", flt) {
   
   // hide and reset stuff
   $("#figureOptions").fadeOut();
+  KSA_UI_STATE.scene3JSContext = ops.pageType;
   KSA_UI_STATE.is3JSLoaded = false;
 
   // tear down any existing Three.js scene before creating a new one
@@ -975,10 +1291,9 @@ function loadBody(body = "Kerbol-System", flt) {
   // add the reset view button — hidden at load, revealed by declutterScene()
   $("#figure").append('<div id="threeResetBtn" style="position:absolute;top:8px;right:8px;display:none;cursor:pointer;font-size:18px;color:white;z-index:10;user-select:none;-webkit-user-select:none;-moz-user-select:none;-ms-user-select:none;" onclick="resetFigure()"><i class="fa-solid fa-rotate"></i></div>');
 
-  // hide it if this isn't a body page
-  if (ops.pageType != "body") $("#figure").hide();
+  // hide it if this isn't a body or atn page
+  if (ops.pageType != "body" && ops.pageType != "atn") $("#figure").hide();
 
-  // build the Three.js scene
   var figWidth  = w2utils.getSize("#contentBox", 'width');
   var figHeight = 885;
   initScene(figWidth, figHeight);
@@ -1181,16 +1496,30 @@ function onSceneReady() {
   
   // disable controls and checkboxes until scene is decluttered
   if (threeControls) threeControls.enabled = false;
-  $("#nodes").prop('checked', true).prop('disabled', true);
-  $("#labels").prop('checked', true).prop('disabled', true);
-  $("#orbits").prop('checked', true).prop('disabled', true);
-  $("#ref").prop('checked', true).prop('disabled', true);
-  $("#soi").prop('checked', true).prop('disabled', true);
+  if (ops.pageType == "atn") {
+    // ATN: just disable — don't re-check, leave states from previous declutter intact
+    $("#nodes").prop('disabled', true);
+    $("#labels").prop('disabled', true);
+    $("#orbits").prop('disabled', true);
+    $("#ref").prop('disabled', true);
+    $("#soi").prop('disabled', true);
+  } else {
+    $("#nodes").prop('checked', true).prop('disabled', true);
+    $("#labels").prop('checked', true).prop('disabled', true);
+    $("#orbits").prop('checked', true).prop('disabled', true);
+    $("#ref").prop('checked', true).prop('disabled', true);
+    $("#soi").prop('checked', true).prop('disabled', true);
+  }
 
   // disable the spinner & show checkboxes if this is the first load and not a vessel page call
   if (!KSA_UI_STATE.is3JSLoaded && ops.pageType == "body") { 
     $("#contentBox").spin(false); 
     $("#figureOptions").fadeIn();
+  }
+  // ATN: hide the contentBox spinner (replaced by vesselLoaderMsg progress bar)
+  if (ops.pageType == "atn") {
+    $("#contentBox").spin(false);
+    if (threeRenderer) threeRenderer.domElement.style.cursor = "wait";
   }
 
   // prepare to reload any orbiting objects
@@ -1217,17 +1546,31 @@ function onSceneReady() {
   if (strMenuID && (currBody.Moons || currBody.Body == "Kerbol")) strMenuID += "-System";
   if (strMenuID && ops.pageType == "body" && !window.location.href.includes("flt")) selectMenuItem(strMenuID);
     
-  // declutter the view after a few seconds
-  // make sure a quick figure switch doesn't declutter things too fast
-  clearTimeout(KSA_TIMERS.timeoutHandle);
-  KSA_TIMERS.timeoutHandle = setTimeout(declutterScene, 2500);
-
   // load additional data
   KSA_UI_STATE.is3JSLoaded = true;
   loadMap(currBody.Body);
-  if (!loadVesselOrbits()) { 
+
+  if (ops.pageType == "atn") {
+    // ATN: do not load vessel orbits; instead rebuild or stream the asteroid catalog.
+    // declutterScene() is called by rebuildATNScene()/loadATNCatalog() when ready.
+    // need to call declutterScene() early if the timer is still active tho
+    if (KSA_TIMERS.timeoutHandle) {
+      console.log("[onSceneReady] Clearing pending declutter timer before loading ATN catalog");
+      clearTimeout(KSA_TIMERS.timeoutHandle);
+      declutterScene(true);
+    }
     KSA_UI_STATE.is3JSRefreshing = false;
     activateEventLinks();
+    if (KSA_CATALOGS.atnData.loaded) rebuildATNScene();
+    else loadATNCatalog();
+  } else {
+    // Normal body page: declutter after a short delay then load vessel orbits
+    clearTimeout(KSA_TIMERS.timeoutHandle);
+    KSA_TIMERS.timeoutHandle = setTimeout(declutterScene, 2500);
+    if (!loadVesselOrbits()) { 
+      KSA_UI_STATE.is3JSRefreshing = false;
+      activateEventLinks();
+    }
   }
 }
 
@@ -1452,6 +1795,7 @@ function addOrbitAJAX(result) {
         dnode:    dnode,
         position: posMesh
       };
+      _applyOrbitVisibility(entry);
     }
   }
 
@@ -1594,8 +1938,11 @@ function onSceneRightClick(event) {
 }
 
 // just show only orbits after displaying everything possible to not leave people overwhelmed initially
-function declutterScene() {
+function declutterScene(hideOnly = false) {
   
+  // nullify to let anyone else know this has already happened
+  KSA_TIMERS.timeoutHandle = null;
+
   // hide scene elements
   _setVisible(threeRefLine, false);
   ops.orbits.forEach(function(item) {
@@ -1619,6 +1966,15 @@ function declutterScene() {
     }
   });
 
+  // exit early if we're just hiding elements but not re-enabling controls and checkboxes yet
+  if (hideOnly) return;
+
+  // ATN post-load: reveal figure controls, restore cursor
+  if (ops.pageType == "atn") {
+    if (threeRenderer) threeRenderer.domElement.style.cursor = "";
+    if (!window.location.href.includes("&map")) $("#figureOptions").fadeIn();
+  }
+
   // re-enable controls and uncheck/enable checkboxes now that scene is ready
   if (threeControls) threeControls.enabled = true;
   $("#nodes").prop('checked', false).prop('disabled', false);
@@ -1630,9 +1986,6 @@ function declutterScene() {
   // reveal the reset button and register its tooltip
   Tipped.create('#threeResetBtn', 'Reset figure', { showOn: 'mouseenter', hideOnClickOutside: false, position: 'left' });
   $("#threeResetBtn").show();
-  
-  // nullify to let anyone else know this has already happened
-  KSA_TIMERS.timeoutHandle = null;
 }
 
 // Reset the Three.js figure to the post-declutter state: camera at default top-down view,
@@ -1640,17 +1993,23 @@ function declutterScene() {
 function resetFigure() {
   if (!threeScene) return;
 
-  // recompute the same maxSMA used by buildBodyScene() so the camera fits all orbits
-  var maxSMA = 0;
-  ops.orbits.forEach(function(item) {
-    if (item.orbitElements && item.orbitElements.sma) {
-      var s = item.orbitElements.sma;
-      if (s > maxSMA) maxSMA = s;
+  // For ATN use the planet-only SMA stored by buildBodyScene() — iterating ops.orbits
+  // would pull in ~6,700 asteroid SMAs and zoom the camera out past Eeloo.
+  var maxSMA;
+  if (ops.pageType == "atn" && _atnBodyMaxSMA > 0) {
+    maxSMA = _atnBodyMaxSMA;
+  } else {
+    maxSMA = 0;
+    ops.orbits.forEach(function(item) {
+      if (item.orbitElements && item.orbitElements.sma) {
+        var s = item.orbitElements.sma;
+        if (s > maxSMA) maxSMA = s;
+      }
+    });
+    if (maxSMA === 0) {
+      var _cbd = ops.bodyCatalog.find(function(o) { return o.selected === true; });
+      maxSMA = _cbd ? Math.max(parseFloat(_cbd.Radius) * 10, 10000) : 10000;
     }
-  });
-  if (maxSMA === 0) {
-    var _cbd = ops.bodyCatalog.find(function(o) { return o.selected === true; });
-    maxSMA = _cbd ? Math.max(parseFloat(_cbd.Radius) * 10, 10000) : 10000;
   }
 
   // restore camera to the same top-down, full-system view used at initial load
@@ -1933,6 +2292,10 @@ function centerBody(bodyName) {
 // toggle orbital nodes for a specific body (called from the #figureDialog "Show/Hide Nodes" link)
 // handle Three.js scene display options
 function toggleNodes(isChecked) {
+
+  // do nothing on toggle on if this is an ATN scene
+  if (ops.pageType == "atn" && isChecked) return;
+
   var orbitsChecked = $("#orbits").is(":checked");
   ops.orbits.forEach(function(item) {
     if (!item.meshes) return;
@@ -1973,6 +2336,10 @@ function toggleOrbits(isChecked) {
       item.obtLocked = false;
       if (item.type == 'body' || !item.isHidden) _setVisible(item.meshes.orbit, true);
     });
+
+    // don't mess with nodes in an ATN scene
+    if (ops.pageType == "atn") return;
+
     // if nodes are also on, show them for items with visible orbits
     if ($("#nodes").is(":checked")) {
       ops.orbits.forEach(function(item) {
@@ -2046,6 +2413,9 @@ function filterVesselOrbits(id, checked) {
 
 function toggleSOI(isChecked) {
   _soiEnabled = isChecked;
+  // When SOI mode is on, shrink vessel/asteroid position markers to 1 px so they
+  // don't visually compete with the true-scale body and SOI spheres.
+  _POSITION_PX = isChecked ? 1 : _POSITION_PX_DEFAULT;
   // When switching off, revert body spheres to scale 1 so _updateBodySphereScales
   // picks up cleanly from the physical radius next frame.
   if (!isChecked) {
@@ -2090,7 +2460,7 @@ function updateOrbitalPositions(ut) {
           var _FMax      = 2 * Math.atanh(_sqrtRatio * Math.tan(_thetaMax / 2));
           var _inArc     = Math.abs(eccNow) <= _FMax;
           item.meshes.position.visible = _inArc;
-          if (item.meshes.label) item.meshes.label.visible = _inArc;
+          if (item.meshes.label) item.meshes.label.visible = _inArc && $("#labels").is(':checked');
         }
         item.meshes.position.position.copy(posNow);
       }

@@ -307,14 +307,15 @@ String.prototype.width = function(font) {
  * Each JSON object spans multiple lines, opening with '{' and closing with '},' or '}]'.
  * (.json.txt extension is used to avoid MIME type issues on the server.)
  *
- * Fetches and parses a line-delimited JSON.txt archive file used by the social archive.
- * The caller receives all parsed objects and is responsible for any filtering.
- *
- * @param {string} url - Full URL to the .json.txt file
- * @param {function} callback - Called with (err, objects[]) on completion
+ * @param {string}   url              - Full URL to the .json.txt file
+ * @param {function} callback         - Called with (err, objects[]) on completion
  * @param {function} [progressCallback] - Optional: called with (loaded, total, lengthComputable) during download
+ * @param {function} [itemCallback]   - Optional: called with each parsed object as it is decoded
+ *                                      during download, before the full file has arrived.
+ *                                      When provided, incremental parsing is active; otherwise
+ *                                      the full response is parsed in one pass after download.
  */
-function loadJsonTxt(url, callback, progressCallback) {
+function loadJsonTxt(url, callback, progressCallback, itemCallback) {
   // Date-based cache busting so same-day visits share the browser cache
   var cacheBuster = new Date().toISOString().split('T')[0];
   var urlWithCacheBuster = url + (url.indexOf('?') !== -1 ? '&_=' : '?_=') + cacheBuster;
@@ -322,55 +323,132 @@ function loadJsonTxt(url, callback, progressCallback) {
   var xhr = new XMLHttpRequest();
   xhr.open('GET', urlWithCacheBuster, true);
 
-  if (progressCallback) {
+  var objects = [];
+
+  if (itemCallback) {
+    // ── Incremental parse path ───────────────────────────────────────────────
+    // State shared across onprogress calls.
+    var _parseBuffer     = '';
+    var _insideObject    = false;
+    var _insideSubobj    = false;
+    var _processedLength = 0;
+    var _lineRemainder   = '';   // incomplete line held over from the previous chunk
+
+    // Run one raw line through the same state machine as the original batch parser.
+    function _processLine(line) {
+      var trimmed = line.trim();
+
+      if (trimmed.indexOf('{') === 0 && !_insideObject) {
+        _insideObject = true;
+        _parseBuffer  = '';
+      }
+
+      if (trimmed.indexOf('[') !== -1 && trimmed.indexOf(']') === -1 && _insideObject) {
+        _insideSubobj = true;
+      }
+
+      if (trimmed.indexOf(']') !== -1 && _insideSubobj) {
+        _insideSubobj = false;
+      }
+
+      if (!_insideSubobj && _insideObject && (trimmed === '},' || trimmed === '}]')) {
+        _parseBuffer += '}';
+        try {
+          var obj = JSON.parse(_parseBuffer);
+          objects.push(obj);
+          itemCallback(obj);
+        } catch (e) {
+          console.error('[loadJsonTxt] Parse error:', e, _parseBuffer.substring(0, 100));
+        }
+        _insideObject = false;
+        _parseBuffer  = '';
+      } else {
+        _parseBuffer += line;
+      }
+    }
+
+    // Process only the newly arrived text since the last onprogress call.
+    // Prepend any partial line left over from before, then hold the new tail.
+    function _processNewText(newText) {
+      var combined = _lineRemainder + newText;
+      var lines    = combined.split('\n');
+      _lineRemainder = lines.pop();            // last element may be an incomplete line
+      for (var i = 0; i < lines.length; i++) {
+        _processLine(lines[i]);
+      }
+    }
+
     xhr.onprogress = function(e) {
-      progressCallback(e.loaded, e.total, e.lengthComputable);
+      if (progressCallback) progressCallback(e.loaded, e.total, e.lengthComputable);
+      var newText      = xhr.responseText.slice(_processedLength);
+      _processedLength = xhr.responseText.length;
+      _processNewText(newText);
+    };
+
+    xhr.onload = function() {
+      if (xhr.status !== 200) {
+        callback(new Error('Failed to load: ' + url + ' (HTTP ' + xhr.status + ')'), null);
+        return;
+      }
+      // Flush text that arrived after the last onprogress event.
+      var remaining = xhr.responseText.slice(_processedLength);
+      _processNewText(remaining);
+      // Flush any trailing incomplete line (e.g. closing `}]` with no trailing newline).
+      if (_lineRemainder.trim()) _processLine(_lineRemainder);
+      callback(null, objects);
+    };
+
+  } else {
+    // ── Original batch-parse path (unchanged; used by all existing callers) ──
+    if (progressCallback) {
+      xhr.onprogress = function(e) {
+        progressCallback(e.loaded, e.total, e.lengthComputable);
+      };
+    }
+
+    xhr.onload = function() {
+      if (xhr.status !== 200) {
+        callback(new Error('Failed to load: ' + url + ' (HTTP ' + xhr.status + ')'), null);
+        return;
+      }
+
+      var lines = xhr.responseText.split('\n');
+      var buffer = '';
+      var insideObject = false;
+      var insideSubobj = false;
+
+      for (var i = 0; i < lines.length; i++) {
+        var trimmed = lines[i].trim();
+
+        if (trimmed.indexOf('{') === 0 && !insideObject) {
+          insideObject = true;
+          buffer = '';
+        }
+
+        if (trimmed.indexOf('[') !== -1 && trimmed.indexOf(']') === -1 && insideObject) {
+          insideSubobj = true;
+        }
+
+        if (trimmed.indexOf(']') !== -1 && insideSubobj) {
+          insideSubobj = false;
+        }
+
+        if (!insideSubobj && insideObject && (trimmed === '},' || trimmed === '}]')) {
+          buffer += '}';
+          try {
+            objects.push(JSON.parse(buffer));
+          } catch (e) {
+            console.error('[loadJsonTxt] Parse error:', e, buffer.substring(0, 100));
+          }
+          insideObject = false;
+        } else {
+          buffer += lines[i];
+        }
+      }
+
+      callback(null, objects);
     };
   }
-
-  xhr.onload = function() {
-    if (xhr.status !== 200) {
-      callback(new Error('Failed to load: ' + url + ' (HTTP ' + xhr.status + ')'), null);
-      return;
-    }
-
-    var objects = [];
-    var lines = xhr.responseText.split('\n');
-    var buffer = '';
-    var insideObject = false;
-    var insideSubobj = false;
-
-    for (var i = 0; i < lines.length; i++) {
-      var trimmed = lines[i].trim();
-
-      if (trimmed.indexOf('{') === 0 && !insideObject) {
-        insideObject = true;
-        buffer = '';
-      }
-
-      if (trimmed.indexOf('[') !== -1 && trimmed.indexOf(']') === -1 && insideObject) {
-        insideSubobj = true;
-      }
-
-      if (trimmed.indexOf(']') !== -1 && insideSubobj) {
-        insideSubobj = false;
-      }
-
-      if (!insideSubobj && insideObject && (trimmed === '},' || trimmed === '}]')) {
-        buffer += '}';
-        try {
-          objects.push(JSON.parse(buffer));
-        } catch (e) {
-          console.error('[loadJsonTxt] Parse error:', e, buffer.substring(0, 100));
-        }
-        insideObject = false;
-      } else {
-        buffer += lines[i];
-      }
-    }
-
-    callback(null, objects);
-  };
 
   xhr.onerror = function() {
     callback(new Error('Network error loading: ' + url), null);

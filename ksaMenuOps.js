@@ -136,7 +136,7 @@ function loadMenuAJAX(result) {
       else if (event.object.img.includes("aircraft") && event.object.parent.id != "inactiveVessels") loadFlt(event.object.id);
 
       // Asteroid Tracking Network
-      else if (event.object.img.includes("atn")) console.log("ATN menu item clicked - load ATN content here");
+      else if (event.object.img.includes("atn")) swapContent("atn", "Kerbol");
 
       // for now, we link to another page for the DSN
       else if (event.object.img.includes("dish")) window.open("http://www.kerbalspace.agency/?p=3736");

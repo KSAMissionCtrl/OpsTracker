@@ -59,6 +59,9 @@ var ops = {
   updatesList: [],        // all the updates to various vessels, crew and events that will happen next while the page is loaded
   updateData: [],         // precaches new data on all crew and vessels that are active and have updates that could occur while the page is loaded
   updateTweets: [],       // precaches the tweets for all updates to show while the page is loaded
+  updateATN: null,        // queue of ATN main-catalog records with DiscoveryDate > currUT(), processed one-by-one by the update chain
+  updateEncounters: null, // queue of future ATN encounter records, processed one-by-one by the update chain
+  updateMoonlets: null,   // queue of future ATN moonlet records, processed one-by-one by the update chain
   kbLinks: [],            // holds all kerballoon mission links prior to current UT for quick reference
   craftsMenu: [],         // holds all data for displaying vessels in the menu
                             // badged - bool
@@ -167,6 +170,7 @@ const KSA_UI_STATE = {
   isMenuSorted: false,           // when the menu has completed initial sorting
   is3JSLoaded: false,            // when the Three.js scene is ready to be displayed and updated
   is3JSRefreshing: false,        // when the Three.js scene is still loading any additional vessel orbits
+  scene3JSContext: null,         // pageType ("body" or "atn") that built the current Three.js scene
   dataLoadQueue: [],             // holds urls of multiple AJAX data loads for debug and load checks
   
   // Menu state
@@ -311,6 +315,14 @@ const KSA_CATALOGS = {
     bodyName: "",
     paths: [],
     layers: []
+  },
+
+  atnData: {            // persistent ATN catalog; survives page-type switches (only Three.js objects are disposed)
+    roids: [],            // full parsed main catalog records with DiscoveryDate <= currUT() at load time
+    filters: {},          // unique value sets keyed by field name, populated during catalog stream
+                            // { category: [], size: [], makeup: [], type: [], soicross: [] }
+    loaded: false,        // true once the full catalog stream has finished
+    loadingAborted: false // legacy; kept for safety but no longer used by batch loader
   }
 };
 
@@ -363,6 +375,7 @@ const KSA_COLORS = {
     CometS: "#366092",
     CometL: "#00B0F0",
     Centaur: "#7030A0",
+    Ejected: "#ffffff"
   },
   
   // Vessel orbit path colors (3 paths)
@@ -386,6 +399,16 @@ const KSA_COLORS = {
     "#FF8EDD"
   ]
 };
+
+// ------------------------------------------------------------------------------
+// ATN CATEGORY KEY MAPPER
+// ------------------------------------------------------------------------------
+// DB Category values use parentheses ("Comet(S)", "Comet(L)") but KSA_COLORS.asteroidColors
+// uses camelCase keys without parentheses. This function performs the translation.
+function atnCategoryColorKey(category) {
+  if (!category) return null;
+  return category.replace('(', '').replace(')', '');
+}
 
 // ------------------------------------------------------------------------------
 // SURFACE LOCATIONS MODULE

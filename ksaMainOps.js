@@ -22,7 +22,7 @@ window.onpopstate = function(event) {
   else swapContent(event.state.type, event.state.id, event.state.UT); 
 
   // make sure to do a menu selection in these instances where its not done intrinsically
-  if (event.state.type == "crewFull" || event.state.type == "body") selectMenuItem(event.state.id);
+  if (event.state.type == "crewFull" || event.state.type == "body" || event.state.type == "atn") selectMenuItem(event.state.id);
 }
 
 // ==============================================================================
@@ -463,6 +463,7 @@ function setupContent() {
   KSA_DATA_SERVICE.fetchBodyData(loadBodyAJAX);
   KSA_DATA_SERVICE.fetchPartsData(loadPartsAJAX);
   KSA_DATA_SERVICE.fetchMapData(-1, loadSurfaceUpdatesAJAX);
+  loadATNIndex();
   
   // JQuery UI theme the buttons used to page through mission history
   // diabled by default, will enable as needed when vessel loads
@@ -604,6 +605,7 @@ function setupContent() {
   // support older URLs that still load vessels by db
   if (getParameterByName("db") && getParameterByName("db") != "bodies") swapContent("vessel", getParameterByName("db"), paramUT);
   else if (getParameterByName("vessel")) swapContent("vessel", getParameterByName("vessel"), paramUT);
+  else if (getParameterByName("body") == "atn") swapContent("atn", "Kerbol", paramUT);
   else if (getParameterByName("body")) swapContent("body", getParameterByName("body"), paramUT);
   else if (getParameterByName("crew")) { 
     if (getParameterByName("crew") == "crewFull") swapContent("crewFull", getParameterByName("crew"));
@@ -671,6 +673,7 @@ function swapContent(newPageType, id, ut, flt) {
 
   // ignore any attempts to change content layout if request is to load what is already loaded (if something is already loaded)
   // but allow reload if currently viewing a past event and requesting new data
+  if (newPageType == "atn" && ops.pageType == "atn") return;
   if (ops.currentVessel && (newPageType == "vessel" && ops.pageType == "vessel" && ops.currentVessel.Catalog.DB == id) && ut == ops.currentVessel.CraftData.UT) return;
   if (ops.currentCrew && (newPageType == "crew" && ops.pageType == "crew" && ops.currentCrew.Background.Kerbal == id)) return;
   if (ops.bodyCatalog && (newPageType == "body" && ops.pageType == "body" && ops.bodyCatalog.find(o => o.selected === true).Body == id.replace("-System", ""))) {
@@ -735,6 +738,12 @@ function swapContent(newPageType, id, ut, flt) {
       $("#contentBox").css('height', '885px');
       $("#contentBox").fadeIn();
       loadBody(id);
+    }
+    if (newPageType == "atn") {
+      $("#contentBox").css('top', '40px');
+      $("#contentBox").css('height', '885px');
+      $("#contentBox").fadeIn();
+      loadATN();
     }
     if (newPageType == "vessel") {
 
@@ -816,6 +825,7 @@ function swapContent(newPageType, id, ut, flt) {
 
   // not a total content swap, just new data
   if (ops.pageType == newPageType) {
+    if (newPageType == "atn") return;
     if (newPageType == "body") loadBody(id, flt);
     if (newPageType == "vessel") loadVessel(id, ut);
     if (newPageType == "crew") loadCrew(id);
@@ -827,7 +837,7 @@ function swapContent(newPageType, id, ut, flt) {
     hideMap();
     $("#figureOptions").fadeOut();
     $("#vesselOrbitTypes").fadeOut();
-    $("#figure").fadeOut();
+    if (newPageType != "atn") $("#figure").fadeOut();
     $("#figureDialog").dialog("close");
     removeMapCloseButton();
     if (KSA_LAYERS.surfaceTracksDataLoad.bodiesTrackDataLoad) {
@@ -862,6 +872,13 @@ function swapContent(newPageType, id, ut, flt) {
     }
     $("#crewFooter").fadeOut();
     $("#infoDialog").dialog("close");
+  } else if (ops.pageType == "atn") {
+    hideMap();
+    $("#figureOptions").fadeOut();
+    $("#vesselOrbitTypes").fadeOut();
+    if (newPageType != "body") $("#figure").fadeOut();
+    $("#figureDialog").dialog("close");
+    removeMapCloseButton();
   } else if (ops.pageType == "crewFull") {
     $("#fullRoster").fadeOut();
   }
@@ -877,7 +894,7 @@ function swapContent(newPageType, id, ut, flt) {
       if (!window.location.href.includes("&map")) {
         $("#figureOptions").fadeIn();
         if (!KSA_UI_STATE.isMapShown && (!$("#asteroid-filter").prop("disabled") || !$("#debris-filter").prop("disabled") || !$("#probe-filter").prop("disabled") || !$("#ship-filter").prop("disabled") || !$("#station-filter").prop("disabled"))) $("#vesselOrbitTypes").fadeIn();
-        $("#figure").fadeIn();
+        if (!$("#figure").is(":visible")) $("#figure").fadeIn();
       }
       $("#contentBox").fadeIn();
       if (KSA_LAYERS.groundMarkers.layerPins) {
@@ -907,6 +924,17 @@ function swapContent(newPageType, id, ut, flt) {
     $("#contentBox").fadeOut();
     $("#missionHistory").fadeOut();
     loadCrew(id);
+  } else if (ops.pageType == "atn") {
+    if ($("#twitterTimelineSelection").html().includes("|")) swapTwitterSource();
+    raiseContent();
+    setTimeout(function() {
+      if (!window.location.href.includes("&map")) {
+        $("#figureOptions").fadeIn();
+        if (!$("#figure").is(":visible")) $("#figure").fadeIn();
+      }
+      $("#contentBox").fadeIn();
+      loadATN();
+    }, 600);
   } else if (ops.pageType == "crewFull") {
     raiseContent();
     $("#infoBox").fadeOut();
@@ -1361,7 +1389,8 @@ function tick(utDelta = 1000, rapidFireMode = false) {
   }
 
   // update the dynamic orbit figure
-  if (KSA_UI_STATE.is3JSLoaded) updateOrbitalPositions(currUT());
+  // unless we are viewing the ATN page which has thousands of objects and per-second updates are worthless at that scale
+  if (KSA_UI_STATE.is3JSLoaded && ops.pageType != "atn") updateOrbitalPositions(currUT());
   
   // is there a loaded vessel we need to monitor?
   if (ops.currentVessel && ops.pageType == "vessel") {
