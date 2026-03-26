@@ -876,8 +876,10 @@ function swapContent(newPageType, id, ut, flt) {
     hideMap();
     $("#figureOptions").fadeOut();
     $("#vesselOrbitTypes").fadeOut();
+    $("#atnFilterControls").hide();
     if (newPageType != "body") $("#figure").fadeOut();
     $("#figureDialog").dialog("close");
+    $("#siteDialog").dialog("close");
     removeMapCloseButton();
   } else if (ops.pageType == "crewFull") {
     $("#fullRoster").fadeOut();

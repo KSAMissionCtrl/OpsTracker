@@ -378,6 +378,24 @@ input:disabled+label {
   margin-right: 5px;
 }
 
+#atnFilterControls {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 10;
+  white-space: nowrap;
+}
+
+#atnFilterControls select {
+  font-size: 12px;
+  margin-right: 5px;
+}
+
+#atnFilterControls label {
+  color: white;
+  font-size: 12px;
+}
+
 #menuBox {
   background-color: #EDF1F6; 
   margin-top: 5px;

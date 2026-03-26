@@ -1019,6 +1019,236 @@ function _collectATNFilters(record) {
       if (f.soicross.indexOf(b) === -1) f.soicross.push(b);
     });
   }
+  if (record.DiscoveryDate !== null && record.DiscoveryDate !== undefined) {
+    var dd = parseFloat(record.DiscoveryDate);
+    if (!isNaN(dd)) {
+      if (f.discoveryDateMin === undefined || dd < f.discoveryDateMin) f.discoveryDateMin = dd;
+      if (f.discoveryDateMax === undefined || dd > f.discoveryDateMax) f.discoveryDateMax = dd;
+    }
+  }
+}
+
+// Populate all ATN filter dropdowns from KSA_CATALOGS.atnData.filters and wire up event handlers.
+// Build a UID→record lookup map for fast applyATNFilters() access.
+// Called once from declutterScene() when ops.pageType == "atn".
+function populateATNFilters() {
+  var f = KSA_CATALOGS.atnData.filters;
+
+  // Build UID→record map for O(1) lookups in applyATNFilters()
+  KSA_CATALOGS.atnData.roidMap = {};
+  KSA_CATALOGS.atnData.roids.forEach(function(r) {
+    KSA_CATALOGS.atnData.roidMap[r.UID] = r;
+  });
+
+  // Helper: populate a checkmark-style dropdown from a values array, then wire change handler
+  function populateCheckSelect(id, values) {
+    var $sel = $('#' + id);
+    $sel.find('option:not(:first)').remove();
+    values.slice().sort().forEach(function(v) {
+      $sel.append($('<option>').val(v).text(v));
+    });
+    $sel.off('change.atnFilter').on('change.atnFilter', function() {
+      var idx = this.selectedIndex;
+      if (idx === 0) return;
+      var $opt = $(this).find('option').eq(idx);
+      var txt = $opt.text();
+      $opt.text(txt.startsWith('\u2714 ') ? txt.substring(2) : '\u2714 ' + txt);
+      this.selectedIndex = 0;
+      applyATNFilters();
+    });
+    $sel.off('contextmenu.atnFilter').on('contextmenu.atnFilter', function(e) {
+      var idx = this.selectedIndex;
+      if (idx === 0) return;
+      e.preventDefault();
+      // Solo this item: remove all checkmarks, then check only the right-clicked one
+      $(this).find('option:not(:first)').each(function() {
+        var t = $(this).text();
+        if (t.startsWith('\u2714 ')) $(this).text(t.substring(2));
+      });
+      var $opt = $(this).find('option').eq(idx);
+      $opt.text('\u2714 ' + $opt.text());
+      this.selectedIndex = 0;
+      applyATNFilters();
+    });
+  }
+
+  populateCheckSelect('atnFilterCategory', f.category || []);
+  populateCheckSelect('atnFilterSize',     f.size     || []);
+  populateCheckSelect('atnFilterMakeup',   f.makeup   || []);
+  populateCheckSelect('atnFilterType',     f.type     || []);
+  populateCheckSelect('atnFilterSOI',      f.soicross || []);
+
+  // Date filters: intercept click to open date picker dialog instead of dropdown
+  $('#atnFilterAfter, #atnFilterBefore').off('mousedown.atnFilter').on('mousedown.atnFilter', function(e) {
+    e.preventDefault();
+    $(this).blur();
+    _openATNDatePicker(this.id === 'atnFilterAfter' ? 'after' : 'before');
+  });
+
+  // Encounters checkbox
+  $('#atnFilterEncounters').off('change.atnFilter').on('change.atnFilter', applyATNFilters);
+
+  // Show the filter bar
+  $('#atnFilterControls').show();
+}
+
+// Open a simple date-only picker dialog to set an ATN "Discovered After/Before" filter.
+// which: 'after' | 'before'
+function _openATNDatePicker(which) {
+  var $select  = which === 'after' ? $('#atnFilterAfter') : $('#atnFilterBefore');
+  var storedUT = parseFloat($select.find('option').eq(1).val());
+  var f        = KSA_CATALOGS.atnData.filters;
+  var minUT    = f.discoveryDateMin !== undefined ? f.discoveryDateMin : 0;
+  var maxUT    = f.discoveryDateMax !== undefined ? f.discoveryDateMax : currUT();
+
+  // Pre-fill from stored value, or from the earliest/latest boundary
+  var d;
+  if (!isNaN(storedUT)) {
+    d = KSA_CONSTANTS.FOUNDING_MOMENT.plus({ seconds: storedUT });
+  } else if (which === 'after') {
+    d = KSA_CONSTANTS.FOUNDING_MOMENT.plus({ seconds: minUT });
+  } else {
+    d = KSA_CONSTANTS.FOUNDING_MOMENT.plus({ seconds: maxUT });
+  }
+
+  var html = "<div style='padding:10px;'>";
+  html += "<label style='margin-right:5px;'>Date (UTC):</label>";
+  html += "<input type='number' id='atnDateMonth' style='width:40px' min='1' max='12' value='" + d.month + "'> / ";
+  html += "<input type='number' id='atnDateDay'   style='width:40px' min='1' max='31' value='" + d.day   + "'> / ";
+  html += "<input type='number' id='atnDateYear'  style='width:60px'                  value='" + d.year  + "'>";
+  html += "<p id='atnDateError' style='color:red;font-size:11px;margin-top:8px;display:none;'></p>";
+  html += "</div>";
+
+  $("#siteDialog").html(html);
+  $("#siteDialog").dialog("option", {
+    title: which === 'after' ? 'Discovered After' : 'Discovered Before',
+    width: 340,
+    buttons: [
+      {
+        text: "Apply",
+        click: function() {
+          var month = parseInt($("#atnDateMonth").val());
+          var day   = parseInt($("#atnDateDay").val());
+          var year  = parseInt($("#atnDateYear").val());
+          if (isNaN(month) || isNaN(day) || isNaN(year) ||
+              month < 1 || month > 12 || day < 1 || day > 31) {
+            $("#atnDateError").text("Please enter a valid date.").show();
+            return;
+          }
+          var dt = luxon.DateTime.utc(year, month, day);
+          if (!dt.isValid) { $("#atnDateError").text("Invalid date.").show(); return; }
+          var ut = dateToUT(dt);
+
+          // Cross-filter constraints
+          var afterUT  = parseFloat($('#atnFilterAfter') .find('option').eq(1).val());
+          var beforeUT = parseFloat($('#atnFilterBefore').find('option').eq(1).val());
+          if (which === 'after') {
+            if (ut < minUT) {
+              ut = minUT;
+            }
+            if (!isNaN(beforeUT) && ut > beforeUT) {
+              ut = beforeUT;
+            }
+          } else {
+            if (ut > maxUT) {
+              ut = maxUT;
+            }
+            if (!isNaN(afterUT) && ut < afterUT) {
+              ut = afterUT;
+            }
+          }
+
+          $select.find('option').eq(1).val(ut).text(month + '/' + day + '/' + year);
+          $("#siteDialog").dialog("close");
+          applyATNFilters();
+        }
+      },
+      {
+        text: "Set Today",
+        click: function() {
+          var today = KSA_CONSTANTS.FOUNDING_MOMENT.plus({ seconds: currUT() });
+          $("#atnDateMonth").val(today.month);
+          $("#atnDateDay").val(today.day);
+          $("#atnDateYear").val(today.year);
+          $("#atnDateError").hide();
+        }
+      },
+      {
+        text: "Cancel",
+        click: function() { $("#siteDialog").dialog("close"); }
+      }
+    ]
+  });
+  $("#siteDialog").dialog("open");
+}
+
+// Evaluate all ATN filter controls and show/hide asteroid orbital entries accordingly.
+// Reads current state from the DOM; sets entry.isHidden and adjusts mesh visibility.
+function applyATNFilters() {
+  var roidMap  = KSA_CATALOGS.atnData.roidMap || {};
+  var orbitsOn = $("#orbits").is(":checked");
+  var labelsOn = $("#labels").is(":checked");
+  var nodesOn  = orbitsOn && $("#nodes").is(":checked");
+  var onlyEnc  = $("#atnFilterEncounters").is(":checked");
+
+  // Date filter bounds (null = no constraint)
+  var afterUT  = parseFloat($('#atnFilterAfter') .find('option').eq(1).val());
+  var beforeUT = parseFloat($('#atnFilterBefore').find('option').eq(1).val());
+  afterUT  = isNaN(afterUT)  ? null : afterUT;
+  beforeUT = isNaN(beforeUT) ? null : beforeUT;
+
+  // Active checkmark values for each multi-select dropdown
+  function getChecked(id) {
+    var vals = [];
+    $('#' + id + ' option:not(:first)').each(function() {
+      if ($(this).text().startsWith('\u2714 ')) vals.push($(this).val());
+    });
+    return vals;
+  }
+  var activeCategories = getChecked('atnFilterCategory');
+  var activeSizes      = getChecked('atnFilterSize');
+  var activeMakeups    = getChecked('atnFilterMakeup');
+  var activeTypes      = getChecked('atnFilterType');
+  var activeSOIs       = getChecked('atnFilterSOI');
+
+  ops.orbits.forEach(function(item) {
+    if (item.type !== 'asteroid' || !item.meshes) return;
+    var record = roidMap[item.db];
+    if (!record) return;
+
+    var show = true;
+    if (afterUT  !== null && record.DiscoveryDate < afterUT)  show = false;
+    if (show && beforeUT !== null && record.DiscoveryDate > beforeUT) show = false;
+    if (show && activeCategories.length && activeCategories.indexOf(record.Category) === -1) show = false;
+    if (show && activeSizes     .length && activeSizes     .indexOf(record.Class)    === -1) show = false;
+    if (show && activeMakeups   .length && activeMakeups   .indexOf(record.Makeup)   === -1) show = false;
+    if (show && activeTypes     .length && activeTypes     .indexOf(record.Type)     === -1) show = false;
+    if (show && activeSOIs.length) {
+      var hasSOI = Array.isArray(record.SOIcross) &&
+                   record.SOIcross.some(function(b) { return activeSOIs.indexOf(b) !== -1; });
+      if (!hasSOI) show = false;
+    }
+    if (show && onlyEnc && record.Type !== 'Encounter') show = false;
+
+    item.isHidden = !show;
+    if (show) {
+      _setVisible(item.meshes.position, true);
+      _setVisible(item.meshes.orbit,    orbitsOn);
+      _setVisible(item.meshes.label,    labelsOn);
+      _setVisible(item.meshes.penode,   nodesOn);
+      _setVisible(item.meshes.apnode,   nodesOn);
+      _setVisible(item.meshes.anode,    nodesOn);
+      _setVisible(item.meshes.dnode,    nodesOn);
+    } else {
+      _setVisible(item.meshes.position, false);
+      _setVisible(item.meshes.orbit,    false);
+      _setVisible(item.meshes.label,    false);
+      _setVisible(item.meshes.penode,   false);
+      _setVisible(item.meshes.apnode,   false);
+      _setVisible(item.meshes.anode,    false);
+      _setVisible(item.meshes.dnode,    false);
+    }
+  });
 }
 
 function _renderAsteroid(record) {
@@ -1101,6 +1331,21 @@ function _renderAsteroid(record) {
               showName: false, showNodes: false, isSelected: false,
               isHidden: false, obtLocked: false, meshes: null };
     ops.orbits.push(entry);
+  } else if (entry.meshes) {
+    // Duplicate orbitID (e.g. data entry error with the same UID appearing twice):
+    // remove the previously-created scene objects so they don't become orphans.
+    console.warn('[_renderAsteroid] Duplicate orbitID "' + orbitID + '" — removing stale meshes.');
+    var _staleMeshes = [entry.meshes.orbit, entry.meshes.position,
+                        entry.meshes.penode, entry.meshes.apnode,
+                        entry.meshes.anode,  entry.meshes.dnode];
+    _staleMeshes.forEach(function(m) {
+      if (!m) return;
+      threeScene.remove(m);
+      m.traverse(function(obj) {
+        if (obj.geometry) obj.geometry.dispose();
+        if (obj.material) obj.material.dispose();
+      });
+    });
   }
   entry.orbitElements = { sma: sma, ecc: ecc, inc: inc, raan: raan, arg: arg,
                            mean0: mean0, meanMotion: meanMotion, epoch: epoch };
@@ -1846,7 +2091,7 @@ function onSceneClick(event) {
   // Pass 1: body spheres and vessel position markers (higher priority than orbit lines)
   var meshTargets = [];
   ops.orbits.forEach(function(item) {
-    if (!item.meshes) return;
+    if (!item.meshes || item.isHidden) return;
     if (item.type === 'body' && item.meshes.sphere) meshTargets.push(item.meshes.sphere);
     else if (item.meshes.position)                  meshTargets.push(item.meshes.position);
   });
@@ -1907,7 +2152,7 @@ function onSceneRightClick(event) {
   // Pass 1: body spheres and vessel position markers (higher priority than orbit lines)
   var meshTargets = [];
   ops.orbits.forEach(function(item) {
-    if (!item.meshes) return;
+    if (!item.meshes || item.isHidden) return;
     if (item.type === 'body' && item.meshes.sphere) meshTargets.push(item.meshes.sphere);
     else if (item.meshes.position)                  meshTargets.push(item.meshes.position);
   });
@@ -1973,18 +2218,36 @@ function declutterScene(hideOnly = false) {
   if (ops.pageType == "atn") {
     if (threeRenderer) threeRenderer.domElement.style.cursor = "";
     if (!window.location.href.includes("&map")) $("#figureOptions").fadeIn();
+    populateATNFilters();
   }
 
   // re-enable controls and uncheck/enable checkboxes now that scene is ready
   if (threeControls) threeControls.enabled = true;
   $("#nodes").prop('checked', false).prop('disabled', false);
   $("#labels").prop('checked', false).prop('disabled', false);
-  $("#orbits").prop('disabled', false);
   $("#ref").prop('checked', false).prop('disabled', false);
   $("#soi").prop('checked', false).prop('disabled', false);
 
+  // ATN: default to orbits hidden — too many to show usefully at first glance
+  if (ops.pageType == "atn") {
+    $("#orbits").prop('checked', false).prop('disabled', false);
+    toggleOrbits(false);
+  } else {
+    $("#orbits").prop('disabled', false);
+  }
+
   // reveal the reset button and register its tooltip
-  Tipped.create('#threeResetBtn', 'Reset figure', { showOn: 'mouseenter', hideOnClickOutside: false, position: 'left' });
+  if (ops.pageType == "atn") {
+    Tipped.create('#threeResetBtn', 'Left-click: Reset view<br>Right-click: Reset all filters', { showOn: 'mouseenter', hideOnClickOutside: false, position: 'left' });
+    $('#threeResetBtn').off('contextmenu.atn').on('contextmenu.atn', function(e) {
+      e.preventDefault();
+      _resetATNFilters();
+      resetFigure();
+    });
+  } else {
+    Tipped.create('#threeResetBtn', 'Reset figure', { showOn: 'mouseenter', hideOnClickOutside: false, position: 'left' });
+    $('#threeResetBtn').off('contextmenu.atn');
+  }
   $("#threeResetBtn").show();
 }
 
@@ -2031,19 +2294,38 @@ function resetFigure() {
     if (item.meshes.label) item.meshes.label.element.classList.remove('three-label-selected');
   });
 
-  // reset checkboxes: orbits on, everything else off
+  // reset checkboxes: orbits on for normal views, off for ATN (thousands of lines); everything else off
   $("#nodes").prop('checked', false);
   $("#labels").prop('checked', false);
-  $("#orbits").prop('checked', true);
+  $("#orbits").prop('checked', ops.pageType !== "atn");
   $("#ref").prop('checked', false);
   $("#soi").prop('checked', false);
 
   // apply visual state to match
-  toggleOrbits(true);
+  toggleOrbits(ops.pageType !== "atn");
   toggleNodes(false);
   toggleLabels(false);
   toggleRefLine(false);
   toggleSOI(false);
+}
+
+// Reset all ATN filter dropdowns to their unchecked/cleared defaults and re-apply.
+function _resetATNFilters() {
+  // Remove checkmarks from all multi-select dropdowns
+  $('#atnFilterCategory, #atnFilterSize, #atnFilterMakeup, #atnFilterType, #atnFilterSOI')
+    .find('option:not(:first)').each(function() {
+      var txt = $(this).text();
+      if (txt.startsWith('\u2714 ')) $(this).text(txt.substring(2));
+    });
+
+  // Clear date filters
+  $('#atnFilterAfter' ).find('option').eq(1).val('').text('--/--/----');
+  $('#atnFilterBefore').find('option').eq(1).val('').text('--/--/----');
+
+  // Uncheck Encounters
+  $('#atnFilterEncounters').prop('checked', false);
+
+  applyATNFilters();
 }
 
 // Mark an entry as selected: show orbit, label (with border), and nodes if Show Nodes is on.
