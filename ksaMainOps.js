@@ -877,6 +877,7 @@ function swapContent(newPageType, id, ut, flt) {
     $("#figureOptions").fadeOut();
     $("#vesselOrbitTypes").fadeOut();
     $("#atnFilterControls").hide();
+    $("#atnExportBtn").hide();
     if (newPageType != "body") $("#figure").fadeOut();
     $("#figureDialog").dialog("close");
     $("#siteDialog").dialog("close");

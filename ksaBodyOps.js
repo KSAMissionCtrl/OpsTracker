@@ -1536,6 +1536,9 @@ function loadBody(body = "Kerbol-System", flt) {
   // add the reset view button — hidden at load, revealed by declutterScene()
   $("#figure").append('<div id="threeResetBtn" style="position:absolute;top:8px;right:8px;display:none;cursor:pointer;font-size:18px;color:white;z-index:10;user-select:none;-webkit-user-select:none;-moz-user-select:none;-ms-user-select:none;" onclick="resetFigure()"><i class="fa-solid fa-rotate"></i></div>');
 
+  // add the ATN export button — hidden at load, revealed by declutterScene() for ATN pages only
+  $("#figure").append('<div id="atnExportBtn" style="position:absolute;bottom:8px;right:8px;display:none;cursor:pointer;font-size:18px;color:white;z-index:10;user-select:none;-webkit-user-select:none;-moz-user-select:none;-ms-user-select:none;" onclick="exportATNData()"><i class="fa-solid fa-file-csv"></i></div>');
+
   // hide it if this isn't a body or atn page
   if (ops.pageType != "body" && ops.pageType != "atn") $("#figure").hide();
 
@@ -2242,13 +2245,18 @@ function declutterScene(hideOnly = false) {
     $('#threeResetBtn').off('contextmenu.atn').on('contextmenu.atn', function(e) {
       e.preventDefault();
       _resetATNFilters();
-      resetFigure();
     });
   } else {
     Tipped.create('#threeResetBtn', 'Reset figure', { showOn: 'mouseenter', hideOnClickOutside: false, position: 'left' });
     $('#threeResetBtn').off('contextmenu.atn');
   }
   $("#threeResetBtn").show();
+
+  // reveal the export button only for ATN pages
+  if (ops.pageType == "atn") {
+    Tipped.create('#atnExportBtn', 'Export filtered asteroids to CSV', { showOn: 'mouseenter', hideOnClickOutside: false, position: 'left' });
+    $("#atnExportBtn").show();
+  }
 }
 
 // Reset the Three.js figure to the post-declutter state: camera at default top-down view,
@@ -2328,6 +2336,54 @@ function _resetATNFilters() {
   applyATNFilters();
 }
 
+// Export currently visible (filtered) asteroids to a CSV download.
+function exportATNData() {
+  var roidMap = KSA_CATALOGS.atnData.roidMap || {};
+  var rows = [];
+
+  ops.orbits.forEach(function(item) {
+    if (item.type !== 'asteroid' || item.isHidden) return;
+    var r = roidMap[item.db];
+    if (!r) return;
+    rows.push(r);
+  });
+
+  if (rows.length === 0) {
+    alert('No asteroids are currently visible to export.');
+    return;
+  }
+
+  var headers = ['UID','Class','Category','Makeup','Type','SOIcross','DiscoveryDate','Apkelion','Perikelion','OrbitalPeriod','Mass','Eph','SMA','Ecc','Inc','RAAN','Arg','TrueAnom'];
+  var csv = headers.join(',') + '\n';
+
+  rows.forEach(function(r) {
+    function field(v) {
+      if (v === null || v === undefined) return '';
+      if (Array.isArray(v)) return '"' + v.join(';') + '"';
+      var s = String(v);
+      if (s.indexOf(',') !== -1 || s.indexOf('"') !== -1) return '"' + s.replace(/"/g, '""') + '"';
+      return s;
+    }
+    csv += [
+      field(r.UID), field(r.Class), field(r.Category), field(r.Makeup), field(r.Type),
+      field(r.SOIcross), field(r.DiscoveryDate), field(r.Apkelion), field(r.Perikelion),
+      field(r.OrbitalPeriod), field(r.Mass), field(r.Eph), field(r.SMA), field(r.Ecc),
+      field(r.inc), field(r.RAAN), field(r.Arg), field(r.TrueAnom)
+    ].join(',') + '\n';
+  });
+
+  var blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  var link = document.createElement('a');
+  var url = URL.createObjectURL(blob);
+  var now = UTtoDateTime(currUT()).split('@')[0].trim().replace(/\//g, '-');
+  link.setAttribute('href', url);
+  link.setAttribute('download', 'atn_export_' + now + '.csv');
+  link.style.visibility = 'hidden';
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+}
+
 // Mark an entry as selected: show orbit, label (with border), and nodes if Show Nodes is on.
 // Does NOT call unselectBody — caller is responsible for deselecting the previous object first.
 function _selectEntry(entry) {
@@ -2350,6 +2406,88 @@ function _selectEntry(entry) {
 //      | { hitType: 'vessel', entry: <ops.orbits item>, isPosition: bool }
 //      | { hitType: 'body',   entry: <ops.orbits item> }
 //      | { hitType: 'orbit',  entry: <ops.orbits item> }
+// ---------------------------------------------------------------------------
+// Step 10: Asteroid info dialog — opened when clicking an asteroid position sphere
+// ---------------------------------------------------------------------------
+function _openAsteroidDialog(entry) {
+  var uid = entry.db;
+  var record = KSA_CATALOGS.atnData.roids.find(function(r) { return r.UID === uid; });
+  if (!record) return;
+
+  var CAT_DESCS = {
+    'NKO':      "Near Kerbin Object: Crosses Kerbin's SOI",
+    'Inner':    'Inner system asteroid: MBA asteroid flung into an eccentric orbit by the gas giants',
+    'MBA':      'Main Belt Asteroid: A large group of asteroids residing between Duna and Jool',
+    'Trojan':   'Asteroid in synchronous orbit with Jool, both in leading and trailing positions',
+    'KBO':      'Kupier Belt Object: Asteroid with an orbit beyond Neidon',
+    'Comet(S)': 'Short-period comet: comet that has fallen in-system from the Kupier Belt',
+    'Comet(L)': 'Long-period comet: comet that has fallen in-system from the Oork Cloud',
+    'Centaur':  'Family of asteroids that resides in the space between Jool and Neidon',
+    'Ejected':  'Asteroid is leaving the Kerbol system due to gravitational slingshot from a gas giant planet'
+  };
+  var TYPE_DESCS = {
+    'Normal':    'crossing one or more SOI',
+    'Encounter': 'entering SOI',
+    'Roaming':   'crossing no SOI'
+  };
+
+  var massKt = numeral(parseFloat(numeral(record.Mass).divide(1000).value().toPrecision(3))).format('0,0.[000]');
+  var strHTML = "<p><b>Discovery:</b> " + sanitizeHTML(KSA_CONSTANTS.FOUNDING_MOMENT.plus({seconds: record.DiscoveryDate}).toFormat("M/d/yyyy")) + "<br>";
+  strHTML += "<b>Mass:</b> " + sanitizeHTML(massKt) + " kt</p>";
+
+  // Orbital parameters (all fields are nullable)
+  if (record.Apkelion !== null || record.Perikelion !== null || record.OrbitalPeriod !== null) {
+    strHTML += "<p><b>Orbital Parameters</b><br>";
+    if (record.Apkelion      !== null) strHTML += "Apkelion: "       + sanitizeHTML(numeral(record.Apkelion).format('0,0'))      + " km<br>";
+    if (record.Perikelion    !== null) strHTML += "Perikelion: "     + sanitizeHTML(numeral(record.Perikelion).format('0,0'))    + " km<br>";
+    if (record.OrbitalPeriod !== null) strHTML += "Orbital period: " + formatTime(record.OrbitalPeriod, false)                  + "<br>";
+    strHTML += "</p>";
+  }
+
+  // Sun grazer note: perikelion within 3,948.911 Mm (3,948,911 km) of Kerbol
+  if (record.Perikelion !== null && record.Perikelion < 3948911) {
+    strHTML += "<p><i>Sun Grazer: Perikelion within 3,948.911 Mm of Kerbol</i></p>";
+  }
+
+  // Makeup, Category, Type
+  strHTML += "<p><b>Makeup:</b> " + sanitizeHTML(record.Makeup) + "<br>";
+  strHTML += "<b>Category:</b> " + sanitizeHTML(CAT_DESCS[record.Category] || record.Category) + "<br>";
+  strHTML += "<b>Orbit Type:</b> " + sanitizeHTML(record.Type) + " &mdash; ";
+
+  // Type details
+  if (record.Type === 'Encounter') {
+    strHTML += "Entering the SOI of " + sanitizeHTML(record.SOIcross[0]);
+    if (record.SOIcross.length > 1) {
+      strHTML += " and crossing the SOI(s) of " + sanitizeHTML(record.SOIcross.slice(1).join(", "));
+    }
+  } else if (record.SOIcross && record.SOIcross.length > 0) {
+    strHTML += "Crossing the SOI(s) of " + sanitizeHTML(record.SOIcross.join(", "));
+  } else {
+    strHTML += TYPE_DESCS.Roaming;
+  }
+  strHTML += "</p>";
+
+  // Encounter info (shown when an encounter date is recorded)
+  if (record.EncounterDate !== null && record.SOIcross && record.SOIcross.length > 0) {
+    strHTML += "<p><b>Encounter: " + sanitizeHTML(record.SOIcross[0]) + "</b><br>";
+    strHTML += "Enter SOI: " + sanitizeHTML(KSA_CONSTANTS.FOUNDING_MOMENT.plus({seconds: record.EncounterDate}).toFormat("M/d/yyyy")) + "<br>";
+    if (record.ApproachDate !== null) strHTML += "Closest approach: " + sanitizeHTML(KSA_CONSTANTS.FOUNDING_MOMENT.plus({seconds: record.ApproachDate}).toFormat("M/d/yyyy")) + "<br>";
+    strHTML += "Periapsis: " + (record.Periapsis !== null
+      ? sanitizeHTML(numeral(record.Periapsis).format('0,0')) + " m"
+      : "<i>Impact</i>") + "</p>";
+  }
+
+  // View Asteroid History link — case-insensitive match against vessel db names
+  var vesselMatch = ops.craftsMenu.find(function(o) { return o.db.toLowerCase() === uid.toLowerCase(); });
+  if (vesselMatch) {
+    strHTML += "<p><span class='fauxLink' onclick='swapContent(\"vessel\", \"" + sanitizeHTML(vesselMatch.db) + "\")'>View Asteroid History</span></p>";
+  }
+
+  $("#figureDialog").dialog("option", "title", sanitizeHTML(uid + " (Class " + record.Class + ")"));
+  $("#figureDialog").html(strHTML);
+  $("#figureDialog").dialog("open");
+}
+
 function figureClick(hit) {
 
   // ----- reference line → reset to top-down view -----
@@ -2437,15 +2575,23 @@ function figureClick(hit) {
 
   // ----- position sphere (body or vessel) -----
   if (hit.hitType === 'body' || hit.hitType === 'vessel') {
-    if (hit.hitType === 'vessel') $("#figureDialog").dialog("close");
+    if (hit.hitType === 'vessel' && ops.pageType !== 'atn') $("#figureDialog").dialog("close");
 
     // The central body has no orbit mesh — treat it as always visible so its dialog always opens.
     var orbitVisible = !clickedEntry.meshes.orbit || clickedEntry.meshes.orbit.visible;
 
     // Orbit hidden → show it and select; no type-specific action yet
+    // Exception: if the dialog is already open, update it in place
     if (!orbitVisible) {
       if (!clickedEntry.isSelected) unselectBody(clickedEntry);
       _selectEntry(clickedEntry);
+      if ($("#figureDialog").dialog("isOpen")) {
+        if (clickedEntry.type === 'asteroid') {
+          _openAsteroidDialog(clickedEntry);
+        } else if (hit.hitType === 'body') {
+          figureClick({ hitType: 'body', entry: clickedEntry });
+        }
+      }
       return;
     }
 
@@ -2454,6 +2600,11 @@ function figureClick(hit) {
     if (!wasAlreadySelected) {
       unselectBody(clickedEntry);
       _selectEntry(clickedEntry);
+    }
+
+    if (hit.hitType === 'vessel' && clickedEntry.type === 'asteroid' && ops.pageType === 'atn') {
+      _openAsteroidDialog(clickedEntry);
+      return;
     }
 
     if (hit.hitType === 'vessel' && !clickedEntry.isUrlOrbit) {
@@ -2493,12 +2644,14 @@ function figureClick(hit) {
       strHTML += "Atmosphere: "       + sanitizeHTML(bodyData.Atmo)                        + "</p>";
       if (bodyData.Moons) strHTML += "<p><b>Moons</b></p><p>" + sanitizeHTML(bodyData.Moons) + "</p>";
 
-      if (ops.surface.Data && ops.surface.Data.Name === clickedEntry.id) {
-        strHTML += "<p><span onclick='showMap()' style='cursor: pointer; color: blue; text-decoration: none;'>View Surface</span></p>";
-      } else if (bodyData.Moons && !$("#contentTitle").html().includes(clickedEntry.id)) {
-        strHTML += "<p><span class='fauxLink' onclick='loadBody(&quot;" + clickedEntry.id + "-System&quot;)'>View System</span></p>";
-      } else if (!bodyData.Moons && !$("#contentTitle").html().includes(clickedEntry.id)) {
-        strHTML += "<p><span class='fauxLink' onclick='loadBody(&quot;" + clickedEntry.id + "&quot;)'>View Body Orbits</span></p>";
+      if (ops.pageType !== 'atn') {
+        if (ops.surface.Data && ops.surface.Data.Name === clickedEntry.id) {
+          strHTML += "<p><span onclick='showMap()' style='cursor: pointer; color: blue; text-decoration: none;'>View Surface</span></p>";
+        } else if (bodyData.Moons && !$("#contentTitle").html().includes(clickedEntry.id)) {
+          strHTML += "<p><span class='fauxLink' onclick='loadBody(&quot;" + clickedEntry.id + "-System&quot;)'>View System</span></p>";
+        } else if (!bodyData.Moons && !$("#contentTitle").html().includes(clickedEntry.id)) {
+          strHTML += "<p><span class='fauxLink' onclick='loadBody(&quot;" + clickedEntry.id + "&quot;)'>View Body Orbits</span></p>";
+        }
       }
       strHTML += "</td></tr></table>";
 
