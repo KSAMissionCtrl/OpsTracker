@@ -643,7 +643,7 @@ function openTimePicker(currentUT) {
         var newUT = dateToUT(inputDateTime);
 
         // don't let us go before the start of the Agency
-        if (isNaN(newUT)) {
+        if (isNaN(newUT) || newUT < 0) {
           newUT = 0;
         }
         

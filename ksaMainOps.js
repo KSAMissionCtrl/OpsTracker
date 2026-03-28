@@ -743,6 +743,7 @@ function swapContent(newPageType, id, ut, flt) {
       $("#contentBox").css('top', '40px');
       $("#contentBox").css('height', '885px');
       $("#contentBox").fadeIn();
+      selectMenuItem("atn");
       loadATN();
     }
     if (newPageType == "vessel") {
@@ -761,6 +762,7 @@ function swapContent(newPageType, id, ut, flt) {
       $("#contentBox").css("margin-top", "5px");
       $("#contentBox").fadeIn();
       $("#fullRoster").fadeIn();
+      selectMenuItem("crewFull");
       loadCrew(id);
     }
     if (newPageType == "crew") {

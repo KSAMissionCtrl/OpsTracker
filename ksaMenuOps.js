@@ -136,7 +136,20 @@ function loadMenuAJAX(result) {
       else if (event.object.img.includes("aircraft") && event.object.parent.id != "inactiveVessels") loadFlt(event.object.id);
 
       // Asteroid Tracking Network
-      else if (event.object.img.includes("atn")) swapContent("atn", "Kerbol");
+      else if (event.object.img.includes("atn")) {
+
+        // ── Guard: no main catalog version ≤ currUT → ATN hasn't found asteroids yet
+        if (KSA_CATALOGS.atnData.indexUTs.main === null) {
+          $("#siteDialog").html("The Asteroid Tracking Network has yet to discover any asteroids.");
+          $("#siteDialog").dialog("option", { title: "ATN", buttons: [{ text: "Close", click: function() { $("#siteDialog").dialog("close"); }}] });
+          $("#siteDialog").dialog("open");
+
+          // reselect the menu item for the current page using the URL query (since the attempted nav to ATN failed)
+          if (ops.pageType === "crewFull" || ops.pageType === "dsn") selectMenuItem(ops.pageType);
+          else selectMenuItem(getParameterByName(ops.pageType));
+        }
+        else swapContent("atn", "Kerbol");
+      }
 
       // for now, we link to another page for the DSN
       else if (event.object.img.includes("dish")) window.open("http://www.kerbalspace.agency/?p=3736");
@@ -1047,6 +1060,7 @@ function addVesselByDate(item, parentFolder = "inactiveVessels", addMonths = tru
 
 // selects the item from the menu and also makes sure to remove any badges
 function selectMenuItem(menuID, retryCount = 0) {
+  if (!KSA_UI_STATE.isMenuDataLoaded) return setTimeout(selectMenuItem, 50, menuID, retryCount);
   var menuNode = w2ui['menu'].get(menuID);
   if (!menuNode) {
     

@@ -1070,13 +1070,8 @@ function loadATN() {
   $("#ref").prop('checked', false).prop('disabled', true);
   $("#soi").prop('checked', false).prop('disabled', true);
 
-  // ── Guard: no main catalog version ≤ currUT → ATN hasn't found asteroids yet
-  if (KSA_CATALOGS.atnData.indexUTs.main === null) {
-    $("#siteDialog").html("The Asteroid Tracking Network has yet to discover any asteroids.");
-    $("#siteDialog").dialog("option", { title: "ATN", buttons: [{ text: "Close", click: function() { $("#siteDialog").dialog("close"); }}] });
-    $("#siteDialog").dialog("open");
-    return;
-  }
+  // ── Guard: index not yet resolved — defer until loadATNIndex() completes
+  if (!KSA_CATALOGS.atnData.indexUTs) return setTimeout(loadATN, 100);
 
   // ── Step 4b: catalog already in memory — rebuild scene from cache ─────────
   if (KSA_CATALOGS.atnData.loaded) {
@@ -1085,7 +1080,7 @@ function loadATN() {
   }
 
   // ── Fresh load: stream catalog with progress, render all at once when done ─────
-  $("#vesselLoaderMsg").html("&nbsp;&nbsp;&nbsp;Loading ATN catalog: 0%");
+  $("#vesselLoaderMsg").html("&nbsp;&nbsp;&nbsp;Fetching ATN catalog").css('left', '802px');
   $("#vesselLoaderMsg").spin({ scale: 0.35, position: 'relative', top: '8px', left: '0px' });
   $("#vesselLoaderMsg").fadeIn();
   loadBody();
@@ -1648,11 +1643,13 @@ function _populateATNScene(roids, ut, index, onDone) {
     if (roids[i].DiscoveryDate <= ut) _renderAsteroid(roids[i]);
   }
   var pct = roids.length > 0 ? Math.round(end / roids.length * 100) : 100;
-  $("#vesselLoaderMsg").html("&nbsp;&nbsp;&nbsp;Populating: " + pct + "%");
+  // set the message to Left: 837px
+  $("#vesselLoaderMsg").html("Populating: " + pct + "%").css('left', '837px');
   if (end < roids.length) {
     if (ops.pageType !== "atn") return; // navigated away
     setTimeout(_populateATNScene, 1, roids, ut, end, onDone);
   } else {
+    if (ops.pageType !== "atn") return; // navigated away during final batch
     onDone();
   }
 }
@@ -1660,7 +1657,7 @@ function _populateATNScene(roids, ut, index, onDone) {
 function rebuildATNScene() {
   var ut = currUT();
   $("#vesselLoaderMsg").spin(false);
-  $("#vesselLoaderMsg").html("&nbsp;&nbsp;&nbsp;Populating: 0%");
+  $("#vesselLoaderMsg").html("Populating: 0%").css('left', '837px');
   $("#vesselLoaderMsg").fadeIn();
   _populateATNScene(KSA_CATALOGS.atnData.roids, ut, 0, function() {
     $("#vesselLoaderMsg").fadeOut();
@@ -1954,7 +1951,7 @@ function loadATNCatalog() {
       if (err) console.error('[loadATNCatalog] Failed to load:', err);
 
       $("#vesselLoaderMsg").spin(false);
-      $("#vesselLoaderMsg").html("&nbsp;&nbsp;&nbsp;Populating: 0%");
+      $("#vesselLoaderMsg").html("Populating: 0%").css('left', '837px');
 
       _populateATNScene(atnData.roids, ut, 0, function() {
         atnData.loaded = true;
@@ -1979,7 +1976,7 @@ function loadATNCatalog() {
       if (ops.pageType !== "atn") return;
       if (lengthComputable && total > 0) {
         var pct = Math.round(loaded / total * 100);
-        $("#vesselLoaderMsg").html("&nbsp;&nbsp;&nbsp;Loading ATN catalog: " + pct + "%");
+        $("#vesselLoaderMsg").html("Loading ATN catalog: " + pct + "%").css('left', '775px');
       }
     },
 
@@ -2408,6 +2405,7 @@ function loadVesselOrbits() {
 
       // stash the vessels in an array, show the loading spinner and make sure the scene doesn't declutter yet
       ops.vesselsToLoad = strVesselsToload.substr(0, strVesselsToload.length-1).split(";");
+      $("#vesselLoaderMsg").html("&nbsp;&nbsp;&nbsp;Loading Vessel Data...").css('left', '795px');
       $("#vesselLoaderMsg").spin({ scale: 0.35, position: 'relative', top: '8px', left: '0px' });
       $("#vesselLoaderMsg").fadeIn();
       clearTimeout(KSA_TIMERS.timeoutHandle);
@@ -3504,7 +3502,7 @@ function toggleSOI(isChecked) {
   _soiEnabled = isChecked;
   // When SOI mode is on, shrink vessel/asteroid position markers to 1 px so they
   // don't visually compete with the true-scale body and SOI spheres.
-  _POSITION_PX = isChecked ? 1 : _POSITION_PX_DEFAULT;
+  if (ops.pageType == "atn") _POSITION_PX = isChecked ? 1 : _POSITION_PX_DEFAULT;
   // When switching off, revert body spheres to scale 1 so _updateBodySphereScales
   // picks up cleanly from the physical radius next frame.
   if (!isChecked) {

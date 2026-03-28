@@ -323,7 +323,7 @@ const KSA_CATALOGS = {
     filters: {},          // unique value sets keyed by field name, populated during catalog stream
                             // { category: [], size: [], makeup: [], type: [], soicross: [] }
     loaded: false,        // true once the full catalog stream has finished
-    loadingAborted: false,// legacy; kept for safety but no longer used by batch loader
+    indexUTs: null,       // { main, encounters, moonlets } — null until loadATNIndex() resolves
     encMap: {},           // UID → encounter record (all UTs, incl. future and null-ephemeris)
     moonletMap: {}        // UID → moonlet record
   }
