@@ -319,10 +319,13 @@ const KSA_CATALOGS = {
 
   atnData: {            // persistent ATN catalog; survives page-type switches (only Three.js objects are disposed)
     roids: [],            // full parsed main catalog records with DiscoveryDate <= currUT() at load time
+    roidMap: {},          // UID → record for O(1) main-catalog lookups
     filters: {},          // unique value sets keyed by field name, populated during catalog stream
                             // { category: [], size: [], makeup: [], type: [], soicross: [] }
     loaded: false,        // true once the full catalog stream has finished
-    loadingAborted: false // legacy; kept for safety but no longer used by batch loader
+    loadingAborted: false,// legacy; kept for safety but no longer used by batch loader
+    encMap: {},           // UID → encounter record (all UTs, incl. future and null-ephemeris)
+    moonletMap: {}        // UID → moonlet record
   }
 };
 

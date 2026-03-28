@@ -1130,6 +1130,9 @@ function updatePage(updateEvent, rapidFireMode = false) {
   else if (updateEvent.type.includes("tweet")) socialUpdate(updateEvent);
   else if (updateEvent.type.includes("map")) surfaceUpdate(updateEvent.type, updateEvent.UT, updateEvent.id);
   else if (updateEvent.type == "event") KSA_DATA_SERVICE.fetchEventData(currUT(), loadEventsAJAX);
+  else if (updateEvent.type == "atn:main") updateATNMain(updateEvent);
+  else if (updateEvent.type == "atn:encounter") updateATNEncounter(updateEvent);
+  else if (updateEvent.type == "atn:moonlet") updateATNMoonlet(updateEvent);
   else if (updateEvent.type == "object" || updateEvent.type == "orbit") {
     var obj = ops.updateData.find(o => o.id === updateEvent.id);
     if (!obj) console.log("unknown object", updateEvent);
@@ -1150,6 +1153,9 @@ function killRapidFire(updateObj) {
 
   // also don't kill rapid fire mode if this is a tweet update and the collection visible isn't what its for
   if (updateObj.type == "tweet" && !updateObj.data.collections.includes(ops.twitterSource)) return;
+
+  // don't kill rapid fire mode for silent ATN background updates
+  if (updateObj.type.includes("atn")) return;
 
   // if we are FF'd to a specific crew/vessel event then don't stop unless we reached the UT saved for that event
   if (KSA_UI_STATE.optUpdateInterrupt === false) {

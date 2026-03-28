@@ -945,10 +945,102 @@ function loadATNIndex(onReady) {
     // Cache for the session so Steps 4b/5 can reference it without re-fetching
     KSA_CATALOGS.atnData.indexUTs = result;
     console.log('[loadATNIndex] Resolved indexUTs:', JSON.stringify(result));
+
+    // Kick off encounter and moonlet catalog loads immediately (background, no UI feedback)
+    if (result.encounters !== null) loadATNEncounters(result.encounters);
+    if (result.moonlets   !== null) loadATNMoonlets(result.moonlets);
+
     if (onReady) onReady(result);
   })['catch'](function(err) {
     console.error('[loadATNIndex] Failed to load index:', err);
     if (onReady) onReady({ main: null, encounters: null, moonlets: null });
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Step 15a: Load ATN encounters catalog
+// Fetches atn_encounters_<ut>.json.txt, populates atnData.encounters[] and
+// atnData.encMap{}, and seeds the atn:encounter update chain for future events.
+// ---------------------------------------------------------------------------
+function loadATNEncounters(indexUT) {
+  var url = "database/atn/encounters/atn_encounters_" + indexUT + ".json.txt";
+  var ut  = currUT();
+  console.log('[loadATNEncounters] Fetching', url);
+  KSA_DATA_SERVICE.fetchJson(url).then(function(records) {
+    var atnData = KSA_CATALOGS.atnData;
+    var arr = Array.isArray(records) ? records : (records ? [records] : []);
+
+    // Collect future encounters (EncounterUT not null and > currUT), sorted ascending
+    var future = [];
+    arr.forEach(function(enc) {
+      atnData.encMap[enc.UID] = enc;
+      if (enc.EncounterUT !== null && enc.EncounterUT > ut) {
+        future.push(enc.UID);
+      }
+    });
+
+    // Sort by EncounterUT and store as the update queue
+    future.sort(function(a, b) {
+      var ua = atnData.encMap[a].EncounterUT;
+      var ub = atnData.encMap[b].EncounterUT;
+      return ua - ub;
+    });
+    ops.updateEncounters = future;
+    var _encQueuedCount = future.length;
+
+    // Seed the first encounter notification into the update chain
+    if (future.length) {
+      var firstUID = future.shift();
+      var firstEnc = atnData.encMap[firstUID];
+      ops.updatesList.push({ type: "atn:encounter", UT: firstEnc.EncounterUT, id: firstUID });
+      ops.updatesList.sort(function(a, b) { return (a.UT > b.UT) ? 1 : ((b.UT > a.UT) ? -1 : 0); });
+    }
+
+    console.log('[loadATNEncounters] Loaded', arr.length, 'records,', _encQueuedCount, 'queued');
+  })['catch'](function(err) {
+    console.error('[loadATNEncounters] Failed:', err);
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Step 15b: Load ATN moonlets catalog
+// Fetches atn_moonlets_<ut>.json.txt, populates atnData.moonlets[] and
+// atnData.moonletMap{}, and seeds the atn:moonlet update chain for future events.
+// ---------------------------------------------------------------------------
+function loadATNMoonlets(indexUT) {
+  var url = "database/atn/moonlets/atn_moonlets_" + indexUT + ".json.txt";
+  var ut  = currUT();
+  console.log('[loadATNMoonlets] Fetching', url);
+  KSA_DATA_SERVICE.fetchJson(url).then(function(records) {
+    var atnData = KSA_CATALOGS.atnData;
+    var arr = Array.isArray(records) ? records : (records ? [records] : []);
+
+    // Collect future moonlet discoveries (DiscoveryDate > currUT), sorted ascending
+    var future = [];
+    arr.forEach(function(m) {
+      atnData.moonletMap[m.UID] = m;
+      if (m.DiscoveryDate > ut) {
+        future.push(m.UID);
+      }
+    });
+
+    future.sort(function(a, b) {
+      return atnData.moonletMap[a].DiscoveryDate - atnData.moonletMap[b].DiscoveryDate;
+    });
+    ops.updateMoonlets = future;
+    var _moonQueuedCount = future.length;
+
+    // Seed the first moonlet notification into the update chain
+    if (future.length) {
+      var firstUID = future.shift();
+      var firstM   = atnData.moonletMap[firstUID];
+      ops.updatesList.push({ type: "atn:moonlet", UT: firstM.DiscoveryDate, id: firstUID });
+      ops.updatesList.sort(function(a, b) { return (a.UT > b.UT) ? 1 : ((b.UT > a.UT) ? -1 : 0); });
+    }
+
+    console.log('[loadATNMoonlets] Loaded', arr.length, 'records,', _moonQueuedCount, 'queued');
+  })['catch'](function(err) {
+    console.error('[loadATNMoonlets] Failed:', err);
   });
 }
 
@@ -988,7 +1080,7 @@ function loadATN() {
 
   // ── Step 4b: catalog already in memory — rebuild scene from cache ─────────
   if (KSA_CATALOGS.atnData.loaded) {
-    loadBody("Kerbol");
+    loadBody();
     return;
   }
 
@@ -996,7 +1088,193 @@ function loadATN() {
   $("#vesselLoaderMsg").html("&nbsp;&nbsp;&nbsp;Loading ATN catalog: 0%");
   $("#vesselLoaderMsg").spin({ scale: 0.35, position: 'relative', top: '8px', left: '0px' });
   $("#vesselLoaderMsg").fadeIn();
-  loadBody("Kerbol");
+  loadBody();
+}
+
+// ---------------------------------------------------------------------------
+// Step 13: ATN main update handler — called from updatePage() for type "atn:main"
+// ---------------------------------------------------------------------------
+function updateATNMain(updateEvent) {
+  var uid     = updateEvent.id;
+  var atnData = KSA_CATALOGS.atnData;
+  var record  = atnData.roidMap[uid];
+  if (!record) return;
+  var f       = atnData.filters;
+
+  // Snapshot current filter-array lengths so we can detect new values
+  var prevCat    = (f.category || []).length;
+  var prevSize   = (f.size     || []).length;
+  var prevMakeup = (f.makeup   || []).length;
+  var prevType   = (f.type     || []).length;
+  var prevSOI    = (f.soicross || []).length;
+
+  // Collect filter values from this record (idempotent; only pushes genuinely new ones)
+  _collectATNFilters(record);
+
+  // Append any newly-seen values to the live dropdowns without resetting checked state
+  _appendNewFilterOptions('atnFilterCategory', f.category, prevCat);
+  _appendNewFilterOptions('atnFilterSize',     f.size,     prevSize);
+  _appendNewFilterOptions('atnFilterMakeup',   f.makeup,   prevMakeup);
+  _appendNewFilterOptions('atnFilterType',     f.type,     prevType);
+  _appendNewFilterOptions('atnFilterSOI',      f.soicross, prevSOI);
+
+  // Render the asteroid into the live scene if still on the ATN page
+  if (ops.pageType === "atn" && KSA_UI_STATE.is3JSLoaded) {
+    _renderAsteroid(record);
+    applyATNFilters();
+  }
+
+  // Advance the chain: shift the next UID and push it into updatesList so the clock fires it.
+  if (ops.updateATN && ops.updateATN.length) {
+    var nextUID = ops.updateATN.shift();
+    var nextRec = atnData.roidMap[nextUID];
+    if (nextRec) {
+      ops.updatesList.push({ type: "atn:main", UT: nextRec.DiscoveryDate, id: nextUID });
+      ops.updatesList.sort(function(a, b) { return (a.UT > b.UT) ? 1 : ((b.UT > a.UT) ? -1 : 0); });
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Step 14 / Step 15: ATN encounter update handler
+// Fires at EncounterUT. Shows a notification dialog and (optionally) renders
+// the encounter orbit live if the user is already on the correct body page.
+// ---------------------------------------------------------------------------
+function updateATNEncounter(updateEvent) {
+  var uid     = updateEvent.id;
+  var atnData = KSA_CATALOGS.atnData;
+  var enc     = atnData.encMap[uid];
+
+  if (enc) {
+    var currBodyData = ops.bodyCatalog.find(function(o) { return o.selected === true; });
+    var currBodyName = currBodyData ? currBodyData.Body : null;
+
+    if (ops.pageType === 'body' && currBodyName === enc.SOI) {
+      // Already viewing the correct body system — render orbit and select it
+      if (enc.Eph !== null) _renderEncounterOrbit(enc, currBodyData);
+      var entry = ops.orbits.find(function(o) { return o.db === uid && o.type === 'asteroid'; });
+      if (entry && entry.meshes && entry.meshes.position) {
+        figureClick({ hitType: 'vessel', entry: entry, isPosition: true });
+      }
+    } else {
+      // On a different page — show a notification dialog with navigation option
+      var encDate = KSA_CONSTANTS.FOUNDING_MOMENT.plus({ seconds: enc.EncounterUT }).toFormat("M/d/yyyy");
+      var strHTML = "<p>Asteroid <b>" + sanitizeHTML(uid) + "</b> (Class " + sanitizeHTML(enc.Class) + ") ";
+      strHTML += "has entered the SOI of <b>" + sanitizeHTML(enc.SOI) + "</b>.</p>";
+      strHTML += "<p>Entry date: " + sanitizeHTML(encDate) + "<br>";
+      if (enc.ApproachDate !== null) {
+        strHTML += "Closest approach: " + sanitizeHTML(KSA_CONSTANTS.FOUNDING_MOMENT.plus({ seconds: enc.ApproachDate }).toFormat("M/d/yyyy")) + "<br>";
+      }
+      if (enc.Periapsis !== null) {
+        strHTML += "Periapsis: " + sanitizeHTML(numeral(enc.Periapsis).format('0,0')) + " m";
+      }
+      strHTML += "</p>";
+
+      var buttons = [];
+      if (enc.Eph !== null) {
+        // "View Encounter" is only meaningful when orbital data is available for rendering
+        buttons.push({
+          text: "View Encounter",
+          click: function() {
+            $("#siteDialog").dialog("close");
+            ops.pendingObjSelect = uid;
+            loadBody(enc.SOI);
+          }
+        });
+      }
+      buttons.push({ text: "Close", click: function() { $("#siteDialog").dialog("close"); } });
+
+      $("#siteDialog").html(strHTML);
+      $("#siteDialog").dialog("option", {
+        title: "ATN Encounter \u2014 " + sanitizeHTML(enc.SOI),
+        buttons: buttons
+      });
+      $("#siteDialog").dialog("open");
+    }
+  }
+
+  // Advance the chain
+  if (!ops.updateEncounters) ops.updateEncounters = [];
+  if (ops.updateEncounters.length) {
+    var nextUID = ops.updateEncounters.shift();
+    var nextEnc = atnData.encMap[nextUID];
+    if (nextEnc && nextEnc.EncounterUT !== null) {
+      ops.updatesList.push({ type: "atn:encounter", UT: nextEnc.EncounterUT, id: nextUID });
+      ops.updatesList.sort(function(a, b) { return (a.UT > b.UT) ? 1 : ((b.UT > a.UT) ? -1 : 0); });
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Step 16: ATN moonlet update handler
+// Fires at DiscoveryDate. Shows a discovery notification and renders the
+// moonlet orbit if the user is already on the correct body page.
+// ---------------------------------------------------------------------------
+function updateATNMoonlet(updateEvent) {
+  var uid     = updateEvent.id;
+  var atnData = KSA_CATALOGS.atnData;
+  var m       = atnData.moonletMap[uid];
+
+  if (m) {
+    var currBodyData = ops.bodyCatalog.find(function(o) { return o.selected === true; });
+    var currBodyName = currBodyData ? currBodyData.Body : null;
+
+    if (ops.pageType === 'body' && currBodyName === m.SOI) {
+      // Already viewing the correct body — render live
+      if (m.Eph !== null) _renderMoonletOrbit(m, currBodyData);
+    }
+
+    // Always show a discovery notification
+    var discDate = KSA_CONSTANTS.FOUNDING_MOMENT.plus({ seconds: m.DiscoveryDate }).toFormat("M/d/yyyy");
+    var strHTML = "<p>A new natural moonlet has been detected orbiting <b>" + sanitizeHTML(m.SOI) + "</b>.</p>";
+    strHTML += "<p><b>" + sanitizeHTML(uid) + "</b> &mdash; Class " + sanitizeHTML(m.Class) + ", " + sanitizeHTML(m.Makeup) + "<br>";
+    strHTML += "Discovery date: " + sanitizeHTML(discDate) + "</p>";
+    if (m.Apoapsis !== null && m.Periapsis !== null) {
+      strHTML += "<p>Apoapsis: " + sanitizeHTML(numeral(m.Apoapsis).format('0,0')) + " m<br>";
+      strHTML += "Periapsis: " + sanitizeHTML(numeral(m.Periapsis).format('0,0')) + " m</p>";
+    }
+
+    var buttons = [];
+    if (m.Eph !== null && (ops.pageType !== 'body' || currBodyName !== m.SOI)) {
+      buttons.push({
+        text: "View System",
+        click: function() {
+          $("#siteDialog").dialog("close");
+          ops.pendingObjSelect = uid;
+          loadBody(m.SOI);
+        }
+      });
+    }
+    buttons.push({ text: "Close", click: function() { $("#siteDialog").dialog("close"); } });
+
+    $("#siteDialog").html(strHTML);
+    $("#siteDialog").dialog("option", {
+      title: "ATN Moonlet Discovery \u2014 " + sanitizeHTML(m.SOI),
+      buttons: buttons
+    });
+    $("#siteDialog").dialog("open");
+  }
+
+  // Advance the chain
+  if (!ops.updateMoonlets) ops.updateMoonlets = [];
+  if (ops.updateMoonlets.length) {
+    var nextUID = ops.updateMoonlets.shift();
+    var nextM   = atnData.moonletMap[nextUID];
+    if (nextM) {
+      ops.updatesList.push({ type: "atn:moonlet", UT: nextM.DiscoveryDate, id: nextUID });
+      ops.updatesList.sort(function(a, b) { return (a.UT > b.UT) ? 1 : ((b.UT > a.UT) ? -1 : 0); });
+    }
+  }
+}
+
+// Append only newly-added values (indices >= prevCount) to a filter <select>.
+// Keeps existing checked state intact by not touching earlier options.
+function _appendNewFilterOptions(selectId, values, prevCount) {
+  if (!values || values.length <= prevCount) return;
+  var $sel = $('#' + selectId);
+  for (var i = prevCount; i < values.length; i++) {
+    $sel.append($('<option>').val(values[i]).text(values[i]));
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -1023,9 +1301,9 @@ function _collectATNFilters(record) {
     var dd = parseFloat(record.DiscoveryDate);
     if (!isNaN(dd)) {
       if (f.discoveryDateMin === undefined || dd < f.discoveryDateMin) f.discoveryDateMin = dd;
-      if (f.discoveryDateMax === undefined || dd > f.discoveryDateMax) f.discoveryDateMax = dd;
+      if (f.discoveryDateMax === undefined || (dd > f.discoveryDateMax && dd <= currUT())) f.discoveryDateMax = dd;
     }
-  }
+  }2
 }
 
 // Populate all ATN filter dropdowns from KSA_CATALOGS.atnData.filters and wire up event handlers.
@@ -1391,6 +1669,275 @@ function rebuildATNScene() {
 }
 
 // ---------------------------------------------------------------------------
+// Step 15c: Render a single encounter orbit in the current body scene.
+// Skipped silently if any required orbital field is null or scene is absent.
+// ---------------------------------------------------------------------------
+function _renderEncounterOrbit(enc, bodyData) {
+  if (!threeScene) return;
+  if (enc.Eph === null || enc.SMA === null || enc.Ecc === null ||
+      enc.inc === null || enc.RAAN === null || enc.Arg === null ||
+      enc.TrueAnom === null) return;
+
+  var uid      = enc.UID;
+  var orbitID  = uid.replace(/-/g, '');
+  var colorHex = KSA_COLORS.orbitColors["asteroid"].replace('#', '');
+  var colorInt = parseInt(colorHex, 16);
+
+  var ecc  = parseFloat(enc.Ecc);
+  var sma  = (ecc >= 1) ? Math.abs(parseFloat(enc.SMA)) : parseFloat(enc.SMA);  // km
+  var inc  = Math.radians(parseFloat(enc.inc)  || 0);
+  var raan = Math.radians(parseFloat(enc.RAAN) || 0);
+  var arg  = Math.radians(parseFloat(enc.Arg)  || 0);
+  var mean0      = toMeanAnomaly(Math.radians(parseFloat(enc.TrueAnom) || 0), ecc);
+  var mu_si      = (parseFloat(bodyData.Gm) || 0) * 1e9;  // km³/s² → m³/s²
+  var sma_m      = sma * 1000;
+  var period     = (mu_si > 0) ? 2 * Math.PI * Math.sqrt(sma_m * sma_m * sma_m / mu_si) : 1;
+  var meanMotion = (2 * Math.PI) / period;
+
+  var ut      = currUT();
+  var meanNow = computeMeanAnomalyAtUT(mean0, meanMotion, ut, enc.Eph, ecc);
+  var eccNow  = solveKeplerEquation(meanNow, ecc);
+  var nodeR   = threeNodeRadius;
+  var soiR    = _soiRadiusKm(bodyData);
+
+  var showPositionSphere = true;
+  if (ecc >= 1) {
+    var FMax;
+    if (soiR > 0) {
+      var coshFMax = (soiR / sma + 1) / ecc;
+      if (coshFMax >= 1) FMax = Math.acosh(coshFMax);
+    }
+    if (!FMax) {
+      var thetaMax = Math.acos(-1 / ecc) * 0.99;
+      FMax = 2 * Math.atanh(Math.sqrt((ecc - 1) / (ecc + 1)) * Math.tan(thetaMax / 2));
+    }
+    if (Math.abs(eccNow) > FMax) showPositionSphere = false;
+  }
+
+  var centralAtmoR = _atmoRadiusKm(bodyData);
+  var orbitLine = _buildOrbitGroup(
+    orbitalElementsToEllipsePoints(sma, ecc, inc, raan, arg, 128, soiR),
+    colorInt, centralAtmoR, orbitID
+  );
+  threeScene.add(orbitLine);
+
+  var nodePositions = computeNodePositions(sma, ecc, inc, raan, arg);
+  var penode = null, apnode = null, anode = null, dnode = null;
+  if (ecc) {
+    penode = _makeNodeMarker(nodePositions.periapsis, '0099ff', nodeR);
+    penode.add(_makeBodyLabel('Pe', '0099ff', 0, 14));
+    threeScene.add(penode);
+    if (nodePositions.apoapsis) {
+      apnode = _makeNodeMarker(nodePositions.apoapsis, '0099ff', nodeR);
+      apnode.add(_makeBodyLabel('Ap', '0099ff', 0, -14));
+      threeScene.add(apnode);
+    }
+  }
+  if (inc) {
+    if (nodePositions.ascendingNode) {
+      anode = _makeNodeMarker(nodePositions.ascendingNode, '33ff00', nodeR);
+      anode.add(_makeBodyLabel('AN', '33ff00', -14, 0));
+      threeScene.add(anode);
+    }
+    if (nodePositions.descendingNode) {
+      dnode = _makeNodeMarker(nodePositions.descendingNode, '33ff00', nodeR);
+      dnode.add(_makeBodyLabel('DN', '33ff00', 14, 0));
+      threeScene.add(dnode);
+    }
+  }
+
+  var labelText = 'ATN ' + uid + ' (' + enc.Class + ')';
+  var posMesh = null, label = null;
+  if (showPositionSphere) {
+    var posNow = positionOnOrbit(sma, ecc, inc, raan, arg, eccNow);
+    posMesh = new THREE.Mesh(
+      new THREE.SphereGeometry(nodeR * 1.5, 8, 8),
+      new THREE.MeshBasicMaterial({ color: colorInt })
+    );
+    posMesh.position.copy(posNow);
+    posMesh.userData.orbitId = orbitID;
+    threeScene.add(posMesh);
+    label = _makeBodyLabel(labelText, colorHex, 0, -13);
+    label.position.set(0, 0, 0);
+    posMesh.add(label);
+  } else if (penode) {
+    label = _makeBodyLabel(labelText, colorHex, 0, -13);
+    label.position.set(0, 0, 0);
+    penode.add(label);
+  }
+
+  $('#asteroid-filter').prop('disabled', false).prop('checked', true);
+  $('#asteroid-label').css('color', '#' + colorHex);
+  if ($('#figure').is(':visible') && ops.pageType === 'body' &&
+      !window.location.href.includes('&map') && !KSA_UI_STATE.isMapShown) {
+    $('#vesselOrbitTypes').fadeIn();
+  }
+
+  ops.orbits.push({
+    type:        'asteroid',
+    id:          orbitID,
+    db:          uid,
+    showName:    false,
+    showNodes:   false,
+    isSelected:  false,
+    isHidden:    false,
+    obtLocked:   false,
+    isUrlOrbit:  false,
+    exitUT:      enc.ExitUT,      // remove from scene once currUT passes ExitUT
+    orbitElements: { sma: sma, ecc: ecc, inc: inc, raan: raan, arg: arg,
+                     mean0: mean0, meanMotion: meanMotion, epoch: enc.Eph },
+    meshes: {
+      sphere:   null,
+      orbit:    orbitLine,
+      soi:      null,
+      label:    label,
+      penode:   penode,
+      apnode:   apnode,
+      anode:    anode,
+      dnode:    dnode,
+      position: posMesh
+    }
+  });
+}
+
+// Render all encounters currently active (EncounterUT ≤ ut ≤ ExitUT) for bodyName.
+function _renderEncountersForBody(bodyName, ut) {
+  var atnData = KSA_CATALOGS.atnData;
+  if (!Object.keys(atnData.encMap).length) return;
+  var bodyData = ops.bodyCatalog.find(function(o) { return o.Body === bodyName; });
+  if (!bodyData) return;
+  Object.values(atnData.encMap).forEach(function(enc) {
+    if (enc.SOI !== bodyName) return;
+    if (enc.Eph === null || enc.EncounterUT === null || enc.ExitUT === null) return;
+    if (ut < enc.EncounterUT || ut > enc.ExitUT) return;
+    _renderEncounterOrbit(enc, bodyData);
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Step 16a: Render a single moonlet orbit in the current body scene.
+// ---------------------------------------------------------------------------
+function _renderMoonletOrbit(moonlet, bodyData) {
+  if (!threeScene) return;
+  if (moonlet.Eph === null || moonlet.SMA === null || moonlet.Ecc === null ||
+      moonlet.inc === null || moonlet.RAAN === null || moonlet.Arg === null ||
+      moonlet.TrueAnom === null) return;
+
+  var uid      = moonlet.UID;
+  var orbitID  = uid.replace(/-/g, '');
+  var colorHex = KSA_COLORS.orbitColors["asteroid"].replace('#', '');
+  var colorInt = parseInt(colorHex, 16);
+
+  var ecc  = parseFloat(moonlet.Ecc);
+  var sma  = parseFloat(moonlet.SMA);  // km, elliptic
+  var inc  = Math.radians(parseFloat(moonlet.inc)  || 0);
+  var raan = Math.radians(parseFloat(moonlet.RAAN) || 0);
+  var arg  = Math.radians(parseFloat(moonlet.Arg)  || 0);
+  var mean0      = toMeanAnomaly(Math.radians(parseFloat(moonlet.TrueAnom) || 0), ecc);
+  var mu_si      = (parseFloat(bodyData.Gm) || 0) * 1e9;
+  var sma_m      = sma * 1000;
+  var period     = (mu_si > 0) ? 2 * Math.PI * Math.sqrt(sma_m * sma_m * sma_m / mu_si)
+                               : (parseFloat(moonlet.OrbitalPeriod) || 1);
+  var meanMotion = (2 * Math.PI) / period;
+
+  var ut      = currUT();
+  var meanNow = computeMeanAnomalyAtUT(mean0, meanMotion, ut, moonlet.Eph, ecc);
+  var eccNow  = solveKeplerEquation(meanNow, ecc);
+  var nodeR   = threeNodeRadius;
+  var soiR    = _soiRadiusKm(bodyData);
+
+  var centralAtmoR = _atmoRadiusKm(bodyData);
+  var orbitLine = _buildOrbitGroup(
+    orbitalElementsToEllipsePoints(sma, ecc, inc, raan, arg, 128, soiR),
+    colorInt, centralAtmoR, orbitID
+  );
+  threeScene.add(orbitLine);
+
+  var nodePositions = computeNodePositions(sma, ecc, inc, raan, arg);
+  var penode = null, apnode = null, anode = null, dnode = null;
+  if (ecc) {
+    penode = _makeNodeMarker(nodePositions.periapsis, '0099ff', nodeR);
+    penode.add(_makeBodyLabel('Pe', '0099ff', 0, 14));
+    threeScene.add(penode);
+    if (nodePositions.apoapsis) {
+      apnode = _makeNodeMarker(nodePositions.apoapsis, '0099ff', nodeR);
+      apnode.add(_makeBodyLabel('Ap', '0099ff', 0, -14));
+      threeScene.add(apnode);
+    }
+  }
+  if (inc) {
+    if (nodePositions.ascendingNode) {
+      anode = _makeNodeMarker(nodePositions.ascendingNode, '33ff00', nodeR);
+      anode.add(_makeBodyLabel('AN', '33ff00', -14, 0));
+      threeScene.add(anode);
+    }
+    if (nodePositions.descendingNode) {
+      dnode = _makeNodeMarker(nodePositions.descendingNode, '33ff00', nodeR);
+      dnode.add(_makeBodyLabel('DN', '33ff00', 14, 0));
+      threeScene.add(dnode);
+    }
+  }
+
+  var labelText = 'ATN ' + uid + ' (' + moonlet.Class + ')';
+  var posNow = positionOnOrbit(sma, ecc, inc, raan, arg, eccNow);
+  var posMesh = new THREE.Mesh(
+    new THREE.SphereGeometry(nodeR * 1.5, 8, 8),
+    new THREE.MeshBasicMaterial({ color: colorInt })
+  );
+  posMesh.position.copy(posNow);
+  posMesh.userData.orbitId = orbitID;
+  threeScene.add(posMesh);
+  var label = _makeBodyLabel(labelText, colorHex, 0, -13);
+  label.position.set(0, 0, 0);
+  posMesh.add(label);
+
+  $('#asteroid-filter').prop('disabled', false).prop('checked', true);
+  $('#asteroid-label').css('color', '#' + colorHex);
+  if ($('#figure').is(':visible') && ops.pageType === 'body' &&
+      !window.location.href.includes('&map') && !KSA_UI_STATE.isMapShown) {
+    $('#vesselOrbitTypes').fadeIn();
+  }
+
+  ops.orbits.push({
+    type:        'asteroid',
+    id:          orbitID,
+    db:          uid,
+    showName:    false,
+    showNodes:   false,
+    isSelected:  false,
+    isHidden:    false,
+    obtLocked:   false,
+    isUrlOrbit:  false,
+    orbitElements: { sma: sma, ecc: ecc, inc: inc, raan: raan, arg: arg,
+                     mean0: mean0, meanMotion: meanMotion, epoch: moonlet.Eph },
+    meshes: {
+      sphere:   null,
+      orbit:    orbitLine,
+      soi:      null,
+      label:    label,
+      penode:   penode,
+      apnode:   apnode,
+      anode:    anode,
+      dnode:    dnode,
+      position: posMesh
+    }
+  });
+}
+
+// Render all moonlets discovered (DiscoveryDate ≤ ut) for bodyName.
+function _renderMoonletsForBody(bodyName, ut) {
+  var atnData = KSA_CATALOGS.atnData;
+  if (!Object.keys(atnData.moonletMap).length) return;
+  var bodyData = ops.bodyCatalog.find(function(o) { return o.Body === bodyName; });
+  if (!bodyData) return;
+  Object.values(atnData.moonletMap).forEach(function(m) {
+    if (m.SOI !== bodyName) return;
+    if (m.Eph === null || m.DiscoveryDate > ut) return;
+    _renderMoonletOrbit(m, bodyData);
+  });
+}
+
+// ---------------------------------------------------------------------------
 // Step 5: stream ATN main catalog, report progress, then batch-render all at once
 // Called by onSceneReady() when atnData.loaded == false
 // ---------------------------------------------------------------------------
@@ -1411,6 +1958,17 @@ function loadATNCatalog() {
 
       _populateATNScene(atnData.roids, ut, 0, function() {
         atnData.loaded = true;
+
+        // Seed the ATN main update chain with the first future discovery
+        if (ops.updateATN && ops.updateATN.length) {
+          var firstUID = ops.updateATN.shift();
+          var firstRec = atnData.roidMap[firstUID];
+          if (firstRec) {
+            ops.updatesList.push({ type: "atn:main", UT: firstRec.DiscoveryDate, id: firstUID });
+            ops.updatesList.sort(function(a, b) { return (a.UT > b.UT) ? 1 : ((b.UT > a.UT) ? -1 : 0); });
+          }
+        }
+
         $("#vesselLoaderMsg").fadeOut();
         declutterScene();
       });
@@ -1430,9 +1988,10 @@ function loadATNCatalog() {
       if (record.Eph === null || record.Category === "Moonlet") return;
       _collectATNFilters(record);
       atnData.roids.push(record);
+      atnData.roidMap[record.UID] = record;
       if (record.DiscoveryDate > ut) {
         if (!ops.updateATN) ops.updateATN = [];
-        ops.updateATN.push(record);
+        ops.updateATN.push(record.UID);
       }
     }
   );
@@ -1489,11 +2048,6 @@ function loadBody(body = "Kerbol-System", flt) {
       return;
     }
   
-  // ATN page type drives loadBody("Kerbol") internally; skip title/history (already set by loadATN())
-  // Always rebuild the Kerbol scene fresh when entering ATN
-  } else if (ops.pageType == "atn") {
-    if (!body.includes("-") && (ops.bodyCatalog.find(o => o.Body === body).Moons || body == "Kerbol")) body += "-System";
-
   // if this is a vessel page calling the load then set a flag to let us know the figure will need to be reset next time it is shown
   } else if (ops.pageType == "vessel") KSA_UI_STATE.isDirty = true;
 
@@ -1779,6 +2333,16 @@ function onSceneReady() {
 
   // inject any orbit provided via the ?orbit= URL parameter
   injectOrbitParam();
+
+  // Render any encounters and moonlets that are currently active for this body (Step 15 / Step 16)
+  if (ops.pageType === 'body') {
+    var _curBodyName = (ops.bodyCatalog.find(function(o) { return o.selected === true; }) || {}).Body;
+    if (_curBodyName) {
+      var _curUT = currUT();
+      _renderEncountersForBody(_curBodyName, _curUT);
+      _renderMoonletsForBody(_curBodyName, _curUT);
+    }
+  }
 
   // bring figure body locations up to date
   // (click listener wired via raycaster; no manual registration needed with Three.js)
@@ -2217,6 +2781,37 @@ function declutterScene(hideOnly = false) {
   // exit early if we're just hiding elements but not re-enabling controls and checkboxes yet
   if (hideOnly) return;
 
+  // For body-only views (no "System" — the central body has no catalog children rendered around
+  // it), re-fit the camera to encompass all loaded vessel/asteroid orbits now that they are
+  // fully added to the scene.  Systems already have the camera set correctly by buildBodyScene().
+  if (ops.pageType === 'body' && threeCamera && threeControls) {
+    var _cbd2 = ops.bodyCatalog.find(function(o) { return o.selected === true; });
+    var _hasChildren = _cbd2 && ops.bodyCatalog.some(function(b) {
+      return b.Ref !== null && b.Ref !== undefined &&
+             parseInt(b.Ref) === parseInt(_cbd2.ID) && b.Body !== _cbd2.Body;
+    });
+    if (!_hasChildren) {
+      var _fitSMA = 0;
+      ops.orbits.forEach(function(item) {
+        if (item.orbitElements && item.orbitElements.sma) {
+          var s = item.orbitElements.sma;
+          if (s > _fitSMA) _fitSMA = s;
+        }
+      });
+      if (_fitSMA > 0) {
+        threeCamera.near = Math.max(1, _fitSMA * 0.00005);
+        threeCamera.far  = _fitSMA * 500;
+        threeCamera.position.set(0, _fitSMA * 0.25, _fitSMA * 2.5);
+        threeCamera.up.copy(_threeWorldUp);
+        threeCamera.updateProjectionMatrix();
+        threeControls.target.set(0, 0, 0);
+        threeControls.maxDistance = _fitSMA * 20;
+        threeControls.update();
+        threeCamera.up.copy(_threeWorldUp);
+      }
+    }
+  }
+
   // ATN post-load: reveal figure controls, restore cursor
   if (ops.pageType == "atn") {
     if (threeRenderer) threeRenderer.domElement.style.cursor = "";
@@ -2256,6 +2851,20 @@ function declutterScene(hideOnly = false) {
   if (ops.pageType == "atn") {
     Tipped.create('#atnExportBtn', 'Export filtered asteroids to CSV', { showOn: 'mouseenter', hideOnClickOutside: false, position: 'left' });
     $("#atnExportBtn").show();
+  }
+
+  // If the user clicked "View Encounter" or "View System" from a notification dialog,
+  // auto-select and open the info dialog for the pending asteroid.
+  if (ops.pageType === 'body' && ops.pendingObjSelect) {
+    var _pendUID = ops.pendingObjSelect;
+    ops.pendingObjSelect = null;
+    var _pendEntry = ops.orbits.find(function(o) { return o.db === _pendUID && o.type === 'asteroid'; });
+    if (_pendEntry) {
+      // Brief delay so the scene can finish settling before we apply selection
+      setTimeout(function() {
+        figureClick({ hitType: 'vessel', entry: _pendEntry, isPosition: true });
+      }, 200);
+    }
   }
 }
 
@@ -2410,9 +3019,18 @@ function _selectEntry(entry) {
 // Step 10: Asteroid info dialog — opened when clicking an asteroid position sphere
 // ---------------------------------------------------------------------------
 function _openAsteroidDialog(entry) {
-  var uid = entry.db;
-  var record = KSA_CATALOGS.atnData.roids.find(function(r) { return r.UID === uid; });
+  var uid     = entry.db;
+  var atnData = KSA_CATALOGS.atnData;
+
+  // Look up in all three catalogs: main, encounters, moonlets
+  var record   = (atnData.roidMap    && atnData.roidMap[uid])
+              || (atnData.encMap     && atnData.encMap[uid])
+              || (atnData.moonletMap && atnData.moonletMap[uid]);
   if (!record) return;
+
+  // Detect record type by catalog membership
+  var isEncounter = !!(atnData.encMap     && atnData.encMap[uid]);
+  var isMoonlet   = !!(atnData.moonletMap && atnData.moonletMap[uid]);
 
   var CAT_DESCS = {
     'NKO':      "Near Kerbin Object: Crosses Kerbin's SOI",
@@ -2425,62 +3043,86 @@ function _openAsteroidDialog(entry) {
     'Centaur':  'Family of asteroids that resides in the space between Jool and Neidon',
     'Ejected':  'Asteroid is leaving the Kerbol system due to gravitational slingshot from a gas giant planet'
   };
-  var TYPE_DESCS = {
-    'Normal':    'crossing one or more SOI',
-    'Encounter': 'entering SOI',
-    'Roaming':   'crossing no SOI'
-  };
 
   var massKt = numeral(parseFloat(numeral(record.Mass).divide(1000).value().toPrecision(3))).format('0,0.[000]');
   var strHTML = "<p><b>Discovery:</b> " + sanitizeHTML(KSA_CONSTANTS.FOUNDING_MOMENT.plus({seconds: record.DiscoveryDate}).toFormat("M/d/yyyy")) + "<br>";
   strHTML += "<b>Mass:</b> " + sanitizeHTML(massKt) + " kt</p>";
 
-  // Orbital parameters (all fields are nullable)
-  if (record.Apkelion !== null || record.Perikelion !== null || record.OrbitalPeriod !== null) {
-    strHTML += "<p><b>Orbital Parameters</b><br>";
-    if (record.Apkelion      !== null) strHTML += "Apkelion: "       + sanitizeHTML(numeral(record.Apkelion).format('0,0'))      + " km<br>";
-    if (record.Perikelion    !== null) strHTML += "Perikelion: "     + sanitizeHTML(numeral(record.Perikelion).format('0,0'))    + " km<br>";
-    if (record.OrbitalPeriod !== null) strHTML += "Orbital period: " + formatTime(record.OrbitalPeriod, false)                  + "<br>";
-    strHTML += "</p>";
-  }
-
-  // Sun grazer note: perikelion within 3,948.911 Mm (3,948,911 km) of Kerbol
-  if (record.Perikelion !== null && record.Perikelion < 3948911) {
-    strHTML += "<p><i>Sun Grazer: Perikelion within 3,948.911 Mm of Kerbol</i></p>";
-  }
-
-  // Makeup, Category, Type
-  strHTML += "<p><b>Makeup:</b> " + sanitizeHTML(record.Makeup) + "<br>";
-  strHTML += "<b>Category:</b> " + sanitizeHTML(CAT_DESCS[record.Category] || record.Category) + "<br>";
-  strHTML += "<b>Orbit Type:</b> " + sanitizeHTML(record.Type) + " &mdash; ";
-
-  // Type details
-  if (record.Type === 'Encounter') {
-    strHTML += "Entering the SOI of " + sanitizeHTML(record.SOIcross[0]);
-    if (record.SOIcross.length > 1) {
-      strHTML += " and crossing the SOI(s) of " + sanitizeHTML(record.SOIcross.slice(1).join(", "));
+  if (isMoonlet) {
+    // ── Moonlet dialog ────────────────────────────────────────────────────────
+    strHTML += "<p><i>Captured asteroid; now a natural moonlet of " + sanitizeHTML(record.SOI) + "</i></p>";
+    if (record.Apoapsis !== null || record.Periapsis !== null || record.OrbitalPeriod !== null) {
+      strHTML += "<p><b>Orbital Parameters</b><br>";
+      if (record.Apoapsis     !== null) strHTML += "Apoapsis: "       + sanitizeHTML(numeral(record.Apoapsis).format('0,0'))     + " m<br>";
+      if (record.Periapsis    !== null) strHTML += "Periapsis: "      + sanitizeHTML(numeral(record.Periapsis).format('0,0'))    + " m<br>";
+      if (record.OrbitalPeriod !== null) strHTML += "Orbital period: " + formatTime(record.OrbitalPeriod, false)                 + "<br>";
+      strHTML += "</p>";
     }
-  } else if (record.SOIcross && record.SOIcross.length > 0) {
-    strHTML += "Crossing the SOI(s) of " + sanitizeHTML(record.SOIcross.join(", "));
-  } else {
-    strHTML += TYPE_DESCS.Roaming;
-  }
-  strHTML += "</p>";
+    strHTML += "<p><b>Makeup:</b> " + sanitizeHTML(record.Makeup) + "</p>";
 
-  // Encounter info (shown when an encounter date is recorded)
-  if (record.EncounterDate !== null && record.SOIcross && record.SOIcross.length > 0) {
-    strHTML += "<p><b>Encounter: " + sanitizeHTML(record.SOIcross[0]) + "</b><br>";
-    strHTML += "Enter SOI: " + sanitizeHTML(KSA_CONSTANTS.FOUNDING_MOMENT.plus({seconds: record.EncounterDate}).toFormat("M/d/yyyy")) + "<br>";
+  } else if (isEncounter) {
+    // ── Encounter dialog ──────────────────────────────────────────────────────
+    if (record.Makeup)   strHTML += "<p><b>Makeup:</b> "    + sanitizeHTML(record.Makeup) + "<br>";
+    if (record.Category) strHTML += "<b>Category:</b> " + sanitizeHTML(CAT_DESCS[record.Category] || record.Category) + "</p>";
+
+    // Encounter specifics
+    strHTML += "<p><b>Encounter: " + sanitizeHTML(record.SOI) + "</b><br>";
+    if (record.EncounterUT !== null) strHTML += "Enter SOI: " + sanitizeHTML(KSA_CONSTANTS.FOUNDING_MOMENT.plus({seconds: record.EncounterUT}).toFormat("M/d/yyyy")) + "<br>";
+    if (record.ExitUT      !== null) strHTML += "Exit SOI: "  + sanitizeHTML(KSA_CONSTANTS.FOUNDING_MOMENT.plus({seconds: record.ExitUT     }).toFormat("M/d/yyyy")) + "<br>";
     if (record.ApproachDate !== null) strHTML += "Closest approach: " + sanitizeHTML(KSA_CONSTANTS.FOUNDING_MOMENT.plus({seconds: record.ApproachDate}).toFormat("M/d/yyyy")) + "<br>";
     strHTML += "Periapsis: " + (record.Periapsis !== null
       ? sanitizeHTML(numeral(record.Periapsis).format('0,0')) + " m"
-      : "<i>Impact</i>") + "</p>";
-  }
+      : "<i>Data pending</i>") + "</p>";
 
-  // View Asteroid History link — case-insensitive match against vessel db names
-  var vesselMatch = ops.craftsMenu.find(function(o) { return o.db.toLowerCase() === uid.toLowerCase(); });
-  if (vesselMatch) {
-    strHTML += "<p><span class='fauxLink' onclick='swapContent(\"vessel\", \"" + sanitizeHTML(vesselMatch.db) + "\")'>View Asteroid History</span></p>";
+  } else {
+    // ── Main catalog dialog (original logic) ──────────────────────────────────
+
+    // Orbital parameters (all fields are nullable)
+    if (record.Apkelion !== null || record.Perikelion !== null || record.OrbitalPeriod !== null) {
+      strHTML += "<p><b>Orbital Parameters</b><br>";
+      if (record.Apkelion      !== null) strHTML += "Apkelion: "       + sanitizeHTML(numeral(record.Apkelion).format('0,0'))      + " km<br>";
+      if (record.Perikelion    !== null) strHTML += "Perikelion: "     + sanitizeHTML(numeral(record.Perikelion).format('0,0'))    + " km<br>";
+      if (record.OrbitalPeriod !== null) strHTML += "Orbital period: " + formatTime(record.OrbitalPeriod, false)                  + "<br>";
+      strHTML += "</p>";
+    }
+
+    // Sun grazer note: perikelion within 3,948.911 Mm (3,948,911 km) of Kerbol
+    if (record.Perikelion !== null && record.Perikelion < 3948911) {
+      strHTML += "<p><i>Sun Grazer: Perikelion within 3,948.911 Mm of Kerbol</i></p>";
+    }
+
+    // Makeup, Category, Type
+    strHTML += "<p><b>Makeup:</b> " + sanitizeHTML(record.Makeup) + "<br>";
+    strHTML += "<b>Category:</b> " + sanitizeHTML(CAT_DESCS[record.Category] || record.Category) + "<br>";
+    strHTML += "<b>Orbit Type:</b> " + sanitizeHTML(record.Type) + " &mdash; ";
+
+    if (record.Type === 'Encounter') {
+      strHTML += "Entering the SOI of " + sanitizeHTML(record.SOIcross[0]);
+      if (record.SOIcross.length > 1) {
+        strHTML += " and crossing the SOI(s) of " + sanitizeHTML(record.SOIcross.slice(1).join(", "));
+      }
+    } else if (record.SOIcross && record.SOIcross.length > 0) {
+      strHTML += "Crossing the SOI(s) of " + sanitizeHTML(record.SOIcross.join(", "));
+    } else {
+      strHTML += "crossing no SOI";
+    }
+    strHTML += "</p>";
+
+    // Encounter info (shown when an encounter date is recorded)
+    if (record.EncounterDate !== null && record.SOIcross && record.SOIcross.length > 0) {
+      strHTML += "<p><b>Encounter: " + sanitizeHTML(record.SOIcross[0]) + "</b><br>";
+      strHTML += "Enter SOI: " + sanitizeHTML(KSA_CONSTANTS.FOUNDING_MOMENT.plus({seconds: record.EncounterDate}).toFormat("M/d/yyyy")) + "<br>";
+      if (record.ApproachDate !== null) strHTML += "Closest approach: " + sanitizeHTML(KSA_CONSTANTS.FOUNDING_MOMENT.plus({seconds: record.ApproachDate}).toFormat("M/d/yyyy")) + "<br>";
+      strHTML += "Periapsis: " + (record.Periapsis !== null
+        ? sanitizeHTML(numeral(record.Periapsis).format('0,0')) + " m"
+        : "<i>Impact</i>") + "</p>";
+    }
+
+    // View Asteroid History link — case-insensitive match against vessel db names
+    var vesselMatch = ops.craftsMenu.find(function(o) { return o.db.toLowerCase() === uid.toLowerCase(); });
+    if (vesselMatch) {
+      strHTML += "<p><span class='fauxLink' onclick='swapContent(\"vessel\", \"" + sanitizeHTML(vesselMatch.db) + "\")'>View Asteroid History</span></p>";
+    }
   }
 
   $("#figureDialog").dialog("option", "title", sanitizeHTML(uid + " (Class " + record.Class + ")"));
@@ -2575,7 +3217,12 @@ function figureClick(hit) {
 
   // ----- position sphere (body or vessel) -----
   if (hit.hitType === 'body' || hit.hitType === 'vessel') {
-    if (hit.hitType === 'vessel' && ops.pageType !== 'atn') $("#figureDialog").dialog("close");
+
+    // only close on actual vessel click, which means we have to check the crafts menu to distinguish betweeen
+    // a named asteroid and an ATN one just passing through or captured as a moonlet
+    if (hit.hitType === 'vessel' && ops.pageType !== 'atn' && ops.craftsMenu.find(function(o) { return o.db.toLowerCase() === clickedEntry.db.toLowerCase(); })) {
+      $("#figureDialog").dialog("close");
+    }
 
     // The central body has no orbit mesh — treat it as always visible so its dialog always opens.
     var orbitVisible = !clickedEntry.meshes.orbit || clickedEntry.meshes.orbit.visible;
@@ -2603,6 +3250,13 @@ function figureClick(hit) {
     }
 
     if (hit.hitType === 'vessel' && clickedEntry.type === 'asteroid' && ops.pageType === 'atn') {
+      _openAsteroidDialog(clickedEntry);
+      return;
+    }
+
+    if (hit.hitType === 'vessel' && clickedEntry.type === 'asteroid' && ops.pageType === 'body') {
+      var _vesselMatch = ops.craftsMenu.find(function(o) { return o.db.toLowerCase() === clickedEntry.db.toLowerCase(); });
+      if (_vesselMatch) { swapContent("vessel", _vesselMatch.db); return; }
       _openAsteroidDialog(clickedEntry);
       return;
     }
@@ -2871,6 +3525,17 @@ function toggleSOI(isChecked) {
 // ---------------------------------------------------------------------------
 function updateOrbitalPositions(ut) {
   if (!KSA_UI_STATE.is3JSLoaded) return;
+
+  // Remove expired encounter orbits (past their ExitUT window) before propagating positions.
+  var expired = [];
+  ops.orbits.forEach(function(item) {
+    if (item.exitUT !== undefined && item.exitUT !== null && ut > item.exitUT) expired.push(item);
+  });
+  expired.forEach(function(item) {
+    ops.orbits.splice(ops.orbits.indexOf(item), 1);
+    _disposeVesselMeshes(item.meshes);
+  });
+
   ops.orbits.forEach(function(item) {
     if (!item.orbitElements || !item.meshes) return;
     var oe      = item.orbitElements;
