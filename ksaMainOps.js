@@ -569,12 +569,20 @@ function setupContent() {
     if (e.button === 1) {
       e.preventDefault();
       openObjectTags("http://www.kerbalspace.agency/?tag=", ",");
-      openObjectTags("https://www.flickr.com/search/?user_id=kerbal_space_agency&view_all=1&tags=(", "+OR+", ")+-archive");
+      if (ops.pageType != "atn") {
+        openObjectTags("https://www.flickr.com/search/?user_id=kerbal_space_agency&view_all=1&tags=(", "+OR+", ")+-archive");
+      } else {
+        window.open("https://flic.kr/s/aHskP4iqUG", '_blank');
+      }
     }
   });
   $("#tags").on('contextmenu', function(e) {
     e.preventDefault();
-    openObjectTags("https://www.flickr.com/search/?user_id=kerbal_space_agency&view_all=1&tags=(", "+OR+", ")+-archive");
+    if (ops.pageType != "atn") {
+      openObjectTags("https://www.flickr.com/search/?user_id=kerbal_space_agency&view_all=1&tags=(", "+OR+", ")+-archive");
+    } else {
+      window.open("https://flic.kr/s/aHskP4iqUG", '_blank');
+    }
   });
 
   // enable tooltip for the footer
@@ -879,6 +887,7 @@ function swapContent(newPageType, id, ut, flt) {
     $("#figureOptions").fadeOut();
     $("#vesselOrbitTypes").fadeOut();
     $("#atnFilterControls").hide();
+    $("#atnSearchControls").hide();
     $("#atnExportBtn").hide();
     if (newPageType != "body") $("#figure").fadeOut();
     $("#figureDialog").dialog("close");

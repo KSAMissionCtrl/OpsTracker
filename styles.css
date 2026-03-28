@@ -396,6 +396,30 @@ input:disabled+label {
   font-size: 12px;
 }
 
+#atnSearchControls {
+  position: absolute;
+  top: 38px;
+  left: 10px;
+  z-index: 10;
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+#atnUIDSearch {
+  font-size: 12px;
+  width: 100px;
+  padding: 1px 4px;
+  transition: background-color 0.5s ease;
+}
+
+#atnSearchBtn {
+  font-size: 12px;
+  padding: 1px 6px;
+  cursor: pointer;
+}
+
 #menuBox {
   background-color: #EDF1F6; 
   margin-top: 5px;

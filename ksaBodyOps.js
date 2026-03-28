@@ -1115,6 +1115,7 @@ function updateATNMain(updateEvent) {
 
   // Render the asteroid into the live scene if still on the ATN page
   if (ops.pageType === "atn" && KSA_UI_STATE.is3JSLoaded) {
+    KSA_CATALOGS.atnData.catalogCount++;
     _renderAsteroid(record);
     applyATNFilters();
   }
@@ -1361,8 +1362,22 @@ function populateATNFilters() {
   // Encounters checkbox
   $('#atnFilterEncounters').off('change.atnFilter').on('change.atnFilter', applyATNFilters);
 
-  // Show the filter bar
+  // Show the filter bar and search controls
   $('#atnFilterControls').show();
+  $('#atnSearchControls').show();
+
+  // Re-enable the search button (all <button> elements are globally disabled on page init via jQuery UI)
+  $('#atnSearchBtn').button('enable');
+
+  // Initialise catalog count (all currently-discoverable asteroids); filter count hidden until a filter narrows it
+  $('#atnCatalogCount').text('Total Catalog Count: ' + KSA_CATALOGS.atnData.catalogCount.toLocaleString());
+  $('#atnFilterCount').hide();
+
+  // Wire up search button, clear-on-focus, and Enter key (off first to avoid duplicate bindings on re-runs)
+  $('#atnSearchBtn').off('click.atnSearch').on('click.atnSearch', searchATNAsteroid);
+  $('#atnUIDSearch').off('focus.atnSearch keydown.atnSearch')
+    .on('focus.atnSearch', function() { $(this).val(''); })
+    .on('keydown.atnSearch', function(e) { if (e.key === 'Enter') searchATNAsteroid(); });
 }
 
 // Open a simple date-only picker dialog to set an ATN "Discovered After/Before" filter.
@@ -1522,6 +1537,17 @@ function applyATNFilters() {
       _setVisible(item.meshes.dnode,    false);
     }
   });
+
+  // Update count spans
+  var visibleCount = 0;
+  ops.orbits.forEach(function(item) {
+    if (item.type === 'asteroid' && item.meshes && !item.isHidden) visibleCount++;
+  });
+  if (visibleCount === KSA_CATALOGS.atnData.catalogCount) {
+    $('#atnFilterCount').hide();
+  } else {
+    $('#atnFilterCount').text(' | Total Filter Count: ' + visibleCount.toLocaleString()).show();
+  }
 }
 
 function _renderAsteroid(record) {
@@ -1636,18 +1662,17 @@ function _renderAsteroid(record) {
 // Render asteroids from roids[] in chunks of BATCH_SIZE, yielding to the
 // browser between each chunk (same pattern as orbitalCalc()). Calls onDone
 // when the last chunk finishes.
-function _populateATNScene(roids, ut, index, onDone) {
+function _populateATNScene(roids, index, onDone) {
   var BATCH_SIZE = 50;
   var end = Math.min(index + BATCH_SIZE, roids.length);
   for (var i = index; i < end; i++) {
-    if (roids[i].DiscoveryDate <= ut) _renderAsteroid(roids[i]);
+    _renderAsteroid(roids[i]);
   }
   var pct = roids.length > 0 ? Math.round(end / roids.length * 100) : 100;
-  // set the message to Left: 837px
   $("#vesselLoaderMsg").html("Populating: " + pct + "%").css('left', '837px');
   if (end < roids.length) {
     if (ops.pageType !== "atn") return; // navigated away
-    setTimeout(_populateATNScene, 1, roids, ut, end, onDone);
+    setTimeout(_populateATNScene, 1, roids, end, onDone);
   } else {
     if (ops.pageType !== "atn") return; // navigated away during final batch
     onDone();
@@ -1655,11 +1680,20 @@ function _populateATNScene(roids, ut, index, onDone) {
 }
 
 function rebuildATNScene() {
-  var ut = currUT();
+  var ut      = currUT();
+  var atnData = KSA_CATALOGS.atnData;
+
+  // Find the split point so we populate only the asteroids discovered by now.
+  var splitIndex = atnData.roids.length;
+  for (var i = 0; i < atnData.roids.length; i++) {
+    if (atnData.roids[i].DiscoveryDate > ut) { splitIndex = i; break; }
+  }
+  atnData.catalogCount = splitIndex;
+
   $("#vesselLoaderMsg").spin(false);
   $("#vesselLoaderMsg").html("Populating: 0%").css('left', '837px');
   $("#vesselLoaderMsg").fadeIn();
-  _populateATNScene(KSA_CATALOGS.atnData.roids, ut, 0, function() {
+  _populateATNScene(atnData.roids.slice(0, splitIndex), 0, function() {
     $("#vesselLoaderMsg").fadeOut();
     declutterScene();
   });
@@ -1945,18 +1979,34 @@ function loadATNCatalog() {
 
   loadJsonTxt(url,
 
-    // Completion callback — fires when XHR is done; batch-render now
+    // Completion callback — fires when XHR is done; configure updates then batch-render
     function(err) {
       if (ops.pageType !== "atn") return;
       if (err) console.error('[loadATNCatalog] Failed to load:', err);
 
+      // Find the split point: catalog is sorted by DiscoveryDate, so past records come first.
+      // splitIndex is the exact count of asteroids that will be rendered at the current UT.
+      var splitIndex = atnData.roids.length;
+      for (var i = 0; i < atnData.roids.length; i++) {
+        if (atnData.roids[i].DiscoveryDate > ut) { splitIndex = i; break; }
+      }
+
+      // Pre-set catalogCount before populating so applyATNFilters has the correct total immediately.
+      atnData.catalogCount = splitIndex;
+
+      // Build the future-discovery update queue from records beyond the split.
+      ops.updateATN = splitIndex < atnData.roids.length
+        ? atnData.roids.slice(splitIndex).map(function(r) { return r.UID; })
+        : [];
+
       $("#vesselLoaderMsg").spin(false);
       $("#vesselLoaderMsg").html("Populating: 0%").css('left', '837px');
 
-      _populateATNScene(atnData.roids, ut, 0, function() {
+      // Populate only the past-records slice; percentage is now accurate.
+      _populateATNScene(atnData.roids.slice(0, splitIndex), 0, function() {
         atnData.loaded = true;
 
-        // Seed the ATN main update chain with the first future discovery
+        // Seed the ATN main update chain with the first future discovery.
         if (ops.updateATN && ops.updateATN.length) {
           var firstUID = ops.updateATN.shift();
           var firstRec = atnData.roidMap[firstUID];
@@ -1980,16 +2030,12 @@ function loadATNCatalog() {
       }
     },
 
-    // Item callback — collect data only; no rendering yet
+    // Item callback — collect all records; update queue is built in the completion callback
     function(record) {
       if (record.Eph === null || record.Category === "Moonlet") return;
       _collectATNFilters(record);
       atnData.roids.push(record);
       atnData.roidMap[record.UID] = record;
-      if (record.DiscoveryDate > ut) {
-        if (!ops.updateATN) ops.updateATN = [];
-        ops.updateATN.push(record.UID);
-      }
     }
   );
 }
@@ -2925,6 +2971,28 @@ function resetFigure() {
 }
 
 // Reset all ATN filter dropdowns to their unchecked/cleared defaults and re-apply.
+// Search the ATN figure for an asteroid by UID.
+// Selects and centers the asteroid if found and visible; flashes the input red if not.
+function searchATNAsteroid() {
+  var searchTerm = $('#atnUIDSearch').val().trim().toLowerCase();
+  if (!searchTerm) return;
+
+  var entry = ops.orbits.find(function(o) {
+    return o.type === 'asteroid' && !o.isHidden && o.db.toLowerCase() === searchTerm;
+  });
+
+  if (!entry) {
+    $('#atnUIDSearch').val('');
+    flashUpdate('#atnSearchBtn', '#ff4444', '#ffffff');
+    return;
+  }
+
+  // Select the entry and center the view on it
+  unselectBody(null);
+  _selectEntry(entry);
+  centerBody(entry.id);
+}
+
 function _resetATNFilters() {
   // Remove checkmarks from all multi-select dropdowns
   $('#atnFilterCategory, #atnFilterSize, #atnFilterMakeup, #atnFilterType, #atnFilterSOI')

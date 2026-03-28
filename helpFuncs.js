@@ -1425,6 +1425,9 @@ function openObjectTags(url, delimiter, urlAppend = "") {
     });
     strTags = arrTags.join(delimiter);
   }
+  else if (ops.pageType == "atn") {
+    strTags = "atn";
+  }
   else if (ops.pageType == "body" && ops.bodyCatalog) {
 
     // check if the body details dialog is open

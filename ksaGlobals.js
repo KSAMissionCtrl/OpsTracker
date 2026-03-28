@@ -325,7 +325,8 @@ const KSA_CATALOGS = {
     loaded: false,        // true once the full catalog stream has finished
     indexUTs: null,       // { main, encounters, moonlets } — null until loadATNIndex() resolves
     encMap: {},           // UID → encounter record (all UTs, incl. future and null-ephemeris)
-    moonletMap: {}        // UID → moonlet record
+    moonletMap: {},        // UID → moonlet record
+    catalogCount: 0        // count of catalog records currently rendered in the scene
   }
 };
 
