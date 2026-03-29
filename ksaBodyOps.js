@@ -3337,11 +3337,7 @@ function figureClick(hit) {
       var bodyData = ops.bodyCatalog.find(function(o) { return o.Body === clickedEntry.id; });
 
       var strHTML = "<table style='border: 0px; border-collapse: collapse;'><tr><td style='vertical-align: top; width: 256px;'>";
-      if (bodyData.Image) {
-        strHTML += "<img src='" + sanitizeHTML(bodyData.Image) + "' style='background-color:black; cursor:pointer;' class='body-image-clickable'>";
-      } else {
-        strHTML += "<img src='http://www.kerbalspace.agency/Tracker/images/bodyna.png' style='cursor:pointer;' class='body-image-clickable'>";
-      }
+      strHTML += "<img src='http://www.kerbalspace.agency/Tracker/images/bodies/" + encodeURIComponent(clickedEntry.id) + ".png' style='background-color:black; cursor:pointer;' class='body-image-clickable' onerror=\"this.onerror=null;this.src='http://www.kerbalspace.agency/Tracker/images/bodyna.png';\">";
       strHTML += "<i><p>&quot;" + bodyData.Desc + "&quot;</p></i><p><b>- Kerbal Astronomical Society</b></p></td>";
       strHTML += "<td style='vertical-align: top; padding: 0px; margin-top: 0px'><b>Orbital Data</b>";
       strHTML += "<p>Apoapsis: "         + sanitizeHTML(bodyData.Ap)      + " m<br>";

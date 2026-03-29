@@ -81,7 +81,7 @@ function loadCrewAJAX(result) {
     // compose and assign the portrait tooltip
     strTip = "<b>" + sanitizeHTML(ops.currentCrew.Stats.Rank) + " " + sanitizeHTML(ops.currentCrew.Background.FullName) + " Kerman<p>Activation Date:</b> " + UTtoDateTime(ops.currentCrew.Background.Activation).split("@")[0] + "<br><b>Mission Count:</b> " + ops.currentCrew.Missions.length + "<br><b>Ribbon Count:</b> " + ops.currentCrew.Ribbons.length + "<br><b>Current Status:</b><br>" + sanitizeHTML(ops.currentCrew.Stats.Status);
     if (ops.currentCrew.Stats.Assignment) strTip += "<br><b>Current Assignment:</b><br>" + sanitizeHTML(ops.currentCrew.Stats.Assignment);
-    $("#" + ops.currentCrew.Background.Kerbal).html("<img src='" + sanitizeHTML(ops.currentCrew.Stats.Image) + "' class='tip' data-tipped-options=\"position: 'bottom', target: 'mouse'\" style='width: 235px; cursor: pointer' title='" + strTip + "'>");
+    $("#" + ops.currentCrew.Background.Kerbal).html("<img src='" + imageURLFromDB("http://www.kerbalspace.agency/Tracker/images/kerbals/" + ops.currentCrew.Background.Kerbal + "/", ops.currentCrew.Stats.Image) + "' class='tip' data-tipped-options=\"position: 'bottom', target: 'mouse'\" style='width: 235px; cursor: pointer' title='" + strTip + "'>");
     
     // remove the current loaded crew
     if (ops.currentCrew) {
@@ -373,7 +373,7 @@ function crewHeaderUpdate(update) {
 function crewInfoUpdate(update) {
 
   // basic setups
-  $("#infoImg").html("<img src='" + sanitizeHTML(ops.currentCrew.Stats.Image) + "'>");
+  $("#infoImg").html("<img src='" + imageURLFromDB("http://www.kerbalspace.agency/Tracker/images/kerbals/" + ops.currentCrew.Background.Kerbal + "/", ops.currentCrew.Stats.Image) + "'>");
   $("#infoTitle").html("Click Here for Background Information");
   $("#infoTitle").attr("class", "infoTitle crew");
   $("#infoDialog").dialog("option", "title", "Background Information");

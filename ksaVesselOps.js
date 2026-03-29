@@ -253,22 +253,28 @@ function loadVesselAJAX(result, flags) {
     var p = ops.currentVessel.Catalog.Patches;
 
     // program patch
-    var strPatches = "<a target='_blank' href='" + p.program.pageUrl.replace("index.php", "") + "'><img id='programPatch' class='tipped' data-tipped-options=\"position: 'bottom'\" style='height: 35px;' title=\"<center>Click to view the " + p.program.name + " Program page</center><br /><img style='height: 500px;' src='" + p.program.patchUrl + "'>\" src='" + p.program.patchUrl + "'></a>&nbsp;";
+    var patchImgURL = imageURLFromDB("http://www.kerbalspace.agency/Tracker/images/programs/", p.program.patchUrl);
+    var patchPageURL;
+    if (p.program.pageUrl.includes("http")) patchPageURL = p.program.pageUrl.replace("index.php", "");
+    else patchPageURL = "http://www.kerbalspace.agency/?page_id=" + p.program.pageUrl;
+    var strPatches = "<a target='_blank' href='" + patchPageURL + "'><img id='programPatch' class='tipped' data-tipped-options=\"position: 'bottom'\" style='height: 35px;' title=\"<center>Click to view the " + p.program.name + " Program page</center><br /><img style='height: 500px;' src='" + patchImgURL + "'>\" src='" + patchImgURL + "'></a>&nbsp;";
 
     // vessel patch has a page URL?
+    patchImgURL = imageURLFromDB("http://www.kerbalspace.agency/Tracker/images/vessels/", p.vessel.patchUrl);
     if (p.vessel.pageUrl !== null) {
-      strPatches += "<a target='_blank' href='" + p.vessel.pageUrl.replace("index.php", "") + "'><img id='vesselPatch' class='tipped' data-tipped-options=\"position: 'bottom'\" style='height: 35px; cursor: pointer;' title=\"<center>Click to view the " + p.vessel.name + " vessel page</center><br /><img style='height: 500px;' src='" + p.vessel.patchUrl + "'>\" src='" + p.vessel.patchUrl + "'></a>&nbsp;";
+      if (p.vessel.pageUrl.includes("http")) patchPageURL = p.vessel.pageUrl.replace("index.php", "");
+      else patchPageURL = "http://www.kerbalspace.agency/?page_id=" + p.program.pageUrl + "#ffs-tabbed-" + p.vessel.pageUrl;
+      strPatches += "<a target='_blank' href='" + patchPageURL + "'><img id='vesselPatch' class='tipped' data-tipped-options=\"position: 'bottom'\" style='height: 35px; cursor: pointer;' title=\"<center>Click to view the " + p.vessel.name + " vessel page</center><br /><img style='height: 500px;' src='" + patchImgURL + "'>\" src='" + patchImgURL + "'></a>&nbsp;";
     } else {
-      strPatches += "<img id='vesselPatch' class='tipped' data-tipped-options=\"position: 'bottom'\" style='height: 35px; cursor: help;' title=\"<img style='height: 500px;' src='" + p.vessel.patchUrl + "'>\" src='" + p.vessel.patchUrl + "'>&nbsp;";
+      strPatches += "<img id='vesselPatch' class='tipped' data-tipped-options=\"position: 'bottom'\" style='height: 35px; cursor: help;' title=\"<img style='height: 500px;' src='" + patchImgURL + "'>\" src='" + patchImgURL + "'>&nbsp;";
     }
 
     // mission patch?
     if (p.mission !== null) {
-      strPatches += "<img id='missionPatch' class='tipped' data-tipped-options=\"position: 'bottom'\" style='height: 35px; cursor: help;' title=\"<img style='height: 500px;' src='" + p.mission.patchUrl + "'><br /><center>Mission Payload</center>\" src='" + p.mission.patchUrl + "'>&nbsp;";
+      patchImgURL = imageURLFromDB("http://www.kerbalspace.agency/Tracker/images/vessels/" + encodeURIComponent(ops.currentVessel.Catalog.DB) + "/", p.mission.patchUrl);
+      strPatches += "<img id='missionPatch' class='tipped' data-tipped-options=\"position: 'bottom'\" style='height: 35px; cursor: help;' title=\"<img style='height: 500px;' src='" + patchImgURL + "'><br /><center>Mission Payload</center>\" src='" + patchImgURL + "'>&nbsp;";
     }
-
-    // if this is different than what is currently loaded, change it
-    if ($("#patches").html() != strPatches) $("#patches").html(strPatches);
+    $("#patches").html(strPatches);
   } else $("#patches").empty();
 
   // no orbit data or mission ended? Close the dialog in case it is open
@@ -1861,7 +1867,8 @@ function vesselContentUpdate(update) {
 
         // one image
         } else {
-          newContentHTML = "<img class='fullCenter contentTip' style='cursor: help' title='" + sanitizeHTML(data[1]) + "' src='" + sanitizeHTML(data[0]) + "'>";
+          var imgURL = imageURLFromDB("http://www.kerbalspace.agency/Tracker/images/vessels/" + encodeURIComponent(ops.currentVessel.Catalog.DB) + "/", data[0]);
+          newContentHTML = "<img class='fullCenter contentTip' style='cursor: help' title='" + sanitizeHTML(data[1]) + "' src='" + imgURL + "'>";
         }
         
         // Use transition if content already exists, otherwise just show it.
@@ -2114,10 +2121,10 @@ function updateVesselData(vessel, isNonObtUpdate = true) {
   KSA_DATA_SERVICE.fetchOpsData(vessel.id, currUT()+1, vessel.type, NaN, loadOpsDataAJAX, {isRealTimeUpdate: isNonObtUpdate, id: vessel.id});
 }
 
-// following functions perform parsing on data strings
+// following functions perform extra work on properties
 function getVesselImage() {
   if (!ops.currentVessel.CraftData.CraftImg) return "images/nadaOp.png";
-  else return ops.currentVessel.CraftData.CraftImg[KSA_UI_STATE.vesselRotationIndex].normal;
+  else return imageURLFromDB("http://www.kerbalspace.agency/Tracker/images/vessels/" + encodeURIComponent(ops.currentVessel.CraftData.DB) + "/", ops.currentVessel.CraftData.CraftImg[KSA_UI_STATE.vesselRotationIndex].normal);
 }
 function getPartsHTML() {
   if (!ops.currentVessel.CraftData.CraftImg) return null;
@@ -2375,6 +2382,7 @@ function setupStreamingAscent() {
         }
       }
     }
+    ops.activeAscentFrame.img = imageURLFromDB("http://www.kerbalspace.agency/Tracker/images/vessels/" + encodeURIComponent(ops.currentVessel.CraftData.DB) + "/", ops.activeAscentFrame.img);
 
     // update info box img and title
     $("#infoImg").html("<img src='" + sanitizeHTML(ops.activeAscentFrame.img) + "'>");
@@ -2707,6 +2715,7 @@ function updateAscentData(clamp) {
         }
       }
     }
+    ops.activeAscentFrame.img = imageURLFromDB("http://www.kerbalspace.agency/Tracker/images/vessels/" + encodeURIComponent(ops.currentVessel.CraftData.DB) + "/", ops.activeAscentFrame.img);
     
     // don't bother updating the image if it is the same as what is already shown
     var existingImageSrc = $("#infoImg img").attr("src");

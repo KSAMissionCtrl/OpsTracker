@@ -1463,3 +1463,14 @@ function openObjectTags(url, delimiter, urlAppend = "") {
   }
   if (strTags) window.open(url + strTags + urlAppend, '_blank');
 }
+
+// allows the use of a full URL to an image or just a name that can be appended to a base URL
+// if the source has an imgur link it will pull from a local cache
+// this is just for backwards DB compatibility so no changes need to be made
+function imageURLFromDB(urlTarget, urlSource) {
+  if (!urlSource.includes("http")) return urlTarget + urlSource + ".png";
+  else {
+    if (urlSource.includes("imgur")) return "http://www.kerbalspace.agency/Tracker/images/imgur/" + urlSource.split("/").pop();
+    else return urlSource;
+  }
+}
