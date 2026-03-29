@@ -2478,8 +2478,8 @@ function setupStreamingAscent() {
     var Rwidth = 202 - Gwidth;
     strHTML = "<b>Stage Fuel: </b>";
     strHTML += "<span id='stageFuel' style='position: absolute; z-index: 120; margin-left: 80px;'>" + numeral(percent).format('0.00') + "%</span>";
-    strHTML += "<img id='stageGreen' src='http://i.imgur.com/HszGFDA.png' height='16' width='" + Gwidth + "'>";
-    strHTML += "<img id='stageRed' src='http://i.imgur.com/Gqe2mfx.png' height='16' width='" + Rwidth + "'>";
+    strHTML += "<img id='stageGreen' src='http://www.kerbalspace.agency/Tracker/images/stage_green.png' height='16' width='" + Gwidth + "'>";
+    strHTML += "<img id='stageRed' src='http://www.kerbalspace.agency/Tracker/images/stage_red.png' height='16' width='" + Rwidth + "'>";
     $("#dataField8").html(strHTML);
     $("#dataField8").fadeIn();
   } else $("#dataField8").fadeOut();
@@ -2490,8 +2490,8 @@ function setupStreamingAscent() {
   var Rwidth = 210 - Gwidth;
   strHTML = "<b>Total Fuel: </b>";
   strHTML += "<span id='totalFuel' style='position: absolute; z-index: 120; margin-left: 80px;'>" + numeral(percent).format('0.00') + "%</span>";
-  strHTML += "<img id='totalGreen' src='http://i.imgur.com/HszGFDA.png' height='16' width='" + Gwidth + "'>";
-  strHTML += "<img id='totalRed' src='http://i.imgur.com/Gqe2mfx.png' height='16' width='" + Rwidth + "'>";
+  strHTML += "<img id='totalGreen' src='http://www.kerbalspace.agency/Tracker/images/stage_green.png' height='16' width='" + Gwidth + "'>";
+  strHTML += "<img id='totalRed' src='http://www.kerbalspace.agency/Tracker/images/stage_red.png' height='16' width='" + Rwidth + "'>";
   $("#dataField9").html(strHTML);
   $("#dataField9").fadeIn();
 

@@ -3340,7 +3340,7 @@ function figureClick(hit) {
       if (bodyData.Image) {
         strHTML += "<img src='" + sanitizeHTML(bodyData.Image) + "' style='background-color:black; cursor:pointer;' class='body-image-clickable'>";
       } else {
-        strHTML += "<img src='https://i.imgur.com/advRrs1.png' style='cursor:pointer;' class='body-image-clickable'>";
+        strHTML += "<img src='http://www.kerbalspace.agency/Tracker/images/bodyna.png' style='cursor:pointer;' class='body-image-clickable'>";
       }
       strHTML += "<i><p>&quot;" + bodyData.Desc + "&quot;</p></i><p><b>- Kerbal Astronomical Society</b></p></td>";
       strHTML += "<td style='vertical-align: top; padding: 0px; margin-top: 0px'><b>Orbital Data</b>";
