@@ -569,20 +569,12 @@ function setupContent() {
     if (e.button === 1) {
       e.preventDefault();
       openObjectTags("http://www.kerbalspace.agency/?tag=", ",");
-      if (ops.pageType != "atn") {
-        openObjectTags("https://www.flickr.com/search/?user_id=kerbal_space_agency&view_all=1&tags=(", "+OR+", ")+-archive");
-      } else {
-        window.open("https://flic.kr/s/aHskP4iqUG", '_blank');
-      }
+      openObjectTags("https://www.flickr.com/search/?user_id=kerbal_space_agency&view_all=1&tags=(", "+OR+", ")+-archive");
     }
   });
   $("#tags").on('contextmenu', function(e) {
     e.preventDefault();
-    if (ops.pageType != "atn") {
-      openObjectTags("https://www.flickr.com/search/?user_id=kerbal_space_agency&view_all=1&tags=(", "+OR+", ")+-archive");
-    } else {
-      window.open("https://flic.kr/s/aHskP4iqUG", '_blank');
-    }
+    openObjectTags("https://www.flickr.com/search/?user_id=kerbal_space_agency&view_all=1&tags=(", "+OR+", ")+-archive");
   });
 
   // enable tooltip for the footer
