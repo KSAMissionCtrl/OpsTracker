@@ -1766,7 +1766,7 @@ function vesselContentUpdate(update) {
       
       // if launch is in progress and there's an altitude to report, include it
       var launchAltitude = "";
-      if (mapContent.alt !== undefined) {
+      if (mapContent.alt) {
         launchAltitude = "<br>" + mapContent.alt + "km ASL";
 
         // add a horizon circle at the marker location

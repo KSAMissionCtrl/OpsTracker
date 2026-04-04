@@ -487,6 +487,31 @@ function loadMapDataAJAX(result) {
     }
   } else KSA_LAYERS.groundMarkers.layerSolar = null;
 
+  // see following block for explanatory comments
+  // this was moved up in the order to provide a better contrast between the yellow sun icon and yellow label icon
+  if (ops.surface.Data.Flags) {
+    var flagMarker;
+    KSA_LAYERS.groundMarkers.layerFlags = L.layerGroup();
+    ops.surface.Data.Flags.forEach(function(flag) {
+      if (flag.placed <= currUT()) {
+        flagMarker = L.marker([flag.lat, flag.lng], { icon: KSA_MAP_ICONS.flagIcon, zIndexOffset: 100 });
+        var strCrew = flag.crew ? flag.crew + "<br />" : "";
+        var strLink = flag.linkText === null
+          ? "<span class='fauxLink' onclick=\"swapContent('vessel','" + flag.link + "')\">View Vessel</span>"
+          : "<a target='_blank' href='" + flag.link + "'>" + flag.linkText + "</a>";
+        var strAlt = flag.alt ? numeral(flag.alt).divide(1000).format('0.000') + "km<br />" : "";
+        flagMarker.bindPopup("<b>" + flag.title + "</b><br />" + strCrew + UTtoDateTime(flag.placed).split(" ")[0] + "<br />" + strAlt + "<br />&quot;" + flag.plaque + "&quot;<br /><br />" + strLink, { offset: [0,-9], autoClose: true });
+        flagMarker._myId = -1;
+        flagMarker._myUT = flag.placed;
+        KSA_LAYERS.groundMarkers.layerFlags.addLayer(flagMarker);
+      }
+    });
+    if (KSA_LAYERS.groundMarkers.layerFlags.getLayers().length > 0) {
+      ops.surface.layerControl.addOverlay(KSA_LAYERS.groundMarkers.layerFlags, "<img src='images/button_vessel_flag.png' style='width: 10px; vertical-align: 1px;'> Flags", "Ground Markers");
+      if (getParameterByName("layers").includes("flag")) KSA_LAYERS.groundMarkers.layerFlags.addTo(ops.surface.map);
+    } else KSA_LAYERS.groundMarkers.layerFlags = null;
+  }
+  
   // place any labels
   if (ops.surface.Data.Labels) {
     var labelMarker;
@@ -528,29 +553,6 @@ function loadMapDataAJAX(result) {
     } else KSA_LAYERS.groundMarkers.layerLabels = null;
   }
 
-  if (ops.surface.Data.Flags) {
-    var flagMarker;
-    KSA_LAYERS.groundMarkers.layerFlags = L.layerGroup();
-    ops.surface.Data.Flags.forEach(function(flag) {
-      if (flag.placed <= currUT()) {
-        flagMarker = L.marker([flag.lat, flag.lng], { icon: KSA_MAP_ICONS.flagIcon, zIndexOffset: 100 });
-        var strCrew = flag.crew ? flag.crew + "<br />" : "";
-        var strLink = flag.linkText === null
-          ? "<span class='fauxLink' onclick=\"swapContent('vessel','" + flag.link + "')\">View Vessel</span>"
-          : "<a target='_blank' href='" + flag.link + "'>" + flag.linkText + "</a>";
-        var strAlt = flag.alt ? numeral(flag.alt).divide(1000).format('0.000') + "km<br />" : "";
-        flagMarker.bindPopup("<b>" + flag.title + "</b><br />" + strCrew + UTtoDateTime(flag.placed).split(" ")[0] + "<br />" + strAlt + "<br />&quot;" + flag.plaque + "&quot;<br /><br />" + strLink, { offset: [0,-9], autoClose: true });
-        flagMarker._myId = -1;
-        flagMarker._myUT = flag.placed;
-        KSA_LAYERS.groundMarkers.layerFlags.addLayer(flagMarker);
-      }
-    });
-    if (KSA_LAYERS.groundMarkers.layerFlags.getLayers().length > 0) {
-      ops.surface.layerControl.addOverlay(KSA_LAYERS.groundMarkers.layerFlags, "<img src='images/button_vessel_flag.png' style='width: 10px; vertical-align: 1px;'> Flags", "Ground Markers");
-      if (getParameterByName("layers").includes("flag")) KSA_LAYERS.groundMarkers.layerFlags.addTo(ops.surface.map);
-    } else KSA_LAYERS.groundMarkers.layerFlags = null;
-  }
-  
   if (ops.surface.Data.POI) {
     var POIMarker;
     KSA_LAYERS.groundMarkers.layerPOI = L.layerGroup();
@@ -2327,7 +2329,7 @@ function setupFlightSurfacePath(path, index, startIndex, length) {
     // fill, position and display the popup
     var strNewHtml = "<span id='fltTimelineData'>";
     strNewHtml += KSA_MAP_CONTROLS.timePopup.getContent().replace("<p>Click for additional options</p>", "");
-    strNewHtml += "</span><p><center><button id='prevFltData' onclick='prevFltData()' class='flightTimelineButton'>&lt;&lt;</button> <button id='prevFltDataOnce' onclick='prevFltDataOnce()' class='flightTimelineButton'>&lt;</button> <b>Timeline Controls</b><sup><a href='https://github.com/KSAMissionCtrl/OpsTracker/wiki/Surface-Map#timeline-playback' target='_blank' style='text-decoration: none'>(?)</a></sup> <button id='nextFltDataOnce' onclick='nextFltDataOnce()' class='flightTimelineButton'>&gt;</button> <button id='nextFltData' onclick='nextFltData()' class='flightTimelineButton'>&gt;&gt;</button>";
+    strNewHtml += "</span><p><center><button id='prevFltData' onclick='prevFltData()' class='flightTimelineButton'>&lt;&lt;</button> <button id='prevFltDataOnce' onclick='prevFltDataOnce()' class='flightTimelineButton'>&lt;</button> <b>Timeline Controls</b><sup><a href='https://github.com/KSAMissionCtrl/OpsTracker/wiki/Surface-Map#timeline-controls' target='_blank' style='text-decoration: none'>(?)</a></sup> <button id='nextFltDataOnce' onclick='nextFltDataOnce()' class='flightTimelineButton'>&gt;</button> <button id='nextFltData' onclick='nextFltData()' class='flightTimelineButton'>&gt;&gt;</button>";
     strNewHtml += "<br><span class='fauxLink' onclick='missionInfoDlg(" + indexFlt + ")'>Mission Info</span> | ";
     strNewHtml += "<span class='fauxLink' onclick='removeFltPath(" + indexFlt + ")'>Remove Track</span> | <span class='fauxLink' onclick='fltElev(" + indexFlt + ")'>";
     if (KSA_CATALOGS.fltPaths[index].elev) strNewHtml += "Hide Altitude";

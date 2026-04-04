@@ -460,7 +460,11 @@ function loadJsonTxt(url, callback, progressCallback, itemCallback) {
 // take an amount of time in seconds and convert it to years, days, hours, minutes and seconds
 // leave out any values that are not necessary (0y, 0d won't show, for example)
 // give seconds to 3 significant digits if precision is true
-// format allows to include spaces between hms ( ) and a leading 0 for seconds (0)
+// format allows to include spaces between hms and a leading 0 for seconds
+// "0 " (default) will format time as "0h 0m 00s"
+// "0" will format time as "0h0m00s"
+// " " will format time as "0h 0m 0s"
+// "" will format time as "0h0m0s"
 function formatTime(time, precision = false, format = "0 ") {
   var years = 0;
   var days = 0;
@@ -565,10 +569,10 @@ function openTimePicker(currentUT) {
       
       // Format the display string with validity check
       var utcStr = utcDateTime.isValid
-        ? utcDateTime.toLocaleString(luxon.DateTime.DATETIME_FULL_WITH_SECONDS)
+        ? utcDateTime.toLocaleString({...luxon.DateTime.DATETIME_FULL_WITH_SECONDS, hour12: false})
         : '<strong style="color: red;">Invalid DateTime</strong>';
       var nyStr = nyDateTime.isValid
-        ? nyDateTime.toLocaleString(luxon.DateTime.DATETIME_FULL_WITH_SECONDS)
+        ? nyDateTime.toLocaleString({...luxon.DateTime.DATETIME_FULL_WITH_SECONDS, hour12: false})
         : '<strong style="color: red;">Invalid DateTime</strong>';
       var offsetValue = nyDateTime.isValid
         ? (nyDateTime.offset >= 0 ? "+" : "") + (nyDateTime.offset / 60)
@@ -642,11 +646,17 @@ function openTimePicker(currentUT) {
         // Convert to UT
         var newUT = dateToUT(inputDateTime);
 
-        // don't let us go before the start of the Agency
-        if (isNaN(newUT) || newUT < 0) {
-          newUT = 0;
+        // ignore bad dates
+        if (isNaN(newUT)) {
+          $("#siteDialog").dialog("close");
+          KSA_TIMERS.tickTimer = setTimeout(tick, 1);
+          if (ops.ascentData) ops.ascentData.isPaused = false;
+          return;
         }
         
+        // don't let us go before the start of the Agency
+        if (newUT < 0) newUT = 0;
+
         // Build new URL with ut parameter
         var newUrl = window.location.href;
         if (!getParameterByName("ut")) {

@@ -136,7 +136,7 @@ function initScene(width, height) {
   // Orbit controls
   threeControls = new THREE.OrbitControls(threeCamera, threeRenderer.domElement);
   threeControls.object.up.copy(_threeWorldUp);
-  threeControls.enableDamping = true;
+  threeControls.enableDamping = (ops.pageType !== 'atn');
   threeControls.dampingFactor = 0.08;
   threeControls.screenSpacePanning = true;
   threeControls.enablePan = true;

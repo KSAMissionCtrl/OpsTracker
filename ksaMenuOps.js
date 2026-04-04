@@ -152,7 +152,7 @@ function loadMenuAJAX(result) {
       }
 
       // for now, we link to another page for the DSN
-      else if (event.object.img.includes("dish")) window.open("http://www.kerbalspace.agency/?p=3736");
+      else if (event.object.img.includes("dish")) window.open("https://github.com/KSAMissionCtrl/OpsTracker/wiki/Deep-Space-Network", "_blank");
       
       // anything else that isn't a folder is a vessel
       // except if the parent is the Inactive Vessels node as that's just a category node

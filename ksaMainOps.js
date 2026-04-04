@@ -710,12 +710,12 @@ function swapContent(newPageType, id, ut, flt) {
   // initial page load
   if (!ops.pageType) {
 
-    // check for ?orbit= URL parameter: Bodyname,VessName,Eph,SMA,Ecc,Inc,RAAN,Arg,TrueAnom,Type
+    // check for ?obt= URL parameter: Bodyname,VessName,Eph,SMA,Ecc,Inc,RAAN,Arg,TrueAnom,Type
     // if present, override any other params and load the named body, then inject the orbit
-    var _orbitParam = getParameterByName("orbit");
+    var _orbitParam = getParameterByName("obt");
     if (_orbitParam) {
       var _parts = _orbitParam.split(",");
-      if (_parts.length >= 10) {
+      if (_parts.length >= 9) {
         ops.pendingOrbitParam = {
           vesselName: _parts[1],
           eph:        parseFloat(_parts[2]),
@@ -725,7 +725,7 @@ function swapContent(newPageType, id, ut, flt) {
           raan:       parseFloat(_parts[6]),
           arg:        parseFloat(_parts[7]),
           trueAnom:   parseFloat(_parts[8]),
-          type:       _parts[9].trim()
+          type:       _parts[9] ? _parts[9].trim() : null
         };
         newPageType = "body";
         id = _parts[0];  // loadBody() appends "-System" if needed
@@ -881,6 +881,8 @@ function swapContent(newPageType, id, ut, flt) {
     $("#atnFilterControls").hide();
     $("#atnSearchControls").hide();
     $("#atnExportBtn").hide();
+    $("#vesselLoaderMsg").spin(false);
+    $("#vesselLoaderMsg").fadeOut();
     if (newPageType != "body") $("#figure").fadeOut();
     $("#figureDialog").dialog("close");
     $("#siteDialog").dialog("close");

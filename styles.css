@@ -497,7 +497,7 @@ input:disabled+label {
 /* Grouped layer control - word wrapping with character limit */
 .leaflet-control-layers label {
   display: block;
-  max-width: 175px;
+  max-width: 190px;
   word-wrap: break-word;
   overflow-wrap: break-word;
   white-space: normal;
@@ -505,14 +505,14 @@ input:disabled+label {
 }
 
 .leaflet-control-layers label span {
-  max-width: 175px;
+  max-width: 190px;
   word-wrap: break-word;
   overflow-wrap: break-word;
   white-space: normal;
 }
 
 .leaflet-control-layers-group-name {
-  max-width: 175px;
+  max-width: 190px;
   word-wrap: break-word;
   overflow-wrap: break-word;
   white-space: normal;
