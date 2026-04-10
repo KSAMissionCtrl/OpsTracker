@@ -62,6 +62,7 @@ var ops = {
   updateATN: null,        // queue of ATN main-catalog records with DiscoveryDate > currUT(), processed one-by-one by the update chain
   updateEncounters: null, // queue of future ATN encounter records, processed one-by-one by the update chain
   updateMoonlets: null,   // queue of future ATN moonlet records, processed one-by-one by the update chain
+  updateSurface: null,    // queue of future surface map updates, processed one-by-one by the update chain
   kbLinks: [],            // holds all kerballoon mission links prior to current UT for quick reference
   craftsMenu: [],         // holds all data for displaying vessels in the menu
                             // badged - bool

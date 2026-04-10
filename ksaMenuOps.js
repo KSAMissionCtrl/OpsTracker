@@ -799,12 +799,16 @@ function addMenuItem(item, newAdd = false) {
     if (body.Moons && body.Moons.length) strSys = "-System";
 
     // if this body is not visible, make it so
-    if (w2ui['menu'].get('activeVessels', body.Body + strSys).hidden) w2ui['menu'].set('activeVessels', body.Body + strSys, { hidden: false });
+    var bodyMenuNode = w2ui['menu'].get(body.Body + strSys);
+    if (bodyMenuNode.hidden) w2ui['menu'].set('activeVessels', body.Body + strSys, { hidden: false });
+
+    // if this body is a moon (or a moon-of-a-moon), also make any hidden parent system nodes visible
+    if (bodyMenuNode.parent && bodyMenuNode.parent.hidden) showParents(bodyMenuNode.parent);
     
     // get the nodes for this body and insert the vessel alphabetically, after any moons
     // or add it at the end if nothing to insert before
     var index;
-    var menuNodes = w2ui['menu'].get('activeVessels', body.Body + strSys).nodes;
+    var menuNodes = bodyMenuNode.nodes;
     for (index=0; index<menuNodes.length; index++) {
       var strMenuText = menuNodes[index].text.split(">")[1].split("<")[0];
       if (!menuNodes[index].img.includes("body") && strMenuText > strVesselName) {

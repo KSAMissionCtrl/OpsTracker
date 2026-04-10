@@ -796,6 +796,9 @@ function loadSurfaceUpdatesAJAX(result) {
   // Cache the full array so fetchMapData(refID) can filter in-memory on subsequent calls.
   KSA_CATALOGS.mapCatalog = result;
 
+  // Collect all future surface updates into the queue
+  ops.updateSurface = [];
+
   // work through the object layers of each body's map record
   result.forEach(function(surfaceObj) {
     surfaceObj.Name = ops.bodyCatalog.find(o => o.ID === surfaceObj.RefID).Body;
@@ -803,69 +806,69 @@ function loadSurfaceUpdatesAJAX(result) {
     // since Aerial is just for early Kerbin, it is assumed that it will always be available
     // and in that case, satellite UT time is only for labeling the layer, not for when it will load
     if (surfaceObj.Name != "Kerbin" && surfaceObj.Satellite >= 0 && surfaceObj.Satellite > currUT()) { 
-      ops.updatesList.push({ type: "map:avail", UT: surfaceObj.Satellite, id: surfaceObj.Name });
+      ops.updateSurface.push({ type: "map:avail", UT: surfaceObj.Satellite, id: surfaceObj.Name });
     }
     if (surfaceObj.Slope >= 0 && surfaceObj.Slope > currUT()) {
-      ops.updatesList.push({ type: "map:surface", UT: surfaceObj.Slope, id: surfaceObj.Name });
+      ops.updateSurface.push({ type: "map:surface", UT: surfaceObj.Slope, id: surfaceObj.Name });
     } 
     if (surfaceObj.Terrain >= 0 && surfaceObj.Terrain > currUT()) {
-      ops.updatesList.push({ type: "map:surface", UT: surfaceObj.Terrain, id: surfaceObj.Name });
+      ops.updateSurface.push({ type: "map:surface", UT: surfaceObj.Terrain, id: surfaceObj.Name });
     } 
     if (surfaceObj.Biome >= 0 && surfaceObj.Biome > currUT()) {
-      ops.updatesList.push({ type: "map:surface", UT: surfaceObj.Biome, id: surfaceObj.Name });
+      ops.updateSurface.push({ type: "map:surface", UT: surfaceObj.Biome, id: surfaceObj.Name });
     }
     if (surfaceObj.Labels) {
       surfaceObj.Labels.forEach(function(label) {
-        if (label.ut > currUT()) ops.updatesList.push({ type: "map:label", UT: label.ut, id: surfaceObj.Name });
+        if (label.ut > currUT()) ops.updateSurface.push({ type: "map:label", UT: label.ut, id: surfaceObj.Name });
         label.titles.forEach(function(t) {
           // when adding future title updates be sure to skip the first one
           if (t.ut !== null && t.ut > currUT() && t.ut !== label.ut) {
-            ops.updatesList.push({ type: "map:label:refresh:" + label.ut, UT: t.ut, id: surfaceObj.Name });
+            ops.updateSurface.push({ type: "map:label:refresh:" + label.ut, UT: t.ut, id: surfaceObj.Name });
           }
         });
       });
     }
     if (surfaceObj.Flags) {
       surfaceObj.Flags.forEach(function(flag) {
-        if (flag.placed > currUT()) ops.updatesList.push({ type: "map:flag", UT: flag.placed, id: surfaceObj.Name });
+        if (flag.placed > currUT()) ops.updateSurface.push({ type: "map:flag", UT: flag.placed, id: surfaceObj.Name });
       });
     }
     if (surfaceObj.POI) {
       surfaceObj.POI.forEach(function(poi) {
-        if (poi.ut > currUT()) ops.updatesList.push({ type: "map:poi", UT: poi.ut, id: surfaceObj.Name });
+        if (poi.ut > currUT()) ops.updateSurface.push({ type: "map:poi", UT: poi.ut, id: surfaceObj.Name });
         poi.titles.forEach(function(t) {
           if (t.ut !== null && t.ut > currUT() && t.ut !== poi.ut) {
-            ops.updatesList.push({ type: "map:poi:refresh:" + poi.ut, UT: t.ut, id: surfaceObj.Name });
+            ops.updateSurface.push({ type: "map:poi:refresh:" + poi.ut, UT: t.ut, id: surfaceObj.Name });
           }
         });
       });
     }
     if (surfaceObj.Anomalies) {
       surfaceObj.Anomalies.forEach(function(anomaly) {
-        if (anomaly.ut > currUT()) ops.updatesList.push({ type: "map:anomaly", UT: anomaly.ut, id: surfaceObj.Name });
+        if (anomaly.ut > currUT()) ops.updateSurface.push({ type: "map:anomaly", UT: anomaly.ut, id: surfaceObj.Name });
         anomaly.titles.forEach(function(t) {
           if (t.ut !== null && t.ut > currUT() && t.ut !== anomaly.ut) {
-            ops.updatesList.push({ type: "map:anomaly:refresh:" + anomaly.ut, UT: t.ut, id: surfaceObj.Name });
+            ops.updateSurface.push({ type: "map:anomaly:refresh:" + anomaly.ut, UT: t.ut, id: surfaceObj.Name });
           }
         });
       });
     }
     if (surfaceObj.GroundStations) {
       surfaceObj.GroundStations.forEach(function(station) {
-        if (station.ut > currUT()) ops.updatesList.push({ type: "map:grndstn", UT: station.ut, id: surfaceObj.Name });
+        if (station.ut > currUT()) ops.updateSurface.push({ type: "map:grndstn", UT: station.ut, id: surfaceObj.Name });
         station.titles.forEach(function(t) {
           if (t.ut !== null && t.ut > currUT() && t.ut !== station.ut) {
-            ops.updatesList.push({ type: "map:grndstn:refresh:" + station.ut, UT: t.ut, id: surfaceObj.Name });
+            ops.updateSurface.push({ type: "map:grndstn:refresh:" + station.ut, UT: t.ut, id: surfaceObj.Name });
           }
         });
       });
     }
     if (surfaceObj.Airports) {
       surfaceObj.Airports.forEach(function(airport) {
-        if (airport.ut > currUT()) ops.updatesList.push({ type: "map:airport", UT: airport.ut, id: surfaceObj.Name });
+        if (airport.ut > currUT()) ops.updateSurface.push({ type: "map:airport", UT: airport.ut, id: surfaceObj.Name });
         airport.titles.forEach(function(t) {
           if (t.ut !== null && t.ut > currUT() && t.ut !== airport.ut) {
-            ops.updatesList.push({ type: "map:airport:refresh:" + airport.ut, UT: t.ut, id: surfaceObj.Name });
+            ops.updateSurface.push({ type: "map:airport:refresh:" + airport.ut, UT: t.ut, id: surfaceObj.Name });
           }
         });
       });
@@ -873,13 +876,17 @@ function loadSurfaceUpdatesAJAX(result) {
     if (surfaceObj.Kerballoons) {
       surfaceObj.Kerballoons.forEach(function(kb) {
         if (kb.ut <= currUT()) ops.kbLinks.push(kb.postId);
-        else ops.updatesList.push({ type: "map:kerballoon", UT: kb.ut, id: surfaceObj.Name });
+        else ops.updateSurface.push({ type: "map:kerballoon", UT: kb.ut, id: surfaceObj.Name });
       });
     }
   });
 
-  // sort the updatesList by UT
-  ops.updatesList.sort(function(a,b) { return (a.UT > b.UT) ? 1 : ((b.UT > a.UT) ? -1 : 0); });
+  // Sort then seed only the first entry into updatesList
+  ops.updateSurface.sort(function(a,b) { return (a.UT > b.UT) ? 1 : ((b.UT > a.UT) ? -1 : 0); });
+  if (ops.updateSurface.length) {
+    ops.updatesList.push(ops.updateSurface.shift());
+    ops.updatesList.sort(function(a,b) { return (a.UT > b.UT) ? 1 : ((b.UT > a.UT) ? -1 : 0); });
+  }
 }
 
 function surfaceUpdate(type, markerUT, id) {
@@ -1227,6 +1234,12 @@ function surfaceUpdate(type, markerUT, id) {
     }
   }]);
   $(dialogElement).dialog("open");
+
+  // Advance the chain: seed the next surface update into updatesList
+  if (ops.updateSurface && ops.updateSurface.length) {
+    ops.updatesList.push(ops.updateSurface.shift());
+    ops.updatesList.sort(function(a,b) { return (a.UT > b.UT) ? 1 : ((b.UT > a.UT) ? -1 : 0); });
+  }
 }
 
 // this is a separate function so that it can recall itself as needed to wait for a new map to load
