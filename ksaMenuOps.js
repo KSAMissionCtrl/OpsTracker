@@ -124,7 +124,22 @@ function loadMenuAJAX(result) {
       // do not register an event if a surface map is loading
       if (ops.surface.isLoading) return;
 
-      if (event.object.img.includes("body")) {
+      // skip content load if this click was artificially triggered by a right-click toggle action
+      if (ops.menuRightClickToggle) { event.preventDefault(); return; }
+
+      // collapsible category folders inside inactiveVessels or crew (at any depth): toggle only, do not select
+      if (event.object.collapsible) {
+        var _p = event.object.parent;
+        while (_p && _p.id) { if (_p.id === 'inactiveVessels' || _p.id === 'crew') break; _p = _p.parent; }
+        if (_p && (_p.id === 'inactiveVessels' || _p.id === 'crew')) {
+          w2ui['menu'].toggle(event.target);
+          event.preventDefault();
+          return;
+        }
+      }
+
+      // make sure the body is not a folder for an inactive vessels filter
+      if (event.object.img.includes("body") && event.object.parent.id != "inactiveVessels") {
 
         // split the "body (n)" text to get the body name
         swapContent("body", event.object.text.split(" ")[0]);
@@ -154,9 +169,8 @@ function loadMenuAJAX(result) {
       // for now, we link to another page for the DSN
       else if (event.object.img.includes("dish")) window.open("https://github.com/KSAMissionCtrl/OpsTracker/wiki/Deep-Space-Network", "_blank");
       
-      // anything else that isn't a folder is a vessel
-      // except if the parent is the Inactive Vessels node as that's just a category node
-      else if (!event.object.img.includes("folder") && event.object.parent.id != "inactiveVessels") swapContent("vessel", event.object.id);
+      // anything else that isn't a folder (no subnodes) is a vessel
+      else if (!event.object.collapsible) swapContent("vessel", event.object.id);
       
       // if this is a bolded (badged) entry adjust the count and return it to normal
       if (event.object.text.includes("bold")) {
@@ -174,12 +188,34 @@ function loadMenuAJAX(result) {
         })(selectedId);
       }
     },
+    onContextMenu: function (event) {
+
+      // right-clicking a body node with visible children in activeVessels: toggle expand/collapse without changing page
+      if (event.object.img && event.object.img.includes("body") && event.object.parent.id !== "inactiveVessels" &&
+          event.object.nodes && event.object.nodes.some(function(n) { return !n.hidden; })) {
+        w2ui['menu'].toggle(event.target);
+
+        // the contextMenu() method calls click() internally when the node isn't already selected,
+        // which will fire onClick asynchronously - flag it to cancel that click without loading content
+        ops.menuRightClickToggle = true;
+        setTimeout(function() {
+          ops.menuRightClickToggle = false;
+          selectMenuItem(getParameterByName(ops.pageType));
+        }, 10);
+      }
+    },
     onExpand: function (event) {
     
       // wait a moment to allow menu contents to expand after showing the nodes
       if (event.target == 'crew') setTimeout(function() { w2ui['menu'].scrollIntoView('crewFull'); }, 150);
       else if (event.target == 'xnet') setTimeout(function() { w2ui['menu'].scrollIntoView('atn'); }, 150);
       else if (event.target == 'inactiveVessels') setTimeout(function() { w2ui['menu'].scrollIntoView(event.object.nodes[0].id); }, 150);
+      else if (!event.object.group && event.object.nodes && event.object.nodes.length > 0) {
+
+        // sub-node expansion (body moons, inactive/crew category folders): scroll to reveal first visible child
+        var firstVisible = event.object.nodes.find(function(n) { return !n.hidden; });
+        if (firstVisible) setTimeout(function() { w2ui['menu'].scrollIntoView(firstVisible.id); }, 150);
+      }
     },
     onRender: function () {
     
