@@ -192,7 +192,19 @@ function setupContent() {
   $("#copyLinkIcon").on("click", function() {
     var queryString = window.location.search;
     var sanitizedUrl = "http://ops.kerbalspace.agency/" + queryString;
-    if (KSA_UI_STATE.isMapShown && !sanitizedUrl.includes("map")) sanitizedUrl += "&map";
+    if (KSA_UI_STATE.isMapShown && !sanitizedUrl.includes("map") && ops.pageType == "body") {
+      if (KSA_CATALOGS.fltPaths && ops.surface && ops.surface.map) {
+        
+        // remove any existing flt parameters so we can add back only the active ones
+        sanitizedUrl = sanitizedUrl.replace(/(&|\?)flt=[^&]*/g, "");
+        KSA_CATALOGS.fltPaths.forEach(function(fltPath) {
+          if (ops.surface.map.hasLayer(fltPath.layer) && !sanitizedUrl.includes("flt=" + fltPath.id)) {
+            sanitizedUrl += "&flt=" + fltPath.id;
+          }
+        });
+      } 
+      if (!sanitizedUrl.includes("flt")) sanitizedUrl += "&map";
+    }
 
     // we need to maker sure there is a ut param for past live events
     if (KSA_UI_STATE.isLivePastUT) {
@@ -228,7 +240,19 @@ function setupContent() {
     var queryString = window.location.search;
     var sanitizedUrl = "http://ops.kerbalspace.agency/" + queryString;
     sanitizedUrl += (sanitizedUrl.includes("ut=") ? "" : "&ut=" + currUT());
-    if (KSA_UI_STATE.isMapShown && !sanitizedUrl.includes("map")) sanitizedUrl += "&map";
+    if (KSA_UI_STATE.isMapShown && !sanitizedUrl.includes("map") && ops.pageType == "body") {
+      if (KSA_CATALOGS.fltPaths && ops.surface && ops.surface.map) {
+        
+        // remove any existing flt parameters so we can add back only the active ones
+        sanitizedUrl = sanitizedUrl.replace(/(&|\?)flt=[^&]*/g, "");
+        KSA_CATALOGS.fltPaths.forEach(function(fltPath) {
+          if (ops.surface.map.hasLayer(fltPath.layer) && !sanitizedUrl.includes("flt=" + fltPath.id)) {
+            sanitizedUrl += "&flt=" + fltPath.id;
+          }
+        });
+      } 
+      if (!sanitizedUrl.includes("flt")) sanitizedUrl += "&map";
+    }
     if (KSA_UI_STATE.isLivePastUT) sanitizedUrl += "&live";
 
     if (navigator.clipboard && navigator.clipboard.writeText) {
@@ -1765,7 +1789,7 @@ function tick(utDelta = 1000, rapidFireMode = false) {
 
       // if tab was inactive for more than 3 minutes, reload the page to ensure fresh state
       if (diff > 180000) {
-        if (KSA_UI_STATE.isMapShown) {
+        if (KSA_UI_STATE.isMapShown && ops.pageType == "body") {
           if (!window.location.href.includes("&map")) window.location.href += "&map";
         }
         window.location.reload();

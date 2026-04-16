@@ -1,5 +1,47 @@
 // refactor complete (except for surface ops related to aircraft selection)
 
+// Sets up delegated mouseover/mouseout listeners on #menuBox that show a Tipped tooltip
+// with the vessel description on hover of each sidebar node.
+// Safe to call multiple times — attaches only one listener.
+var _vesselTipsInitialized = false;
+function setupVesselMenuTooltips() {
+  if (_vesselTipsInitialized) return;
+  var menuBox = document.getElementById('menuBox');
+  if (!menuBox) return;
+  _vesselTipsInitialized = true;
+
+  menuBox.addEventListener('mouseover', function(e) {
+    var node = e.target.closest && e.target.closest('[id^="node_"]');
+    if (!node) return;
+
+    // check screen space to the right of the sidebar on every hover
+    if (window.innerWidth - menuBox.getBoundingClientRect().right < 220) return;
+
+    // create Tipped binding once per node instance (showOn:'none' = we control show/hide)
+    if (!node._tippedVesselDesc) {
+      // node.id is 'node_' + raw db ID (no CSS escaping in the attribute itself)
+      var db = node.id.slice(5);
+      var item = null;
+      for (var i = 0; i < ops.craftsMenu.length; i++) {
+        if (ops.craftsMenu[i].db === db) { item = ops.craftsMenu[i]; break; }
+      }
+      if (!item || !item.desc) return;
+      node._tippedVesselDesc = true;
+      Tipped.create(node, item.desc, { showOn: 'none', position: 'right' });
+    }
+
+    Tipped.show(node);
+  });
+
+  menuBox.addEventListener('mouseout', function(e) {
+    var node = e.target.closest && e.target.closest('[id^="node_"]');
+    if (!node || !node._tippedVesselDesc) return;
+    // only hide when leaving the node itself, not when moving between child elements
+    if (e.relatedTarget && node.contains(e.relatedTarget)) return;
+    Tipped.hide(node);
+  });
+}
+
 function loadMenuAJAX(result) {
   
   // make sure the body catalog is loaded before continuing
@@ -21,6 +63,7 @@ function loadMenuAJAX(result) {
                           vessel:   item.vessel,
                           timeline: item.timeline,
                           bodyRef:  item.bodyRef,
+                          desc:     item.desc,
                           badged:   false });
   });
   result.crew.forEach(function(item) {
@@ -250,7 +293,8 @@ function loadMenuAJAX(result) {
     if (getParameterByName("crew")) var menuID = getParameterByName("crew");
 
     // don't select the body if a flight is being loaded, that flight will be selected after it loads
-    if (menuID && !window.location.href.includes("flt")) selectMenuItem(menuID);
+    // defer selection until after filterCrewMenu completes so cursor stays active until item is selected
+    if (menuID && !window.location.href.includes("flt")) KSA_UI_STATE.pendingInitialSelect = menuID;
   }
 }
 
@@ -396,12 +440,17 @@ function filterInactiveMenu(id, selectId) {
     w2ui['menu'].refresh();
     if (selectedNode) selectMenuItem(selectedNode);
 
-    // restore cursor to default - only target body and menu to preserve inline cursor styles
-    $('body').removeClass('wait-cursor');
-    $('body, #menuBox, #menuBox *').css('cursor', '');
+    // restore cursor to default - only if no initial page load selection is pending
+    // (if pending, cursor will be restored by filterCrewMenu after the selection is made)
+    if (KSA_UI_STATE.pendingInitialSelect === null) {
+      $('body').removeClass('wait-cursor');
+      $('body, #menuBox, #menuBox *').css('cursor', '');
+    }
     
     // Set flag to indicate menu sorting is complete (only on initial page load)
     if (!KSA_UI_STATE.isMenuSorted) KSA_UI_STATE.isMenuSorted = true;
+
+    setupVesselMenuTooltips();
   }, 10);
 }
 
@@ -598,6 +647,12 @@ function filterCrewMenu(id) {
     $('#fullRoster').empty(); 
     KSA_CATALOGS.crewList = extractIDs(w2ui['menu'].get('crew').nodes).split(";");
     KSA_DATA_SERVICE.fetchCrewData(showFullRoster(), currUT(), loadCrewAJAX);
+  }
+
+  // if initial page load selection is pending, select now that crew items are built, then restore cursor
+  if (KSA_UI_STATE.pendingInitialSelect !== null) {
+    selectMenuItem(KSA_UI_STATE.pendingInitialSelect);
+    KSA_UI_STATE.pendingInitialSelect = null;
   }
 
   // restore cursor to default - only target body and menu to preserve inline cursor styles
@@ -880,6 +935,8 @@ function addMenuItem(item, newAdd = false) {
                           isLoading: false,
                           CurrentData: null,
                           FutureData: null });
+
+    if (newAdd) setupVesselMenuTooltips();
 
   // don't check on inactive vessels unless this is a new menu item being added
   // this avoids repeated filter calls during the initial menu load

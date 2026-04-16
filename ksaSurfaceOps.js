@@ -1737,6 +1737,7 @@ function orbitalCalc(callback, orbit, dataArray, batchCount = 1000, limit) {
       (KSA_UI_STATE.isSfcObtRenderTerminated && !dataArray.isVessel)) return;
   if (KSA_CALCULATIONS.strPausedVesselCalculation && dataArray.isVessel) return;
   var bSOILimit = false;
+  var bLowIncLimit = false;
 
   // update the dialog title with the current date & time being calculated
   if (dataArray.isVessel && $("#mapDialog").dialog("isOpen") && $("#mapDialog").dialog("option").title != "Render Notice") {
@@ -1954,6 +1955,9 @@ function orbitalCalc(callback, orbit, dataArray, batchCount = 1000, limit) {
     
     // convert the lng to proper coordinates (-180 to 180)
     longitude = normalizeLongitude(longitude);
+
+    // for near-equatorial surface tracks, record the initial longitude on the first point
+    if (!dataArray.isVessel && orbit.Inclination < 1 && dataArray.obt.length === 0) dataArray.initialLng = longitude;
     
     // store all the derived values and advance to the next second
     dataArray.obt.push({latlng: {lat: latitude, lng: longitude}, alt: alt, vel: vel});
@@ -1961,6 +1965,13 @@ function orbitalCalc(callback, orbit, dataArray, batchCount = 1000, limit) {
     
     // exit the batch prematurely if we've reached the end of the calculation period
     if (dataArray.obt.length > limit) break; 
+
+    // exit the batch prematurely if the longitude returns to its initial position (near-equatorial surface tracks only)
+    if (!dataArray.isVessel && orbit.Inclination < 1 && dataArray.initialLng !== undefined && dataArray.obt.length > orbit.OrbitalPeriod * 0.05) {
+      var lngDiff = Math.abs(longitude - dataArray.initialLng);
+      if (lngDiff > 180) lngDiff = 360 - lngDiff;
+      if (lngDiff < 1) { bLowIncLimit = true; break; }
+    }
 
     // exit the batch prematurely if we've hit an SOI event
     if (orbit.SOIEvent && orbit.SOIEvent.ut < dataArray.UT) { 
@@ -1971,7 +1982,7 @@ function orbitalCalc(callback, orbit, dataArray, batchCount = 1000, limit) {
   
   // let the callback know if we've completed all orbital calculations, or cancel out if requested by the user
   // or if an altitude was breached
-  if (dataArray.obt.length >= limit || (KSA_UI_STATE.isOrbitRenderCancelled && dataArray.isVessel) || bSOILimit) {
+  if (dataArray.obt.length >= limit || (KSA_UI_STATE.isOrbitRenderCancelled && dataArray.isVessel) || bSOILimit || bLowIncLimit) {
     callback();
 
     // otherwise call ourselves again for more calculations, with a small timeout to let other things happen

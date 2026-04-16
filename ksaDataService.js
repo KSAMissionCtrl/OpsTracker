@@ -576,7 +576,8 @@ const KSA_DATA_SERVICE = (function () {
       program:  program,
       vessel:   vesselName,
       timeline: (vessel.Timeline !== null && vessel.Timeline !== undefined) ? vessel.Timeline : null,
-      bodyRef:  bodyRef
+      bodyRef:  bodyRef,
+      desc:     vessel.Desc || null
     };
   }
 

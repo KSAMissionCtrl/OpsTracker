@@ -176,6 +176,7 @@ const KSA_UI_STATE = {
   
   // Menu state
   menuSaveSelected: null,        // saves the id of menu item that was last clicked on
+  pendingInitialSelect: null,    // holds the menu item id to select once filters finish sorting on initial page load
   
   // Visual indices
   vesselRotationIndex: 0,        // current rotation angle of the vessel if its static image can be spun [currently unused]
