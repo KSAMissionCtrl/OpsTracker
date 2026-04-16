@@ -377,24 +377,31 @@ function vesselTitleUpdate(update) {
 
 // updates all the data in the Info Box
 function vesselInfoUpdate(update) {
-  $("#infoBox").spin(false);
   if (update && (!$("#infoImg").html().includes(getVesselImage()) || $("#infoTitle").html() != ops.currentVessel.CraftData.CraftDescTitle)) {
     flashUpdate("#infoTitle", "#77C6FF", "#000");
   }
 
   // is there a parts overlay?
-  if (getPartsHTML()) {
+  var partsMap = getPartsMap();
+  if (partsMap) {
+    var svgLines = '';
     var partsImgHTML = '';
 
-    parsePartsData(getPartsHTML()).forEach(function(part) {
+    partsMap.forEach(function(part) {
+      var cx = part.offset ? part.offset.x : part.x;
+      var cy = part.offset ? part.offset.y : part.y;
+      if (part.offset) {
+        svgLines += "<line x1='" + part.x + "' y1='" + part.y + "' x2='" + part.offset.x + "' y2='" + part.offset.y + "' class='imgmap-offset-line'/>";
+      }
       partsImgHTML += "<div id='" + part.id + "' ";
       if (part.amount) partsImgHTML += "amount='" + part.amount + "' ";
-      partsImgHTML += "class='imgmap' style='top: " + (part.y - 5) + "px; ";
-      partsImgHTML += "left: " + (part.x - 5) + "px;";
+      partsImgHTML += "class='imgmap' style='top: " + (cy - 5) + "px; ";
+      partsImgHTML += "left: " + (cx - 5) + "px;";
       partsImgHTML += "'></div>";
     });
 
-    $("#partsImg").html(partsImgHTML);
+    var svgEl = svgLines ? "<svg class='parts-overlay-svg'>" + svgLines + "</svg>" : '';
+    $("#partsImg").html(svgEl + partsImgHTML);
     setTimeout(function() { if (!$('#infoBox').is(":hover")) $("#partsImg").fadeOut(1000); }, 1000);
     assignPartInfo();
   } else $("#partsImg").empty();
@@ -415,7 +422,13 @@ function vesselInfoUpdate(update) {
   $("#infoImg").html(vesselImageHTML);
 
   // load the new image if it is different
-  if (existingImageSrc != getVesselImage()) loadImageWithTransition("#infoImg", sanitizeHTML(getVesselImage()));
+  if (existingImageSrc != getVesselImage()) {
+    // Keep the spinner going until the new image has fully loaded
+    loadImageWithTransition("#infoImg", sanitizeHTML(getVesselImage()), function() { $("#infoBox").spin(false); });
+  } else {
+    // Image unchanged — stop the spinner now
+    $("#infoBox").spin(false);
+  }
 
   $("#infoTitle").html(sanitizeHTML(ops.currentVessel.CraftData.CraftDescTitle));
   $("#infoTitle").attr("class", "infoTitle vessel");
@@ -2126,43 +2139,8 @@ function getVesselImage() {
   if (!ops.currentVessel.CraftData.CraftImg) return "images/nadaOp.png";
   else return imageURLFromDB("http://www.kerbalspace.agency/Tracker/images/vessels/" + encodeURIComponent(ops.currentVessel.CraftData.DB) + "/", ops.currentVessel.CraftData.CraftImg[KSA_UI_STATE.vesselRotationIndex].normal);
 }
-function getPartsHTML() {
-  if (!ops.currentVessel.CraftData.CraftImg) return null;
-  else {
-    var partsMap = ops.currentVessel.CraftData.CraftImg[KSA_UI_STATE.vesselRotationIndex].partsMap;
-    return partsMap || null;
-  }
-}
-
-// parses parts data from either the legacy <area> HTML format or the compact format: partId,x,y[,amount];...
-// returns an array of { id, x, y, amount } objects
-function parsePartsData(data) {
-  var parts = [];
-  if (data.includes('<area')) {
-    data.split('<area').forEach(function(item) {
-      if (item.includes('coords="')) {
-        var areaCenter = item.split('coords="')[1].split('"')[0].split(',');
-        parts.push({
-          id: item.split('title="&')[1].split('"')[0],
-          x: parseInt(areaCenter[0]),
-          y: parseInt(areaCenter[1]),
-          amount: item.includes('amount="') ? item.split('amount="')[1].split('"')[0] : null
-        });
-      }
-    });
-  } else {
-    data.split(';').forEach(function(item) {
-      if (!item) return;
-      var fields = item.split(',');
-      parts.push({
-        x: parseInt(fields[0]),
-        y: parseInt(fields[1]),
-        id: fields[2],
-        amount: fields[3] || null
-      });
-    });
-  }
-  return parts;
+function getPartsMap() {
+  return (ops.currentVessel.CraftData.PartsMap && ops.currentVessel.CraftData.PartsMap.length) ? ops.currentVessel.CraftData.PartsMap : null;
 }
 function getMissionEndTime() {
   if (!ops.currentVessel.Catalog.MissionEnd) return null;

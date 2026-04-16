@@ -852,14 +852,17 @@ function swapContent(newPageType, id, ut, flt) {
     // pass true to indicate this is a page swap so vessel reload is skipped
     if (ops.ascentData.active) ascentEnd(true);
   
-    // some elements need to be hidden only if we are not switching to a crew page
-    if (newPageType != "crew") {
-      $("#infoBox").fadeOut();
-      $("#dataBox").fadeOut();
-      $("#contentBox").spin(false);
-      $("#infoBox").spin(false);
-      $("#dataField0").spin(false);
-    }
+    // stop any in-progress animations/spinners and clear shared content before the transition
+    $("#infoBox").stop(true, true).spin(false);
+    $("#dataBox").stop(true, true);
+    $("#contentBox").spin(false);
+    $("#dataField0").spin(false);
+    $("#infoImg").empty();
+    $("#partsImg").empty();
+    $("#infoTitle").html("").attr("class", "infoTitle");
+    $(".dataField").html("");
+    $("#infoBox").fadeOut(200);
+    $("#dataBox").fadeOut(200);
     $("#infoDialog").dialog("close");
     hideMap();
     $("#content").fadeOut();
@@ -867,11 +870,15 @@ function swapContent(newPageType, id, ut, flt) {
     $("#patches").empty();
   } else if (ops.pageType == "crew") {
 
-    // some elements need to be hidden only if we are not switching to a vessel page
-    if (newPageType != "vessel") {
-      $("#infoBox").fadeOut();
-      $("#dataBox").fadeOut();
-    }
+    // stop any in-progress animations and clear shared content before the transition
+    $("#infoBox").stop(true, true).spin(false);
+    $("#dataBox").stop(true, true);
+    $("#infoImg").empty();
+    $("#partsImg").empty();
+    $("#infoTitle").html("").attr("class", "infoTitle");
+    $(".dataField").html("");
+    $("#infoBox").fadeOut(200);
+    $("#dataBox").fadeOut(200);
     $("#crewFooter").fadeOut();
     $("#infoDialog").dialog("close");
   } else if (ops.pageType == "atn") {
@@ -913,21 +920,27 @@ function swapContent(newPageType, id, ut, flt) {
     }, 600);
   } else if (ops.pageType == "vessel") {
     lowerContent();
-    $("#infoBox").fadeIn();
-    $("#infoBox").css("height", "400px");
-    $("#infoBox").css("width", "650px");
-    $("#dataBox").fadeIn();
-    $("#dataBox").css("transform", "translateX(0px)");
-    $("#dataBox").css("width", "295px");
+    // queue dimension changes to fire after any pending fade-out finishes, then fade in
+    $("#infoBox").queue(function(next) {
+      $(this).css({ height: "400px", width: "650px" });
+      next();
+    }).fadeIn();
+    $("#dataBox").queue(function(next) {
+      $(this).css({ transform: "translateX(0px)", width: "295px" });
+      next();
+    }).fadeIn();
     $("#contentBox").fadeIn();
     loadVessel(id, ut);
   } else if (ops.pageType == "crew") {
-    $("#infoBox").fadeIn();
-    $("#infoBox").css("height", "600px");
-    $("#infoBox").css("width", "498px");
-    $("#dataBox").fadeIn();
-    $("#dataBox").css("transform", "translateX(-154px)");
-    $("#dataBox").css("width", "449px");
+    // queue dimension changes to fire after any pending fade-out finishes, then fade in
+    $("#infoBox").queue(function(next) {
+      $(this).css({ height: "600px", width: "498px" });
+      next();
+    }).fadeIn();
+    $("#dataBox").queue(function(next) {
+      $(this).css({ transform: "translateX(-154px)", width: "449px" });
+      next();
+    }).fadeIn();
     $("#crewFooter").fadeIn();
     $("#contentBox").fadeOut();
     $("#missionHistory").fadeOut();

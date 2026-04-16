@@ -1289,7 +1289,10 @@ function loadImageWithTransition(elementSelector, newImageSrc, onComplete) {
   
   preloadImg.onerror = function() {
     console.error(`Failed to load image: ${newImageSrc}`);
-    // Keep existing image on error
+    // Keep existing image on error, but still invoke the callback so callers aren't stuck
+    if (onComplete && typeof onComplete === 'function') {
+      onComplete();
+    }
   };
   
   // Start loading the image
