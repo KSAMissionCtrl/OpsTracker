@@ -503,6 +503,9 @@ function setupContent() {
                               hide: { effect: "fade", duration: 300 }, 
                               show: { effect: "fade", duration: 300 },
                               position: { my: "left top", at: "left top", of: "#contentBox" },
+                              open: function() {
+                                if (KSA_UI_STATE.isMapFullscreen) ops.surface.map.toggleFullscreen();
+                              },
                               close: function() { 
                                 $(this).dialog("option", "position", { my: "left top", at: "left top", of: "#contentBox" }); 
                               }});
@@ -517,6 +520,7 @@ function setupContent() {
                             show: { effect: "fade", duration: 300 },
                             position: { my: "center", at: "center", of: "#infoBox" },
                             open: function() { 
+                              if (KSA_UI_STATE.isMapFullscreen) ops.surface.map.toggleFullscreen();
                               if (ops.pageType == "vessel") $(this).dialog("option", { width: 643, height: 400 });
                               else if (ops.pageType == "crew") $(this).dialog("option", { width: 490, height: 600 });
                             }});
@@ -535,7 +539,8 @@ function setupContent() {
                           position: { my: "center", at: "center", of: "#contentBox" },
                           open: function() { 
 
-                            // don't allow the user to manipulate the map size while dialog is open
+                            // exit fullscreen if active, then prevent map size manipulation while dialog is open
+                            if (KSA_UI_STATE.isMapFullscreen) ops.surface.map.toggleFullscreen();
                             if (KSA_MAP_CONTROLS.mapResizeButton) KSA_MAP_CONTROLS.mapResizeButton.disable();
                             $(".leaflet-control-zoom-fullscreen.leaflet-fullscreen-icon").hide();
                           },
@@ -556,7 +561,10 @@ function setupContent() {
                             height: "auto",
                             hide: { effect: "fade", duration: 300 }, 
                             show: { effect: "fade", duration: 300 },
-                            position: { my: "center", at: "center", of: "#mainContent" }
+                            position: { my: "center", at: "center", of: "#mainContent" },
+                            open: function() {
+                              if (KSA_UI_STATE.isMapFullscreen) ops.surface.map.toggleFullscreen();
+                            }
                             });
   
   // uncheck all the orbit filter boxes

@@ -1073,6 +1073,9 @@ function loadATN() {
   // ── Guard: index not yet resolved — defer until loadATNIndex() completes
   if (!KSA_CATALOGS.atnData.indexUTs) return setTimeout(loadATN, 100);
 
+  // call for the ATN social feed
+  swapTwitterSource("ATN Feed", "13584");
+
   // ── Step 4b: catalog already in memory — rebuild scene from cache ─────────
   if (KSA_CATALOGS.atnData.loaded) {
     loadBody();

@@ -507,7 +507,7 @@ function loadMapDataAJAX(result) {
       }
     });
     if (KSA_LAYERS.groundMarkers.layerFlags.getLayers().length > 0) {
-      ops.surface.layerControl.addOverlay(KSA_LAYERS.groundMarkers.layerFlags, "<img src='images/button_vessel_flag.png' style='width: 10px; vertical-align: 1px;'> Flags", "Ground Markers");
+      ops.surface.layerControl.addOverlay(KSA_LAYERS.groundMarkers.layerFlags, "<img src='images/button_vessel_flag.png' style='width: 16px; vertical-align: 1px;'> Flags", "Ground Markers");
       if (getParameterByName("layers").includes("flag")) KSA_LAYERS.groundMarkers.layerFlags.addTo(ops.surface.map);
     } else KSA_LAYERS.groundMarkers.layerFlags = null;
   }
@@ -544,7 +544,7 @@ function loadMapDataAJAX(result) {
 
     // were any markers added to the layer?
     if (KSA_LAYERS.groundMarkers.layerLabels.getLayers().length > 0) {
-      ops.surface.layerControl.addOverlay(KSA_LAYERS.groundMarkers.layerLabels, "<img src='images/label.png' style='vertical-align: 1px;'> Labels", "Ground Markers");
+      ops.surface.layerControl.addOverlay(KSA_LAYERS.groundMarkers.layerLabels, "<img src='images/label.png' style='width: 16px; vertical-align: 1px;'> Labels", "Ground Markers");
       
       // check if the user wants these markers to be shown by default
       if (getParameterByName("layers").includes("label") || getParameterByName("layers").includes("lbl")) {
@@ -572,7 +572,7 @@ function loadMapDataAJAX(result) {
       }
     });
     if (KSA_LAYERS.groundMarkers.layerPOI.getLayers().length > 0) {
-      ops.surface.layerControl.addOverlay(KSA_LAYERS.groundMarkers.layerPOI, "<img src='images/poi.png' style='width: 10px; vertical-align: 1px;'> Points of Interest", "Ground Markers");
+      ops.surface.layerControl.addOverlay(KSA_LAYERS.groundMarkers.layerPOI, "<img src='images/poiIcon.png' style='width: 16px; vertical-align: 1px;'> Points of Interest", "Ground Markers");
       if (getParameterByName("layers").includes("poi") || getParameterByName("layers").includes("interest")) {
         KSA_LAYERS.groundMarkers.layerPOI.addTo(ops.surface.map);
       }
@@ -600,7 +600,7 @@ function loadMapDataAJAX(result) {
       }
     });
     if (KSA_LAYERS.groundMarkers.layerAnomalies.getLayers().length > 0) {
-      ops.surface.layerControl.addOverlay(KSA_LAYERS.groundMarkers.layerAnomalies, "<img src='images/anomaly.png' style='width: 10px; vertical-align: 1px;'> Anomalies", "Ground Markers");
+      ops.surface.layerControl.addOverlay(KSA_LAYERS.groundMarkers.layerAnomalies, "<img src='images/anomalyIcon.png' style='width: 16px; vertical-align: 1px;'> Anomalies", "Ground Markers");
       if (getParameterByName("layers").includes("anom")) KSA_LAYERS.groundMarkers.layerAnomalies.addTo(ops.surface.map);
     } else KSA_LAYERS.groundMarkers.layerAnomalies = null;
   }
@@ -636,7 +636,7 @@ function loadMapDataAJAX(result) {
       }
     });
     if (KSA_LAYERS.groundMarkers.layerGroundStations.getLayers().length > 0) {
-      ops.surface.layerControl.addOverlay(KSA_LAYERS.groundMarkers.layerGroundStations, "<img src='images/pinGrndStation.png' style='width: 10px; vertical-align: 1px;'> Ground Stations", "Ground Markers");
+      ops.surface.layerControl.addOverlay(KSA_LAYERS.groundMarkers.layerGroundStations, "<img src='images/pinGrndStationIcon.png' style='width: 16px; vertical-align: 1px;'> Ground Stations", "Ground Markers");
       if (getParameterByName("layers").includes("ground") || getParameterByName("layers").includes("grnd") || getParameterByName("layers").includes("station")) {
         KSA_LAYERS.groundMarkers.layerGroundStations.addTo(ops.surface.map);
       }
@@ -663,7 +663,7 @@ function loadMapDataAJAX(result) {
       }
     });
     if (KSA_LAYERS.groundMarkers.layerAirports.getLayers().length > 0) {
-      ops.surface.layerControl.addOverlay(KSA_LAYERS.groundMarkers.layerAirports, "<img src='images/airport.png' style='width: 10px; vertical-align: 1px;'> Airports", "Ground Markers");
+      ops.surface.layerControl.addOverlay(KSA_LAYERS.groundMarkers.layerAirports, "<img src='images/airportIcon.png' style='width: 16px; vertical-align: 1px;'> Airports", "Ground Markers");
       if (getParameterByName("layers").includes("apt") || getParameterByName("layers").includes("airport")) {
         KSA_LAYERS.groundMarkers.layerAirports.addTo(ops.surface.map);
       }
@@ -689,7 +689,7 @@ function loadMapDataAJAX(result) {
       }
     });
     if (KSA_LAYERS.groundMarkers.layerKerballoon.getLayers().length > 0) {
-      ops.surface.layerControl.addOverlay(KSA_LAYERS.groundMarkers.layerKerballoon, "<img src='images/balloon.png' style='width: 10px; vertical-align: 1px;'> KerBalloon Launches", "Ground Markers");
+      ops.surface.layerControl.addOverlay(KSA_LAYERS.groundMarkers.layerKerballoon, "<img src='images/balloonIcon.png' style='width: 16px; vertical-align: 1px;'> KerBalloon Launches", "Ground Markers");
       if (getParameterByName("layers").includes("kerballoon") || getParameterByName("layers").includes("kb") || getParameterByName("layers").includes("balloon")) KSA_LAYERS.groundMarkers.layerKerballoon.addTo(ops.surface.map);
       populateKerballoonFilters();
     } else KSA_LAYERS.groundMarkers.layerKerballoon = null;
@@ -750,7 +750,7 @@ function loadMapDataAJAX(result) {
 
     // place the pins and size the map to show them all
     KSA_LAYERS.groundMarkers.layerPins.addTo(ops.surface.map);
-    ops.surface.layerControl.addOverlay(KSA_LAYERS.groundMarkers.layerPins, "<img src='images/defPin.png' style='width: 10px; height: 14px; vertical-align: 1px;'> Custom Pins", "Ground Markers");
+    ops.surface.layerControl.addOverlay(KSA_LAYERS.groundMarkers.layerPins, "<img src='images/defPinIcon.png' style='width: 16px; vertical-align: 1px;'> Custom Pins", "Ground Markers");
     ops.surface.map.fitBounds(KSA_LAYERS.groundMarkers.layerPins.getBounds());
     
     // if only one marker was placed, open its popup and zoom back out
@@ -940,7 +940,7 @@ function surfaceUpdate(type, markerUT, id) {
     // also === instead of >= since we are looking for a specific marker
     if (!KSA_LAYERS.groundMarkers.layerLabels && isSelectedBody) {
       KSA_LAYERS.groundMarkers.layerLabels = L.layerGroup();
-      ops.surface.layerControl.addOverlay(KSA_LAYERS.groundMarkers.layerLabels, "<img src='images/label.png' style='vertical-align: 1px;'> Labels", "Ground Markers");
+      ops.surface.layerControl.addOverlay(KSA_LAYERS.groundMarkers.layerLabels, "<img src='images/label.png' style='width: 16px; vertical-align: 1px;'> Labels", "Ground Markers");
     }
     ops.surface.Data.Labels.forEach(function(label) {
       if (label.ut === markerUT) {
@@ -959,7 +959,7 @@ function surfaceUpdate(type, markerUT, id) {
   else if (type.includes("flag")) {
     if (!KSA_LAYERS.groundMarkers.layerFlags && isSelectedBody) {
       KSA_LAYERS.groundMarkers.layerFlags = L.layerGroup();
-      ops.surface.layerControl.addOverlay(KSA_LAYERS.groundMarkers.layerFlags, "<img src='images/button_vessel_flag.png' style='width: 10px; vertical-align: 1px;'> Flags", "Ground Markers");
+      ops.surface.layerControl.addOverlay(KSA_LAYERS.groundMarkers.layerFlags, "<img src='images/button_vessel_flag.png' style='width: 16px; vertical-align: 1px;'> Flags", "Ground Markers");
     }
     ops.surface.Data.Flags.forEach(function(flag) {
       if (flag.placed === markerUT) {
@@ -979,7 +979,7 @@ function surfaceUpdate(type, markerUT, id) {
   else if (type.includes("kerballoon")) {
     if (!KSA_LAYERS.groundMarkers.layerKerballoon && isSelectedBody) {
       KSA_LAYERS.groundMarkers.layerKerballoon = L.layerGroup();
-      ops.surface.layerControl.addOverlay(KSA_LAYERS.groundMarkers.layerKerballoon, "<img src='images/balloon.png' style='width: 10px; vertical-align: 1px;'> KerBalloon Launches", "Ground Markers");
+      ops.surface.layerControl.addOverlay(KSA_LAYERS.groundMarkers.layerKerballoon, "<img src='images/balloonIcon.png' style='width: 16px; vertical-align: 1px;'> KerBalloon Launches", "Ground Markers");
     }
     ops.surface.Data.Kerballoons.forEach(function(kb) {
       if (kb.ut === markerUT) {
@@ -1049,7 +1049,7 @@ function surfaceUpdate(type, markerUT, id) {
     }
     if (!KSA_LAYERS.groundMarkers.layerPOI && isSelectedBody) {
       KSA_LAYERS.groundMarkers.layerPOI = L.layerGroup();
-      ops.surface.layerControl.addOverlay(KSA_LAYERS.groundMarkers.layerPOI, "<img src='images/poi.png' style='width: 10px; vertical-align: 1px;'> Points of Interest", "Ground Markers");
+      ops.surface.layerControl.addOverlay(KSA_LAYERS.groundMarkers.layerPOI, "<img src='images/poiIcon.png' style='width: 16px; vertical-align: 1px;'> Points of Interest", "Ground Markers");
     }
     ops.surface.Data.POI.forEach(function(poi) {
       if (poi.ut === markerUT) {
@@ -1078,7 +1078,7 @@ function surfaceUpdate(type, markerUT, id) {
     }
     if (!KSA_LAYERS.groundMarkers.layerAnomalies && isSelectedBody) {
       KSA_LAYERS.groundMarkers.layerAnomalies = L.layerGroup();
-      ops.surface.layerControl.addOverlay(KSA_LAYERS.groundMarkers.layerAnomalies, "<img src='images/anomaly.png' style='width: 10px; vertical-align: 1px;'> Anomalies", "Ground Markers");
+      ops.surface.layerControl.addOverlay(KSA_LAYERS.groundMarkers.layerAnomalies, "<img src='images/anomalyIcon.png' style='width: 16px; vertical-align: 1px;'> Anomalies", "Ground Markers");
     }
     ops.surface.Data.Anomalies.forEach(function(anomaly) {
       if (anomaly.ut === markerUT) {
@@ -1109,7 +1109,7 @@ function surfaceUpdate(type, markerUT, id) {
     }
     if (!KSA_LAYERS.groundMarkers.layerGroundStations && isSelectedBody) {
       KSA_LAYERS.groundMarkers.layerGroundStations = L.layerGroup();
-      ops.surface.layerControl.addOverlay(KSA_LAYERS.groundMarkers.layerGroundStations, "<img src='images/pinGrndStation.png' style='width: 10px; vertical-align: 1px;'> Ground Stations", "Ground Markers");
+      ops.surface.layerControl.addOverlay(KSA_LAYERS.groundMarkers.layerGroundStations, "<img src='images/pinGrndStationIcon.png' style='width: 16px; vertical-align: 1px;'> Ground Stations", "Ground Markers");
     }
     ops.surface.Data.GroundStations.forEach(function(station) {
       if (station.ut === markerUT) {
@@ -1153,7 +1153,7 @@ function surfaceUpdate(type, markerUT, id) {
     }
     if (!KSA_LAYERS.groundMarkers.layerAirports && isSelectedBody) {
       KSA_LAYERS.groundMarkers.layerAirports = L.layerGroup();
-      ops.surface.layerControl.addOverlay(KSA_LAYERS.groundMarkers.layerAirports, "<img src='images/airport.png' style='width: 10px; vertical-align: 1px;'> Airports", "Ground Markers");
+      ops.surface.layerControl.addOverlay(KSA_LAYERS.groundMarkers.layerAirports, "<img src='images/airportIcon.png' style='width: 16px; vertical-align: 1px;'> Airports", "Ground Markers");
     }
     ops.surface.Data.Airports.forEach(function(airport) {
       if (airport.ut === markerUT) {
@@ -2123,7 +2123,7 @@ function showMap() {
         strType = capitalizeFirstLetter(layer.type);
         if (!layer.isLoaded) break;
         if (!strType.endsWith("s")) strType += "s";
-        if (layer.group) ops.surface.layerControl.addOverlay(layer.group, "<img src='images/icon_" + layer.type + ".png' style='width: 15px;'> " + strType, "Orbital Tracks");
+        if (layer.group) ops.surface.layerControl.addOverlay(layer.group, "<img src='images/icon_" + layer.type + ".png' style='width: 16px;'> " + strType, "Orbital Tracks");
       }
       const allLoaded = KSA_CATALOGS.bodyPaths.layers.every(layer => layer.isLoaded);
 
@@ -2783,12 +2783,6 @@ function missionInfoDlg(indexFlt) {
   $("#dialogTxt").fadeIn();
   $("#dialogTxt").html(KSA_CATALOGS.fltPaths[indexFlt].html);
   $("#mapDialog").dialog("open");
-
-  // inform the user they have to exit fullscreen if it is enabled
-  if (KSA_UI_STATE.isMapFullscreen) {
-    KSA_MAP_CONTROLS.flightPositionPopup.setContent("Please press Esc key<br>to exit fullscreen mode!");
-    setTimeout(function() { ops.surface.map.closePopup(KSA_MAP_CONTROLS.flightPositionPopup); }, 3000);
-  }
 }
 
 // functions to control the playback of flight data
@@ -2986,7 +2980,7 @@ function calculateSurfaceTracks(currObj = null) {
         strType = capitalizeFirstLetter(layer.type);
         if (!layer.isLoaded) break;
         if (!strType.endsWith("s")) strType += "s";
-        ops.surface.layerControl.addOverlay(layer.group, "<img src='images/icon_" + layer.type + ".png' style='width: 15px;'> " + strType, "Orbital Tracks");
+        ops.surface.layerControl.addOverlay(layer.group, "<img src='images/icon_" + layer.type + ".png' style='width: 16px;'> " + strType, "Orbital Tracks");
       }
       ops.surface.layerControl.addOverlay(KSA_LAYERS.surfaceTracksDataLoad.bodiesTrackDataLoad, "<i class='fa fa-cog fa-spin'></i> Loading " + strType + " Data...", "Orbital Tracks");
     } else {
@@ -3035,7 +3029,7 @@ function calculateSurfaceTracks(currObj = null) {
             }
             var strType = capitalizeFirstLetter(currObj.type);
             if (!strType.endsWith("s")) strType += "s";
-            ops.surface.layerControl.addOverlay(currLayer.group, "<img src='images/icon_" + currObj.type + ".png' style='width: 15px'> " + strType, "Orbital Tracks");
+            ops.surface.layerControl.addOverlay(currLayer.group, "<img src='images/icon_" + currObj.type + ".png' style='width: 16px'> " + strType, "Orbital Tracks");
             
             // check if this layer should be automatically selected based on URL parameters
             if (getParameterByName("layers").includes(currObj.type) || getParameterByName("layers").includes(strType.toLowerCase())) {
@@ -3059,7 +3053,7 @@ function calculateSurfaceTracks(currObj = null) {
             ops.surface.layerControl.removeLayer(KSA_LAYERS.surfaceTracksDataLoad.bodiesTrackDataLoad);
             var strType = capitalizeFirstLetter(currObj.type);
             if (!strType.endsWith("s")) strType += "s";
-            ops.surface.layerControl.addOverlay(currLayer.group, "<img src='images/icon_" + currObj.type + ".png' style='width: 15px'> " + strType, "Orbital Tracks");
+            ops.surface.layerControl.addOverlay(currLayer.group, "<img src='images/icon_" + currObj.type + ".png' style='width: 16px'> " + strType, "Orbital Tracks");
             
             // check if this layer should be automatically selected based on URL parameters
             if (getParameterByName("layers").includes(currObj.type) || getParameterByName("layers").includes(strType.toLowerCase())) {
