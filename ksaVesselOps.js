@@ -230,6 +230,11 @@ function loadVesselAJAX(result, flags) {
                         timelineTweets: null,
                         initLoad:       null };
 
+  // Clear prevContent so the content area always re-renders on page navigation.
+  // CraftData is a cached reference from fetchJson — prevContent from a prior
+  // visit would otherwise persist and cause the content update to be skipped.
+  if (ops.currentVessel.CraftData) delete ops.currentVessel.CraftData.prevContent;
+
   // Reset the orbit stack when switching to a different vessel; preserve it for state changes within the same vessel.
   if (_vofObtStack.db !== ops.currentVessel.Catalog.DB) { _vofObtStack.db = ops.currentVessel.Catalog.DB; _vofObtStack.stack = []; }
   if (ops.currentVessel.Resources) ops.currentVessel.Resources.resIndex = 0;
@@ -1806,10 +1811,16 @@ function vesselContentUpdate(update) {
     }
 
   // dynamic map with orbital information
-  } else if (ops.currentVessel.CraftData.Content.type === "html" && ops.currentVessel.CraftData.Content.html.charAt(0) === "!") {
+  // backwards compatibility retained for older DB entries
+  } else if ((ops.currentVessel.CraftData.Content.type === "html" && ops.currentVessel.CraftData.Content.html.charAt(0) === "!")
+             || ops.currentVessel.CraftData.Content.type === "obt") { // new DB entries use this
   
-    // extract the data
-    var data = ops.currentVessel.CraftData.Content.html.split("!")[1].split("|");
+    // build the obt object if this is an older DB entry
+    if (ops.currentVessel.CraftData.Content.type === "html") {
+      var data = ops.currentVessel.CraftData.Content.html.split("!")[1].split("|");
+      ops.currentVessel.CraftData.Content.caption = data[1].includes(".png") ? null : data[1];
+      ops.currentVessel.CraftData.Content.image = data[1].includes(".png") ? null : data[0];
+    }
 
     // only show dynamic information if this is a current state in an ongoing mission
     // also only show if there is surface data for a map & orbital data
@@ -1859,12 +1870,15 @@ function vesselContentUpdate(update) {
         var newContentHTML;
         var _vofPendingBody = null;  // set when the two-viewport scene needs to be built
 
-        // two images? — data[1] encodes the central body: "BodyName.png"
-        if (data[1].includes(".png")) {
+        // no image? render the 3JS orbit 
+        if (!ops.currentVessel.CraftData.Content.image) {
 
-          // find the orbited body in the catalog; fall back to Kerbin for older DB entries
-          var obtBody = ops.bodyCatalog.find(b => b.Body === data[1].split(".")[0]);
-          if (!obtBody) obtBody = ops.bodyCatalog.find(b => b.Body === "Kerbin");
+          // find the orbited body for the time of this orbit
+          var obtBody = getCurrrentSOIObj(ops.currentVessel.Orbit.Eph);
+          if (!obtBody) {
+            obtBody = ops.bodyCatalog.find(b => b.Body === "Kerbin");
+            console.warn("Couldn't find SOI for orbit with epoch " + ops.currentVessel.Orbit.Eph + ", defaulting to Kerbin");
+          }
 
           // Two-viewport Three.js orbit figures.
           // The container divs are inserted into #content first; initVesselOrbitScene()
@@ -1880,8 +1894,8 @@ function vesselContentUpdate(update) {
 
         // one image
         } else {
-          var imgURL = imageURLFromDB("http://www.kerbalspace.agency/Tracker/images/vessels/" + encodeURIComponent(ops.currentVessel.Catalog.DB) + "/", data[0]);
-          newContentHTML = "<img class='fullCenter contentTip' style='cursor: help' title='" + sanitizeHTML(data[1]) + "' src='" + imgURL + "'>";
+          var imgURL = imageURLFromDB("http://www.kerbalspace.agency/Tracker/images/vessels/" + encodeURIComponent(ops.currentVessel.Catalog.DB) + "/", ops.currentVessel.CraftData.Content.image);
+          newContentHTML = "<img class='fullCenter contentTip' style='cursor: help' title='" + sanitizeHTML(ops.currentVessel.CraftData.Content.caption) + "' src='" + imgURL + "'>";
         }
         
         // Use transition if content already exists, otherwise just show it.
@@ -2158,21 +2172,19 @@ function getCurrentName() {
   }
   return vessel;
 }
-function getCurrrentSOIRef() {
+function getCurrrentSOIRef(ut = currUT()) {
   if (!ops.currentVessel) return null;
   var soiRef = null;
   ops.currentVessel.Catalog.SOI.forEach(function(entry) {
-    if (entry.ut <= currUT()) soiRef = entry.ref;
+    if (entry.ut <= ut) soiRef = entry.ref;
   });
   return parseInt(soiRef);
 }
-function getCurrrentSOIName() {
-  if (!ops.currentVessel) return null;
-  var soiRef = null;
-  ops.currentVessel.Catalog.SOI.forEach(function(entry) {
-    if (entry.ut <= currUT()) soiRef = entry.ref;
-  });
-  return ops.bodyCatalog.find(o => o.ID === parseInt(soiRef)).Body;
+function getCurrrentSOIName(ut = currUT()) {
+  return ops.bodyCatalog.find(o => o.ID === getCurrrentSOIRef(ut)).Body;
+}
+function getCurrrentSOIObj(ut = currUT()) {
+  return ops.bodyCatalog.find(o => o.ID === getCurrrentSOIRef(ut));
 }
 function getMissionEndMsg() {
   if (!ops.currentVessel.Catalog.MissionEnd) return null;
