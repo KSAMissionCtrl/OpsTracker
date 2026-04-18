@@ -509,30 +509,6 @@ input:disabled+label {
   z-index: 9999999;
 }
 
-/* Grouped layer control - word wrapping with character limit */
-.leaflet-control-layers label {
-  display: block;
-  max-width: 190px;
-  word-wrap: break-word;
-  overflow-wrap: break-word;
-  white-space: normal;
-  line-height: 1.2em;
-}
-
-.leaflet-control-layers label span {
-  max-width: 190px;
-  word-wrap: break-word;
-  overflow-wrap: break-word;
-  white-space: normal;
-}
-
-.leaflet-control-layers-group-name {
-  max-width: 190px;
-  word-wrap: break-word;
-  overflow-wrap: break-word;
-  white-space: normal;
-}
-
 /* Vessel image maximize icon */
 .vessel-image-maximize {
   position: absolute;

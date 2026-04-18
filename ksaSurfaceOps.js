@@ -1297,7 +1297,7 @@ function loadFltDataAJAX(result) {
   if (KSA_LAYERS.surfaceTracksDataLoad.fltTrackDataLoad) {
     ops.surface.layerControl.removeLayer(KSA_LAYERS.surfaceTracksDataLoad.fltTrackDataLoad);
   }
-  ops.surface.layerControl.addOverlay(KSA_CATALOGS.fltPaths[KSA_CATALOGS.fltPaths.length-1].layer, "<i class='fa fa-minus' style='color: " + KSA_CATALOGS.fltPaths[KSA_CATALOGS.fltPaths.length-1].color + "'></i> " + KSA_CATALOGS.fltPaths[KSA_CATALOGS.fltPaths.length-1].info.Title, "Flight Tracks");
+  ops.surface.layerControl.addOverlay(KSA_CATALOGS.fltPaths[KSA_CATALOGS.fltPaths.length-1].layer, "<i class='fa fa-minus' style='color: " + KSA_CATALOGS.fltPaths[KSA_CATALOGS.fltPaths.length-1].color + "'></i> " + wrapText(150, KSA_CATALOGS.fltPaths[KSA_CATALOGS.fltPaths.length-1].info.Title, 12), "Flight Tracks");
   KSA_CATALOGS.fltPaths[KSA_CATALOGS.fltPaths.length-1].layer.addTo(ops.surface.map)
   
   // get more flight data?

@@ -846,7 +846,6 @@ var _vofKdHandler = null;  // stored keydown listener so it can be removed on di
 var _vofKuHandler = null;  // stored keyup   listener so it can be removed on disposal
 var _vofObtStack  = { db: null, stack: [] };  // orbit stack persisted across state changes; reset on vessel change
 var _VOF_NODE_MIN_PX = 3;    // target screen-pixel radius for Pe/Ap/AN/DN node markers (tweakable)
-var _VOF_FIT_PADDING  = 0.8; // margin multiplier for initial camera fit (1.0 = tight, higher = more padding)
 
 // Tear down the vessel orbit figures completely: cancel animation, dispose GPU
 // resources, remove DOM label elements, and remove keyboard listeners.
@@ -940,23 +939,35 @@ function initVesselOrbitScene(obtBody) {
              nodePositions: computeNodePositions(ssma, secc, sinc, sraan, sarg) };
   });
 
-  // Fit both cameras to show the full trajectory on initial load.
-  // Left  view (+X axis): perpendicular spread is in the YZ plane.
-  // Right view (+Z axis): perpendicular spread is in the XY plane.
-  // Use the larger of the two required distances so both viewports open at
-  // the same zoom level and neither clips any part of the orbit.
+  // Fit both cameras so the full trajectory is visible on initial load.
+  // For perspective projection a point at depth d from the camera plane and
+  // perpendicular offset r requires  camDist ≥ d + r / tan(FOV/2)  to stay
+  // inside the frustum.  The old approach only measured the maximum
+  // perpendicular radius from the origin and ignored the depth term, which
+  // under-estimated the distance for eccentric orbits whose focus (origin) is
+  // far from the ellipse centre — the apoapsis side extends much further along
+  // the camera axis than the periapsis side.
+  //
+  // Left  camera: +X axis  → depth = p.x,  screen spread = max(|p.y|,|p.z|)
+  // Right camera: +Z axis  → depth = p.z,  screen spread = max(|p.x|,|p.y|)
   var _fitTanHalf = Math.tan(THREE.MathUtils.degToRad(45 / 2));
-  var _maxYZ = 0, _maxXY = 0;
+  var _needLeft = 0, _needRight = 0;
   var _allOrbitPts = [orbitPts].concat(stackedOrbitPts);
   _allOrbitPts.forEach(function(pts) {
     pts.forEach(function(p) {
-      var yz = Math.sqrt(p.y * p.y + p.z * p.z);
-      var xy = Math.sqrt(p.x * p.x + p.y * p.y);
-      if (yz > _maxYZ) _maxYZ = yz;
-      if (xy > _maxXY) _maxXY = xy;
+      var dL = p.x + Math.max(Math.abs(p.y), Math.abs(p.z)) / _fitTanHalf;
+      if (dL > _needLeft) _needLeft = dL;
+      var dR = p.z + Math.max(Math.abs(p.x), Math.abs(p.y)) / _fitTanHalf;
+      if (dR > _needRight) _needRight = dR;
     });
   });
-  var camDist = Math.max(_maxYZ, _maxXY) / _fitTanHalf * _VOF_FIT_PADDING;
+  // Adaptive margin: grows with the maximum eccentricity across all displayed
+  // orbits so highly eccentric / asymmetric trajectories get extra breathing
+  // room while near-circular ones stay tightly framed.
+  var _maxEcc = ecc;
+  stackedOrbits.forEach(function(so) { if (so.ecc > _maxEcc) _maxEcc = so.ecc; });
+  var _fitMargin = 1.05 + 0.15 * Math.min(_maxEcc, 0.99); // 1.05 (circular) → 1.20 (e→1)
+  var camDist = Math.max(_needLeft, _needRight) * _fitMargin;
   camDist = Math.max(camDist, cPhysR * 5);  // always clear the body surface
 
   // ── Resolve sun orbital elements (same 3-case logic as buildBodyScene()) ──
@@ -1898,17 +1909,18 @@ function vesselContentUpdate(update) {
           newContentHTML = "<img class='fullCenter contentTip' style='cursor: help' title='" + sanitizeHTML(ops.currentVessel.CraftData.Content.caption) + "' src='" + imgURL + "'>";
         }
         
-        // Use transition if content already exists, otherwise just show it.
-        // initVesselOrbitScene() is called after the HTML lands in the DOM so
-        // document.getElementById('vesselFigLeft/Right') resolves correctly.
-        if ($("#content").is(':visible') && $("#content").html()) {
+        // 3JS orbit figures update in-place without a fade transition;
+        // image content still uses a cross-fade when previous content is visible.
+        if (_vofPendingBody) {
+          $("#content").html(newContentHTML);
+          initVesselOrbitScene(_vofPendingBody);
+          $("#content").fadeIn();
+        } else if ($("#content").is(':visible') && $("#content").html()) {
           loadHTMLWithTransition("#content", newContentHTML, function() {
             $("#content").fadeIn();
-            if (_vofPendingBody) initVesselOrbitScene(_vofPendingBody);
           });
         } else {
           $("#content").html(newContentHTML);
-          if (_vofPendingBody) initVesselOrbitScene(_vofPendingBody);
           $("#content").fadeIn();
         }
       }
