@@ -156,26 +156,26 @@ function initializeMap() {
   // show controls only when the cursor is over the map, unless this is a touch device
   if (!is_touch_device()) {
     ops.surface.map.on('mouseover', function(e) {
-      $(".leaflet-top.leaflet-right").fadeIn();
-      $(".leaflet-top.leaflet-left").fadeIn();
-      $(".leaflet-bottom.leaflet-left").fadeIn();
+      $(".leaflet-top.leaflet-right").stop(true, true).fadeIn();
+      $(".leaflet-top.leaflet-left").stop(true, true).fadeIn();
+      $(".leaflet-bottom.leaflet-left").stop(true, true).fadeIn();
       if (KSA_LAYERS.groundMarkers.layerKerballoon && ops.surface.map.hasLayer(KSA_LAYERS.groundMarkers.layerKerballoon)) {
-        $("#mapFilterControls").fadeIn();
+        $("#mapFilterControls").stop(true, true).fadeIn();
       }
     });
     ops.surface.map.on('mouseout', function(e) {
       if ($(e.originalEvent.relatedTarget).closest('#mapFilterControls').length) return;
-      if (!checkDataLoad()) $(".leaflet-top.leaflet-right").fadeOut();
-      $(".leaflet-top.leaflet-left").fadeOut();
-      $(".leaflet-bottom.leaflet-left").fadeOut();
-      $("#mapFilterControls").fadeOut();
+      if (!checkDataLoad()) $(".leaflet-top.leaflet-right").stop(true, true).fadeOut();
+      $(".leaflet-top.leaflet-left").stop(true, true).fadeOut();
+      $(".leaflet-bottom.leaflet-left").stop(true, true).fadeOut();
+      $("#mapFilterControls").stop(true, true).fadeOut();
     });
     $("#mapFilterControls").on('mouseleave', function(e) {
       if ($(e.relatedTarget).closest('#map').length) return;
-      if (!checkDataLoad()) $(".leaflet-top.leaflet-right").fadeOut();
-      $(".leaflet-top.leaflet-left").fadeOut();
-      $(".leaflet-bottom.leaflet-left").fadeOut();
-      $("#mapFilterControls").fadeOut();
+      if (!checkDataLoad()) $(".leaflet-top.leaflet-right").stop(true, true).fadeOut();
+      $(".leaflet-top.leaflet-left").stop(true, true).fadeOut();
+      $(".leaflet-bottom.leaflet-left").stop(true, true).fadeOut();
+      $("#mapFilterControls").stop(true, true).fadeOut();
     });
     ops.surface.map.on('mousemove', function(e) {
     
@@ -289,7 +289,10 @@ function cleanupGroundMarkersLayers() {
       ops.surface.map.removeLayer(KSA_LAYERS.groundMarkers.layerKerballoon);
     }
     KSA_LAYERS.groundMarkers.layerKerballoon = null;
-    $('#filterMonth, #filterYear, #filterCrew, #filterBalloonType').off('change.kerbFilter').find('option:not(:first)').remove();
+    $('#filterMonth, #filterYear, #filterCrew, #filterBalloonType').each(function() {
+      if ($(this).data('ui-selectmenu')) $(this).selectmenu('destroy');
+    });
+    $('#filterMonth, #filterYear, #filterCrew, #filterBalloonType').find('option:not(:first)').remove();
   }
   
   // remove Custom Pins layer
@@ -1033,6 +1036,10 @@ function surfaceUpdate(type, markerUT, id) {
               if (bare === markerUpdate._myType && !$(this).text().startsWith('\u2714 ')) $(this).text('\u2714 ' + bare);
             });
           }
+          // Refresh selectmenu widgets to reflect force-checked options
+          $('#filterMonth, #filterYear, #filterCrew, #filterBalloonType').each(function() {
+            if ($(this).data('ui-selectmenu')) $(this).selectmenu('refresh');
+          });
           applyKerballoonFilters();
         }
       }
@@ -1998,6 +2005,7 @@ function addMapResizeButton() {
         title: 'Enlarge map view',
         onClick: function(control) {
           raiseContent(500);
+          KSA_UI_STATE.infoDialogCodeClose = true;
           $("#infoDialog").dialog("close")
           control.state('lower');
         }
@@ -3913,18 +3921,57 @@ function populateKerballoonFilters() {
     $('#filterBalloonType').append($('<option>').val(t).text(t));
   });
 
-  $('#filterMonth, #filterYear, #filterCrew, #filterBalloonType').off('change.kerbFilter').on('change.kerbFilter', function() {
-    var selectedIdx = this.selectedIndex;
-    if (selectedIdx === 0) return;
-    var $opt = $(this).find('option').eq(selectedIdx);
-    var txt = $opt.text();
-    if (txt.startsWith('\u2714 ')) {
-      $opt.text(txt.substring(2));
+  // Initialize or refresh JQueryUI selectmenu widgets
+  $('#filterMonth, #filterYear, #filterCrew, #filterBalloonType').each(function() {
+    var $sel = $(this);
+    if ($sel.data('ui-selectmenu')) {
+      $sel.selectmenu('refresh');
     } else {
-      $opt.text('\u2714 ' + txt);
+      $sel.selectmenu({
+        appendTo: '#mapFilterControls',
+        width: false
+      });
+
+      // Left-click: caption clears all filters; otherwise toggle \u2714
+      $sel.on('selectmenuselect', function(event, ui) {
+        if (ui.item.index === 0) {
+          $sel.find('option:not(:first)').each(function() {
+            var t = $(this).text();
+            if (t.startsWith('\u2714 ')) $(this).text(t.substring(2));
+          });
+        } else {
+          var $opt = ui.item.element;
+          var txt = $opt.text();
+          $opt.text(txt.startsWith('\u2714 ') ? txt.substring(2) : '\u2714 ' + txt);
+        }
+        $sel.prop('selectedIndex', 0);
+        $sel.selectmenu('refresh');
+        applyKerballoonFilters();
+      });
+
+      // Right-click: caption inverts selection; otherwise solo the item
+      $sel.selectmenu('menuWidget').on('contextmenu', '.ui-menu-item', function(e) {
+        e.preventDefault();
+        var itemData = $(this).data('ui-selectmenu-item');
+        if (!itemData) return;
+        if (itemData.index === 0) {
+          $sel.find('option:not(:first)').each(function() {
+            var t = $(this).text();
+            $(this).text(t.startsWith('\u2714 ') ? t.substring(2) : '\u2714 ' + t);
+          });
+        } else {
+          $sel.find('option:not(:first)').each(function() {
+            var t = $(this).text();
+            if (t.startsWith('\u2714 ')) $(this).text(t.substring(2));
+          });
+          itemData.element.text('\u2714 ' + itemData.element.text());
+        }
+        $sel.prop('selectedIndex', 0);
+        $sel.selectmenu('refresh');
+        $sel.selectmenu('close');
+        applyKerballoonFilters();
+      });
     }
-    this.selectedIndex = 0;
-    applyKerballoonFilters();
   });
 }
 

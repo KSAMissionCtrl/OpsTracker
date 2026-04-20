@@ -377,7 +377,10 @@ function crewInfoUpdate(update) {
   $("#infoTitle").html("Click Here for Background Information");
   $("#infoTitle").attr("class", "infoTitle crew");
   $("#infoDialog").dialog("option", "title", "Background Information");
-  $("#infoDialog").dialog("option", {width: 490, height: 600});
+  if (!$("#infoDialog").dialog("isOpen")) {
+    if (KSA_UI_STATE.infoDialogUserAdjusted) $("#infoDialog").dialog("open");
+    else $("#infoDialog").dialog("option", {width: 490, height: 600});
+  }
   $("#partsImg").empty();
 
   // compose the background information

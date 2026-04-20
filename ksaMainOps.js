@@ -510,20 +510,30 @@ function setupContent() {
                                 $(this).dialog("option", "position", { my: "left top", at: "left top", of: "#contentBox" }); 
                               }});
                       
-  // setup the info dialog box that will contain vessel status notes
+  // setup the info dialog box that will contain vessel/crew info
   $("#infoDialog").dialog({ autoOpen: false, 
                             closeOnEscape: true, 
-                            resizable: false, 
-                            draggable: false, 
+                            resizable: true, 
                             title: "Additional Information",
                             hide: { effect: "fade", duration: 300 }, 
                             show: { effect: "fade", duration: 300 },
                             position: { my: "center", at: "center", of: "#infoBox" },
                             open: function() { 
                               if (KSA_UI_STATE.isMapFullscreen) ops.surface.map.toggleFullscreen();
-                              if (ops.pageType == "vessel") $(this).dialog("option", { width: 643, height: 400 });
-                              else if (ops.pageType == "crew") $(this).dialog("option", { width: 490, height: 600 });
-                            }});
+                            },
+                            close: function() {
+                              if (!KSA_UI_STATE.infoDialogCodeClose) {
+                                var dlg = $(this);
+                                dlg.dialog("option", "position", { my: "center", at: "center", of: "#infoBox" });
+                                if (ops.pageType == "vessel") dlg.dialog("option", { width: 643, height: 400 });
+                                else if (ops.pageType == "crew") dlg.dialog("option", { width: 490, height: 600 });
+                                KSA_UI_STATE.infoDialogUserAdjusted = false;
+                              }
+                              KSA_UI_STATE.infoDialogCodeClose = false;
+                            },
+                            dragStop: function() { KSA_UI_STATE.infoDialogUserAdjusted = true; },
+                            resizeStop: function() { KSA_UI_STATE.infoDialogUserAdjusted = true; }
+                            });
   
   // setup the message dialog box that will notify the user about any surface map stuff
   $("#progressbar").progressbar({ value: 0 });
@@ -895,7 +905,13 @@ function swapContent(newPageType, id, ut, flt) {
     $(".dataField").html("");
     $("#infoBox").fadeOut(200);
     $("#dataBox").fadeOut(200);
-    $("#infoDialog").dialog("close");
+    if (newPageType != "vessel" && newPageType != "crew") {
+      KSA_UI_STATE.infoDialogCodeClose = true;
+      $("#infoDialog").dialog("close");
+    } else if (!KSA_UI_STATE.infoDialogUserAdjusted) {
+      KSA_UI_STATE.infoDialogCodeClose = true;
+      $("#infoDialog").dialog("close");
+    }
     hideMap();
     $("#content").fadeOut();
     removeVesselMapButtons();    
@@ -912,7 +928,13 @@ function swapContent(newPageType, id, ut, flt) {
     $("#infoBox").fadeOut(200);
     $("#dataBox").fadeOut(200);
     $("#crewFooter").fadeOut();
-    $("#infoDialog").dialog("close");
+    if (newPageType != "vessel" && newPageType != "crew") {
+      KSA_UI_STATE.infoDialogCodeClose = true;
+      $("#infoDialog").dialog("close");
+    } else if (!KSA_UI_STATE.infoDialogUserAdjusted) {
+      KSA_UI_STATE.infoDialogCodeClose = true;
+      $("#infoDialog").dialog("close");
+    }
   } else if (ops.pageType == "atn") {
     hideMap();
     $("#figureOptions").fadeOut();

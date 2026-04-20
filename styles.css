@@ -388,17 +388,39 @@ input:disabled+label {
   white-space: nowrap;
 }
 
-#mapFilterControls select {
+#mapFilterControls .ui-selectmenu-button {
   font-size: 12px;
   margin-right: 5px;
+  width: auto;
+}
+
+#mapFilterControls .ui-selectmenu-text {
+  overflow: visible;
+  text-overflow: clip;
 }
 
 #atnFilterControls {
   position: absolute;
   top: 10px;
   left: 10px;
-  z-index: 10;
+  z-index: 11;
   white-space: nowrap;
+}
+
+#atnFilterControls .ui-selectmenu-button {
+  font-size: 12px;
+  margin-right: 5px;
+  width: auto;
+  padding: 1px 2px;
+}
+
+#atnFilterControls .ui-selectmenu-button .ui-icon {
+  margin-top: 0;
+}
+
+#atnFilterControls .ui-selectmenu-text {
+  overflow: visible;
+  text-overflow: clip;
 }
 
 #atnFilterControls select {

@@ -445,7 +445,10 @@ function vesselInfoUpdate(update) {
   dialogStr = dialogStr.replace("fist stage", "first stage");
   $("#infoDialog").html(dialogStr);
   $("#infoDialog").dialog("option", "title", "Additional Information - " + ops.currentVessel.CraftData.CraftDescTitle);
-  $("#infoDialog").dialog("option", {width: 643, height: 400});
+  if (!$("#infoDialog").dialog("isOpen")) {
+    if (KSA_UI_STATE.infoDialogUserAdjusted) $("#infoDialog").dialog("open");
+    else $("#infoDialog").dialog("option", {width: 643, height: 400});
+  }
 }
 
 function vesselMETUpdate(update) {
@@ -2036,7 +2039,13 @@ function nextHistoryButton() {
 
 // opens the dialog box with more details - this is the same box that holds crew details, was just implemented here first
 function showInfoDialog() {
-  if (!$("#infoDialog").dialog("isOpen") && !ops.ascentData.active) $("#infoDialog").dialog("open")
+  if (ops.ascentData.active) return;
+  var dlg = $("#infoDialog");
+  dlg.dialog("option", "position", { my: "center", at: "center", of: "#infoBox" });
+  if (ops.pageType == "vessel") dlg.dialog("option", { width: 643, height: 400 });
+  else if (ops.pageType == "crew") dlg.dialog("option", { width: 490, height: 600 });
+  KSA_UI_STATE.infoDialogUserAdjusted = false;
+  if (!dlg.dialog("isOpen")) dlg.dialog("open");
 }
 
 // provides full details for all vessel parts, ensures the parts catalog is loaded
@@ -2395,16 +2404,11 @@ function setupStreamingAscent() {
   // otherwise just update with the current status
   } else vesselInfoUpdate();
 
-  // update the info box to let user know ascent data is available
-  // if this is a past event, just close the box
+  // close the dialog so the ascent image updates are visible and even if it's been moved off the image
+  // the amount of telemetry data is enough on its own to focus on
   if ($("#infoDialog").dialog("isOpen")) {
-
-    // also close the box if ascent has already begun at this time, meaning we just switched here from another vessel
-    if (ops.currentVessel.CraftData.pastEvent || checkLaunchTime()-currUT() <= 0) $("#infoDialog").dialog("close")
-    else {
-      $("#infoDialog").html("<p>Please close the info box when you are finished reading - it will not update during ascent</p>" + $("#infoDialog").html() + "<p>Please close the info box when you are finished reading - it will not update during ascent</p>");
-      $("#infoDialog").dialog("option", "title", "Launch in T-" + (checkLaunchTime()-currUT()) + "s!");
-    }
+    KSA_UI_STATE.infoDialogCodeClose = true;
+    $("#infoDialog").dialog("close")
   }
 
   // remove any part info data

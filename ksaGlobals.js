@@ -178,6 +178,10 @@ const KSA_UI_STATE = {
   menuSaveSelected: null,        // saves the id of menu item that was last clicked on
   pendingInitialSelect: null,    // holds the menu item id to select once filters finish sorting on initial page load
   
+  // Info dialog states
+  infoDialogCodeClose: false,    // flag set before programmatic close to skip position/size reset
+  infoDialogUserAdjusted: false, // whether the user has moved or resized the info dialog
+
   // Visual indices
   vesselRotationIndex: 0,        // current rotation angle of the vessel if its static image can be spun [currently unused]
   ascentColorsIndex: -1          // current color to use for plotting the ascent path

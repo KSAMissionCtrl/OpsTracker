@@ -1274,6 +1274,7 @@ function _appendNewFilterOptions(selectId, values, prevCount) {
   for (var i = prevCount; i < values.length; i++) {
     $sel.append($('<option>').val(values[i]).text(values[i]));
   }
+  if ($sel.data('ui-selectmenu')) $sel.selectmenu('refresh');
 }
 
 // ---------------------------------------------------------------------------
@@ -1317,36 +1318,61 @@ function populateATNFilters() {
     KSA_CATALOGS.atnData.roidMap[r.UID] = r;
   });
 
-  // Helper: populate a checkmark-style dropdown from a values array, then wire change handler
+  // Helper: populate a checkmark-style dropdown from a values array using JQueryUI selectmenu
   function populateCheckSelect(id, values) {
     var $sel = $('#' + id);
     $sel.find('option:not(:first)').remove();
     values.slice().sort().forEach(function(v) {
       $sel.append($('<option>').val(v).text(v));
     });
-    $sel.off('change.atnFilter').on('change.atnFilter', function() {
-      var idx = this.selectedIndex;
-      if (idx === 0) return;
-      var $opt = $(this).find('option').eq(idx);
-      var txt = $opt.text();
-      $opt.text(txt.startsWith('\u2714 ') ? txt.substring(2) : '\u2714 ' + txt);
-      this.selectedIndex = 0;
-      applyATNFilters();
-    });
-    $sel.off('contextmenu.atnFilter').on('contextmenu.atnFilter', function(e) {
-      var idx = this.selectedIndex;
-      if (idx === 0) return;
-      e.preventDefault();
-      // Solo this item: remove all checkmarks, then check only the right-clicked one
-      $(this).find('option:not(:first)').each(function() {
-        var t = $(this).text();
-        if (t.startsWith('\u2714 ')) $(this).text(t.substring(2));
+    if ($sel.data('ui-selectmenu')) {
+      $sel.selectmenu('refresh');
+    } else {
+      $sel.selectmenu({
+        appendTo: '#atnFilterControls',
+        width: false
       });
-      var $opt = $(this).find('option').eq(idx);
-      $opt.text('\u2714 ' + $opt.text());
-      this.selectedIndex = 0;
-      applyATNFilters();
-    });
+
+      // Left-click: caption clears all filters; otherwise toggle \u2714
+      $sel.on('selectmenuselect', function(event, ui) {
+        if (ui.item.index === 0) {
+          $sel.find('option:not(:first)').each(function() {
+            var t = $(this).text();
+            if (t.startsWith('\u2714 ')) $(this).text(t.substring(2));
+          });
+        } else {
+          var $opt = ui.item.element;
+          var txt = $opt.text();
+          $opt.text(txt.startsWith('\u2714 ') ? txt.substring(2) : '\u2714 ' + txt);
+        }
+        $sel.prop('selectedIndex', 0);
+        $sel.selectmenu('refresh');
+        applyATNFilters();
+      });
+
+      // Right-click: caption inverts selection; otherwise solo the item
+      $sel.selectmenu('menuWidget').on('contextmenu', '.ui-menu-item', function(e) {
+        e.preventDefault();
+        var itemData = $(this).data('ui-selectmenu-item');
+        if (!itemData) return;
+        if (itemData.index === 0) {
+          $sel.find('option:not(:first)').each(function() {
+            var t = $(this).text();
+            $(this).text(t.startsWith('\u2714 ') ? t.substring(2) : '\u2714 ' + t);
+          });
+        } else {
+          $sel.find('option:not(:first)').each(function() {
+            var t = $(this).text();
+            if (t.startsWith('\u2714 ')) $(this).text(t.substring(2));
+          });
+          itemData.element.text('\u2714 ' + itemData.element.text());
+        }
+        $sel.prop('selectedIndex', 0);
+        $sel.selectmenu('refresh');
+        $sel.selectmenu('close');
+        applyATNFilters();
+      });
+    }
   }
 
   populateCheckSelect('atnFilterCategory', f.category || []);
@@ -1355,11 +1381,22 @@ function populateATNFilters() {
   populateCheckSelect('atnFilterType',     f.type     || []);
   populateCheckSelect('atnFilterSOI',      f.soicross || []);
 
-  // Date filters: intercept click to open date picker dialog instead of dropdown
-  $('#atnFilterAfter, #atnFilterBefore').off('mousedown.atnFilter').on('mousedown.atnFilter', function(e) {
-    e.preventDefault();
-    $(this).blur();
-    _openATNDatePicker(this.id === 'atnFilterAfter' ? 'after' : 'before');
+  // Date filters: JQueryUI selectmenu; selecting either item opens the date picker dialog
+  ['atnFilterAfter', 'atnFilterBefore'].forEach(function(id) {
+    var $sel = $('#' + id);
+    if ($sel.data('ui-selectmenu')) {
+      $sel.selectmenu('refresh');
+    } else {
+      $sel.selectmenu({
+        appendTo: '#atnFilterControls',
+        width: false
+      });
+      $sel.on('selectmenuselect', function(event, ui) {
+        $sel.prop('selectedIndex', 0);
+        $sel.selectmenu('refresh');
+        _openATNDatePicker(id === 'atnFilterAfter' ? 'after' : 'before');
+      });
+    }
   });
 
   // Encounters checkbox
@@ -1450,6 +1487,7 @@ function _openATNDatePicker(which) {
           }
 
           $select.find('option').eq(1).val(ut).text(month + '/' + day + '/' + year);
+          if ($select.data('ui-selectmenu')) $select.selectmenu('refresh');
           $("#siteDialog").dialog("close");
           applyATNFilters();
         }
@@ -2137,7 +2175,7 @@ function loadBody(body = "Kerbol-System", flt) {
   $("#figure").append('<div id="threeResetBtn" style="position:absolute;top:8px;right:8px;display:none;cursor:pointer;font-size:18px;color:white;z-index:10;user-select:none;-webkit-user-select:none;-moz-user-select:none;-ms-user-select:none;" onclick="resetFigure()"><i class="fa-solid fa-rotate"></i></div>');
 
   // add the ATN export button — hidden at load, revealed by declutterScene() for ATN pages only
-  $("#figure").append('<div id="atnExportBtn" style="position:absolute;bottom:8px;right:8px;display:none;cursor:pointer;font-size:18px;color:white;z-index:10;user-select:none;-webkit-user-select:none;-moz-user-select:none;-ms-user-select:none;" onclick="exportATNData()"><i class="fa-solid fa-file-csv"></i></div>');
+  $("#figure").append('<div id="atnExportBtn" style="position:absolute;bottom:8px;right:8px;display:none;cursor:pointer;font-size:18px;color:white;z-index:10;user-select:none;-webkit-user-select:none;-moz-user-select:none;-ms-user-select:none;" onclick="exportATNData()"><i class="fa-solid fa-file-csv fa-lg"></i></div>');
 
   // hide it if this isn't a body or atn page
   if (ops.pageType != "body" && ops.pageType != "atn") $("#figure").hide();
@@ -3007,6 +3045,8 @@ function _resetATNFilters() {
   // Clear date filters
   $('#atnFilterAfter' ).find('option').eq(1).val('').text('--/--/----');
   $('#atnFilterBefore').find('option').eq(1).val('').text('--/--/----');
+  if ($('#atnFilterAfter').data('ui-selectmenu'))  $('#atnFilterAfter').selectmenu('refresh');
+  if ($('#atnFilterBefore').data('ui-selectmenu')) $('#atnFilterBefore').selectmenu('refresh');
 
   // Uncheck Encounters
   $('#atnFilterEncounters').prop('checked', false);
