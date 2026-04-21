@@ -483,8 +483,8 @@ var SocialDisplay = (function() {
 
             if (options.UT == null || tweet.UT <= options.UT) {
               if (i < tweetsArray.length - 1) {
-                var currentDay = parseTwitterDate(tweet.created_at).toISOString().split('T')[0];
-                var nextDay = parseTwitterDate(tweetsArray[i + 1].created_at).toISOString().split('T')[0];
+                var currentDay = parseTwitterDate(tweet.created_at).toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
+                var nextDay = parseTwitterDate(tweetsArray[i + 1].created_at).toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
                 isDateBoundary = (currentDay !== nextDay);
               }
               html += formatTweet(tweet, isDateBoundary, order);
@@ -562,11 +562,11 @@ var SocialDisplay = (function() {
     var isDateBoundary = false;
     var firstTweet = tweetContainer.querySelector('.tweet');
     if (firstTweet && order === 'desc') {
-      var newDay = parseTwitterDate(tweet.created_at).toISOString().split('T')[0];
+      var newDay = parseTwitterDate(tweet.created_at).toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
       var firstTweetId = firstTweet.id.replace('tweet-', '');
       var firstTweetData = tweetsDataCache[firstTweetId];
       if (firstTweetData) {
-        var firstDay = parseTwitterDate(firstTweetData.created_at).toISOString().split('T')[0];
+        var firstDay = parseTwitterDate(firstTweetData.created_at).toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
         isDateBoundary = (newDay !== firstDay);
       }
     }
