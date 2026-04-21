@@ -519,6 +519,12 @@ var SocialDisplay = (function() {
           }
 
           config.isLoaded = true;
+
+          // just once if tweets yet to be posted have not been stashed, do so now
+          if (!ops.updateTweets) {
+            ops.updateTweets = fetchUpdateData();
+            processTweetUpdates();
+          }
         }, onJsonProgress);
       });
     });
@@ -975,6 +981,12 @@ function socialUpdate(updateObj) {
 
     // Add to the visible feed if it belongs to the currently shown collection
     if (updateObj.data.collections.includes(ops.twitterSource)) SocialDisplay.addTweet(updateObj.data);
+
+    // switch to the main feed if it's included there instead
+    else if (ops.twitterSource != "13573" && updateObj.data.collections.includes("13573")) {
+      if (ops.pageType == "vessel") swapTwitterSource("Mission Feed", null, true);
+      else if (ops.pageType == "crew") swapTwitterSource("Crew Feed", null, true);
+    }
 
     // Otherwise switch to the relevant timeline if it belongs to the active vessel or crew
     else if (ops.pageType == "vessel" && ops.currentVessel && ops.currentVessel.Catalog.Timeline && updateObj.data.collections.includes(ops.currentVessel.Catalog.Timeline)) {

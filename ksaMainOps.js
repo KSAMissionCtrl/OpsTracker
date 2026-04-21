@@ -1230,17 +1230,25 @@ function killRapidFire(updateObj) {
 
   // don't kill rapid fire mode if this is an orbital-only update and we aren't looking at the vessel it is for
   if (updateObj.type == "orbit" && (ops.pageType != "vessel" || (ops.currentVessel && updateObj.id != ops.currentVessel.Catalog.DB))) return;
+  console.log("checking rapid fire kill", updateObj);
 
-  // also don't kill rapid fire mode if this is a tweet update and the collection visible isn't what its for
-  if (updateObj.type == "tweet" && !updateObj.data.collections.includes(ops.twitterSource)) return;
+  // also don't kill rapid fire mode if this is a tweet update and there is no loaded collection on the current page that uses it
+  if (updateObj.type == "tweet" && 
+      (!updateObj.data.collections.includes("13573") &&  // don't bother checking crew/vessel unless this isn't in the main feed
+        ((ops.pageType == "vessel" && ops.currentVessel && ops.currentVessel.Catalog.Timeline &&
+          !updateObj.data.collections.includes(ops.currentVessel.Catalog.Timeline)) ||
+        (ops.pageType == "crew" && ops.currentCrew && ops.currentCrew.Background.Timeline &&
+          !updateObj.data.collections.includes(ops.currentCrew.Background.Timeline))))) return;
 
   // don't kill rapid fire mode for silent ATN background updates
   if (updateObj.type.includes("atn")) return;
+  console.log("killing rapid fire mode?", updateObj);
 
   // if we are FF'd to a specific crew/vessel event then don't stop unless we reached the UT saved for that event
   if (KSA_UI_STATE.optUpdateInterrupt === false) {
     if (updateObj.UT === parseFloat($("#advTimeTip").attr("data-ut"))) KSA_TIMERS.tickTimer = null;
   } else KSA_TIMERS.tickTimer = null;
+  console.log(KSA_TIMERS.tickTimer, updateObj);
 
   // stop the next event icon from beating if timer was cancelled
   if (!KSA_TIMERS.tickTimer && $("#advanceEvent").html().includes("fa-beat")) {
@@ -1453,14 +1461,6 @@ function tick(utDelta = 1000, rapidFireMode = false) {
   if (KSA_UI_STATE.optUpdateInterrupt != null) {
     $("#advTimeTip").html("Time to event: " + formatTime(parseFloat($("#advTimeTip").attr("data-ut")) - currUT()) + "<br>Left click: Cancel time advance<br>Right click: Reload to event -7s");
   }
-
-  // check if the tweets update is available for fetching
-  // this was returning a null for updateTweets when nothing was touched so prob due to the better loading times
-  // from the ASP to JSON conversion so waiting until that is finished before looking into this
-  // if (!ops.updateTweets && SocialDisplay.config.isLoaded) {
-  //   ops.updateTweets = SocialDisplay.fetchUpdateData();
-  //   processTweetUpdates();
-  // }
 
   // look for updates
   checkPageUpdate(rapidFireMode);
