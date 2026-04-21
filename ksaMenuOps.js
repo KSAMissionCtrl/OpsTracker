@@ -243,7 +243,6 @@ function loadMenuAJAX(result) {
         ops.menuRightClickToggle = true;
         setTimeout(function() {
           ops.menuRightClickToggle = false;
-          selectMenuItem(getParameterByName(ops.pageType));
         }, 10);
       }
     },
@@ -804,6 +803,7 @@ function extractIDs(nodes, moon) {
 
 // recursive function to find the parent system of a node n deep
 function getParentSystem(nodeID) {
+  if (!w2ui['menu'].get(nodeID)) return null;
   if (!w2ui['menu'].get(nodeID).parent.id) return null;
   else if (w2ui['menu'].get(nodeID).parent.id == "inactiveVessels") return "inactive";
   else if (w2ui['menu'].get(nodeID).parent.id.includes("System")) return w2ui['menu'].get(nodeID).parent.id;

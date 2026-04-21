@@ -906,11 +906,12 @@ const KSA_DATA_SERVICE = (function () {
       var nextRibbon  = d.allRibbons.find(function (r) { return r.UT > ut; }) || null;
 
       _trackAndInvoke(label, callback, {
-        catalog:    d.crewEntry,
-        stats:      d.stats,
-        background: d.background,
-        missions:   currentMissions,
-        ribbons:    currentRibbons,
+        catalog:     d.crewEntry,
+        requestedUT: ut,
+        stats:       d.stats,
+        background:  d.background,
+        missions:    currentMissions,
+        ribbons:     currentRibbons,
         next: {
           stats:      d.nextStats || null,
           mission:    nextMission,

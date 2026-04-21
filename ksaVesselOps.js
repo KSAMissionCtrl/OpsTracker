@@ -20,8 +20,14 @@ function loadVessel(vessel, givenUT, wasUTExplicit) {
   else KSA_TIMERS.bodyLoadTimeout = null;
 
   // we need to make sure the current surface map is proper for this vessel
+  // if this returns null that means the craft isn't even in the menu and isn't available (looking past UT beyond its inception)
   var strParentBody = getParentSystem(vessel);
-  if (strParentBody == "inactive") {
+  if (!strParentBody) {
+    $("#infoBox").spin(false);
+    $("#contentBox").spin(false);
+    swapContent("body", "Kerbol-System");
+    return;
+  }else if (strParentBody == "inactive") {
     var soi = ops.craftsMenu.find(o => o.db === vessel).soi;
 
     // last entry is always the inactive ref (-2), second-to-last is the last real body
@@ -214,6 +220,15 @@ function loadAscentAJAX(result) {
 // parses data that shows up for the vessel currently selected in the menu
 function loadVesselAJAX(result, flags) {
 
+  // If no craft data is available at the requested UT, the UT predates this vessel's earliest
+  // data record. Stop the spinners and default to the Kerbol system view.
+  if (!result.current.craft) {
+    $("#infoBox").spin(false);
+    $("#contentBox").spin(false);
+    swapContent("body", "Kerbol-System");
+    return;
+  }
+
   // store all the data
   // preserve the initial load flag
   ops.currentVessel = { Catalog:        result.catalog,
@@ -251,8 +266,13 @@ function loadVesselAJAX(result, flags) {
   // update with the vessel name for this record
   vesselTitleUpdate();
   
-  // update the twitter timeline 
-  vesselTimelineUpdate();
+  // update the twitter timeline on initial load or if there is no mission feed when there should be one (cache load)
+  if (ops.currentVessel.initLoad || (ops.currentVessel.Catalog.Timeline && !$("#twitterTimelineSelection").html().includes("Mission Feed"))) {
+
+    // if there are multiple sources and this doesn't have a timeline then clear to just the main source
+    if ($("#twitterTimelineSelection").html().includes("|") && !ops.currentVessel.Catalog.Timeline) swapTwitterSource();
+    else swapTwitterSource("Mission Feed", ops.currentVessel.Catalog.Timeline);
+  }
   
   if (ops.currentVessel.Catalog.Patches) {
     var p = ops.currentVessel.Catalog.Patches;
@@ -358,18 +378,6 @@ function loadVesselAJAX(result, flags) {
     hideOn: { element: 'mouseleave'},
     onShow: onTooltipShow
   });
-}
-
-function vesselTimelineUpdate(update) {
-
-  // if there are multiple sources and this doesn't have a timeline then clear to just the main source
-  if ($("#twitterTimelineSelection").html().includes("|") && !ops.currentVessel.Catalog.Timeline) swapTwitterSource();
-  
-  // only check for an existing mission feed if this is not an update call, otherwise it already exists from craft load
-  // don't bother swapping the feed if it is still the same
-  if (ops.currentVessel.Catalog.Timeline && !update && ops.twitterSource != ops.currentVessel.Catalog.Timeline) {
-    swapTwitterSource("Mission Feed", ops.currentVessel.Catalog.Timeline);
-  }
 }
 
 function vesselTitleUpdate(update) {
@@ -2126,7 +2134,6 @@ function updateVesselData(vessel, isNonObtUpdate = true) {
       ops.currentVessel.CraftData.prevContent = prevContent;
 
       vesselHistoryUpdate();
-      vesselTimelineUpdate(true);
       vesselInfoUpdate(true);
       vesselVelocityUpdate(true);
       vesselPeUpdate(true);

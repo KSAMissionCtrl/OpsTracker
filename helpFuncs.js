@@ -673,7 +673,7 @@ function openTimePicker(currentUT) {
         if (newUT >= currUT()) newUrl += "&reload";
 
         // reshow the map if it is open
-        if (KSA_UI_STATE.isMapShown) newUrl += "&map";
+        if (KSA_UI_STATE.isMapShown && ops.pageType == "body") newUrl += "&map";
 
         // Reload page with new URL
         window.location.href = newUrl;

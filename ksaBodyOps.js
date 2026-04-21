@@ -647,6 +647,116 @@ function _computeSunDirection(ut) {
   return new THREE.Vector3(-pos.x, -pos.y, -pos.z).normalize();
 }
 
+// Add a single child body's Three.js objects (sphere, orbit line, SOI, atmo, nodes)
+// to the current scene. Called from buildBodyScene() for already-discovered bodies, and
+// from updatePage() when a "body" discovery event fires.
+function _addChildBodyToScene(bodyData) {
+  if (!threeScene) return;
+  var centralBodyData = ops.bodyCatalog.find(function(o) { return o.selected === true; });
+  if (!centralBodyData) return;
+
+  var ut     = currUT();
+  var color  = bodyData.Color || 'aaaaaa';
+  var colorI = parseInt(color, 16);
+  var physR  = Math.max(parseFloat(bodyData.Radius) || 1, 1);
+
+  // Orbital elements — catalog stores angles in degrees, convert to radians.
+  var sma    = parseFloat(bodyData.SMA)        || 1;    // km
+  var ecc    = parseFloat(bodyData.Ecc)        || 0;
+  var inc    = Math.radians(parseFloat(bodyData.Inc)  || 0);
+  var raan   = Math.radians(parseFloat(bodyData.RAAN) || 0);
+  var arg    = Math.radians(parseFloat(bodyData.Arg)  || 0);
+  var mean0  = Math.radians(parseFloat(bodyData.Mean) || 0);
+  var epoch  = parseFloat(bodyData.Eph)        || 0;
+  var period = parseFloat(bodyData.ObtPeriod)  || 1;
+  var meanMotion = (2 * Math.PI) / period;       // rad/s
+
+  // Current world-space position (km).
+  var meanNow = computeMeanAnomalyAtUT(mean0, meanMotion, ut, epoch, ecc);
+  var eccNow  = solveKeplerEquation(meanNow, ecc);
+  var pos     = positionOnOrbit(sma, ecc, inc, raan, arg, eccNow);
+
+  // sphere — use flat material in Kerbol-system view so planets are visible from all angles
+  var _sphereMat = (centralBodyData.Body === "Kerbol")
+    ? new THREE.MeshBasicMaterial({ color: colorI })
+    : new THREE.MeshLambertMaterial({ color: colorI });
+  var sphere = new THREE.Mesh(new THREE.SphereGeometry(physR, 32, 32), _sphereMat);
+  sphere.position.copy(pos);
+  sphere.userData.orbitId = bodyData.Body;
+  sphere.userData.physicalRadius = physR;
+  sphere.userData.segs = 32;
+  threeScene.add(sphere);
+
+  // label — child of sphere so it moves with it each tick
+  var label = _makeBodyLabel(bodyData.Body, color, 0, -13);
+  label.position.set(0, 0, 0);
+  sphere.add(label);
+
+  // orbit line (dashed inside central body atmosphere if applicable)
+  var pts = orbitalElementsToEllipsePoints(sma, ecc, inc, raan, arg, 128);
+  var orbitLine = _buildOrbitGroup(pts, colorI, _atmoRadiusKm(centralBodyData), bodyData.Body);
+  threeScene.add(orbitLine);
+
+  // SOI translucent shell (moves with sphere each tick; culled from inside by FrontSide)
+  // Derive world-units-per-pixel from current camera state for segment resolution.
+  var soiMesh = null;
+  var soiR = _soiRadiusKm(bodyData);
+  if (soiR > 0) {
+    var _camDist    = threeCamera ? threeCamera.position.length() : 1;
+    var _viewH      = (threeRenderer && threeRenderer.domElement.clientHeight) || 600;
+    var _worldPerPx = (2 * _camDist * Math.tan(THREE.MathUtils.degToRad(45 / 2))) / _viewH;
+    soiMesh = _makeSoiMesh(soiR, colorI, _segmentsForApparentPx(soiR / _worldPerPx));
+    soiMesh.position.copy(pos);
+    threeScene.add(soiMesh);
+  }
+
+  // Atmosphere shell (fixed physical size, always visible)
+  var atmoMesh = null;
+  var atmoR = _atmoRadiusKm(bodyData);
+  if (atmoR > 0) {
+    atmoMesh = _makeAtmoMesh(atmoR, colorI);
+    atmoMesh.position.copy(pos);
+    threeScene.add(atmoMesh);
+  }
+
+  // orbital node markers — Pe/Ap only for eccentric orbits (Ap skipped for hyperbolic),
+  // AN/DN only for inclined orbits (skipped if outside the hyperbolic arc)
+  var nodes  = computeNodePositions(sma, ecc, inc, raan, arg);
+  var penode = null, apnode = null, anode = null, dnode = null;
+  if (ecc) {
+    penode = _makeNodeMarker(nodes.periapsis, '0099ff', threeNodeRadius);
+    penode.add(_makeBodyLabel('Pe', '0099ff',  0,  14));
+    threeScene.add(penode);
+    if (nodes.apoapsis) {                              // null for hyperbolic
+      apnode = _makeNodeMarker(nodes.apoapsis, '0099ff', threeNodeRadius);
+      apnode.add(_makeBodyLabel('Ap', '0099ff',  0, -14));
+      threeScene.add(apnode);
+    }
+  }
+  if (inc) {
+    if (nodes.ascendingNode) {                         // may be null for hyperbolic
+      anode = _makeNodeMarker(nodes.ascendingNode,  '33ff00', threeNodeRadius);
+      anode.add(_makeBodyLabel('AN', '33ff00', -14,   0));
+      threeScene.add(anode);
+    }
+    if (nodes.descendingNode) {                        // may be null for hyperbolic
+      dnode = _makeNodeMarker(nodes.descendingNode, '33ff00', threeNodeRadius);
+      dnode.add(_makeBodyLabel('DN', '33ff00',  14,   0));
+      threeScene.add(dnode);
+    }
+  }
+
+  ops.orbits.push({
+    type: 'body', id: bodyData.Body, db: bodyData.Body,
+    showName: false, showNodes: false, isSelected: false, isHidden: false, obtLocked: false,
+    orbitElements: { sma: sma, ecc: ecc, inc: inc, raan: raan, arg: arg,
+                     mean0: mean0, meanMotion: meanMotion, epoch: epoch },
+    meshes: { sphere: sphere, orbit: orbitLine, soi: soiMesh, atmo: atmoMesh, label: label,
+              penode: penode, apnode: apnode, anode: anode, dnode: dnode }
+  });
+  _applyOrbitVisibility(ops.orbits[ops.orbits.length - 1]);
+}
+
 // Build all Three.js objects (spheres, orbit lines, SOI shells, labels, nodes)
 // for the currently-selected body system into threeScene.
 // Called from onSceneReady() after the scene is initialised.
@@ -796,101 +906,18 @@ function buildBodyScene() {
 
   // ── Child bodies ─────────────────────────────────────────────────────────
   childBodies.forEach(function(bodyData) {
-    var color  = bodyData.Color || 'aaaaaa';
-    var colorI = parseInt(color, 16);
-    var physR  = Math.max(parseFloat(bodyData.Radius) || 1, 1);
-
-    // Orbital elements — catalog stores angles in degrees, convert to radians.
-    var sma    = parseFloat(bodyData.SMA)        || 1;    // km
-    var ecc    = parseFloat(bodyData.Ecc)        || 0;
-    var inc    = Math.radians(parseFloat(bodyData.Inc)  || 0);
-    var raan   = Math.radians(parseFloat(bodyData.RAAN) || 0);
-    var arg    = Math.radians(parseFloat(bodyData.Arg)  || 0);
-    var mean0  = Math.radians(parseFloat(bodyData.Mean) || 0);
-    var epoch  = parseFloat(bodyData.Eph)        || 0;
-    var period = parseFloat(bodyData.ObtPeriod)  || 1;
-    var meanMotion = (2 * Math.PI) / period;       // rad/s
-
-    // Current world-space position (km).
-    var meanNow = computeMeanAnomalyAtUT(mean0, meanMotion, ut, epoch, ecc);
-    var eccNow  = solveKeplerEquation(meanNow, ecc);
-    var pos     = positionOnOrbit(sma, ecc, inc, raan, arg, eccNow);
-
-    // sphere — use flat material in Kerbol-system view so planets are visible from all angles
-    var _sphereMat = (centralBodyData.Body === "Kerbol")
-      ? new THREE.MeshBasicMaterial({ color: colorI })
-      : new THREE.MeshLambertMaterial({ color: colorI });
-    var sphere = new THREE.Mesh(new THREE.SphereGeometry(physR, 32, 32), _sphereMat);
-    sphere.position.copy(pos);
-    sphere.userData.orbitId = bodyData.Body;
-    sphere.userData.physicalRadius = physR;
-    sphere.userData.segs = 32;
-    threeScene.add(sphere);
-
-    // label — child of sphere so it moves with it each tick
-    var label = _makeBodyLabel(bodyData.Body, color, 0, -13);
-    label.position.set(0, 0, 0);
-    sphere.add(label);
-
-    // orbit line (dashed inside central body atmosphere if applicable)
-    var pts = orbitalElementsToEllipsePoints(sma, ecc, inc, raan, arg, 128);
-    var orbitLine = _buildOrbitGroup(pts, colorI, _atmoRadiusKm(centralBodyData), bodyData.Body);
-    threeScene.add(orbitLine);
-
-    // SOI translucent shell (moves with sphere each tick; culled from inside by FrontSide)
-    var soiMesh = null;
-    var soiR = _soiRadiusKm(bodyData);
-    if (soiR > 0) {
-      soiMesh = _makeSoiMesh(soiR, colorI, _segmentsForApparentPx(soiR / _initWorldPerPx));
-      soiMesh.position.copy(pos);
-      threeScene.add(soiMesh);
-    }
-
-    // Atmosphere shell (fixed physical size, always visible)
-    var atmoMesh = null;
-    var atmoR = _atmoRadiusKm(bodyData);
-    if (atmoR > 0) {
-      atmoMesh = _makeAtmoMesh(atmoR, colorI);
-      atmoMesh.position.copy(pos);
-      threeScene.add(atmoMesh);
-    }
-
-    // orbital node markers — Pe/Ap only for eccentric orbits (Ap skipped for hyperbolic),
-    // AN/DN only for inclined orbits (skipped if outside the hyperbolic arc)
-    var nodes  = computeNodePositions(sma, ecc, inc, raan, arg);
-    var penode = null, apnode = null, anode = null, dnode = null;
-    if (ecc) {
-      penode = _makeNodeMarker(nodes.periapsis, '0099ff', nodeR);
-      penode.add(_makeBodyLabel('Pe', '0099ff',  0,  14));
-      threeScene.add(penode);
-      if (nodes.apoapsis) {                              // null for hyperbolic
-        apnode = _makeNodeMarker(nodes.apoapsis, '0099ff', nodeR);
-        apnode.add(_makeBodyLabel('Ap', '0099ff',  0, -14));
-        threeScene.add(apnode);
+    var discoveryUT = (bodyData.DiscoveryUT !== undefined && bodyData.DiscoveryUT !== null)
+      ? parseFloat(bodyData.DiscoveryUT) : null;
+      console.log('[buildBodyScene] Body', bodyData.Body, 'discoveryUT:', discoveryUT);
+    if (discoveryUT !== null && !isNaN(discoveryUT) && discoveryUT > ut) {
+      // Body not yet discovered — queue a "body" event for when it should appear.
+      if (!ops.updatesList.some(function(o) { return o.type === "body" && o.id === bodyData.Body; })) {
+        ops.updatesList.push({ type: "body", id: bodyData.Body, UT: discoveryUT });
+        ops.updatesList.sort(function(a, b) { return a.UT - b.UT; });
       }
+      return;
     }
-    if (inc) {
-      if (nodes.ascendingNode) {                         // may be null for hyperbolic
-        anode = _makeNodeMarker(nodes.ascendingNode,  '33ff00', nodeR);
-        anode.add(_makeBodyLabel('AN', '33ff00', -14,   0));
-        threeScene.add(anode);
-      }
-      if (nodes.descendingNode) {                        // may be null for hyperbolic
-        dnode = _makeNodeMarker(nodes.descendingNode, '33ff00', nodeR);
-        dnode.add(_makeBodyLabel('DN', '33ff00',  14,   0));
-        threeScene.add(dnode);
-      }
-    }
-
-    ops.orbits.push({
-      type: 'body', id: bodyData.Body, db: bodyData.Body,
-      showName: false, showNodes: false, isSelected: false, isHidden: false, obtLocked: false,
-      orbitElements: { sma: sma, ecc: ecc, inc: inc, raan: raan, arg: arg,
-                       mean0: mean0, meanMotion: meanMotion, epoch: epoch },
-      meshes: { sphere: sphere, orbit: orbitLine, soi: soiMesh, atmo: atmoMesh, label: label,
-                penode: penode, apnode: apnode, anode: anode, dnode: dnode }
-    });
-    _applyOrbitVisibility(ops.orbits[ops.orbits.length - 1]);
+    _addChildBodyToScene(bodyData);
   });
 
   // Reference line along X-axis spanning the full scene width.

@@ -64,6 +64,13 @@ function loadCrew(crew) {
 
 function loadCrewAJAX(result) {
 
+  // If the earliest stats record is later than the requested UT, this crew member didn't
+  // exist yet at that time. Default to the full roster view (individual crew pages only).
+  if (result && result.requestedUT && result.stats && result.stats.UT > result.requestedUT && ops.pageType !== "crewFull") {
+    swapContent("crewFull", "crewFull");
+    return;
+  }
+
   // store the data if provided — if not, data is already loaded
   if (result) {
     ops.currentCrew = { Stats:      result.stats,

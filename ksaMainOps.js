@@ -1012,6 +1012,7 @@ function swapContent(newPageType, id, ut, flt) {
     }, 600);
   } else if (ops.pageType == "crewFull") {
     raiseContent();
+    selectMenuItem("crewFull");
     $("#infoBox").fadeOut();
     $("#dataBox").fadeOut();
     if ($("#twitterTimelineSelection").html().includes("|")) swapTwitterSource();
@@ -1205,6 +1206,13 @@ function updatePage(updateEvent, rapidFireMode = false) {
   else if (updateEvent.type == "atn:main") updateATNMain(updateEvent);
   else if (updateEvent.type == "atn:encounter") updateATNEncounter(updateEvent);
   else if (updateEvent.type == "atn:moonlet") updateATNMoonlet(updateEvent);
+  else if (updateEvent.type == "body" && ops.pageType == "body") {
+    var bodyData = ops.bodyCatalog.find(function(b) { return b.Body === updateEvent.id; });
+    var centralBodyData = ops.bodyCatalog.find(function(o) { return o.selected === true; });
+    if (bodyData && centralBodyData && parseInt(bodyData.Ref) === parseInt(centralBodyData.ID)) {
+      _addChildBodyToScene(bodyData);
+    }
+  }
   else if (updateEvent.type == "object" || updateEvent.type == "orbit") {
     var obj = ops.updateData.find(o => o.id === updateEvent.id);
     if (!obj) console.log("unknown object", updateEvent);
