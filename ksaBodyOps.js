@@ -2148,8 +2148,11 @@ function loadBody(body = "Kerbol-System", flt) {
     }
 
     // if body was already loaded & we are switching to it then just exit at this point
-    // scene3JSContext must also be "body" — if it was built for ATN, a full rebuild is needed
-    if (KSA_UI_STATE.is3JSLoaded && KSA_UI_STATE.scene3JSContext == "body" && ops.bodyCatalog.find(o => o.selected === true) && ops.bodyCatalog.find(o => o.selected === true).Body == body.split("-")[0]) { 
+    // scene3JSContext must also be "body" or "vessel" — if it was built for ATN, a full rebuild is needed
+    if (KSA_UI_STATE.is3JSLoaded && (KSA_UI_STATE.scene3JSContext == "body" || KSA_UI_STATE.scene3JSContext == "vessel") && ops.bodyCatalog.find(o => o.selected === true) && ops.bodyCatalog.find(o => o.selected === true).Body == body.split("-")[0]) { 
+
+      // update context so future body-page calls recognise the scene as valid
+      KSA_UI_STATE.scene3JSContext = "body";
 
       // if it was loaded behind a vessel page, show all the details for a bit
       if (KSA_UI_STATE.isDirty) {
