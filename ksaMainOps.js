@@ -237,7 +237,11 @@ function setupContent() {
 
     var queryString = window.location.search;
     var sanitizedUrl = "http://ops.kerbalspace.agency/" + queryString;
-    sanitizedUrl += (sanitizedUrl.includes("ut=") ? "" : "&ut=" + currUT());
+
+    // remove any existing UT parameters so we can add back the current UT
+    sanitizedUrl = sanitizedUrl.replace(/(&|\?)ut=[^&]*/g, "");
+    sanitizedUrl += "&ut=" + currUT();
+
     if (KSA_UI_STATE.isMapShown && !sanitizedUrl.includes("map") && ops.pageType == "body") {
       if (KSA_CATALOGS.fltPaths && ops.surface && ops.surface.map) {
         
@@ -835,7 +839,7 @@ function swapContent(newPageType, id, ut, flt) {
       var showOpt = 'mouseenter';
       if (is_touch_device()) showOpt = 'click';
       Tipped.create('#liveReloadIcon', strCaption, { showOn: showOpt, hideOnClickOutside: is_touch_device(), position: 'bottom' });
-      Tipped.create('#copyLinkIcon', 'Copy permalink to clipboard<br>Right click: always include time', { showOn: showOpt, hideOnClickOutside: is_touch_device(), position: 'bottom' });
+      Tipped.create('#copyLinkIcon', 'Copy permalink to clipboard<br>Right click: include current time', { showOn: showOpt, hideOnClickOutside: is_touch_device(), position: 'bottom' });
     }, 500);
 
     if (ops.pageType == "vessel") var strText = 'Left click: FF to any next event<br>Right click: FF to next event for this vessel';
@@ -1454,7 +1458,7 @@ function tick(utDelta = 1000, rapidFireMode = false) {
     KSA_TIMERS.maneuverRefreshTimeout = setTimeout(function() { KSA_DATA_SERVICE.fetchEventData(currUT(), loadEventsAJAX); }, 5000);
   }
   if (KSA_UI_STATE.optUpdateInterrupt != null) {
-    $("#advTimeTip").html("Time to event: " + formatTime(parseFloat($("#advTimeTip").attr("data-ut")) - currUT()) + "<br>Left click: Cancel time advance<br>Right click: Reload to event -7s");
+    $("#advTimeTip").html("Time to event: " + formatTime(parseFloat($("#advTimeTip").attr("data-ut")) - currUT()).replace(/\s*\d{1,2}s$/, '').trim() + "<br>Left click: Cancel time advance<br>Right click: Reload to event -7s");
   }
 
   // look for updates
