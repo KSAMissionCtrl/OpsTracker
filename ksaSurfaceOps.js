@@ -151,6 +151,14 @@ function initializeMap() {
     if (e.layer === KSA_LAYERS.groundMarkers.layerKerballoon) {
       $("#mapFilterControls").fadeOut();
     }
+    if (KSA_MAP_CONTROLS.flightPositionPopup && KSA_MAP_CONTROLS.flightPositionPopup._currentLayer === e.layer) {
+      KSA_MAP_CONTROLS.flightPositionPopup.close();
+      KSA_MAP_CONTROLS.flightPositionPopup._currentLayer = null;
+    }
+    if (KSA_MAP_CONTROLS.vesselPositionPopup && KSA_MAP_CONTROLS.vesselPositionPopup._currentLayer === e.layer) {
+      ops.surface.map.closePopup(KSA_MAP_CONTROLS.vesselPositionPopup);
+      KSA_MAP_CONTROLS.vesselPositionPopup._currentLayer = null;
+    }
   });
   
   // show controls only when the cursor is over the map, unless this is a touch device
@@ -1294,9 +1302,11 @@ function loadFltDataAJAX(result) {
                 });
   
   // make sure that if a layer is hidden the current popup is too if that belongs to the layer
-  KSA_CATALOGS.fltPaths[KSA_CATALOGS.fltPaths.length-1].layer._myId = KSA_CATALOGS.fltPaths[KSA_CATALOGS.fltPaths.length-1].info.Title;
   KSA_CATALOGS.fltPaths[KSA_CATALOGS.fltPaths.length-1].layer.on('remove', function(e) {
-    if (KSA_MAP_CONTROLS.flightPositionPopup.getContent() && KSA_MAP_CONTROLS.flightPositionPopup.getContent().includes(e.target._myId)) KSA_MAP_CONTROLS.flightPositionPopup.close();
+    if (KSA_MAP_CONTROLS.flightPositionPopup._currentLayer === e.target) {
+      KSA_MAP_CONTROLS.flightPositionPopup.close();
+      KSA_MAP_CONTROLS.flightPositionPopup._currentLayer = null;
+    }
   });
 
   // draw the ground track
@@ -2373,22 +2383,7 @@ function setupFlightSurfacePath(path, index, startIndex, length) {
     strNewHtml += "</span><br><span class='fauxLink' onclick='downloadFlightDataCSV(" + indexFlt + ")'>Download CSV</span> | <span class='fauxLink' onclick='replayFlightPath(" + indexFlt + ")'>Animate Flight</span></center></p>";
     KSA_MAP_CONTROLS.flightPositionPopup.setContent(strNewHtml);
     KSA_MAP_CONTROLS.flightPositionPopup.setLatLng(e.latlng);
-    
-    // move popup to the correct layer (the layer for this specific flight path)
-    var targetLayer = KSA_CATALOGS.fltPaths[indexFlt].layer;
-    if (targetLayer) {
-      // check if popup needs to be moved to a different layer
-      if (!KSA_MAP_CONTROLS.flightPositionPopup._currentLayer || KSA_MAP_CONTROLS.flightPositionPopup._currentLayer !== targetLayer) {
-        // remove from old layer if it exists
-        if (KSA_MAP_CONTROLS.flightPositionPopup._currentLayer) {
-          KSA_MAP_CONTROLS.flightPositionPopup._currentLayer.removeLayer(KSA_MAP_CONTROLS.flightPositionPopup);
-        }
-        // add to new layer and track it
-        targetLayer.addLayer(KSA_MAP_CONTROLS.flightPositionPopup);
-        KSA_MAP_CONTROLS.flightPositionPopup._currentLayer = targetLayer;
-      }
-    }
-    
+    KSA_MAP_CONTROLS.flightPositionPopup._currentLayer = KSA_CATALOGS.fltPaths[indexFlt].layer;
     KSA_MAP_CONTROLS.flightPositionPopup.openOn(ops.surface.map);
     ops.surface.map.setView(e.latlng);
     ops.surface.map.closePopup(KSA_MAP_CONTROLS.timePopup);
@@ -2443,22 +2438,7 @@ function setupVesselSurfacePath(path, obtIndex) {
     // compose the popup HTML and place it on the cursor location then display it
     KSA_MAP_CONTROLS.vesselPositionPopup.setLatLng(ops.currentVesselPlot.obtData[e.target._myId].orbit[index].latlng);
     KSA_MAP_CONTROLS.vesselPositionPopup.setContent(UTtoDateTime(ops.currentVesselPlot.obtData[e.target._myId].startUT + index) + ' UTC<br>Latitude: ' + numeral(ops.currentVesselPlot.obtData[e.target._myId].orbit[index].latlng.lat).format('0.0000') + '&deg;' + cardinal.lat + '<br>Longitude: ' + numeral(ops.currentVesselPlot.obtData[e.target._myId].orbit[index].latlng.lng).format('0.0000') + '&deg;' + cardinal.lng + '<br>Altitude: ' + numeral(ops.currentVesselPlot.obtData[e.target._myId].orbit[index].alt).format('0,0.000') + " km<br>Velocity: " + numeral(ops.currentVesselPlot.obtData[e.target._myId].orbit[index].vel).format('0,0.000') + " km/s<br>&nbsp;<br><span class='fauxLink' onclick='centerOnVesselMarker()'>Center on Vessel Marker</span>");
-    
-    // move popup to the correct layer (the layer for this specific orbit)
-    var targetLayer = ops.currentVesselPlot.obtData[e.target._myId].layer;
-    if (targetLayer) {
-      // check if popup needs to be moved to a different layer
-      if (!KSA_MAP_CONTROLS.vesselPositionPopup._currentLayer || KSA_MAP_CONTROLS.vesselPositionPopup._currentLayer !== targetLayer) {
-        // remove from old layer if it exists
-        if (KSA_MAP_CONTROLS.vesselPositionPopup._currentLayer) {
-          KSA_MAP_CONTROLS.vesselPositionPopup._currentLayer.removeLayer(KSA_MAP_CONTROLS.vesselPositionPopup);
-        }
-        // add to new layer and track it
-        targetLayer.addLayer(KSA_MAP_CONTROLS.vesselPositionPopup);
-        KSA_MAP_CONTROLS.vesselPositionPopup._currentLayer = targetLayer;
-      }
-    }
-    
+    KSA_MAP_CONTROLS.vesselPositionPopup._currentLayer = ops.currentVesselPlot.obtData[e.target._myId].layer;
     KSA_MAP_CONTROLS.vesselPositionPopup.openOn(ops.surface.map);
     ops.surface.map.setView(ops.currentVesselPlot.obtData[e.target._myId].orbit[index].latlng);
   });
@@ -3414,21 +3394,8 @@ function setupSurfacePath(path, object, startIndex, endIndex) {
     else var strName = obj.name;
     KSA_MAP_CONTROLS.vesselPositionPopup.setContent("<h2>" + strName + "</h2>" + UTtoDateTime(obj.obtData.startUT + index) + ' UTC<br>Latitude: ' + numeral(obj.obtData.orbit[index].latlng.lat).format('0.0000') + '&deg;' + cardinal.lat + '<br>Longitude: ' + numeral(obj.obtData.orbit[index].latlng.lng).format('0.0000') + '&deg;' + cardinal.lng + '<br>Altitude: ' + numeral(obj.obtData.orbit[index].alt).format('0,0.000') + " km<br>Velocity: " + numeral(obj.obtData.orbit[index].vel).format('0,0.000') + " km/s<br>&nbsp;<br><span class='fauxLink' onclick='centerOnMarker(\"" + obj.name + "\")'>Center on Marker</span>");
     
-    // move popup to the correct layer if needed
     var targetLayer = KSA_CATALOGS.bodyPaths.layers.find(o => o.type === obj.type);
-    if (targetLayer && targetLayer.group) {
-      // check if popup needs to be moved to a different layer
-      if (!KSA_MAP_CONTROLS.vesselPositionPopup._currentLayer || KSA_MAP_CONTROLS.vesselPositionPopup._currentLayer !== targetLayer.group) {
-        // remove from old layer if it exists
-        if (KSA_MAP_CONTROLS.vesselPositionPopup._currentLayer) {
-          KSA_MAP_CONTROLS.vesselPositionPopup._currentLayer.removeLayer(KSA_MAP_CONTROLS.vesselPositionPopup);
-        }
-        // add to new layer and track it
-        targetLayer.group.addLayer(KSA_MAP_CONTROLS.vesselPositionPopup);
-        KSA_MAP_CONTROLS.vesselPositionPopup._currentLayer = targetLayer.group;
-      }
-    }
-    
+    KSA_MAP_CONTROLS.vesselPositionPopup._currentLayer = (targetLayer && targetLayer.group) ? targetLayer.group : null;
     KSA_MAP_CONTROLS.vesselPositionPopup.openOn(ops.surface.map);
     ops.surface.map.setView(obj.obtData.orbit[index].latlng);
   });
