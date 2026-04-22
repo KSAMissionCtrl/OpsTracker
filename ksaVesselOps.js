@@ -324,6 +324,11 @@ function loadVesselAJAX(result, flags) {
     // clear out the ascentID so any real-time updates stop
     ascentEnd();
 
+    // Remove before HTML is rebuilt so old elements still carry tipped-uids
+    Tipped.remove('.tipped');
+    Tipped.remove('.tip-update');
+    Tipped.remove('.contentTip');
+
     // display all the updateable data
     vesselHistoryUpdate();
     vesselInfoUpdate();
@@ -1952,10 +1957,10 @@ function vesselContentUpdate(update) {
   ops.currentVessel.CraftData.prevContent = JSON.stringify(ops.currentVessel.CraftData.Content);
   $("#contentBox").spin(false);
 
-  // create any tooltips since we will likely miss the default tip creation waiting on async data load
-  // behavior of tooltips depends on the device
+  // Remove before rebinding so old element still carries tipped-uids
   if (is_touch_device()) showOpt = 'click';
   else showOpt = 'mouseenter';
+  Tipped.remove('.contentTip');
   Tipped.create('.contentTip', { showOn: showOpt, hideOnClickOutside: is_touch_device(), target: 'mouse', hideOn: {element: 'mouseleave'} });
   return bMapShown;
 }
@@ -2105,8 +2110,12 @@ function updateVesselData(vessel, isNonObtUpdate = true) {
   // perform a live data update if we are looking at the vessel in question at the moment 
   if (ops.pageType == "vessel" && ops.currentVessel.Catalog.DB == vessel.id) {
 
-    // hide any open tooltips
+    // Remove before HTML is rebuilt so old elements still carry tipped-uids
+    if (is_touch_device()) showOpt = 'click';
+    else showOpt = 'mouseenter';
     Tipped.remove('.tipped');
+    Tipped.remove('.tip-update');
+    Tipped.remove('.contentTip');
 
     // these elements should only be updated if the vessel is not undergoing an active ascent and is viewing the current record
     if (!ops.ascentData.active && !ops.currentVessel.CraftData.pastEvent) {
@@ -2173,7 +2182,7 @@ function updateVesselData(vessel, isNonObtUpdate = true) {
 
   // fetch new data. Add a second just to make sure we don't get the same current data
   vessel.isLoading = true;
-  KSA_DATA_SERVICE.fetchOpsData(vessel.id, currUT()+1, vessel.type, NaN, loadOpsDataAJAX, {isRealTimeUpdate: isNonObtUpdate, id: vessel.id});
+  KSA_DATA_SERVICE.fetchOpsData(vessel.id, currUT()+1, vessel.type, loadOpsDataAJAX, {isRealTimeUpdate: isNonObtUpdate, id: vessel.id});
 }
 
 // following functions perform extra work on properties

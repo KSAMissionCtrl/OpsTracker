@@ -35,18 +35,16 @@ window.onpopstate = function(event) {
  * Note: Does NOT remove .imgmap tooltips (parts overlay) as they persist within views
  */
 function cleanupTooltips() {
-  // Remove general tooltips that are recreated on each view
+  // Do NOT call Tipped.hideAll() — it starts async fades that race with remove
   Tipped.remove('.tip');
+  Tipped.remove('.tipped');
   Tipped.remove('.tip-update');
   Tipped.remove('.contentTip');
-  
-  // Remove specific event tooltips
   Tipped.remove('#launchLink');
   Tipped.remove('#maneuverLink');
-  
-  // Note: .imgmap tooltips (parts overlay) are NOT removed here
-  // They are managed by assignPartInfo() and only need cleanup when
-  // the vessel itself changes, not during general view switches
+  // Safety net for tooltips bound to direct element references (e.g. parts overlay popups)
+  $('.tpd-tooltip').remove();
+  // .imgmap tooltips are managed by assignPartInfo() and not cleaned up here
 }
 
 /**
@@ -1230,7 +1228,6 @@ function killRapidFire(updateObj) {
 
   // don't kill rapid fire mode if this is an orbital-only update and we aren't looking at the vessel it is for
   if (updateObj.type == "orbit" && (ops.pageType != "vessel" || (ops.currentVessel && updateObj.id != ops.currentVessel.Catalog.DB))) return;
-  console.log("checking rapid fire kill", updateObj);
 
   // also don't kill rapid fire mode if this is a tweet update and there is no loaded collection on the current page that uses it
   if (updateObj.type == "tweet" && 
@@ -1242,13 +1239,11 @@ function killRapidFire(updateObj) {
 
   // don't kill rapid fire mode for silent ATN background updates
   if (updateObj.type.includes("atn")) return;
-  console.log("killing rapid fire mode?", updateObj);
 
   // if we are FF'd to a specific crew/vessel event then don't stop unless we reached the UT saved for that event
   if (KSA_UI_STATE.optUpdateInterrupt === false) {
     if (updateObj.UT === parseFloat($("#advTimeTip").attr("data-ut"))) KSA_TIMERS.tickTimer = null;
   } else KSA_TIMERS.tickTimer = null;
-  console.log(KSA_TIMERS.tickTimer, updateObj);
 
   // stop the next event icon from beating if timer was cancelled
   if (!KSA_TIMERS.tickTimer && $("#advanceEvent").html().includes("fa-beat")) {

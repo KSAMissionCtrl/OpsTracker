@@ -105,6 +105,9 @@ function loadCrewAJAX(result) {
   
   // individual crew page
   } else {
+    // Remove before HTML is rebuilt so old elements still carry tipped-uids
+    Tipped.remove('.tip');
+    Tipped.remove('.tip-update');
     crewHeaderUpdate();
     crewInfoUpdate();
     CrewMissionsUpdate();
@@ -181,6 +184,9 @@ function showFullRoster() {
 }
 
 function ribbonDisplayToggle(display = false) {
+  // Remove before clearing HTML so existing ribbon .tip elements still carry
+  // tipped-uids. The create at the bottom rebinds everything after the rebuild.
+  Tipped.remove('.tip');
   $("#dataField11").empty();
   $("#dataField11").html("<span ribbons=" + ops.currentCrew.Ribbons.length + "></span>");
   if ($("#dataField12").html().includes("Show") && !display) {
@@ -217,9 +223,7 @@ function ribbonDisplayToggle(display = false) {
   // behavior of tooltips depends on the device
   if (is_touch_device()) showOpt = 'click';
   else showOpt = 'mouseenter';
-  
-  Tipped.remove('.tip');
-  
+
   Tipped.create('.tip', { 
     showOn: showOpt, 
     hideOnClickOutside: is_touch_device(), 
@@ -294,9 +298,6 @@ function updateCrewData(crew) {
   // perform a live data update if we are looking at the crew in question at the moment
   if (ops.pageType == "crew" && ops.currentCrew.Background.Kerbal == crew.id) {
 
-    // hide any open tooltips
-    Tipped.remove('.tipped');
-    
     // update the current data with the preloaded updated data
     // we do this regardless of whether the crew page is in view so that the full roster tooltips are updated
     for (var futureProp in crew.FutureData) {
@@ -319,6 +320,12 @@ function updateCrewData(crew) {
       }
     }
 
+    // Remove before HTML is rebuilt so old elements still carry tipped-uids
+    if (is_touch_device()) showOpt = 'click';
+    else showOpt = 'mouseenter';
+    Tipped.remove('.tip');
+    Tipped.remove('.tip-update');
+
     crewHeaderUpdate(true);
     crewInfoUpdate(true);
     CrewMissionsUpdate(true);
@@ -326,14 +333,6 @@ function updateCrewData(crew) {
     crewAssignmentUpdate(true);
     crewActiveMissionUpdate(true);
     crewRibbonsUpdate(true);
-    
-    // create the tooltips
-    // behavior of tooltips depends on the device
-    if (is_touch_device()) showOpt = 'click';
-    else showOpt = 'mouseenter';
-    
-    Tipped.remove('.tip');
-    Tipped.remove('.tip-update');
     
     Tipped.create('.tip', { 
       showOn: showOpt, 
@@ -363,7 +362,7 @@ function updateCrewData(crew) {
 
   // fetch new future data. Add a second just to make sure we don't get the same current data
   crew.isLoading = true;
-  KSA_DATA_SERVICE.fetchOpsData(crew.id, currUT()+1, crew.type, NaN, loadOpsDataAJAX, {isRealTimeUpdate: true, id: crew.id});
+  KSA_DATA_SERVICE.fetchOpsData(crew.id, currUT()+1, crew.type, loadOpsDataAJAX, {isRealTimeUpdate: true, id: crew.id});
 }
 
 function crewHeaderUpdate(update) {
