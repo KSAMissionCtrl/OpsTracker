@@ -459,11 +459,11 @@ var SocialDisplay = (function() {
           });
 
           var missingIds = tweetIds.filter(function(id) { return foundIds.indexOf(id) === -1; });
-          if (missingIds.length && missingIds.length <= 5) {
-            console.warn('[Social Loader] Missing ' + missingIds.length + ' posts:', missingIds);
+          if (missingIds.length) {
+            console.warn('[Social Loader] Ignoring ' + missingIds.length + ' orphaned ID(s) with no archive data:', missingIds);
           }
 
-          var tweetsArray = tweetIds.map(function(id) { return tweetsData[id]; });
+          var tweetsArray = tweetIds.filter(function(id) { return foundIds.indexOf(id) !== -1; }).map(function(id) { return tweetsData[id]; });
           tweetsDataCache = tweetsData;
 
           var totalTweets = 0;
