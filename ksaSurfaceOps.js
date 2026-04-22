@@ -213,9 +213,6 @@ function initializeMap() {
   // add a coordinates control
   L.control.mousePosition({prefix: "Right-click to save:"}).addTo(ops.surface.map);
   
-  // add a scale control
-  L.control.scale().addTo(ops.surface.map);
-  
   // no idea why but doing this makes it work better for when loading straight to the map in the body view
   setTimeout(function() {
     if (ops.pageType != "vessel") {
@@ -406,7 +403,12 @@ function loadMapDataAJAX(result) {
   // remove the previous control and load the base layer
   if (ops.surface.layerControl) ops.surface.map.removeControl(ops.surface.layerControl);
   ops.surface.layerControl = L.control.groupedLayers(null, null, { groupCheckboxes: ["Flight Tracks"] }).addTo(ops.surface.map);
-  
+
+  // stop clicks and scrolls on the layer control from propagating to the map, 
+  // which can cause unwanted zooms and popups when trying to select layers from the control
+  L.DomEvent.disableClickPropagation(ops.surface.layerControl._container);
+  L.DomEvent.disableScrollPropagation(ops.surface.layerControl._container);
+
   // these labels are dependent on the actual time not whatever historic time we might be in
   if (ops.surface.Data.Aerial >= 0 && ops.surface.Data.Aerial <= dateToUT(luxon.DateTime.utc())) { var strSatLabel = "Aerial"; }
   if (ops.surface.Data.Satellite >= 0 && ops.surface.Data.Satellite <= dateToUT(luxon.DateTime.utc())) { var strSatLabel = "Satellite"; }
