@@ -963,7 +963,7 @@ function swapContent(newPageType, id, ut, flt) {
     raiseContent();
     setTimeout(function() { 
       if (!window.location.href.includes("&map")) {
-        $("#figureOptions").fadeIn();
+        if (!KSA_UI_STATE.isMapShown) $("#figureOptions").fadeIn();
         if (!KSA_UI_STATE.isMapShown && (!$("#asteroid-filter").prop("disabled") || !$("#debris-filter").prop("disabled") || !$("#probe-filter").prop("disabled") || !$("#ship-filter").prop("disabled") || !$("#station-filter").prop("disabled"))) $("#vesselOrbitTypes").fadeIn();
         if (!$("#figure").is(":visible")) $("#figure").fadeIn();
       }
@@ -1006,7 +1006,7 @@ function swapContent(newPageType, id, ut, flt) {
     raiseContent();
     setTimeout(function() {
       if (!window.location.href.includes("&map")) {
-        $("#figureOptions").fadeIn();
+        if (!KSA_UI_STATE.isMapShown) $("#figureOptions").fadeIn();
         if (!$("#figure").is(":visible")) $("#figure").fadeIn();
       }
       $("#contentBox").fadeIn();

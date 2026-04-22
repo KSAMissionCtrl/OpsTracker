@@ -2427,7 +2427,7 @@ function onSceneReady() {
   // disable the spinner & show checkboxes if this is the first load and not a vessel page call
   if (!KSA_UI_STATE.is3JSLoaded && ops.pageType == "body") { 
     $("#contentBox").spin(false); 
-    $("#figureOptions").fadeIn();
+    if (!KSA_UI_STATE.isMapShown) $("#figureOptions").fadeIn();
   }
   // ATN: hide the contentBox spinner (replaced by vesselLoaderMsg progress bar)
   if (ops.pageType == "atn") {
@@ -2927,7 +2927,7 @@ function declutterScene(hideOnly = false) {
   // ATN post-load: reveal figure controls, restore cursor
   if (ops.pageType == "atn") {
     if (threeRenderer) threeRenderer.domElement.style.cursor = "";
-    if (!window.location.href.includes("&map")) $("#figureOptions").fadeIn();
+    if (!KSA_UI_STATE.isMapShown) $("#figureOptions").fadeIn();
     populateATNFilters();
   }
 
