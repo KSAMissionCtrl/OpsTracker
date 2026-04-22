@@ -1751,7 +1751,7 @@ function tick(utDelta = 1000, rapidFireMode = false) {
           
           // update Soi markers if they exist
           if (object.obtData.events.soi.marker) {
-            $('#soiTimeSurface').html(formatTime(object.obtData.events.soi.UT - currUT()));
+            if (object.obtData.events.soi.marker.isPopupOpen()) $('#soiTimeSurface').html(formatTime(object.obtData.events.soi.UT - currUT()));
 
             // if we've hit or exceeded the entry time, remove the vessel marker and update the entry marker popup
             if (object.obtData.events.soi.UT <= currUT()) {
@@ -1772,7 +1772,7 @@ function tick(utDelta = 1000, rapidFireMode = false) {
           }
 
           // update the Ap/Pe markers if they exist, and check for passing
-          if (object.obtData.events.ap.marker) {
+          if (object.obtData.events.ap.marker && object.obtData.events.ap.marker.isPopupOpen()) {
             $('#apTimeSurface').html(formatTime(object.obtData.events.ap.UT - currUT()));
             if (object.obtData.events.ap.UT <= currUT()) {
 
@@ -1781,7 +1781,7 @@ function tick(utDelta = 1000, rapidFireMode = false) {
               object.obtData.events.ap.marker = null;
             }
           }
-          if (object.obtData.events.pe.marker) {
+          if (object.obtData.events.pe.marker && object.obtData.events.pe.marker.isPopupOpen()) {
             $('#peTimeSurface').html(formatTime(object.obtData.events.pe.UT - currUT()));
             if (object.obtData.events.pe.UT <= currUT()) {
                 currLayer.group.removeLayer(object.obtData.events.pe.marker); 
