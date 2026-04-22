@@ -2284,19 +2284,21 @@ function getDataPoint(obtNum, target) {
 }
 
 // same as above, but for a specific orbit not the general vessel plot
-function getDataPointObject(obj, target) {
-  var index = 0;
-  var margin = 0.1;
-
-  while (true) {
-    if (Math.abs(obj.orbit[index].latlng.lat - target.lat) < margin && Math.abs(obj.orbit[index].latlng.lng - target.lng) < margin) break; 
-    index++;
-    if (index >= obj.orbit.length) {
-      index = 0;
-      margin += 0.1;
+function getDataPointObject(obj, target, startIndex, endIndex) {
+  var start = (startIndex !== undefined) ? startIndex : 0;
+  var end = (endIndex !== undefined) ? Math.min(endIndex, obj.orbit.length - 1) : obj.orbit.length - 1;
+  var minDist = Infinity;
+  var bestIndex = start;
+  for (var i = start; i <= end; i++) {
+    var dLat = obj.orbit[i].latlng.lat - target.lat;
+    var dLng = obj.orbit[i].latlng.lng - target.lng;
+    var dist = dLat * dLat + dLng * dLng;
+    if (dist < minDist) {
+      minDist = dist;
+      bestIndex = i;
     }
   }
-  return index;
+  return bestIndex;
 }
 
 // take care of all the details that need to be applied to a flight's surface track as this needs to be done in two separate places
@@ -3232,7 +3234,9 @@ function renderBodyOrbit() {
 
   // gather up the lat/lng positions into the paths to render
   var path = [];
-  currObj.obtData.orbit.forEach(function(position) {
+  var pathStartIndex = 0;
+  for (var orbitIdx = 0; orbitIdx < currObj.obtData.orbit.length; orbitIdx++) {
+    var position = currObj.obtData.orbit[orbitIdx];
     
     // detect if we've crossed off the edge of the map and need to cut the orbital line
     // compare this lng to the prev and if it changed from negative to positive or vice versa, we hit the edge  
@@ -3241,17 +3245,18 @@ function renderBodyOrbit() {
     
       // time to cut this path off and create a surface track to setup
       // add this path to the layer and reset to start building a new path
-      currObj.obtData.pathData.push(setupSurfacePath(path, currObj));
+      currObj.obtData.pathData.push(setupSurfacePath(path, currObj, pathStartIndex, orbitIdx - 1));
       currLayer.group.addLayer(currObj.obtData.pathData[currObj.obtData.pathData.length-1]);
       path.length = 0;
+      pathStartIndex = orbitIdx;
       console.info("Crossed edge of map, cutting path for " + currObj.name);
     } 
     path.push(position.latlng);
     // if (currObj.name == "Minmus") console.info(position.latlng.lat, position.latlng.lng);
-  });
+  }
   
   // setup the final path stretch and add it to the layer
-  currObj.obtData.pathData.push(setupSurfacePath(path, currObj));
+  currObj.obtData.pathData.push(setupSurfacePath(path, currObj, pathStartIndex, currObj.obtData.orbit.length - 1));
   currLayer.group.addLayer(currObj.obtData.pathData[currObj.obtData.pathData.length-1]);
 
   // place the craft marker and assign its popup
@@ -3355,7 +3360,7 @@ function renderBodyOrbit() {
 }
 
 // take care of all the details that need to be applied to a surface track as this needs to be done in two separate places
-function setupSurfacePath(path, object) {
+function setupSurfacePath(path, object, startIndex, endIndex) {
 
   var strColor = "";
   var currBody = ops.bodyCatalog.find(o => o.Body === object.name);
@@ -3363,20 +3368,22 @@ function setupSurfacePath(path, object) {
   else strColor = "#" + currBody.Color;
   var srfTrack = L.polyline(path, { smoothFactor: 1.25, color: strColor, weight: 3, opacity: 1 });
 
-  // save the name of this object for future reference
+  // save the name of this object and its orbit index range for future reference
   srfTrack._myId = object.name;
+  srfTrack._startIndex = (startIndex !== undefined) ? startIndex : 0;
+  srfTrack._endIndex = (endIndex !== undefined) ? endIndex : Infinity;
   
   // show the time and orbit for this position
   srfTrack.on('mouseover', function(e) {
     var obj = KSA_CATALOGS.bodyPaths.paths.find(o => o.name === e.target._myId);
-    var strTimeDate = UTtoDateTime(obj.obtData.startUT + getDataPointObject(obj.obtData, e.latlng));
+    var strTimeDate = UTtoDateTime(obj.obtData.startUT + getDataPointObject(obj.obtData, e.latlng, e.target._startIndex, e.target._endIndex));
     KSA_MAP_CONTROLS.timePopup = new L.Rrose({ offset: new L.Point(0,-1), closeButton: false, autoPan: false });
     KSA_MAP_CONTROLS.timePopup.setLatLng(e.latlng).setContent("<center>" + strTimeDate.split("@")[0] + "<br>" + strTimeDate.split("@")[1] + " UTC</center>").openOn(ops.surface.map);
   });
   srfTrack.on('mousemove', function(e) {
     if (!KSA_MAP_CONTROLS.timePopup) return;
     var obj = KSA_CATALOGS.bodyPaths.paths.find(o => o.name === e.target._myId);
-    var strTimeDate = UTtoDateTime(obj.obtData.startUT + getDataPointObject(obj.obtData, e.latlng));
+    var strTimeDate = UTtoDateTime(obj.obtData.startUT + getDataPointObject(obj.obtData, e.latlng, e.target._startIndex, e.target._endIndex));
     var content = "<center>" + strTimeDate.split("@")[0] + "<br>" + strTimeDate.split("@")[1] + " UTC</center>";
     if (getRroseDirection(ops.surface.map, e.latlng) === KSA_MAP_CONTROLS.timePopup.options.position) {
       KSA_MAP_CONTROLS.timePopup.setLatLng(e.latlng).setContent(content);
@@ -3398,7 +3405,7 @@ function setupSurfacePath(path, object) {
     ops.surface.map.closePopup(KSA_MAP_CONTROLS.timePopup);
     KSA_MAP_CONTROLS.timePopup = null;
     var obj = KSA_CATALOGS.bodyPaths.paths.find(o => o.name === e.target._myId);
-    var index = getDataPointObject(obj.obtData, e.latlng);
+    var index = getDataPointObject(obj.obtData, e.latlng, e.target._startIndex, e.target._endIndex);
     var cardinal = getLatLngCompass(obj.obtData.orbit[index].latlng);
       
     // compose the popup HTML and place it on the cursor location then display it
