@@ -231,9 +231,10 @@ input:disabled+label {
 }
 
 .crewCard {
-  width: 235px;
-  height: 284px;
+  width: 230px;
   display: inline-block;
+  vertical-align: top;
+  margin: 2px;
 }
 
 .no-close .ui-dialog-titlebar-close {
@@ -337,7 +338,8 @@ input:disabled+label {
   height: 885px;
   width: 955px;
   display: none;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 
 #infoBox {
