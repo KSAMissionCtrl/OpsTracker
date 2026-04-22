@@ -55,6 +55,9 @@ function loadCrew(crew) {
     $("#contentTitle").html(sanitizeHTML(crewMenuObj.rank) + " " + sanitizeHTML(crewMenuObj.name) + " Kerman");
     document.title = "KSA Operations Tracker" + " - " + sanitizeHTML(crewMenuObj.rank) + " " + sanitizeHTML(crewMenuObj.name) + " Kerman";
 
+    // track which crew member was requested so stale full-roster callbacks can be discarded
+    ops.requestedCrew = crew;
+
     // load the data if there is no current crew loaded or the current crew loaded is not the crew that was selected
     // otherwise just go straight to displaying the data
     if (!ops.currentCrew || (ops.currentCrew && crew != ops.currentCrew.Background.Kerbal)) KSA_DATA_SERVICE.fetchCrewData(crew, currUT(), loadCrewAJAX);
@@ -68,6 +71,13 @@ function loadCrewAJAX(result) {
   // exist yet at that time. Default to the full roster view (individual crew pages only).
   if (result && result.requestedUT && result.stats && result.stats.UT > result.requestedUT && ops.pageType !== "crewFull") {
     swapContent("crewFull", "crewFull");
+    return;
+  }
+
+  // Discard stale callbacks: if we've navigated away from the full roster to an individual
+  // crew page but a leftover full-roster fetch just resolved for a different crew member,
+  // ignore it so the correct crew's data isn't overwritten.
+  if (result && result.catalog && ops.pageType === "crew" && result.catalog.Kerbal !== ops.requestedCrew) {
     return;
   }
 

@@ -143,6 +143,7 @@ var ops = {
 
 // nullify these objects until they are loaded
 ops.currentCrew = null;
+ops.requestedCrew = null;  // tracks the crew ID that was most recently requested for the individual crew page
 ops.currentVessel = null;
 ops.currentVesselPlot = null;
 ops.surface.Data = null;
