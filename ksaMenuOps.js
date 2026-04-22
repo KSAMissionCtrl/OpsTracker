@@ -203,8 +203,10 @@ function loadMenuAJAX(result) {
           $("#siteDialog").dialog("open");
 
           // reselect the menu item for the current page using the URL query (since the attempted nav to ATN failed)
-          if (ops.pageType === "crewFull" || ops.pageType === "dsn") selectMenuItem(ops.pageType);
-          else selectMenuItem(getParameterByName(ops.pageType));
+          setTimeout(function() {
+            if (ops.pageType === "crewFull" || ops.pageType === "dsn") selectMenuItem(ops.pageType);
+            else selectMenuItem(getParameterByName(ops.pageType));
+          }, 50);
         }
         else swapContent("atn", "Kerbol");
       }
