@@ -219,18 +219,11 @@ function loadMenuAJAX(result) {
       
       // if this is a bolded (badged) entry adjust the count and return it to normal
       if (event.object.text.includes("bold")) {
-        event.object.text = event.object.text.replace(" style='font-weight: bold;'", "");
+        var newText = event.object.text.replace(" style='font-weight: bold;'", "");
         if (event.object.img.includes("crew")) ops.crewMenu.find(o => o.db === event.object.id).badged = false;
         else ops.craftsMenu.find(o => o.db === event.object.id).badged = false;
         adjustCount(event.object.parent.id, -1);
-        var selectedId = event.object.id;
-        w2ui['menu'].refresh();
-        w2ui['menu'].select(selectedId);
-        (function(id) {
-          setTimeout(function() {
-            w2ui['menu'].scrollIntoView(id);
-          }, 50);
-        })(selectedId);
+        w2ui['menu'].update(event.object.id, { text: newText });
       }
     },
     onContextMenu: function (event) {
@@ -276,7 +269,7 @@ function loadMenuAJAX(result) {
   ops.craftsMenu.forEach(function(item) { addMenuItem(item) });
   activeVesselCount();
   KSA_UI_STATE.isMenuDataLoaded = true;
-  
+
   // begin loading the future data sets for all active vessels and crew
   loadOpsDataAJAX();
   
@@ -822,7 +815,16 @@ function adjustCount(nodeID, adjust) {
 
   if (node.parent.id) return adjustCount(node.parent.id, adjust);
   else {
-    w2ui['menu'].expand(node.id);
+    if (!node.expanded) {
+      w2ui['menu'].expand(node.id);
+    } else {
+      // refresh() clears and rebuilds the sub-node HTML, which temporarily collapses
+      // the scrollable height and resets .w2ui-sidebar-body's scrollTop. Save/restore it.
+      var _sidebarBody = document.querySelector('#menuBox .w2ui-sidebar-body');
+      var _savedScrollTop = _sidebarBody ? _sidebarBody.scrollTop : 0;
+      w2ui['menu'].refresh(node.id);
+      if (_sidebarBody) _sidebarBody.scrollTop = _savedScrollTop;
+    }
     return;
   }
 }
@@ -1173,21 +1175,13 @@ function selectMenuItem(menuID, retryCount = 0) {
   w2ui['menu'].select(menuID);
   w2ui['menu'].expandParents(menuID);
   if (menuNode.text.includes("bold")) {
-    menuNode.text = menuNode.text.replace(" style='font-weight: bold;'", "");
+    var newText = menuNode.text.replace(" style='font-weight: bold;'", "");
     if (menuNode.img.includes("crew")) ops.crewMenu.find(o => o.db === menuNode.id).badged = false;
     else ops.craftsMenu.find(o => o.db === menuNode.id).badged = false;
     adjustCount(menuNode.parent.id, -1);
-    w2ui['menu'].refresh();
-    w2ui['menu'].select(menuID);
-    w2ui['menu'].expandParents(menuID);
-    (function(id) {
-      setTimeout(function() {
-        w2ui['menu'].scrollIntoView(id);
-      }, 50);
-    })(menuID);
-  } else {
-    w2ui['menu'].scrollIntoView(menuID);
+    w2ui['menu'].update(menuID, { text: newText });
   }
+  if (!w2ui['menu'].inView(menuID)) w2ui['menu'].scrollIntoView(menuID);
   return true;
 }
 
