@@ -222,6 +222,13 @@ function loadMenuAJAX(result) {
         var newText = event.object.text.replace(" style='font-weight: bold;'", "");
         if (event.object.img.includes("crew")) ops.crewMenu.find(o => o.db === event.object.id).badged = false;
         else ops.craftsMenu.find(o => o.db === event.object.id).badged = false;
+        // destroy the Tipped binding before adjustCount's refresh() replaces the DOM node;
+        // no mouseout fires on removed elements so the tooltip popup would otherwise remain orphaned
+        var _tipNode = document.getElementById('node_' + event.object.id);
+        if (_tipNode && _tipNode._tippedVesselDesc) { Tipped.remove(_tipNode); _tipNode._tippedVesselDesc = false; }
+        // w2ui sets nd.selected=true only after the onClick callback returns; force it now so that
+        // adjustCount's refresh() re-renders this node with the selected class intact
+        w2ui['menu'].select(event.object.id);
         adjustCount(event.object.parent.id, -1);
         w2ui['menu'].update(event.object.id, { text: newText });
       }
