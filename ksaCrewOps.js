@@ -406,7 +406,7 @@ function crewInfoUpdate(update) {
     var currDate = KSA_CONSTANTS.FOUNDING_MOMENT + (ops.currentCrew.Background.Deactivation.ut * 1000)
     var strAge = " (Age at Death: ";
   } else {
-    var currDate = Date.now()
+    var currDate = KSA_CONSTANTS.FOUNDING_MOMENT + (currUT() * 1000)
     var strAge = " (Current Age: ";
   }
   var bday = new Date(ops.currentCrew.Background.BirthDate);

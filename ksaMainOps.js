@@ -10,10 +10,10 @@ if (!window.location.href.includes("&reload")) {
 ops.UT = dateToUT(luxon.DateTime.utc());
 if (getParameterByName("setut") && localStorage.getItem("ksaOps_admin")) ops.UT = parseFloat(getParameterByName("setut"));
 if (window.location.href.includes("&live") && getParameterByName("ut")) {
-  if (parseFloat(getParameterByName("ut")) < ops.UT) {
+  if (parseFloat(getParameterByName("ut")) <= ops.UT) {
     ops.UT = parseFloat(getParameterByName("ut"));
     KSA_UI_STATE.isLivePastUT = true;
-  }
+  } else history.replaceState(null, "", window.location.href.replace(/&ut=[^&]*/, ""));
 }
 
 // handle history state changes when user invokes forward/back button
