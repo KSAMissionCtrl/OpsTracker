@@ -835,7 +835,7 @@ function swapTwitterSource(swap, source, update=false) {
 
   // Wait for ops data and current feed load before proceeding to avoid double-loads
   if (!ops.updateData.length || (!ops.updateTweets && ops.updateData.find(o => o.isLoading === true)) || !SocialDisplay.config.isLoaded) {
-    return setTimeout(swapTwitterSource, 250, swap, source, update);
+    return setTimeout(swapTwitterSource, 100, swap, source, update);
   }
 
   // Ensure source is a string (in case it comes from ASP as a number)
@@ -930,7 +930,7 @@ function processTweetUpdates(step = 0) {
     case 0:
       ops.updateTweets.sort(function(a,b) { return (a.UT < b.UT) ? 1 : ((b.UT < a.UT) ? -1 : 0); });
       step = 1;
-      setTimeout(processTweetUpdates, 100, step);
+      setTimeout(processTweetUpdates, 50, step);
       break;
 
     // find the first post earlier than current UT; slice to keep only future posts
@@ -939,7 +939,7 @@ function processTweetUpdates(step = 0) {
       if (index > -1) ops.updateTweets = ops.updateTweets.slice(0, index);
       else ops.updateTweets = [];
       step = 2;
-      setTimeout(processTweetUpdates, 100, step);
+      setTimeout(processTweetUpdates, 50, step);
       break;
 
     // resort lowest to highest
@@ -947,7 +947,7 @@ function processTweetUpdates(step = 0) {
       if (ops.updateTweets.length) {
         ops.updateTweets.sort(function(a,b) { return (a.UT > b.UT) ? 1 : ((b.UT > a.UT) ? -1 : 0); });
         step = 3;
-        setTimeout(processTweetUpdates, 100, step);
+        setTimeout(processTweetUpdates, 50, step);
       }
       break;
 

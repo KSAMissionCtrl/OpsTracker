@@ -23,15 +23,6 @@ const KSA_CONSTANTS = {
     southWest: { lat: -0.3516, lng: -74.2896 }
   },
   
-  // Timing constants
-  TIMEOUTS: {
-    MAP_DIALOG_DELAY: 50,
-    DECLUTTER_DELAY: 5000,
-    MAP_MARKER_TIMEOUT: 100,
-    VESSEL_IMG_UPDATE: 150,
-    FLIGHT_TIMELINE_UPDATE: 1000
-  },
-  
   // Popup offsets
   POPUP_OFFSETS: {
     VESSEL_POSITION: { x: 0, y: -1 },

@@ -2511,7 +2511,7 @@ function onSceneReady() {
   } else {
     // Normal body page: declutter after a short delay then load vessel orbits
     clearTimeout(KSA_TIMERS.timeoutHandle);
-    KSA_TIMERS.timeoutHandle = setTimeout(declutterScene, 2500);
+    KSA_TIMERS.timeoutHandle = setTimeout(declutterScene, 1000);
     if (!loadVesselOrbits()) { 
       KSA_UI_STATE.is3JSRefreshing = false;
       activateEventLinks();
@@ -2590,7 +2590,7 @@ function addOrbitAJAX(result) {
         if ($("#figure").is(":visible") && ops.pageType == "body" && !window.location.href.includes("&map") && !KSA_UI_STATE.isMapShown) { 
           if (!$("#asteroid-filter").prop("disabled") || !$("#debris-filter").prop("disabled") || !$("#probe-filter").prop("disabled") || !$("#ship-filter").prop("disabled") || !$("#station-filter").prop("disabled")) $("#vesselOrbitTypes").fadeIn();
         }
-        KSA_TIMERS.timeoutHandle = setTimeout(declutterScene, 2500);
+        KSA_TIMERS.timeoutHandle = setTimeout(declutterScene, 1000);
         if (!KSA_UI_STATE.is3JSRefreshing) {
           threeRenderer.domElement.addEventListener('click', onSceneClick);
           threeRenderer.domElement.addEventListener('contextmenu', onSceneRightClick);
@@ -2760,7 +2760,7 @@ function addOrbitAJAX(result) {
     if ($("#figure").is(":visible") && ops.pageType == "body" && !window.location.href.includes("&map") && !KSA_UI_STATE.isMapShown) { 
       if (!$("#asteroid-filter").prop("disabled") || !$("#debris-filter").prop("disabled") || !$("#probe-filter").prop("disabled") || !$("#ship-filter").prop("disabled") || !$("#station-filter").prop("disabled")) $("#vesselOrbitTypes").fadeIn();
     }
-    KSA_TIMERS.timeoutHandle = setTimeout(declutterScene, 2500);
+    KSA_TIMERS.timeoutHandle = setTimeout(declutterScene, 1000);
     if (!KSA_UI_STATE.is3JSRefreshing) {
       threeRenderer.domElement.addEventListener('click', onSceneClick);
       threeRenderer.domElement.addEventListener('contextmenu', onSceneRightClick);
