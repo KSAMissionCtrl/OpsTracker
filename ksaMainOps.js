@@ -155,7 +155,8 @@ function setupContent() {
   $("#launch").spin({ scale: 0.5, position: 'relative', top: '20px', left: '50%' });
   $("#maneuver").spin({ scale: 0.5, position: 'relative', top: '20px', left: '75%' });
   $("#contentBox").spin({ position: 'relative', top: '50%', left: '50%' });
-
+  $("#infoBox").spin({ position: 'relative', top: '50%', left: '50%' });
+  
   // populate the live reload icon depending on what mode we are in
   if (!KSA_UI_STATE.isLivePastUT) {
     $("#liveReloadIcon").html("<i class=\"fa-solid fa-clock-rotate-left\" style=\"cursor: pointer;\"></i>");
@@ -1397,8 +1398,10 @@ function loadOpsDataAJAX(result, args = null) {
         // restore cursor that filterCrewMenu left in wait state while waiting for badging to complete
         $('body').removeClass('wait-cursor');
         $('body, #menuBox, #menuBox *').css('cursor', '');
+        // hide the status node now that all loading and badging is complete
+        if (w2ui['menu'] && w2ui['menu'].get('status')) w2ui['menu'].hide('status');
       }
-    }, 100);
+    }, 250);
   }
 }
 

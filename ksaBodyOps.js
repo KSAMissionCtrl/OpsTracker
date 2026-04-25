@@ -2216,7 +2216,8 @@ function loadBody(body = "Kerbol-System", flt) {
 
   // scene is ready synchronously — proceed to onSceneReady
   // (spinner stays on until onSceneReady hides it once menu data is available)
-  $("#contentBox").spin({ position: 'relative', top: '50%', left: '50%' });
+  $("#contentBox").spin(false);
+  $("#figure").spin({ color: '#ffffff', position: 'absolute', top: '50%', left: '50%' });
   setTimeout(onSceneReady, 0);
 }
 
@@ -2437,6 +2438,8 @@ function onSceneReady() {
     $("#contentBox").spin(false);
     if (threeRenderer) threeRenderer.domElement.style.cursor = "wait";
   }
+  // Always clear the figure spinner (started in loadBody) regardless of page type
+  $("#figure").spin(false);
 
   // prepare to reload any orbiting objects
   ops.orbits.length = 0;

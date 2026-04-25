@@ -388,8 +388,19 @@ function crewHeaderUpdate(update) {
 
 function crewInfoUpdate(update) {
 
-  // basic setups
-  $("#infoImg").html("<img src='" + imageURLFromDB("http://www.kerbalspace.agency/Tracker/images/kerbals/" + ops.currentCrew.Background.Kerbal + "/", ops.currentCrew.Stats.Image) + "'>");
+  // basic setups — spin on infoBox while the crew portrait loads, then reveal image
+  var imgSrc = imageURLFromDB("http://www.kerbalspace.agency/Tracker/images/kerbals/" + ops.currentCrew.Background.Kerbal + "/", ops.currentCrew.Stats.Image);
+  if ($("#infoImg img").attr("src") !== imgSrc) {
+    $("#infoImg").empty();
+    $("#infoBox").spin({ position: 'relative', top: '50%', left: '50%' });
+    var _crewImgPreload = new Image();
+    _crewImgPreload.onload = _crewImgPreload.onerror = function() {
+      $("#infoBox").spin(false);
+      $("#infoImg").html("<img src='" + imgSrc + "'>");
+    };
+    _crewImgPreload.src = imgSrc;
+  } else $("#infoBox").spin(false);
+  
   $("#infoTitle").html("Click Here for Background Information");
   $("#infoTitle").attr("class", "infoTitle crew");
   $("#infoDialog").dialog("option", "title", "Background Information");

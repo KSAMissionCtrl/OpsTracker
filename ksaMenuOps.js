@@ -158,7 +158,8 @@ function loadMenuAJAX(result) {
         nodes: [ 
           { id: 'atn', text: 'Asteroid Tracking Network', img: 'icon-atn', icon: 'w2ui-icon icon-atn'},
           { id: 'dsn', text: 'Deep Space Network', img: 'icon-dish', icon: 'w2ui-icon icon-dish'}
-        ]}
+        ]},
+      { id: 'status', text: 'Fetching menu data...', expanded: false, group: false, count: null},
     ],
 
     // the type of node image will tell us what to load
@@ -322,6 +323,11 @@ function filterInactiveMenu(id, selectId) {
   // use setTimeout to allow cursor change to render before sorting begins
   setTimeout(function() {
     
+    // update status node on initial sort
+    if (!KSA_UI_STATE.isMenuSorted && w2ui['menu'] && w2ui['menu'].get('status')) {
+      w2ui['menu'].update('status', { text: 'Applying filters...' });
+    }
+
     // if a value was passed in, enable that radio option before we check to see what is selected
     if (id) $('input[type=radio][name=inactive]').filter('[id=' + id + ']').prop('checked', true);
     var currOption = $("input[name=inactive]").filter(":checked").val();
@@ -447,9 +453,6 @@ function filterInactiveMenu(id, selectId) {
       $('body').removeClass('wait-cursor');
       $('body, #menuBox, #menuBox *').css('cursor', '');
     }
-    
-    // Set flag to indicate menu sorting is complete (only on initial page load)
-    if (!KSA_UI_STATE.isMenuSorted) KSA_UI_STATE.isMenuSorted = true;
 
     setupVesselMenuTooltips();
   }, 10);
@@ -634,6 +637,14 @@ function filterCrewMenu(id) {
         }
       });
     }
+
+    // update status node on initial sort
+    if (!KSA_UI_STATE.isMenuSorted && w2ui['menu'] && w2ui['menu'].get('status')) {
+      w2ui['menu'].update('status', { text: 'Badging updated items...' });
+    }
+
+    // Set flag to indicate menu sorting is complete (only on initial page load)
+    if (!KSA_UI_STATE.isMenuSorted) KSA_UI_STATE.isMenuSorted = true;
     
     // preserve the selected item after refresh
     w2ui['menu'].refresh();
