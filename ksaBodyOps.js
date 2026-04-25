@@ -3420,15 +3420,19 @@ function figureClick(hit) {
       strHTML += "Orbital period: "      + formatTime(bodyData.ObtPeriod, false) + "<br>";
       strHTML += "Orbital velocity: "    + sanitizeHTML(bodyData.ObtVel)  + " m/s</p><p><b>Physical Data</b></p>";
 
-      if (isNaN(bodyData.Radius)) {
-        strHTML += "<p>Equatorial radius: " + sanitizeHTML(bodyData.Radius) + " <br>";
+      if (bodyData.Radius == null || isNaN(bodyData.Radius)) {
+        strHTML += "<p>Equatorial radius: " + sanitizeHTML(bodyData.Radius != null ? String(bodyData.Radius) : 'TBD') + "<br>";
       } else {
         strHTML += "<p>Equatorial radius: " + numeral(parseInt(bodyData.Radius)).multiply(1000).format('0,0') + " m<br>";
       }
-      strHTML += "Mass: "             + sanitizeHTML(bodyData.Mass.replace("+", "e"))      + " kg<br>";
-      strHTML += "Density: "          + sanitizeHTML(bodyData.Density)                     + " kg/m<sup>3</sup><br>";
-      strHTML += "Surface gravity: "  + sanitizeHTML(bodyData.SurfaceG.value)              + " m/s<sup>2</sup> <i>(" + sanitizeHTML(bodyData.SurfaceG.kerbin) + " g)</i><br>";
-      strHTML += "Escape velocity: "  + sanitizeHTML(bodyData.EscapeVel)                   + " m/s<br>";
+      strHTML += "Mass: "             + sanitizeHTML(bodyData.Mass != null ? bodyData.Mass.replace("+", "e") : 'TBD') + " kg<br>";
+      strHTML += "Density: "          + sanitizeHTML(bodyData.Density != null ? String(bodyData.Density) : 'TBD')     + " kg/m<sup>3</sup><br>";
+      if (bodyData.SurfaceG != null) {
+        strHTML += "Surface gravity: "  + sanitizeHTML(String(bodyData.SurfaceG.value))     + " m/s<sup>2</sup> <i>(" + sanitizeHTML(String(bodyData.SurfaceG.kerbin)) + " g)</i><br>";
+      } else {
+        strHTML += "Surface gravity: TBD<br>";
+      }
+      strHTML += "Escape velocity: "  + sanitizeHTML(bodyData.EscapeVel != null ? String(bodyData.EscapeVel) : 'TBD') + " m/s<br>";
       strHTML += "Rotational period: " + formatTime(bodyData.SolarDay, true)               + "<br>";
       strHTML += "Atmosphere: "       + sanitizeHTML(bodyData.Atmo)                        + "</p>";
       if (bodyData.Moons) strHTML += "<p><b>Moons</b></p><p>" + sanitizeHTML(bodyData.Moons) + "</p>";
