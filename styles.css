@@ -981,7 +981,8 @@ a.tweet-action {
 }
 
 .images-1 .grid-img {
-  object-fit: fill;
+  object-fit: contain;
+  height: auto;
   max-height: 300px;
 }
 
