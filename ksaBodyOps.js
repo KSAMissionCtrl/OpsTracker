@@ -3636,6 +3636,11 @@ function filterVesselOrbits(id, checked) {
       _setVisible(item.meshes.label,    false);
       item.isHidden = true;
     });
+    // If the selected item belongs to the group just hidden, deselect it
+    if (ops.orbits.find(function(o) { return o.isSelected && o.type === id; })) {
+      unselectBody();
+      if ($("#figureDialog").dialog("isOpen")) $("#figureDialog").dialog("close");
+    }
   }
 }
 
