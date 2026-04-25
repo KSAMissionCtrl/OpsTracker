@@ -169,9 +169,8 @@ const KSA_DATA_SERVICE = (function () {
    * @param {*}        [data]    Optional pass-through value.
    */
   function _trackAndInvoke(label, callback, result, data) {
-    KSA_UI_STATE.dataLoadQueue.push(label);
     console.log('[KSA_DATA_SERVICE]', label);
-    // Remove the label from the queue, then invoke the callback.
+    // Remove the label from the queue (pushed before the async fetch began),
     // then invoke the callback synchronously with the result object.
     var idx = KSA_UI_STATE.dataLoadQueue.indexOf(label);
     if (idx > -1) KSA_UI_STATE.dataLoadQueue.splice(idx, 1);
@@ -313,11 +312,14 @@ const KSA_DATA_SERVICE = (function () {
    */
   function fetchBodyData(callback) {
     var label = 'loadBodyData.asp';
+    KSA_UI_STATE.dataLoadQueue.push(label);
     fetchJson(catalogFilePath('bodies'))
       .then(function(records) {
         _trackAndInvoke(label, callback, records);
       })
       ['catch'](function(err) {
+        var idx = KSA_UI_STATE.dataLoadQueue.indexOf(label);
+        if (idx > -1) KSA_UI_STATE.dataLoadQueue.splice(idx, 1);
         handleError(err, label, true);
       });
   }
@@ -335,11 +337,14 @@ const KSA_DATA_SERVICE = (function () {
    */
   function fetchPartsData(callback) {
     var label = 'loadPartsData.asp';
+    KSA_UI_STATE.dataLoadQueue.push(label);
     fetchJson(catalogFilePath('parts'))
       .then(function(records) {
         _trackAndInvoke(label, callback, records);
       })
       ['catch'](function(err) {
+        var idx = KSA_UI_STATE.dataLoadQueue.indexOf(label);
+        if (idx > -1) KSA_UI_STATE.dataLoadQueue.splice(idx, 1);
         handleError(err, label, true);
       });
   }
@@ -422,6 +427,7 @@ const KSA_DATA_SERVICE = (function () {
       return;
     }
 
+    KSA_UI_STATE.dataLoadQueue.push(label);
     fetchJson(catalogFilePath('maps'))
       .then(function (records) {
         var result;
@@ -436,6 +442,8 @@ const KSA_DATA_SERVICE = (function () {
         _trackAndInvoke(label, callback, result);
       })
       ['catch'](function (err) {
+        var idx = KSA_UI_STATE.dataLoadQueue.indexOf(label);
+        if (idx > -1) KSA_UI_STATE.dataLoadQueue.splice(idx, 1);
         handleError(err, label, true);
       });
   }
@@ -606,6 +614,7 @@ const KSA_DATA_SERVICE = (function () {
    */
   function fetchMenuData(ut, callback) {
     var label = 'loadMenuData.asp?UT=' + ut;
+    KSA_UI_STATE.dataLoadQueue.push(label);
 
     Promise.all([
       fetchJson(catalogFilePath('vessels')),
@@ -655,6 +664,8 @@ const KSA_DATA_SERVICE = (function () {
 
       _trackAndInvoke(label, callback, { vessels: vessels, crew: crew });
     })['catch'](function (err) {
+      var idx = KSA_UI_STATE.dataLoadQueue.indexOf(label);
+      if (idx > -1) KSA_UI_STATE.dataLoadQueue.splice(idx, 1);
       handleError(err, label, true);
     });
   }
@@ -694,6 +705,7 @@ const KSA_DATA_SERVICE = (function () {
    */
   function fetchEventData(ut, callback) {
     var label = 'loadEventData.asp?UT=' + ut;
+    KSA_UI_STATE.dataLoadQueue.push(label);
 
     fetchJson(catalogFilePath('vessels'))
       .then(function (vessels) {
@@ -808,6 +820,8 @@ const KSA_DATA_SERVICE = (function () {
         });
       })
       ['catch'](function (err) {
+        var idx = KSA_UI_STATE.dataLoadQueue.indexOf(label);
+        if (idx > -1) KSA_UI_STATE.dataLoadQueue.splice(idx, 1);
         handleError(err, label, true);
       });
   }
