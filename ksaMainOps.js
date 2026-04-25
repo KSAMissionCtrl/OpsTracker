@@ -17,12 +17,25 @@ if (window.location.href.includes("&live") && getParameterByName("ut")) {
 }
 
 // handle history state changes when user invokes forward/back button
-window.onpopstate = function(event) { 
-  if (event.state.type == "flt") loadFlt(event.state.db, false);
-  else swapContent(event.state.type, event.state.id, event.state.UT); 
+window.onpopstate = function(event) {
+  KSA_UI_STATE.isHandlingPopState = true;
 
-  // make sure to do a menu selection in these instances where its not done intrinsically
-  if (event.state.type == "crewFull" || event.state.type == "body" || event.state.type == "atn") selectMenuItem(event.state.id);
+  if (event.state.type == "flt") {
+    // Bug 1 fix: also call selectMenuItem so the menu highlights the flight track
+    loadFlt(event.state.db, false);
+    selectMenuItem(event.state.db);
+  } else {
+    // Bug 3 fix: if the state carries a flt field, prime pendingFlt so loadMap picks it up
+    if (event.state.type == "body" && event.state.flt) KSA_UI_STATE.pendingFlt = event.state.flt;
+    swapContent(event.state.type, event.state.id, event.state.UT);
+
+    // make sure to do a menu selection in these instances where its not done intrinsically
+    if (event.state.type == "crewFull" || event.state.type == "body" || event.state.type == "atn") selectMenuItem(event.state.id);
+  }
+
+  // isHandlingPopState is cleared by the terminal load function (loadBody, loadVessel,
+  // loadCrew, loadATN, or loadFlt) after it makes its history push/no-push decision.
+  // This ensures the flag stays live across the 600ms body-transition delay in swapContent.
 }
 
 // ==============================================================================
@@ -782,7 +795,7 @@ function swapContent(newPageType, id, ut, flt) {
       $("#contentBox").css('top', '40px');
       $("#contentBox").css('height', '885px');
       $("#contentBox").fadeIn();
-      loadBody(id);
+      loadBody(id, flt);
     }
     if (newPageType == "atn") {
       $("#contentBox").css('top', '40px');

@@ -185,6 +185,10 @@ const KSA_UI_STATE = {
   infoDialogCodeClose: false,    // flag set before programmatic close to skip position/size reset
   infoDialogUserAdjusted: false, // whether the user has moved or resized the info dialog
 
+  // Navigation / history state
+  isHandlingPopState: false,     // set true during onpopstate dispatch to suppress spurious pushState calls
+  pendingFlt: null,              // flight track db name to open once the body/map finishes loading (programmatic nav)
+
   // Visual indices
   vesselRotationIndex: 0,        // current rotation angle of the vessel if its static image can be spun [currently unused]
   ascentColorsIndex: -1          // current color to use for plotting the ascent path

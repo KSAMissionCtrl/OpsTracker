@@ -1089,6 +1089,7 @@ function loadATN() {
   } else if (history.state.type !== "atn") {
     history.pushState({type: "atn", id: "atn"}, document.title, strURL);
   }
+  KSA_UI_STATE.isHandlingPopState = false;
 
   // ── Reset figure options to ATN starting state (only orbits checked) ──────
   $("#nodes").prop('checked', false).prop('disabled', true);
@@ -2141,11 +2142,16 @@ function loadBody(body = "Kerbol-System", flt) {
       if (window.location.href.includes("&")) var strURL = window.location.href;
       else var strURL = "http://www.kerbalspace.agency/Tracker/tracker.html?body=" + body;
       history.replaceState({type: "body", id: body}, document.title, strURL.replace("&live", "").replace("&reload", "")); 
-    } else if (history.state.id != body) {
+    } else if (history.state.id != body && !KSA_UI_STATE.isHandlingPopState) {
+      // Bug 2 fix: don't push during popstate (would destroy the forward stack)
       var strURL = "http://www.kerbalspace.agency/Tracker/tracker.html?body=" + body;
       if (flt) strURL += "&flt=" + flt;
-      history.pushState({type: "body", id: body}, document.title, strURL); 
+      // Bug 3 fix: store flt in state so popstate can recover it via pendingFlt
+      history.pushState({type: "body", id: body, flt: flt || null}, document.title, strURL);
     }
+    // History decision made — clear the popstate flag so subsequent loadBody calls
+    // (e.g. from normal user navigation) are free to push state
+    KSA_UI_STATE.isHandlingPopState = false;
 
     // if body was already loaded & we are switching to it then just exit at this point
     // scene3JSContext must also be "body" or "vessel" — if it was built for ATN, a full rebuild is needed
@@ -2158,6 +2164,14 @@ function loadBody(body = "Kerbol-System", flt) {
       if (KSA_UI_STATE.isDirty) {
         // scene is intact; just ensure it is visible and up-to-date
         KSA_UI_STATE.isDirty = false;
+      }
+
+      // Bug 3 fix: if a flight track was requested but the body was already loaded,
+      // pass it along to loadMap via pendingFlt instead of silently dropping it
+      if (flt) {
+        KSA_UI_STATE.pendingFlt = flt;
+        showMap();
+        loadMap(body.split("-")[0]);
       }
       return;
     }
@@ -2473,7 +2487,9 @@ function onSceneReady() {
   var currBody = ops.bodyCatalog.find(o => o.selected === true);
   var strMenuID = currBody ? currBody.Body : null;
   if (strMenuID && (currBody.Moons || currBody.Body == "Kerbol")) strMenuID += "-System";
-  if (strMenuID && ops.pageType == "body" && !window.location.href.includes("flt")) selectMenuItem(strMenuID);
+  // Bug 1 fix: skip body selectMenuItem when a flight track is pending, using both
+  // pendingFlt (programmatic nav) and the URL flt param (browser-restored state on popstate)
+  if (strMenuID && ops.pageType == "body" && !KSA_UI_STATE.pendingFlt && !getParameterByName("flt")) selectMenuItem(strMenuID);
     
   // load additional data
   KSA_UI_STATE.is3JSLoaded = true;

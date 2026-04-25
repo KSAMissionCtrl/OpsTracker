@@ -55,8 +55,10 @@ function loadVessel(vessel, givenUT, wasUTExplicit) {
   if (!history.state) history.replaceState({type: "vessel", id: vessel, UT: givenUT}, document.title, strURL.replace("&live", "").replace("&reload", ""));
 
   // otherwise check to see if the current state isn't this same event. if it is we are paging back and don't want to push a new state
-  else if (history.state.UT != givenUT) history.pushState({type: "vessel", id: vessel, UT: givenUT}, document.title, strURL);
-  
+  // Bug fix: check both id and UT — same UT on a different vessel must still push a new entry
+  else if (history.state.id != vessel || history.state.UT != givenUT) history.pushState({type: "vessel", id: vessel, UT: givenUT}, document.title, strURL);
+  KSA_UI_STATE.isHandlingPopState = false;
+
   // we changed the DB name for these vessels. Allow old links to still work
   if (vessel.includes("ascensionmk1b1")) vessel = vessel.replace("mk1b1", "mk1");
 
@@ -115,9 +117,12 @@ function loadFlt(dbName, menuSelect = true) {
       return;
     }
     
-    // Make sure page type is correct
-    if (ops.pageType != "body") swapContent("body", "Kerbin", dbName);
-    
+    // Make sure page type is correct.
+    // Track whether swapContent is called — if so, loadBody (600ms later) will clear
+    // isHandlingPopState. If not, we're already on the right page and must clear it here.
+    var _wasBodyPage = (ops.pageType == "body");
+    if (!_wasBodyPage) swapContent("body", "Kerbin", dbName);
+
     // add it back to the map and the control if it has been removed
     if (path.deleted) {
       ops.surface.layerControl.addOverlay(path.layer, "<i class='fa fa-minus' style='color: " + path.color + "'></i> " + path.info.Title, "Flight Tracks");
@@ -126,7 +131,12 @@ function loadFlt(dbName, menuSelect = true) {
       
     // just add it back to the map in case it was hidden
     } else if (!ops.surface.map.hasLayer(path.layer)) path.layer.addTo(ops.surface.map);
-    showMap();
+
+    // Bug B fix: only show the map immediately when already on the body page.
+    // If a page transition is in progress (!_wasBodyPage), swapContent already called
+    // hideMap() and loadBody will show the map again once the transition completes.
+    // Calling showMap() here during a transition causes a visible flash.
+    if (_wasBodyPage) showMap();
     
     // Zoom the map to fit this flight path
     // If there are more than two layers the plot wraps around the meridian so just show the whole map
@@ -139,10 +149,16 @@ function loadFlt(dbName, menuSelect = true) {
     if (!menuSelect) selectMenuItem(dbName);
     else {
 
-      // Update the URL to include this flight
-      var strURL = "http://www.kerbalspace.agency/Tracker/tracker.html?body=Kerbin-System&flt=" + dbName;
-      history.pushState({type: "flt", db: dbName}, document.title, strURL);
+      // Bug 2 fix: don't push a new entry when the browser itself initiated this load via popstate
+      if (!KSA_UI_STATE.isHandlingPopState) {
+        // Update the URL to include this flight
+        var strURL = "http://www.kerbalspace.agency/Tracker/tracker.html?body=Kerbin-System&flt=" + dbName;
+        history.pushState({type: "flt", db: dbName}, document.title, strURL);
+      }
     }
+    // If already on body page: loadBody won't be called, so clear the popstate flag here.
+    // If swapContent was called above: loadBody will clear it after the 600ms transition.
+    if (_wasBodyPage) KSA_UI_STATE.isHandlingPopState = false;
     return;
   }
   

@@ -349,11 +349,17 @@ function loadMap(map) {
   if (ops.surface.Data && ops.surface.Data.Name == map) {
 
     // we don't need to fully reload the data but we do need to still do these things
-    if (getParameterByName("flt") && ops.pageType == "body") {
-      KSA_CALCULATIONS.flightsToLoad = getQueryParams("flt");
+    // Bug 3 fix: also check pendingFlt so programmatic navigation (e.g. popstate) works
+    // without relying on &flt being present in the current URL
+    var _urlFlt = getParameterByName("flt");
+    var _pendingFlt = KSA_UI_STATE.pendingFlt;
+    if ((_urlFlt || _pendingFlt) && ops.pageType == "body") {
+      KSA_CALCULATIONS.flightsToLoad = _urlFlt ? getQueryParams("flt") : [_pendingFlt];
+      KSA_UI_STATE.pendingFlt = null;
       do {
         var flight = KSA_CALCULATIONS.flightsToLoad.shift();
-        if ((!KSA_CATALOGS.fltPaths || (KSA_CATALOGS.fltPaths && !KSA_CATALOGS.fltPaths.find(o => o.id === flight))) && KSA_UI_STATE.strFltTrackLoading != flight) {
+        var _cached = KSA_CATALOGS.fltPaths ? KSA_CATALOGS.fltPaths.find(o => o.id === flight) : null;
+        if (!_cached && KSA_UI_STATE.strFltTrackLoading != flight) {
           KSA_LAYERS.surfaceTracksDataLoad.fltTrackDataLoad = L.layerGroup();
           ops.surface.layerControl._expand();
           ops.surface.layerControl.options.collapsed = false;
@@ -361,8 +367,15 @@ function loadMap(map) {
           KSA_DATA_SERVICE.fetchFltData(flight, loadFltDataAJAX);
           KSA_UI_STATE.strFltTrackLoading = flight;
           break;
+        } else if (_cached) {
+          // track already loaded — re-add its layer in case the map was rebuilt, and select it in the menu
+          if (!ops.surface.map.hasLayer(_cached.layer)) _cached.layer.addTo(ops.surface.map);
+          selectMenuItem(flight);
         }
       } while (KSA_CALCULATIONS.flightsToLoad.length);
+      // if every flight in the batch was already cached (nothing fetched), clear flightsToLoad
+      // to prevent loadFltDataAJAX from seeing an empty-array as truthy and taking the wrong path
+      if (KSA_CALCULATIONS.flightsToLoad && !KSA_CALCULATIONS.flightsToLoad.length && !KSA_UI_STATE.strFltTrackLoading) KSA_CALCULATIONS.flightsToLoad = null;
       showMap();
     }
     return;
@@ -775,11 +788,17 @@ function loadMapDataAJAX(result) {
   }
   
   // load flight paths, taking into account they may already be loaded
-  if (getParameterByName("flt") && ops.pageType == "body") {
-    KSA_CALCULATIONS.flightsToLoad = getQueryParams("flt");
+  // Bug 3 fix: also check pendingFlt so programmatic navigation (e.g. popstate) works
+  // without relying on &flt being present in the current URL
+  var _urlFlt = getParameterByName("flt");
+  var _pendingFlt = KSA_UI_STATE.pendingFlt;
+  if ((_urlFlt || _pendingFlt) && ops.pageType == "body") {
+    KSA_CALCULATIONS.flightsToLoad = _urlFlt ? getQueryParams("flt") : [_pendingFlt];
+    KSA_UI_STATE.pendingFlt = null;
     do {
       var flight = KSA_CALCULATIONS.flightsToLoad.shift();
-      if ((!KSA_CATALOGS.fltPaths || (KSA_CATALOGS.fltPaths && !KSA_CATALOGS.fltPaths.find(o => o.id === flight))) && KSA_UI_STATE.strFltTrackLoading != flight) {
+      var _cached = KSA_CATALOGS.fltPaths ? KSA_CATALOGS.fltPaths.find(o => o.id === flight) : null;
+      if (!_cached && KSA_UI_STATE.strFltTrackLoading != flight) {
         KSA_LAYERS.surfaceTracksDataLoad.fltTrackDataLoad = L.layerGroup();
         ops.surface.layerControl._expand();
         ops.surface.layerControl.options.collapsed = false;
@@ -787,8 +806,15 @@ function loadMapDataAJAX(result) {
         KSA_DATA_SERVICE.fetchFltData(flight, loadFltDataAJAX);
         KSA_UI_STATE.strFltTrackLoading = flight;
         break;
+      } else if (_cached) {
+        // track already loaded — re-add its layer in case the map was rebuilt, and select it in the menu
+        if (!ops.surface.map.hasLayer(_cached.layer)) _cached.layer.addTo(ops.surface.map);
+        selectMenuItem(flight);
       }
     } while (KSA_CALCULATIONS.flightsToLoad.length);
+    // if every flight in the batch was already cached (nothing fetched), clear flightsToLoad
+    // to prevent loadFltDataAJAX from seeing an empty-array as truthy and taking the wrong path
+    if (KSA_CALCULATIONS.flightsToLoad && !KSA_CALCULATIONS.flightsToLoad.length && !KSA_UI_STATE.strFltTrackLoading) KSA_CALCULATIONS.flightsToLoad = null;
     showMap();
   }
   

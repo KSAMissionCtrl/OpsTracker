@@ -19,10 +19,13 @@ function loadCrew(crew) {
     history.replaceState({type: ops.pageType, id: crew}, document.title, strURL.replace("&live", "").replace("&reload", ""));
     
   // don't create a new entry if this is the same page being reloaded
-  } else if (history.state.id != crew) {
+  } else if (history.state.id != crew || history.state.type !== ops.pageType) {
+    // Bug fix: check type against ops.pageType (not hardcoded "crew") so crewFull states
+    // are also guarded — "crewFull" !== "crew" was always true, causing double pushState
     history.pushState({type: ops.pageType, id: crew}, document.title, "http://www.kerbalspace.agency/Tracker/tracker.html?crew=" + crew);
   }
-  
+  KSA_UI_STATE.isHandlingPopState = false;
+
   // remove the current loaded crew
   if (ops.currentCrew) {
     ops.currentCrew.Ribbons.length = 0;
