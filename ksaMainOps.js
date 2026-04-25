@@ -1388,6 +1388,17 @@ function loadOpsDataAJAX(result, args = null) {
       if (!KSA_UI_STATE.isLivePastUT && currUT() >= ops.lastVisit) localStorage.setItem("ksaOps_lastVisit", currUT().toString());
       else if (KSA_UI_STATE.isLivePastUT) localStorage.setItem("ksaOps_lastVisit_temp", currUT().toString());
     }
+
+    // signal that all initial badge operations are complete so the initial item selection can proceed
+    // need to wait a few ms for the menu refresh to complete
+    setTimeout(function() {
+      if (!KSA_UI_STATE.isMenuBadgingComplete) {
+        KSA_UI_STATE.isMenuBadgingComplete = true;
+        // restore cursor that filterCrewMenu left in wait state while waiting for badging to complete
+        $('body').removeClass('wait-cursor');
+        $('body, #menuBox, #menuBox *').css('cursor', '');
+      }
+    }, 100);
   }
 }
 

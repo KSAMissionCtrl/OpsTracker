@@ -6,7 +6,7 @@
 function loadCrew(crew) {
   
   // make sure the menu data is loaded before continuing
-  if (!KSA_UI_STATE.isMenuSorted) return setTimeout(loadCrew, 50, crew);
+  if (!KSA_UI_STATE.isMenuBadgingComplete) return setTimeout(loadCrew, 50, crew);
 
   // Clear all certificate icons when loading a new crew member
   $('.change-indicator').remove();

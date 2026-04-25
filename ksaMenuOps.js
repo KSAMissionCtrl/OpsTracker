@@ -441,9 +441,9 @@ function filterInactiveMenu(id, selectId) {
     w2ui['menu'].refresh();
     if (selectedNode) selectMenuItem(selectedNode);
 
-    // restore cursor to default - only if no initial page load selection is pending
-    // (if pending, cursor will be restored by filterCrewMenu after the selection is made)
-    if (KSA_UI_STATE.pendingInitialSelect === null) {
+    // restore cursor only if badging is already complete (ops data loaded before filtering finished)
+    // otherwise leave it in wait state - loadOpsDataAJAX will restore it when badging finishes
+    if (KSA_UI_STATE.isMenuBadgingComplete) {
       $('body').removeClass('wait-cursor');
       $('body, #menuBox, #menuBox *').css('cursor', '');
     }
@@ -467,198 +467,194 @@ function filterCrewMenu(id) {
     if (id) $('input[type=radio][name=roster]').filter('[id=' + id + ']').prop('checked', true);
     var currOption = $("input[name=roster]").filter(":checked").val();
 
-  // reset the count to 0
-  w2ui['menu'].get('crew').text = "Crew Roster (0)";
+    // reset the count to 0
+    w2ui['menu'].get('crew').text = "Crew Roster (0)";
 
-  // remove all but the first node
-  if (w2ui['menu'].get('crew').nodes.length > 1) {
-  
-    // create a copy of the array so we can delete things one by one
-    var del = w2ui['menu'].get('crew').nodes.slice(0);
-    for (var i=1; i<del.length; i++) w2ui['menu'].remove(del[i].id);
-    del.length = 0;
-  }
+    // remove all but the first node
+    if (w2ui['menu'].get('crew').nodes.length > 1) {
+    
+      // create a copy of the array so we can delete things one by one
+      var del = w2ui['menu'].get('crew').nodes.slice(0);
+      for (var i=1; i<del.length; i++) w2ui['menu'].remove(del[i].id);
+      del.length = 0;
+    }
 
-  // build the new menu depending on which filter was selected
-  if (currOption == "name") {
-  
-    // sort the array as required
-    // https://stackoverflow.com/questions/1129216/sort-array-of-objects-by-string-property-value-in-javascript
-    ops.crewMenu.sort(function(a,b) { return (a.name > b.name) ? 1 : ((b.name > a.name) ? -1 : 0); });
-    ops.crewMenu.forEach(function(item) {
-      var folderID = null;
-      if (item.UT <= currUT()) {
-        if (item.name.charAt(0) <= "F") {
-          folderID = 'a-f';
-          if (!w2ui['menu'].find('crew', { id: 'a-f' }).length) {
-            w2ui['menu'].add('crew', { id: 'a-f',
-                                       text: "A - F (0)",
-                                       img: 'icon-folder',
-                                       icon: 'w2ui-icon icon-folder' });
-          }
-          w2ui['menu'].add('a-f', { id: item.db,
-                                    text: "<span>" + item.name + " Kerman</span>",
-                                    img: 'icon-crew',
-                                    icon: 'w2ui-icon icon-crew' });
-          if (item.badged) badgeMenuItem(item.db, true, true);
-        } else if (item.name.charAt(0) <= "L") {
-          folderID = 'g-l';
-          if (!w2ui['menu'].find('crew', { id: 'g-l' }).length) {
-            w2ui['menu'].add('crew', { id: 'g-l',
-                                       text: "G - L (0)",
-                                       img: 'icon-folder',
-                                       icon: 'w2ui-icon icon-folder' });
-          }
-          w2ui['menu'].add('g-l', { id: item.db,
-                                    text: "<span>" + item.name + " Kerman</span>",
-                                    img: 'icon-crew',
-                                    icon: 'w2ui-icon icon-crew' });
-          if (item.badged) badgeMenuItem(item.db, true, true);
-        } else if (item.name.charAt(0) <= "R") {
-          folderID = 'm-r';
-          if (!w2ui['menu'].find('crew', { id: 'm-r' }).length) {
-            w2ui['menu'].add('crew', { id: 'm-r',
-                                       text: "M - R (0)",
-                                       img: 'icon-folder',
-                                       icon: 'w2ui-icon icon-folder' });
-          }
-          w2ui['menu'].add('m-r', { id: item.db,
-                                    text: "<span>" + item.name + " Kerman</span>",
-                                    img: 'icon-crew',
-                                    icon: 'w2ui-icon icon-crew' });
-          if (item.badged) badgeMenuItem(item.db, true, true);
-        } else {
-          folderID = 's-z';
-          if (!w2ui['menu'].find('crew', { id: 's-z' }).length) {
-            w2ui['menu'].add('crew', { id: 's-z',
-                                       text: "S - Z (0)",
-                                       img: 'icon-folder',
-                                       icon: 'w2ui-icon icon-folder' });
-          }
-          w2ui['menu'].add('s-z', { id: item.db,
-                                    text: "<span>" + item.name + " Kerman</span>",
-                                    img: 'icon-crew',
-                                    icon: 'w2ui-icon icon-crew' });
-          if (item.badged) badgeMenuItem(item.db, true, true);
-        }
-        updateFolderCount(folderID);
-      }
-    });
-  } else if (currOption == "status") {
-
-    // sort by filter option first to create folders, then re-sort by name to add kerbals
-    ops.crewMenu.sort(function(a,b) { return (a.status > b.status) ? 1 : ((b.status > a.status) ? -1 : 0); });
-    ops.crewMenu.forEach(function(item) {
-      if (item.UT <= currUT()) {
-        if (!w2ui['menu'].find('crew', { id: item.status }).length) {
-          w2ui['menu'].add('crew', { id: item.status,
-                                     text: item.status + " (0)",
-                                     img: 'icon-folder',
-                                     icon: 'w2ui-icon icon-folder' });
-        }
-      }
-    });
-    ops.crewMenu.sort(function(a,b) { return (a.name > b.name) ? 1 : ((b.name > a.name) ? -1 : 0); });
-    ops.crewMenu.forEach(function(item) {
-      if (item.UT <= currUT()) {
-        w2ui['menu'].add(item.status, { id: item.db,
-                                        text: "<span>" + item.name + " Kerman</span>",
-                                        img: 'icon-crew',
-                                        icon: 'w2ui-icon icon-crew' });
-        if (item.badged) badgeMenuItem(item.db, true, true);
-        updateFolderCount(item.status);
-      }
-    });
-  } else if (currOption == "rank") {
-    ops.crewMenu.sort(function(a,b) { return (a.rank > b.rank) ? 1 : ((b.rank > a.rank) ? -1 : 0); });
-    ops.crewMenu.forEach(function(item) {
-      if (item.UT <= currUT()) {
-        if (!w2ui['menu'].find('crew', { id: item.rank }).length) {
-          w2ui['menu'].add('crew', { id: item.rank,
-                                     text: item.rank + " (0)",
-                                     img: 'icon-folder',
-                                     icon: 'w2ui-icon icon-folder' });
-        }
-      }
-    });
-    ops.crewMenu.sort(function(a,b) { return (a.name > b.name) ? 1 : ((b.name > a.name) ? -1 : 0); });
-    ops.crewMenu.forEach(function(item) {
-      if (item.UT <= currUT()) {
-        w2ui['menu'].add(item.rank, { id: item.db,
+    // build the new menu depending on which filter was selected
+    if (currOption == "name") {
+    
+      // sort the array as required
+      // https://stackoverflow.com/questions/1129216/sort-array-of-objects-by-string-property-value-in-javascript
+      ops.crewMenu.sort(function(a,b) { return (a.name > b.name) ? 1 : ((b.name > a.name) ? -1 : 0); });
+      ops.crewMenu.forEach(function(item) {
+        var folderID = null;
+        if (item.UT <= currUT()) {
+          if (item.name.charAt(0) <= "F") {
+            folderID = 'a-f';
+            if (!w2ui['menu'].find('crew', { id: 'a-f' }).length) {
+              w2ui['menu'].add('crew', { id: 'a-f',
+                                        text: "A - F (0)",
+                                        img: 'icon-folder',
+                                        icon: 'w2ui-icon icon-folder' });
+            }
+            w2ui['menu'].add('a-f', { id: item.db,
                                       text: "<span>" + item.name + " Kerman</span>",
                                       img: 'icon-crew',
                                       icon: 'w2ui-icon icon-crew' });
-        if (item.badged) badgeMenuItem(item.db, true, true);
-        updateFolderCount(item.rank);
-      }
-    });
-  } else if (currOption == "assignment") {
-    ops.crewMenu.sort(function(a,b) { 
-      var aAssign = a.assignment || "Unassigned";
-      var bAssign = b.assignment || "Unassigned";
-      return (aAssign > bAssign) ? 1 : ((bAssign > aAssign) ? -1 : 0);
-    });
-    ops.crewMenu.forEach(function(item) {
-      if (item.UT <= currUT()) {
-        if (item.assignment && !w2ui['menu'].find('crew', { id: item.assignment }).length) {
-          w2ui['menu'].add('crew', { id: item.assignment,
-                                     text: item.assignment + " (0)",
-                                     img: 'icon-folder',
-                                     icon: 'w2ui-icon icon-folder' });
-        } else if (!item.assignment && !w2ui['menu'].find('crew', { id: 'Unassigned' }).length) {
-          w2ui['menu'].add('crew', { id: 'Unassigned',
-                                     text: "Unassigned (0)",
-                                     img: 'icon-folder',
-                                     icon: 'w2ui-icon icon-folder' });
+            if (item.badged) badgeMenuItem(item.db, true, true);
+          } else if (item.name.charAt(0) <= "L") {
+            folderID = 'g-l';
+            if (!w2ui['menu'].find('crew', { id: 'g-l' }).length) {
+              w2ui['menu'].add('crew', { id: 'g-l',
+                                        text: "G - L (0)",
+                                        img: 'icon-folder',
+                                        icon: 'w2ui-icon icon-folder' });
+            }
+            w2ui['menu'].add('g-l', { id: item.db,
+                                      text: "<span>" + item.name + " Kerman</span>",
+                                      img: 'icon-crew',
+                                      icon: 'w2ui-icon icon-crew' });
+            if (item.badged) badgeMenuItem(item.db, true, true);
+          } else if (item.name.charAt(0) <= "R") {
+            folderID = 'm-r';
+            if (!w2ui['menu'].find('crew', { id: 'm-r' }).length) {
+              w2ui['menu'].add('crew', { id: 'm-r',
+                                        text: "M - R (0)",
+                                        img: 'icon-folder',
+                                        icon: 'w2ui-icon icon-folder' });
+            }
+            w2ui['menu'].add('m-r', { id: item.db,
+                                      text: "<span>" + item.name + " Kerman</span>",
+                                      img: 'icon-crew',
+                                      icon: 'w2ui-icon icon-crew' });
+            if (item.badged) badgeMenuItem(item.db, true, true);
+          } else {
+            folderID = 's-z';
+            if (!w2ui['menu'].find('crew', { id: 's-z' }).length) {
+              w2ui['menu'].add('crew', { id: 's-z',
+                                        text: "S - Z (0)",
+                                        img: 'icon-folder',
+                                        icon: 'w2ui-icon icon-folder' });
+            }
+            w2ui['menu'].add('s-z', { id: item.db,
+                                      text: "<span>" + item.name + " Kerman</span>",
+                                      img: 'icon-crew',
+                                      icon: 'w2ui-icon icon-crew' });
+            if (item.badged) badgeMenuItem(item.db, true, true);
+          }
+          updateFolderCount(folderID);
         }
-      }
-    });
-    ops.crewMenu.sort(function(a,b) { return (a.name > b.name) ? 1 : ((b.name > a.name) ? -1 : 0); });
-    ops.crewMenu.forEach(function(item) {
-      if (item.UT <= currUT()) {
-        if (item.assignment) {
-          w2ui['menu'].add(item.assignment, { id: item.db,
-                                              text: "<span>" + item.name + " Kerman</span>",
-                                              img: 'icon-crew',
-                                              icon: 'w2ui-icon icon-crew' });
-          if (item.badged) badgeMenuItem(item.db, true, true);
-          updateFolderCount(item.assignment);
-        } else {
-          w2ui['menu'].add('Unassigned', { id: item.db,
-                                     text: "<span>" + item.name + " Kerman</span>",
-                                     img: 'icon-crew',
-                                     icon: 'w2ui-icon icon-crew' });
-          if (item.badged) badgeMenuItem(item.db, true, true);
-          updateFolderCount('Unassigned');
+      });
+    } else if (currOption == "status") {
+
+      // sort by filter option first to create folders, then re-sort by name to add kerbals
+      ops.crewMenu.sort(function(a,b) { return (a.status > b.status) ? 1 : ((b.status > a.status) ? -1 : 0); });
+      ops.crewMenu.forEach(function(item) {
+        if (item.UT <= currUT()) {
+          if (!w2ui['menu'].find('crew', { id: item.status }).length) {
+            w2ui['menu'].add('crew', { id: item.status,
+                                      text: item.status + " (0)",
+                                      img: 'icon-folder',
+                                      icon: 'w2ui-icon icon-folder' });
+          }
         }
-      }
-    });
-  }
-  
-  // preserve the selected item after refresh
-  w2ui['menu'].refresh();
-  if (KSA_TIMERS.menuRefresh) clearTimeout(KSA_TIMERS.menuRefresh);
-  KSA_TIMERS.menuRefresh = setTimeout(function() {
-    w2ui['menu'].scrollIntoView();
-  }, 100);
-  
-  // if we are looking at the full crew roster, refresh the view
-  // this may place an extra call to the first crew member if loading initially to full roster page but does no harm
-  if (ops.pageType == "crewFull") {
-    $('#fullRoster').empty(); 
-    KSA_CATALOGS.crewList = extractIDs(w2ui['menu'].get('crew').nodes).split(";");
-    KSA_DATA_SERVICE.fetchCrewData(showFullRoster(), currUT(), loadCrewAJAX);
-  }
+      });
+      ops.crewMenu.sort(function(a,b) { return (a.name > b.name) ? 1 : ((b.name > a.name) ? -1 : 0); });
+      ops.crewMenu.forEach(function(item) {
+        if (item.UT <= currUT()) {
+          w2ui['menu'].add(item.status, { id: item.db,
+                                          text: "<span>" + item.name + " Kerman</span>",
+                                          img: 'icon-crew',
+                                          icon: 'w2ui-icon icon-crew' });
+          if (item.badged) badgeMenuItem(item.db, true, true);
+          updateFolderCount(item.status);
+        }
+      });
+    } else if (currOption == "rank") {
+      ops.crewMenu.sort(function(a,b) { return (a.rank > b.rank) ? 1 : ((b.rank > a.rank) ? -1 : 0); });
+      ops.crewMenu.forEach(function(item) {
+        if (item.UT <= currUT()) {
+          if (!w2ui['menu'].find('crew', { id: item.rank }).length) {
+            w2ui['menu'].add('crew', { id: item.rank,
+                                      text: item.rank + " (0)",
+                                      img: 'icon-folder',
+                                      icon: 'w2ui-icon icon-folder' });
+          }
+        }
+      });
+      ops.crewMenu.sort(function(a,b) { return (a.name > b.name) ? 1 : ((b.name > a.name) ? -1 : 0); });
+      ops.crewMenu.forEach(function(item) {
+        if (item.UT <= currUT()) {
+          w2ui['menu'].add(item.rank, { id: item.db,
+                                        text: "<span>" + item.name + " Kerman</span>",
+                                        img: 'icon-crew',
+                                        icon: 'w2ui-icon icon-crew' });
+          if (item.badged) badgeMenuItem(item.db, true, true);
+          updateFolderCount(item.rank);
+        }
+      });
+    } else if (currOption == "assignment") {
+      ops.crewMenu.sort(function(a,b) { 
+        var aAssign = a.assignment || "Unassigned";
+        var bAssign = b.assignment || "Unassigned";
+        return (aAssign > bAssign) ? 1 : ((bAssign > aAssign) ? -1 : 0);
+      });
+      ops.crewMenu.forEach(function(item) {
+        if (item.UT <= currUT()) {
+          if (item.assignment && !w2ui['menu'].find('crew', { id: item.assignment }).length) {
+            w2ui['menu'].add('crew', { id: item.assignment,
+                                      text: item.assignment + " (0)",
+                                      img: 'icon-folder',
+                                      icon: 'w2ui-icon icon-folder' });
+          } else if (!item.assignment && !w2ui['menu'].find('crew', { id: 'Unassigned' }).length) {
+            w2ui['menu'].add('crew', { id: 'Unassigned',
+                                      text: "Unassigned (0)",
+                                      img: 'icon-folder',
+                                      icon: 'w2ui-icon icon-folder' });
+          }
+        }
+      });
+      ops.crewMenu.sort(function(a,b) { return (a.name > b.name) ? 1 : ((b.name > a.name) ? -1 : 0); });
+      ops.crewMenu.forEach(function(item) {
+        if (item.UT <= currUT()) {
+          if (item.assignment) {
+            w2ui['menu'].add(item.assignment, { id: item.db,
+                                                text: "<span>" + item.name + " Kerman</span>",
+                                                img: 'icon-crew',
+                                                icon: 'w2ui-icon icon-crew' });
+            if (item.badged) badgeMenuItem(item.db, true, true);
+            updateFolderCount(item.assignment);
+          } else {
+            w2ui['menu'].add('Unassigned', { id: item.db,
+                                      text: "<span>" + item.name + " Kerman</span>",
+                                      img: 'icon-crew',
+                                      icon: 'w2ui-icon icon-crew' });
+            if (item.badged) badgeMenuItem(item.db, true, true);
+            updateFolderCount('Unassigned');
+          }
+        }
+      });
+    }
+    
+    // preserve the selected item after refresh
+    w2ui['menu'].refresh();
+    if (KSA_TIMERS.menuRefresh) clearTimeout(KSA_TIMERS.menuRefresh);
+    KSA_TIMERS.menuRefresh = setTimeout(function() {
+      w2ui['menu'].scrollIntoView();
+    }, 100);
+    
+    // if we are looking at the full crew roster, refresh the view
+    // this may place an extra call to the first crew member if loading initially to full roster page but does no harm
+    if (ops.pageType == "crewFull") {
+      $('#fullRoster').empty(); 
+      KSA_CATALOGS.crewList = extractIDs(w2ui['menu'].get('crew').nodes).split(";");
+      KSA_DATA_SERVICE.fetchCrewData(showFullRoster(), currUT(), loadCrewAJAX);
+    }
 
-  // if initial page load selection is pending, select now that crew items are built, then restore cursor
-  if (KSA_UI_STATE.pendingInitialSelect !== null) {
-    selectMenuItem(KSA_UI_STATE.pendingInitialSelect);
-    KSA_UI_STATE.pendingInitialSelect = null;
-  }
-
-  // restore cursor to default - only target body and menu to preserve inline cursor styles
-  $('body').removeClass('wait-cursor');
-  $('body, #menuBox, #menuBox *').css('cursor', '');
+    // if initial page load selection was pending, clear the flag now that crew items are built
+    // the actual selection is handled by loadVessel/loadCrew/onSceneReady after isMenuBadgingComplete
+    if (KSA_UI_STATE.pendingInitialSelect !== null) {
+      KSA_UI_STATE.pendingInitialSelect = null;
+    }
   }, 10);
 }
 

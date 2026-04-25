@@ -12,7 +12,7 @@ function loadVessel(vessel, givenUT, wasUTExplicit) {
   if (!givenUT || givenUT < 0) givenUT = currUT();
 
   // can't continue if menu data hasn't loaded and sorted - preserve the wasUTExplicit flag
-  if (!KSA_UI_STATE.isMenuSorted) return setTimeout(loadVessel, 50, vessel, givenUT, wasUTExplicit);
+  if (!KSA_UI_STATE.isMenuBadgingComplete) return setTimeout(loadVessel, 50, vessel, givenUT, wasUTExplicit);
 
   // if body is being switched, we need to wait for it to finish loading before proceeding
   // this ensures paused calculations can properly resume when switching directly to a vessel from another body

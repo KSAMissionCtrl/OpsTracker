@@ -2407,8 +2407,8 @@ function onSceneReady() {
   // was nulled after initial orbit data load. Reset to array on load of new body
   ops.vesselsToLoad = [];
 
-  // can't continue if menu data hasn't loaded. Try again in 50ms
-  if (!KSA_UI_STATE.isMenuDataLoaded) return setTimeout(onSceneReady, 50);
+  // can't continue if menu data hasn't loaded and all badges have been applied. Try again in 50ms
+  if (!KSA_UI_STATE.isMenuBadgingComplete) return setTimeout(onSceneReady, 50);
   
   // disable controls and checkboxes until scene is decluttered
   if (threeControls) threeControls.enabled = false;

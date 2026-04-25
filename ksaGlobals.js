@@ -171,6 +171,7 @@ const KSA_UI_STATE = {
   isMenuDataLoaded: false,       // when all the menu data has been loaded from AJAX
   isEventsLoaded: false,         // when event data has been loaded at least once (to prevent flash on first load)
   isMenuSorted: false,           // when the menu has completed initial sorting
+  isMenuBadgingComplete: false,  // when filterInactiveMenu AND filterCrewMenu have both applied all badges on initial load
   is3JSLoaded: false,            // when the Three.js scene is ready to be displayed and updated
   is3JSRefreshing: false,        // when the Three.js scene is still loading any additional vessel orbits
   scene3JSContext: null,         // pageType ("body" or "atn") that built the current Three.js scene
