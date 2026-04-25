@@ -961,6 +961,9 @@ const KSA_DATA_SERVICE = (function () {
         var fpUT = (index.flightplan && index.flightplan.length)
           ? seekToUT(index.flightplan, ut)
           : null;
+        // Future-guard: if all index UTs > targetUT, seekToUT returns utArray[0]; treat as null.
+        if (fdUT !== null && fdUT > ut) fdUT = null;
+        if (fpUT !== null && fpUT > ut) fpUT = null;
 
         var fdPromise = fdUT !== null
           ? fetchJson(dbFilePath(db, 'flightdata', fdUT))['catch'](function () { return null; })
