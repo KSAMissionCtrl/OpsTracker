@@ -71,6 +71,9 @@ function loadEventsAJAX(result) {
   
   // if this is a crew page, no need to wait for the Three.js scene to load
   if (ops.pageType.includes("crew")) activateEventLinks();
+
+  // mark events as having been loaded at least once
+  KSA_UI_STATE.isEventsLoaded = true;
 }
 
 function writeLaunchInfo(data) {
@@ -127,9 +130,9 @@ function writeLaunchInfo(data) {
     }, 250);
   }
   
-  // if the menu data is already loaded this was a refresh, so highlight the box and activate the links
+  // if the menu data is already loaded and this is a refresh (not initial load), highlight the box and activate the links
   // also check if any change has been made to the contents
-  if (KSA_UI_STATE.isMenuDataLoaded && data && currHTML != $("#launch").html()) {
+  if (KSA_UI_STATE.isMenuDataLoaded && KSA_UI_STATE.isEventsLoaded && data && currHTML != $("#launch").html()) {
     flashUpdate("#launch", "#FF0000", "#77C6FF");
     activateEventLinks();
   }
@@ -168,9 +171,9 @@ function writeManeuverinfo(data) {
     }, 250);
   }
   
-  // if the menu data is already loaded this was a refresh, so highlight the box and activate the links
+  // if the menu data is already loaded and this is a refresh (not initial load), highlight the box and activate the links
   // also check if any change has been made to the contents
-  if (KSA_UI_STATE.isMenuDataLoaded && data && currHTML != $("#maneuver").html()) {
+  if (KSA_UI_STATE.isMenuDataLoaded && KSA_UI_STATE.isEventsLoaded && data && currHTML != $("#maneuver").html()) {
     flashUpdate("#maneuver", "#FF0000", "#77C6FF");
     activateEventLinks();
   }
