@@ -2794,7 +2794,7 @@ function onSceneClick(event) {
   ops.orbits.forEach(function(item) {
     if (item.meshes && item.meshes.orbit && item.meshes.orbit.visible) lineTargets.push(item.meshes.orbit);
   });
-  if (threeRefLine) lineTargets.push(threeRefLine);
+  if (threeRefLine && threeRefLine.visible) lineTargets.push(threeRefLine);
 
   var lineHits = raycaster.intersectObjects(lineTargets, true); // recursive=true to reach Group children
   if (!lineHits.length) { unselectBody(null); return; }
