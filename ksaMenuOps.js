@@ -371,7 +371,7 @@ function filterInactiveMenu(id, selectId) {
     } else if (currOption == "vessel") {
 
       // sort by filter option first to create folders, then re-sort by end date to add vessels
-      ops.craftsMenu.sort(function(a,b) { return (a.vessel > b.vessel) ? 1 : ((b.vessel > a.vessel) ? -1 : 0); });
+      ops.craftsMenu.sort(function(a,b) { var av = a.vessel || '', bv = b.vessel || ''; return (av > bv) ? 1 : ((bv > av) ? -1 : 0); });
       ops.craftsMenu.forEach(function(item) {
         if (currSOI(item)[0] == -1) {
           if (item.vessel != null && !w2ui['menu'].find('inactiveVessels', { id: item.vessel }).length) {

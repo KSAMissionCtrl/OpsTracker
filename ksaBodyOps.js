@@ -3424,6 +3424,9 @@ function figureClick(hit) {
       return;
     }
 
+    // Kerbol has no useful orbital data to display — skip the dialog entirely
+    if (clickedEntry.id === 'Kerbol') return;
+
     // body: open info dialog
     {
       var bodyData = ops.bodyCatalog.find(function(o) { return o.Body === clickedEntry.id; });
