@@ -50,6 +50,83 @@ See all current bugs and future enhancements over in our [Issues Tracker](https:
 
 Versioning Key (v#1.#2.#3): #1=New features #2=Changes to existing features #3=Fixes to existing features
 
+### v13.1.0 (4/27/26)
+
+**Notable Fixes:**
+
+* [#405] Refactoring of history state handling should now properly enable Back/Forward actions to all aspects of the Tracker. At least, all the numerous known issues seem to be fixed
+* [#376] Using the auto fast-forward in Past History mode now properly handles updates in the [Social Feed](https://github.com/KSAMissionCtrl/OpsTracker/wiki/Social-Feed) outside of the currently-viewed feed and switches feeds as needed
+* [#375] When looking at a vessel or crew in [Past History Display](https://github.com/KSAMissionCtrl/OpsTracker/wiki/Clock-&-Event-Calendar#past-history-display) and turning the clock back to a time before that object was available, the site now redirects to either the kerbol system view for vessels or the Full Roster for crew
+* [#398] Hovering over an orbital track now not only shows the proper date and time in all instances but clicking on it will now always assign the popup to the path that was clicked
+* [#415] Clicking a [Updated Menu Item](https://github.com/KSAMissionCtrl/OpsTracker/wiki/Operations-Menu#update-badges) in the Operations Menu, which adjusts the badge count for all parent folders, no longer causes a refresh that scrolls the menu to the top or bottom and then only sometimes back to the selection
+* [#267] Sorting the Operations Menu by body for Inactive Vessels will no longer select the body when you click on the item, instead they behave as a folder
+
+**Notable Changes:**
+
+* [#424] The information dialog containing [crew](https://github.com/KSAMissionCtrl/OpsTracker/wiki/Crew-Roster#the-info-box) and [vessel](https://github.com/KSAMissionCtrl/OpsTracker/wiki/Vessel-Details#the-info-box) information can now be resized and moved while staying open between changes of crew and vessel selection, including vessel history states. This is best used to take up empty space to the left of the displayed data. When closed by the site (for an ascent or switching to a body or Full Roster) it will re-open to its previous position and size when navigating back to a vessel or crew. If it is closed manually, it will re-open to its default position/size
+* [#382] The scale of the Surface Map has been removed due to inaccurate rendering that could not be overcome. The [Measurement Tool](https://github.com/KSAMissionCtrl/OpsTracker/wiki/Surface-Map#measurement-control) has now been confirmed to be accurate and can be used instead
+* [#445] Because jumping ahead several months or years in [Past History Display](https://github.com/KSAMissionCtrl/OpsTracker/wiki/Clock-&-Event-Calendar#past-history-display) or after actually visiting the site since a long time can generate a large amount of badges, the Operations Menu now has loading status text to let the user know what it's doing. Also now crew and body pages have load spinners that will stay active during this time to show the site has not frozen
+* [#400] Vessels in the menu now use whatever space is available to the right of the site content to show a tooltip that contains the overview of the vessel's mission. If not enough space exists the tooltip will not be shown
+* [#420] Icons in the [Layers Control](https://github.com/KSAMissionCtrl/OpsTracker/wiki/Surface-Map#layers-control) for the Surface Map have all been enlarged to match the Fontawesome icon used for the sun, they have been reordered for better contrast and the pins are now represented by just their circle aspect to give all the icons a more uniform look
+* [#423] Filter drop-downs for the Asteroid Tracking Network and [KerBalloon](https://github.com/KSAMissionCtrl/OpsTracker/wiki/Surface-Map#kerballoon-launches) displays have been replaced by JQueryUI instances that can properly handle right-click events, allowing for addition filter control, detailed in their Wiki sections
+* [#427] The spinner for Vessel Details on the Info Box will not quit until the new image is loaded and ready to transition to let the user know that it's still loading. This is necessary since some states can have the same image
+
+**Fixes:**
+
+* [#371] The Active Vessels section of the [Operations Menu](https://github.com/KSAMissionCtrl/OpsTracker/wiki/Operations-Menu) can now display moons under planet bodies for vessels active in those SOIs
+* [#377] The date border on posts in the Social Feed now uses the local time rather than the UTC time to determine what day it is
+* [#334] If a tooltip bubble is open when the page updates with new information, the tooltip is now properly destroyed and recreated, no longer leaving behind an empty bubble or duplicate
+* [#379] `&map` is no longer saved to the URL during certain actions when viewing a vessel with a dynamic map visible
+* [#381] When sizing up the dynamic vessel map, the icon to enlarge the vessel image, if present, no longer appears atop the map
+* [#389] Clicking quickly on the [Layers Control](https://github.com/KSAMissionCtrl/OpsTracker/wiki/Surface-Map#layers-control) to show/hide layers on the Surface Map can no longer be mistaken as a double click for the map itself and scroll actions are also no longer picked up by the control
+* [#397] When showing popups for the markers of a vessel on the Surface Map, the countdown to that marker now uses the time for that vessel rather than always the last one to be rendered
+* [#401] Some pins loaded on the Kerbin Surface Map now use proper permalinks to the KSA website and open in a new window
+* [#402] Late-loading of [Crew Roster](https://github.com/KSAMissionCtrl/OpsTracker/wiki/Crew-Roster) Full Roster data will no longer overwrite the image being loaded for a crew details page selected shortly afterwards
+* [#403] Crew images in the Full Roster view are now aligned properly both horizontall and vertically for more than one row. If the roster grows larger than the content size, the scrollbar will now handle this properly as well
+* [#406] The [Body Information Dialog](https://github.com/KSAMissionCtrl/OpsTracker/wiki/Orbital-View#body-information-dialog) can now handle the display of incomplete data for newly-discovered bodies
+* [#407] When bringing a surface map track back to a visible state, if a popup was previously opened for it that popup will not always re-open automatically
+* [#408] The [Social Feed](https://github.com/KSAMissionCtrl/OpsTracker/wiki/Social-Feed) now properly sorts and enqueues any future updates
+* [#409] Content caching for vessels has been modified to make sure paging between history states properly updates the content section
+* [#414] Orphaned IDs in the Social Feed no longer produce empty update cards
+* [#422] The [Orbital View](https://github.com/KSAMissionCtrl/OpsTracker/wiki/Orbital-View) figure will no longer try to fetch orbital data for a vessel that should not yet be available
+* [#325] The launch/maneuver loaded for the [Event Calendar](https://github.com/KSAMissionCtrl/OpsTracker/wiki/Clock-&-Event-Calendar) will no longer sometimes flash on site load
+* [#213] Age for crew members is now poperly calculated when viewing them in Past History Display
+* [#429] Tall images no longer appear squashed in the inline Social Feed
+* [#436] The Display Options for the Orbital View can no longer sometimes appear atop the Surface Map on body load
+* [#437] The Surface Map again displays in the Layers Control the layers for the bodies/vessels in orbit over the body, which was broken during implementation of the Asteroid Tracking Network page in v13.0.0
+* [#438] Trying to view the [Asteroid Tracking Network](https://github.com/KSAMissionCtrl/OpsTracker/wiki/Asteroid-Tracking-Network) page before any discoveries were made shows an error dialog and now properly re-selects the prior selection in the Operations Menu
+* [#439] Selecting a bolded Flight Track in the Operations Menu now properly re-selects it after the bold formatting has been cleared
+* [#440] Trying to set the date/time past the current real time in Past History Display no longer leaves a `&ut` parameter appended to the URL
+* [#442] Hiding a type of object in the Orbital View using the filter controls will now properly unselect any object of that type
+* [#443] The Reference Line in the Orbital View can no longer be clicked if it is toggled off in the Display Options
+* [#444] After badging completes in the Operations Menu during initial site load, the current loaded item is properly selected and scrolled into view
+* [#446] The data loading status in the Clock during initial site load was broken in v13.0.0 and is now back to providing updates on how many data files remain to be fetched
+* [#448] Sorting the Operations Menu by vessel now displays all vehicle names in proper alphabetical order
+
+**Changes:**
+
+* [#384] The load process between vessel and crew has been tweaked to look smoother as the page elements hide/show/resize
+* [#386] The [Operations Menu](https://github.com/KSAMissionCtrl/OpsTracker/wiki/Operations-Menu) has new mouse interactions, detailed in the wiki, to make it easier and smoother to select items within nodes that can expand
+* [#390] When saving a [permalink](https://github.com/KSAMissionCtrl/OpsTracker/wiki#permalink-use), if there are any [Flight Tracks](https://github.com/KSAMissionCtrl/OpsTracker/wiki/Surface-Map#flight-tracks) visible on the surface map at the time, they will all be saved to the link
+* [#392] The vessel [Parts Overlay](https://github.com/KSAMissionCtrl/OpsTracker/wiki/Vessel-Details#parts-display) now has a data structure that allows it to define two points to draw a line so the circle with the part data can exist off the vessel. All DB entries have been converted to the new JSON format as well
+* [#396] Orbital tracks on the Surface Map with inclinations <1° now only plot a single track around the map so that multiple tracks don't overlap each other
+* [#413] Surface Map updates now follow the pattern of other real-time site aspects by maintaining its own update queue and only pushing one update at a time into the global update queue to keep it trim when looking back into the early history of the KSA
+* [#416] Progeny Mk5 and Mk5 Block I vehicles are now listed separately when the Operations Menu is sorted by vessel
+* [#417] Content displayed in the [Vessel Details](https://github.com/KSAMissionCtrl/OpsTracker/wiki/Vessel-Details) now has a new back-end data format to make it more compatible with the recent JSON conversion to the database
+* [#418] The [Asteroid Tracking Network](https://github.com/KSAMissionCtrl/OpsTracker/wiki/Asteroid-Tracking-Network) page now loads the ATN social feed collection as an option in addition to the main KSA feed
+* [#419] The Social Feed for Vessel Detail pages no longer reloads itself every history state change and stays on either the mission or main feed as selected by the user
+* [#421] If a dialog needs to be displayed for whatever reason the site now automatically exits from fullscreen Surface Map view
+* [#426] The filters for Discovered Before/After on the Asteroid Tracking Network page now display the date they are currently set to without having to bring up the dialog, which can be done by clicking on either item in the dropdown list
+* [#351] The [Orbital View](https://github.com/KSAMissionCtrl/OpsTracker/wiki/Orbital-View) figure can now handle bodies discovered after the start of the KSA, so going back in the history mode will not render them if they haven't been discovered yet
+* [#286] The Layers Control on the Surface Map is now a bit more intelligent when it comes to word wrap so that a small number or short word doesn't always end up on the second line
+* [#428] The content display for Vessel Details is now smarter in transitioning between content types and no longer reloads the 3JS orbital figures (fades them out and right back in) if only the orbital data has changed and not the content data itself
+* [#430] A more complex approach to constraining the view of the [static 3D orbits](https://github.com/KSAMissionCtrl/OpsTracker/wiki/Vessel-Details#static-orbit-display) for Vessel Details is now in effect to properly display the full orbit even when SMA and Ecc vary widely between updates
+* [#431] The icon to download the CSV data for the Asteroid Tracking Network page has been bumped up in size to make it more visible
+* [#434] The tooltip for auto fast-forwarding time in Past History Display no longer shows seconds since they never change anyways
+* [#435] Right-clicking the permalink icon now always saves the current time and overwrites any existing `&ut` parameter in the URL
+* [#441] The site can now enter into Past History Display if the requested time/date equals the current time, rather than having to be at least a second prior to it
+* [#447] A full review of the use of `setTimeout()` throughout the codebase was conducted. Main tweak that is noticeable is that the timeout to declutter Orbital View figures is now only 1s instead of 2.5s
+
 ### v13.0.0 (3/31/26)
 
 There were numerous fixes/changes made to improve security and performance in [#410](https://github.com/KSAMissionCtrl/OpsTracker/issues/410). Some of this was made obsolete in the switch to JSON
